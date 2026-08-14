@@ -29,7 +29,7 @@ def get_db():
         return sqlite3.connect(TURSO_URL)
 
 def init_db():
-    """Ensures the storage table exists."""
+    """Initializes table schema if not present."""
     conn = get_db()
     try:
         conn.execute("""
@@ -43,13 +43,17 @@ def init_db():
     finally:
         conn.close()
 
-# Run table creation on startup
-try:
-    init_db()
-    print("Database table 'storage' initialized successfully.")
-except Exception as e:
-    print(f"Database startup warning: {e}")
-    traceback.print_exc()
+# Initialize database schema once on startup
+_db_initialized = False
+@app.before_request
+def ensure_db_initialized():
+    global _db_initialized
+    if not _db_initialized:
+        try:
+            init_db()
+            _db_initialized = True
+        except Exception as e:
+            print(f"Lazy DB Init Warning: {e}")
 
 # ---------- Frontend Route ----------
 @app.route("/")
@@ -59,52 +63,49 @@ def index():
 # ---------- Storage API ----------
 @app.route("/api/storage/<path:key>", methods=["GET"])
 def storage_get(key):
+    conn = None
     try:
-        init_db()
         conn = get_db()
-        try:
-            cursor = conn.execute("SELECT value FROM storage WHERE key = ?", (key,))
-            row = cursor.fetchone()
-            if not row:
-                return jsonify({"error": "Key not found"}), 404
-            return jsonify({"key": key, "value": row[0]})
-        finally:
-            conn.close()
+        cursor = conn.execute("SELECT value FROM storage WHERE key = ?", (key,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({"error": "Key not found"}), 404
+        return jsonify({"key": key, "value": row[0]})
     except Exception as e:
         print(f"Error in GET /api/storage/{key}: {e}")
-        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
 @app.route("/api/storage/<path:key>", methods=["PUT"])
 def storage_set(key):
+    conn = None
     try:
-        init_db()
         data = request.get_json(force=True)
         value = data.get("value")
         if value is None:
             return jsonify({"error": "Missing 'value' field"}), 400
 
         conn = get_db()
-        try:
-            conn.execute(
-                """
-                INSERT INTO storage (key, value, updated_at)
-                VALUES (?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(key) DO UPDATE SET
-                    value = excluded.value,
-                    updated_at = CURRENT_TIMESTAMP
-                """,
-                (key, value)
-            )
-            conn.commit()
-        finally:
-            conn.close()
-            
+        conn.execute(
+            """
+            INSERT INTO storage (key, value, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(key) DO UPDATE SET
+                value = excluded.value,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (key, value)
+        )
+        conn.commit()
         return jsonify({"success": True, "key": key})
     except Exception as e:
         print(f"Error in PUT /api/storage/{key}: {e}")
-        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
