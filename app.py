@@ -29,8 +29,9 @@ def get_db():
         return sqlite3.connect(TURSO_URL)
 
 def init_db():
-    """Ensures storage table exists."""
-    with get_db() as conn:
+    """Ensures the storage table exists."""
+    conn = get_db()
+    try:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS storage (
                 key TEXT PRIMARY KEY,
@@ -39,6 +40,8 @@ def init_db():
             );
         """)
         conn.commit()
+    finally:
+        conn.close()
 
 # Run table creation on startup
 try:
@@ -57,12 +60,16 @@ def index():
 @app.route("/api/storage/<path:key>", methods=["GET"])
 def storage_get(key):
     try:
-        with get_db() as conn:
-            row = conn.execute("SELECT value FROM storage WHERE key = ?", (key,)).fetchone()
+        init_db()
+        conn = get_db()
+        try:
+            cursor = conn.execute("SELECT value FROM storage WHERE key = ?", (key,))
+            row = cursor.fetchone()
             if not row:
                 return jsonify({"error": "Key not found"}), 404
-            # row[0] gets the 'value' column cleanly without needing Row objects
             return jsonify({"key": key, "value": row[0]})
+        finally:
+            conn.close()
     except Exception as e:
         print(f"Error in GET /api/storage/{key}: {e}")
         traceback.print_exc()
@@ -71,12 +78,14 @@ def storage_get(key):
 @app.route("/api/storage/<path:key>", methods=["PUT"])
 def storage_set(key):
     try:
+        init_db()
         data = request.get_json(force=True)
         value = data.get("value")
         if value is None:
             return jsonify({"error": "Missing 'value' field"}), 400
 
-        with get_db() as conn:
+        conn = get_db()
+        try:
             conn.execute(
                 """
                 INSERT INTO storage (key, value, updated_at)
@@ -88,6 +97,9 @@ def storage_set(key):
                 (key, value)
             )
             conn.commit()
+        finally:
+            conn.close()
+            
         return jsonify({"success": True, "key": key})
     except Exception as e:
         print(f"Error in PUT /api/storage/{key}: {e}")
