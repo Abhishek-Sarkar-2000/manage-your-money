@@ -1,54 +1,59 @@
 import os
-import json
-from flask import Flask, render_template, request, jsonify, send_from_directory
+import traceback
+from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
-app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
+app.secret_key = os.getenv("SECRET_KEY", "default-dev-secret-key")
 
-# ---------- Database Connection ----------
+# ---------- Database Config ----------
 TURSO_URL = os.getenv("TURSO_DATABASE_URL", "data/money.db")
-TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "")
+TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "").strip()
 
 def get_db():
-    """Connects to Turso in the cloud if token is present, 
-    otherwise falls back to local SQLite for offline development."""
-    if TURSO_TOKEN:
-        import libsql_experimental as sqlite3
-        conn = sqlite3.connect(TURSO_URL, auth_token=TURSO_TOKEN)
+    """Connects to Turso cloud if URL/Token are configured, else local SQLite."""
+    is_remote = TURSO_URL.startswith("libsql://") or TURSO_URL.startswith("https://")
+    
+    if is_remote or TURSO_TOKEN:
+        try:
+            import libsql_experimental as libsql_driver
+        except ImportError:
+            import libsql as libsql_driver
+            
+        return libsql_driver.connect(TURSO_URL, auth_token=TURSO_TOKEN)
     else:
         import sqlite3
-        os.makedirs("data", exist_ok=True)
-        conn = sqlite3.connect(TURSO_URL)
-    
-    conn.row_factory = sqlite3.Row
-    return conn
+        os.makedirs(os.path.dirname(TURSO_URL) or ".", exist_ok=True)
+        return sqlite3.connect(TURSO_URL)
 
 def init_db():
+    """Ensures storage table exists."""
     with get_db() as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS storage (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
+            );
         """)
         conn.commit()
 
-# Initialize tables on boot
+# Run table creation on startup
 try:
     init_db()
+    print("Database table 'storage' initialized successfully.")
 except Exception as e:
-    print(f"Database initialization warning: {e}")
+    print(f"Database startup warning: {e}")
+    traceback.print_exc()
 
 # ---------- Frontend Route ----------
 @app.route("/")
 def index():
     return render_template("index.html")
 
-# ---------- Storage API (Used by app.js) ----------
+# ---------- Storage API ----------
 @app.route("/api/storage/<path:key>", methods=["GET"])
 def storage_get(key):
     try:
@@ -56,8 +61,11 @@ def storage_get(key):
             row = conn.execute("SELECT value FROM storage WHERE key = ?", (key,)).fetchone()
             if not row:
                 return jsonify({"error": "Key not found"}), 404
-            return jsonify({"key": key, "value": row["value"]})
+            # row[0] gets the 'value' column cleanly without needing Row objects
+            return jsonify({"key": key, "value": row[0]})
     except Exception as e:
+        print(f"Error in GET /api/storage/{key}: {e}")
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/storage/<path:key>", methods=["PUT"])
@@ -82,6 +90,8 @@ def storage_set(key):
             conn.commit()
         return jsonify({"success": True, "key": key})
     except Exception as e:
+        print(f"Error in PUT /api/storage/{key}: {e}")
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
