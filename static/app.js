@@ -1563,19 +1563,20 @@ function renderForm(kind, monthKey){
   if(kind==='spend'){
     return `
     <div class="form-panel">
+      <!-- New Mode Selector -->
+      <div class="pill-grid" style="margin-bottom: 12px;" id="f-spend-mode-selector">
+        <button class="pill-btn active" data-spend-mode="regular" type="button">Regular</button>
+        <button class="pill-btn" data-spend-mode="atm" type="button">Cash Withdrawal</button>
+        <button class="pill-btn" data-spend-mode="card" type="button" ${State.cards.length?'':'disabled'}>Credit Card Due Payment</button>
+      </div>
+      <div class="form-note" id="f-mode-info" style="margin-top:0; margin-bottom:14px;">Add regular spends with tag for instant transfer modes like UPI.</div>
+      
       <div class="form-row">
-        <div class="field"><label>Spend</label><input id="f-desc" type="text" placeholder="e.g. Groceries" /></div>
+        <div class="field" id="f-desc-wrap"><label>Spend</label><input id="f-desc" type="text" placeholder="e.g. Groceries" /></div>
         <div class="field"><label>Amount (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
         <div class="field"><label>Date</label><input id="f-date" type="date" value="${todayStr()}" /></div>
       </div>
       <div class="form-row">
-        <div class="field">
-          <label>Mode of payment</label>
-          <select id="f-mode">
-            <option value="cash">Cash / debit from account</option>
-            <option value="card" ${State.cards.length?'':'disabled'}>Credit card (pays off dues)</option>
-          </select>
-        </div>
         <div class="field" id="f-card-wrap" style="display:none;">
           <label>Card being paid off</label>
           <select id="f-card">${cardOptions || '<option value="">No cards added</option>'}</select>
@@ -1584,8 +1585,7 @@ function renderForm(kind, monthKey){
           ${renderTagField()}
         </div>
       </div>
-	  <div class="form-note" id="f-mode-note" style="display:none;">This pays down the selected card's dues and is subtracted from Amount left, same as a cash spend. It's automatically tagged as "credit card".</div>
-      <label class="checkline"><input type="checkbox" id="f-lent-toggle" /> Lent — someone owes me part of this</label>
+      <label class="checkline" id="f-lent-container"><input type="checkbox" id="f-lent-toggle" /> Lent — someone owes me part of this</label>
       <div id="f-lent-wrap" style="display:none;">
         <div class="lent-rows" id="lent-rows">
           <div class="lent-row">
@@ -1860,6 +1860,56 @@ function bindEvents(){
     const openMonthEl = ev.target.closest('[data-open-month]');
     if(openMonthEl){ await openMonth(openMonthEl.dataset.openMonth, false); return; }
 
+	
+	const spendModeBtn = ev.target.closest('[data-spend-mode]');
+    if (spendModeBtn) {
+      if (spendModeBtn.disabled) return;
+      
+      // Update active styling
+      const wrap = spendModeBtn.closest('#f-spend-mode-selector');
+      wrap.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+      spendModeBtn.classList.add('active');
+
+      const mode = spendModeBtn.dataset.spendMode;
+      const descWrap = $('#f-desc-wrap');
+      const cardWrap = $('#f-card-wrap');
+      const tagRow = $('#f-tag-row');
+      const infoBox = $('#f-mode-info');
+      
+      // Select the lent elements
+      const lentContainer = $('#f-lent-container');
+      const lentWrap = $('#f-lent-wrap');
+      const lentToggle = $('#f-lent-toggle');
+
+      // Adjust field visibility and info text based on selection
+      if (mode === 'regular') {
+        descWrap.style.display = 'block';
+        cardWrap.style.display = 'none';
+        tagRow.style.display = 'contents';
+        infoBox.textContent = 'Add regular spends with tag for instant transfer modes like UPI.';
+        
+        if (lentContainer) lentContainer.style.display = 'flex';
+      } else if (mode === 'atm') {
+        descWrap.style.display = 'none';
+        cardWrap.style.display = 'none';
+        tagRow.style.display = 'none';
+        infoBox.textContent = 'Note down debit from bank account upon cash withdrawal (auto-tagged as ATM).';
+        
+        if (lentContainer) lentContainer.style.display = 'none';
+        if (lentWrap) lentWrap.style.display = 'none';
+        if (lentToggle) lentToggle.checked = false;
+      } else if (mode === 'card') {
+        descWrap.style.display = 'none';
+        cardWrap.style.display = 'block';
+        tagRow.style.display = 'none';
+        infoBox.textContent = 'Pays down your credit card dues and reduces overall balance (auto-tagged as CC due).';
+        
+        if (lentContainer) lentContainer.style.display = 'none';
+        if (lentWrap) lentWrap.style.display = 'none';
+        if (lentToggle) lentToggle.checked = false;
+      }
+      return;
+    }
     const formBtn = ev.target.closest('[data-form]');
     if(formBtn){
       const newForm = formBtn.dataset.form;
@@ -2220,16 +2270,6 @@ function bindEvents(){
   };
 
   app.onchange = async (ev) => {
-    if(ev.target.id === 'f-mode'){
-      const isCard = ev.target.value==='card';
-      const cardWrap = $('#f-card-wrap');
-      if(cardWrap) cardWrap.style.display = isCard ? 'block' : 'none';
-      const modeNote = $('#f-mode-note');
-      if(modeNote) modeNote.style.display = isCard ? 'block' : 'none';
-      
-      const tagRow = $('#f-tag-row');
-      if(tagRow) tagRow.style.display = isCard ? 'none' : 'contents';
-    }
     if (ev.target.matches('.sp-member-toggle')) {
       const totalAmt = Number($('#sp-amount')?.value) || 0;
       distributeSplitShares(totalAmt);
@@ -2373,18 +2413,29 @@ async function handleSubmit(kind){
   }
 
   if(kind==='spend'){
-    if(!desc || !amount || amount<=0){ showToast('Enter a spend description and amount'); return; }
-    const mode = $('#f-mode').value;
+    const modeBtn = document.querySelector('[data-spend-mode].active');
+    const uimode = modeBtn ? modeBtn.dataset.spendMode : 'regular';
+    
+    let desc = '';
+    let tag = '';
+    let mode = 'cash'; // internal tracking parameter
     let cardId = null;
-    let tag;
-    if(mode==='card'){
+    if (uimode === 'regular') {
+      desc = ($('#f-desc')?.value||'').trim();
+      tag = await resolveTagFromForm();
+    } else if (uimode === 'atm') {
+      desc = 'Cash Withdrawal';
+      tag = 'ATM';
+    } else if (uimode === 'card') {
       cardId = $('#f-card').value;
       const c = cardById(cardId);
       if(!c){ showToast('Add a credit card first'); return; }
-      tag = 'credit card';
-    } else {
-      tag = await resolveTagFromForm();
+      desc = c.name + ' Bill Payment';
+      tag = 'CC due';
+      mode = 'card';
     }
+    if(!desc || !amount || amount<=0){ showToast('Enter a spend description and amount'); return; }
+    
     data.entries.push({id:uid(), type:'spend', description:desc, amount, date, paymentMode:mode, cardId, tag, lent:collectLent()});
   }
   else if(kind==='cardcharge'){
