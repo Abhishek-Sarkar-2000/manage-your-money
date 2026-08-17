@@ -279,18 +279,47 @@ function emiRowsForMonth(monthKey, deletedEmi){
 // Per-month totals — used for that month's own charts only
 function computeMonthTotals(entries){
   let income=0, cashSpend=0, cardPaymentSpend=0, cardCharge=0, invest=0, emi=0;
+  
+  // New Spend Division Trackers
+  let regularDebit=0, cashPayments=0, ccSpends=0, others=0;
+
   for(const e of entries){
     const amt = Number(e.amount)||0;
-    if(e.type==='income') income += amt;
-    else if(e.type==='spend'){
-      if(e.paymentMode==='card') cardPaymentSpend += amt;
-      else cashSpend += amt;
+    if(e.type==='income') {
+      income += amt;
     }
-    else if(e.type==='cardcharge') cardCharge += amt;
-    else if(e.type==='investment') invest += amt;
-    else if(e.type==='emi') emi += amt;
+    else if(e.type==='spend'){
+      if(e.paymentMode==='card') {
+        cardPaymentSpend += amt; // Cashflow out (reduces bank balance)
+      } else {
+        cashSpend += amt; // Cashflow out (reduces bank balance)
+        if(e.tag !== 'ATM') regularDebit += amt; // Actual consumption
+      }
+    }
+    else if(e.type==='cardcharge'){
+      cardCharge += amt;
+      ccSpends += amt; // Actual consumption
+    }
+    else if(e.type==='cashpayment'){
+      cashPayments += amt; // Actual consumption
+    }
+    else if(e.type==='investment'){
+      invest += amt; // Cashflow out
+      others += amt;
+    }
+    else if(e.type==='emi'){
+      emi += amt; // Cashflow out
+      others += amt;
+    }
   }
-  return {income, cashSpend, cardPaymentSpend, cardCharge, invest, emi};
+  
+  // Total actual consumption (ignores internal transfers like ATM and CC dues)
+  const totalConsumption = regularDebit + cashPayments + ccSpends + emi;
+
+  return {
+    income, cashSpend, cardPaymentSpend, cardCharge, invest, emi,
+    regularDebit, cashPayments, ccSpends, others, totalConsumption
+  };
 }
 function monthCashOutflow(totals){
   return totals.cashSpend + totals.cardPaymentSpend + totals.emi + totals.invest;
@@ -850,7 +879,7 @@ async function renderCurrentMonthCard(){
   const data = await loadMonth(key);
   const emiRows = emiRowsForMonth(key, data.deletedEmi);
   const totals = computeMonthTotals(data.entries.concat(emiRows));
-  const spends = totals.cashSpend + totals.cardPaymentSpend + totals.cardCharge + totals.emi;
+  const spends = totals.totalConsumption;
   return `
   <div class="current-month-card" data-open-month="${key}">
     <div class="cm-left">
@@ -1085,6 +1114,7 @@ async function viewMonth(){
     <div class="pill-grid">
       <button class="pill-btn ${State.openForm==='spend'?'active':''}" data-form="spend">+ Spend</button>
       <button class="pill-btn alt ${State.openForm==='cardcharge'?'active':''}" data-form="cardcharge">+ Credit card spend</button>
+      <button class="pill-btn alt ${State.openForm==='cashpayment'?'active':''}" data-form="cashpayment">+ Cash Payments</button>
       <button class="pill-btn ${State.openForm==='income'?'active':''}" data-form="income">+ Income</button>
       <button class="pill-btn ${State.openForm==='owed'?'active':''}" data-form="owed">+ Owed to you</button>
       <button class="pill-btn ${State.openForm==='emi'?'active':''}" data-form="emi">+ EMI</button>
@@ -1099,46 +1129,66 @@ async function viewMonth(){
   <div class="section">
     <div class="section-title"><h2>This month's charts</h2><span class="hint">${monthKeyLabel(key)} only</span></div>
     <div class="charts-grid">
-      <div class="chart-card">
-        <h4>Where it went</h4>
-        ${donutChart([
-          {label:'Cash spend', value:monthTotals.cashSpend, color:'var(--debit)'},
-          {label:'Card bill payments', value:monthTotals.cardPaymentSpend, color:'#C98A3C'},
-          {label:'Card charges (unpaid)', value:monthTotals.cardCharge, color:'#8E6FB0'},
-          {label:'EMI', value:monthTotals.emi, color:'#5B4B9E'},
-          {label:'Investment', value:monthTotals.invest, color:'var(--blue)'},
-        ])}
-      </div>
-      <div class="chart-card">
-        <h4>Income vs expense</h4>
-        ${(() => {
-          let unsettledMonthLent = 0, unsettledCashLent = 0;
-          for (const e of data.entries) {
-            if (Array.isArray(e.lent)) {
-              // Only sum lent amounts that have NOT been settled yet
-              const sumUnsettled = e.lent.reduce((s, l) => !l.settled ? s + (Number(l.amount) || 0) : s, 0);
-              unsettledMonthLent += sumUnsettled;
-              if (e.type === 'spend') unsettledCashLent += sumUnsettled;
+      <div style="grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 20px;">
+        <div class="chart-card" style="flex: 1 1 320px; margin: 0;">
+          <h4>Spending Breakdown</h4>
+          ${donutChart([
+            {label:'Regular debit', value:monthTotals.regularDebit, color:'var(--debit)'},
+            {label:'Credit card spends', value:monthTotals.ccSpends, color:'#8E6FB0'},
+            {label:'Cash payments', value:monthTotals.cashPayments, color:'#C98A3C'},
+            {label:'EMI', value:monthTotals.emi, color:'#5B4B9E'},
+            {label:'Investment', value:monthTotals.invest, color:'var(--blue)'}
+          ])}
+        </div>
+        
+        <div class="chart-card" style="flex: 1 1 320px; margin: 0;">
+          <h4>Income vs expense</h4>
+          ${(() => {
+            let unsettledMonthLent = 0, unsettledConsumptionLent = 0;
+            for (const e of data.entries) {
+              if (Array.isArray(e.lent)) {
+                const sumUnsettled = e.lent.reduce((s, l) => !l.settled ? s + (Number(l.amount) || 0) : s, 0);
+                unsettledMonthLent += sumUnsettled;
+                
+                // Only offset actual consumption expenses (ignores CC Dues / ATMs)
+                if (e.type === 'spend' || e.type === 'cardcharge' || e.type === 'cashpayment') {
+                  unsettledConsumptionLent += sumUnsettled;
+                }
+              }
             }
-          }
-          // Expense climbs back to gross as items are settled, offset by the new Income entry
-          const pureExpense = Math.max(0, monthCashOutflow(monthTotals) - monthTotals.invest - unsettledCashLent);
-          
-          return barChart([
-            {label:'Income', value:monthTotals.income, color:'var(--credit)'},
-            {label:'Expense', value:pureExpense, color:'var(--debit)'},
-            {label:'Invested', value:monthTotals.invest, color:'var(--blue)'},
-            {label:'Lent', value:unsettledMonthLent, color:'var(--amber)'}
-          ]);
-        })()}
-      </div>
-      <div class="chart-card">
-        <h4>Spends by tag</h4>
-        ${tagsBarChart(data.entries)}
+            
+            // Calculate pure expense directly from actual consumption
+            const pureExpense = Math.max(0, monthTotals.totalConsumption - unsettledConsumptionLent);
+            
+            return barChart([
+              {label:'Income', value:monthTotals.income, color:'var(--credit)'},
+              {label:'Expense', value:pureExpense, color:'var(--debit)'},
+              {label:'Invested', value:monthTotals.invest, color:'var(--blue)'},
+              {label:'Lent', value:unsettledMonthLent, color:'var(--amber)'}
+            ]);
+          })()}
+        </div>
       </div>
       <div class="chart-card" style="grid-column:1/-1;">
         <h4>Running balance through the month</h4>
         ${lineChart(displayedStarting, data, emiRows)}
+      </div>
+      <div style="grid-column: 1 / -1; margin-top: 8px;">
+        <h3 style="font-size: 1.15rem; margin-bottom: 12px; font-weight: 600; font-family: 'Fraunces', serif;">Spends by Tags</h3>
+        ${scrollWrapper(`
+          <div class="chart-card" style="flex: 1 0 280px;">
+            <h4>Debit by tag</h4>
+            ${tagsBarChart(data.entries, 'spend')}
+          </div>
+          <div class="chart-card" style="flex: 1 0 280px;">
+            <h4>Credit card spends by tag</h4>
+            ${tagsBarChart(data.entries, 'cardcharge')}
+          </div>
+          <div class="chart-card" style="flex: 1 0 280px;">
+            <h4>Cash spends by tag</h4>
+            ${tagsBarChart(data.entries, 'cashpayment')}
+          </div>
+        `)}
       </div>
     </div>
   </div>
@@ -1491,6 +1541,18 @@ function renderRow(e, monthKey, rowspan = 1, isFirstDateRow = true){
       <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${monthKey}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
   }
+  if(e.type==='cashpayment'){
+    return `<tr>
+      ${dateCell}
+      <td><span class="tag cashpayment">Cash spend</span></td>
+      <td>
+        <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}
+        <div class="subnote">Physical cash spent — already accounted for via withdrawal</div>
+      </td>
+      <td class="num amt-neutral">${fmtINR(e.amount)}</td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${monthKey}|${e.id}" title="Delete">✕</button></span></td>
+    </tr>`;
+  }
   if(e.type==='income'){
     return `<tr>
       ${dateCell}
@@ -1635,6 +1697,26 @@ function renderForm(kind, monthKey){
       </div>
     </div>`;
   }
+  if(kind==='cashpayment'){
+    return `
+    <div class="form-panel">
+      <div class="form-note" style="margin-top:0;margin-bottom:14px;">Money spent from previously withdrawn physical cash. Doesn't deduct from your bank balance since the withdrawal was already logged.</div>
+      <div class="form-row">
+        <div class="field"><label>Spend</label><input id="f-desc" type="text" placeholder="e.g. Street food" /></div>
+        <div class="field"><label>Amount (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+        <div class="field"><label>Date</label><input id="f-date" type="date" value="${todayStr()}" /></div>
+      </div>
+      <div class="form-row">
+        <div id="f-tag-row" style="display:contents;">
+          ${renderTagField()}
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn" data-submit="cashpayment">Add cash payment</button>
+        <button class="btn ghost" data-close-form>Cancel</button>
+      </div>
+    </div>`;
+  }
   if(kind==='income'){
     return `
     <div class="form-panel">
@@ -1740,16 +1822,19 @@ function barChart(pairs){
     </div>`).join('');
   return `<div class="bars">${cols}</div>`;
 }
-function tagsBarChart(entries){
+function tagsBarChart(entries, targetType){
   const totals = {};
   for(const e of entries){
-    if(e.type==='spend' || e.type==='cardcharge'){
+    // Only aggregate if the entry matches the requested category
+    if(e.type === targetType){
       const tag = (e.tag && String(e.tag).trim()) ? e.tag : 'Untagged';
       totals[tag] = (totals[tag]||0) + (Number(e.amount)||0);
     }
   }
+  
   const pairs = Object.entries(totals).map(([label,value])=>({label,value})).filter(p=>p.value>0).sort((a,b)=>b.value-a.value);
-  if(!pairs.length) return `<div class="empty-chart">No tagged spends yet this month.</div>`;
+  if(!pairs.length) return `<div class="empty-chart">No tagged spends yet.</div>`;
+  
   const max = Math.max(1, ...pairs.map(p=>p.value));
   const colors = ['var(--blue)','#C98A3C','#8E6FB0','var(--debit)','var(--credit)','#5B4B9E','var(--amber)','var(--blue-soft)','#2E7D6B','#AD4358'];
   const cols = pairs.map((p,i) => `
@@ -1812,7 +1897,7 @@ function lineChart(startingBalance, data, emiRows){
 function bindEvents(){
   const app = $('#app');
   State.animTimeout = State.animTimeout || null;
-  const PILL_ORDER = ['spend', 'cardcharge', 'income', 'owed', 'emi', 'invest'];
+  const PILL_ORDER = ['spend', 'cardcharge', 'cashpayment', 'income', 'owed', 'emi', 'invest'];
 
   app.onclick = async (ev) => {
     const scrollNext = ev.target.closest('[data-scroll-next]');
@@ -1893,7 +1978,7 @@ function bindEvents(){
         descWrap.style.display = 'none';
         cardWrap.style.display = 'none';
         tagRow.style.display = 'none';
-        infoBox.textContent = 'Note down debit from bank account upon cash withdrawal (auto-tagged as ATM).';
+        infoBox.textContent = 'Note down debit from bank account upon cash withdrawal.';
         
         if (lentContainer) lentContainer.style.display = 'none';
         if (lentWrap) lentWrap.style.display = 'none';
@@ -1902,7 +1987,7 @@ function bindEvents(){
         descWrap.style.display = 'none';
         cardWrap.style.display = 'block';
         tagRow.style.display = 'none';
-        infoBox.textContent = 'Pays down your credit card dues and reduces overall balance (auto-tagged as CC due).';
+        infoBox.textContent = 'Pays down your credit card dues and reduces overall balance.';
         
         if (lentContainer) lentContainer.style.display = 'none';
         if (lentWrap) lentWrap.style.display = 'none';
@@ -2445,6 +2530,11 @@ async function handleSubmit(kind){
     if(!c){ showToast('Add a credit card first'); return; }
     const tag = await resolveTagFromForm();
     data.entries.push({id:uid(), type:'cardcharge', description:desc, amount, date, cardId, tag, lent:collectLent()});
+  }
+  else if(kind==='cashpayment'){
+    if(!desc || !amount || amount<=0){ showToast('Enter a spend description and amount'); return; }
+    const tag = await resolveTagFromForm();
+    data.entries.push({id:uid(), type:'cashpayment', description:desc, amount, date, tag});
   }
   else if(kind==='income'){
     if(!desc || !amount || amount<=0){ showToast('Enter a source and amount'); return; }
