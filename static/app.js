@@ -1339,15 +1339,6 @@ function renderSplitSettleCard(c) {
   </div>`;
 }
 
-function renderSplitShareCallout(group, s){
-  const shares = group.people.map(p => ({
-    label: p===SPLIT_YOU ? 'YOU' : String(p).toUpperCase(),
-    amount: Number((s.shares||{})[p]) || 0
-  }));
-  const dataAttr = escapeHtml(JSON.stringify(shares));
-  return `<span class="split-spend-cell" tabindex="0" data-spend-toggle data-spend-shares="${dataAttr}">${escapeHtml(s.description)}</span>`;
-}
-
 function renderSplitDetailsPanel(group) {
   const memberOptions = group.people.map(p => `<option value="${escapeHtml(p)}">${p === SPLIT_YOU ? 'YOU' : escapeHtml(p.toUpperCase())}</option>`).join('');
   
@@ -1378,7 +1369,7 @@ function renderSplitDetailsPanel(group) {
       dateCell = `<td class="dv-date" rowspan="${dateCounts[s.date]}">${dateLabel}</td>`;
     }
     const payeeLabel = s.payee === SPLIT_YOU ? 'YOU' : escapeHtml(String(s.payee).toUpperCase());
-    return `<tr>${dateCell}<td>${renderSplitShareCallout(group, s)}</td><td>${payeeLabel}</td><td class="num">${fmtINR(s.amount)}</td><td class="actions-cell"><button class="icon-btn" data-del-split-spend="${group.id}|${s.id}" title="Remove spend">✕</button></td></tr>`;
+    return `<tr>${dateCell}<td>${escapeHtml(s.description)}</td><td>${payeeLabel}</td><td class="num">${fmtINR(s.amount)}</td><td class="actions-cell"><button class="icon-btn" data-del-split-spend="${group.id}|${s.id}" title="Remove spend">✕</button></td></tr>`;
   }).join('');
 
   return `
@@ -2035,22 +2026,7 @@ function bindEvents() {
       showToast('Split group deleted');
       return;
     }
-
-    const spendToggle = ev.target.closest('[data-spend-toggle]');
-    if(spendToggle){
-      const key = spendToggle.dataset.spendShares;
-      if(State.splitCalloutPinned === key){
-        hideSplitCallout();
-      } else {
-        State.splitCalloutPinned = key;
-        showSplitCallout(spendToggle);
-      }
-      return;
-    }
-    if(!ev.target.closest('#split-share-popover')){
-      hideSplitCallout();
-    }
-	
+    
     const splitCard = ev.target.closest('[data-split-card]');
     if (splitCard && !ev.target.closest('.sgc-actions')) {
       const id = splitCard.dataset.splitCard;
