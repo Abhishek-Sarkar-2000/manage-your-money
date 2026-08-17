@@ -1339,13 +1339,32 @@ function renderSplitSettleCard(c) {
   </div>`;
 }
 
+function renderSplitShareCallout(group, s){
+  const shares = group.people.map(p => ({
+    label: p===SPLIT_YOU ? 'YOU' : String(p).toUpperCase(),
+    amount: Number((s.shares||{})[p]) || 0
+  }));
+  const dataAttr = escapeHtml(JSON.stringify(shares));
+  return `<span class="split-spend-cell" tabindex="0" data-spend-toggle data-spend-shares="${dataAttr}">${escapeHtml(s.description)}</span>`;
+}
+
 function renderSplitDetailsPanel(group) {
   const memberOptions = group.people.map(p => `<option value="${escapeHtml(p)}">${p === SPLIT_YOU ? 'YOU' : escapeHtml(p.toUpperCase())}</option>`).join('');
-  const shareInputs = group.people.map(p => `
-    <div class="field">
-      <label>${p === SPLIT_YOU ? 'YOUR share' : escapeHtml(p.toUpperCase()) + "'s share"} (₹)</label>
-      <input class="sp-share" data-person="${escapeHtml(p)}" type="number" step="0.01" min="0" placeholder="0.00" />
-    </div>`).join('');
+  
+  // Member share fields with toggle placed side-by-side with the input
+  const shareInputs = group.people.map(p => {
+    const personLabel = p === SPLIT_YOU ? 'YOUR share' : `${escapeHtml(p.toUpperCase())}'s share`;
+    return `
+    <div class="field split-person-share-box">
+      <label>${personLabel} (₹)</label>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <input class="sp-share" data-person="${escapeHtml(p)}" type="number" step="0.01" min="0" placeholder="0.00" style="flex:1;" />
+        <label class="toggle-switch" title="Toggle inclusion in this spend" style="margin:0; flex-shrink:0;">
+          <input type="checkbox" class="sp-member-toggle" data-person="${escapeHtml(p)}" checked />
+        </label>
+      </div>
+    </div>`;
+  }).join('');
 
   const sortedSpends = [...group.spends].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   const dateCounts = {};
@@ -1359,7 +1378,7 @@ function renderSplitDetailsPanel(group) {
       dateCell = `<td class="dv-date" rowspan="${dateCounts[s.date]}">${dateLabel}</td>`;
     }
     const payeeLabel = s.payee === SPLIT_YOU ? 'YOU' : escapeHtml(String(s.payee).toUpperCase());
-    return `<tr>${dateCell}<td>${escapeHtml(s.description)}</td><td>${payeeLabel}</td><td class="num">${fmtINR(s.amount)}</td><td class="actions-cell"><button class="icon-btn" data-del-split-spend="${group.id}|${s.id}" title="Remove spend">✕</button></td></tr>`;
+    return `<tr>${dateCell}<td>${renderSplitShareCallout(group, s)}</td><td>${payeeLabel}</td><td class="num">${fmtINR(s.amount)}</td><td class="actions-cell"><button class="icon-btn" data-del-split-spend="${group.id}|${s.id}" title="Remove spend">✕</button></td></tr>`;
   }).join('');
 
   return `
@@ -2016,7 +2035,22 @@ function bindEvents() {
       showToast('Split group deleted');
       return;
     }
-    
+
+    const spendToggle = ev.target.closest('[data-spend-toggle]');
+    if(spendToggle){
+      const key = spendToggle.dataset.spendShares;
+      if(State.splitCalloutPinned === key){
+        hideSplitCallout();
+      } else {
+        State.splitCalloutPinned = key;
+        showSplitCallout(spendToggle);
+      }
+      return;
+    }
+    if(!ev.target.closest('#split-share-popover')){
+      hideSplitCallout();
+    }
+	
     const splitCard = ev.target.closest('[data-split-card]');
     if (splitCard && !ev.target.closest('.sgc-actions')) {
       const id = splitCard.dataset.splitCard;
@@ -2147,6 +2181,11 @@ function bindEvents() {
       const lentWrap = $('#f-lent-wrap');
       if (lentWrap) lentWrap.style.display = ev.target.checked ? 'block' : 'none';
     }
+    if (ev.target.matches('.sp-member-toggle')) {
+      const totalAmt = Number($('#sp-amount')?.value) || 0;
+      distributeSplitShares(totalAmt);
+      return;
+    }
     if (ev.target.name === 'sbmode') {
       const mk = State.currentMonthKey;
       const data = await loadMonth(mk);
@@ -2204,13 +2243,40 @@ function bindEvents() {
 
 function distributeSplitShares(amount) {
   const shareInputs = $$('.sp-share');
-  const n = shareInputs.length;
-  if (!n) return;
+  if (!shareInputs.length) return;
+
+  // Filter inputs where the member's toggle is active
+  const activeInputs = shareInputs.filter(inp => {
+    const toggle = $(`.sp-member-toggle[data-person="${inp.dataset.person}"]`);
+    return toggle ? toggle.checked : true;
+  });
+
+  // Zero-out and dim inactive member inputs
+  const inactiveInputs = shareInputs.filter(inp => !activeInputs.includes(inp));
+  inactiveInputs.forEach(inp => {
+    inp.value = '0.00';
+    inp.disabled = true;
+    inp.style.opacity = '0.45';
+  });
+
+  const n = activeInputs.length;
+  if (n === 0) return;
+
+  activeInputs.forEach(inp => {
+    inp.disabled = false;
+    inp.style.opacity = '1';
+  });
+
+  // Divide total amount evenly among active members with rounding fix
   const baseCents = Math.floor((amount * 100) / n);
   let remainderCents = Math.round(amount * 100) - baseCents * n;
-  shareInputs.forEach((inp) => {
+
+  activeInputs.forEach((inp) => {
     let cents = baseCents;
-    if (remainderCents > 0) { cents += 1; remainderCents -= 1; }
+    if (remainderCents > 0) {
+      cents += 1;
+      remainderCents -= 1;
+    }
     inp.value = (cents / 100).toFixed(2);
   });
 }

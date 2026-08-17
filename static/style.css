@@ -522,10 +522,11 @@ a {
 }
 
 /* ---------- Table ---------- */
-.table-wrap {
-  overflow-x: auto;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--hair);
+.table-wrap{
+  overflow-x:auto;
+  overflow-y:visible;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--hair);
 }
 
 table {
@@ -885,6 +886,15 @@ td.actions-cell {
   font-family: 'IBM Plex Mono', monospace;
 }
 
+
+/* Split spend row — share breakdown callout */
+.split-spend-cell{ cursor:pointer; }
+.split-row-popover{
+  display:none; position:fixed; min-width:220px; max-width:300px;
+  background:#fff; border:1px solid var(--hair); border-radius:10px; box-shadow:var(--shadow);
+  padding:12px 14px; z-index:900; max-height:260px; overflow-y:auto; text-align:left;
+}
+  
 /* Touch / mobile slide-reveal */
 @media (hover: none) {
   .stat-card {
@@ -1656,6 +1666,13 @@ footer {
   margin-bottom: 10px;
 }
 
+.split-share-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+  
 .split-share-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
