@@ -1066,6 +1066,7 @@ transform: translateY(0);
 .donut-wrap {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 20px;
   flex-wrap: wrap;
 }
@@ -1185,6 +1186,24 @@ transform: translateY(0);
   .bar-col .bval,
   .bar-col .blabel {
     font-size: 0.68rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .donut {
+    width: 120px;
+    height: 120px;
+  }
+  .donut::after {
+    inset: 16px;
+  }
+  .legend {
+    font-size: 0.8rem;
+    gap: 6px;
+  }
+  .legend-val {
+    padding-left: 10px;
+    font-size: 0.75rem;
   }
 }
 
