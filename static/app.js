@@ -1129,45 +1129,43 @@ async function viewMonth(){
   <div class="section">
     <div class="section-title"><h2>This month's charts</h2><span class="hint">${monthKeyLabel(key)} only</span></div>
     <div class="charts-grid">
-      <div style="grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 20px; min-width: 0;">
-        <div class="chart-card" style="flex: 1 1 260px; margin: 0; min-width: 0; overflow-x: auto;">
-          <h4>Spending Breakdown</h4>
-          ${donutChart([
-            {label:'Regular debit', value:monthTotals.regularDebit, color:'var(--debit)'},
-            {label:'Credit card spends', value:monthTotals.ccSpends, color:'#8E6FB0'},
-            {label:'Cash payments', value:monthTotals.cashPayments, color:'#C98A3C'},
-            {label:'EMI', value:monthTotals.emi, color:'#5B4B9E'},
-            {label:'Investment', value:monthTotals.invest, color:'var(--blue)'}
-          ])}
-        </div>
-        
-        <div class="chart-card" style="flex: 1 1 260px; margin: 0; min-width: 0; overflow-x: auto;">
-          <h4>Income vs expense</h4>
-          ${(() => {
-            let unsettledMonthLent = 0, unsettledConsumptionLent = 0;
-            for (const e of data.entries) {
-              if (Array.isArray(e.lent)) {
-                const sumUnsettled = e.lent.reduce((s, l) => !l.settled ? s + (Number(l.amount) || 0) : s, 0);
-                unsettledMonthLent += sumUnsettled;
-                
-                // Only offset actual consumption expenses (ignores CC Dues / ATMs)
-                if (e.type === 'spend' || e.type === 'cardcharge' || e.type === 'cashpayment') {
-                  unsettledConsumptionLent += sumUnsettled;
-                }
+      <div class="chart-card" style="min-width: 0; overflow-x: auto;">
+        <h4>Spending Breakdown</h4>
+        ${donutChart([
+          {label:'Regular debit', value:monthTotals.regularDebit, color:'var(--debit)'},
+          {label:'Credit card spends', value:monthTotals.ccSpends, color:'#8E6FB0'},
+          {label:'Cash payments', value:monthTotals.cashPayments, color:'#C98A3C'},
+          {label:'EMI', value:monthTotals.emi, color:'#5B4B9E'},
+          {label:'Investment', value:monthTotals.invest, color:'var(--blue)'}
+        ])}
+      </div>
+      
+      <div class="chart-card" style="min-width: 0; overflow-x: auto;">
+        <h4>Income vs expense</h4>
+        ${(() => {
+          let unsettledMonthLent = 0, unsettledConsumptionLent = 0;
+          for (const e of data.entries) {
+            if (Array.isArray(e.lent)) {
+              const sumUnsettled = e.lent.reduce((s, l) => !l.settled ? s + (Number(l.amount) || 0) : s, 0);
+              unsettledMonthLent += sumUnsettled;
+              
+              // Only offset actual consumption expenses (ignores CC Dues / ATMs)
+              if (e.type === 'spend' || e.type === 'cardcharge' || e.type === 'cashpayment') {
+                unsettledConsumptionLent += sumUnsettled;
               }
             }
-            
-            // Calculate pure expense directly from actual consumption
-            const pureExpense = Math.max(0, monthTotals.totalConsumption - unsettledConsumptionLent);
-            
-            return barChart([
-              {label:'Income', value:monthTotals.income, color:'var(--credit)'},
-              {label:'Expense', value:pureExpense, color:'var(--debit)'},
-              {label:'Invested', value:monthTotals.invest, color:'var(--blue)'},
-              {label:'Lent', value:unsettledMonthLent, color:'var(--amber)'}
-            ]);
-          })()}
-        </div>
+          }
+          
+          // Calculate pure expense directly from actual consumption
+          const pureExpense = Math.max(0, monthTotals.totalConsumption - unsettledConsumptionLent);
+          
+          return barChart([
+            {label:'Income', value:monthTotals.income, color:'var(--credit)'},
+            {label:'Expense', value:pureExpense, color:'var(--debit)'},
+            {label:'Invested', value:monthTotals.invest, color:'var(--blue)'},
+            {label:'Lent', value:unsettledMonthLent, color:'var(--amber)'}
+          ]);
+        })()}
       </div>
       <div class="chart-card" style="grid-column:1/-1;">
         <h4>Running balance through the month</h4>
