@@ -1173,20 +1173,20 @@ async function viewMonth(){
       </div>
       <div style="grid-column: 1 / -1; margin-top: 8px;">
         <h3 style="font-size: 1.15rem; margin-bottom: 12px; font-weight: 600; font-family: 'Fraunces', serif;">Spends by Tags</h3>
-        ${scrollWrapper(`
-          <div class="chart-card" style="flex: 1 0 280px;">
-            <h4>Debit by tag</h4>
-            ${tagsBarChart(data.entries, 'spend')}
-          </div>
-          <div class="chart-card" style="flex: 1 0 280px;">
-            <h4>Credit card spends by tag</h4>
-            ${tagsBarChart(data.entries, 'cardcharge')}
-          </div>
-          <div class="chart-card" style="flex: 1 0 280px;">
-            <h4>Cash spends by tag</h4>
-            ${tagsBarChart(data.entries, 'cashpayment')}
-          </div>
-        `)}
+		${scrollWrapper(`
+		<div class="chart-card tag-chart-card">
+			<h4>Debit by tag</h4>
+			${tagsBarChart(data.entries, 'spend')}
+		</div>
+		<div class="chart-card tag-chart-card">
+			<h4>Credit card spends by tag</h4>
+			${tagsBarChart(data.entries, 'cardcharge')}
+		</div>
+		<div class="chart-card tag-chart-card">
+			<h4>Cash spends by tag</h4>
+			${tagsBarChart(data.entries, 'cashpayment')}
+		</div>
+		`, 'tags-track')}
       </div>
     </div>
   </div>
