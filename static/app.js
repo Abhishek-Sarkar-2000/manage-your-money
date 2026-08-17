@@ -1129,8 +1129,8 @@ async function viewMonth(){
   <div class="section">
     <div class="section-title"><h2>This month's charts</h2><span class="hint">${monthKeyLabel(key)} only</span></div>
     <div class="charts-grid">
-      <div style="grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 20px;">
-        <div class="chart-card" style="flex: 1 1 320px; margin: 0;">
+      <div style="grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 20px; min-width: 0;">
+        <div class="chart-card" style="flex: 1 1 260px; margin: 0; min-width: 0; overflow-x: auto;">
           <h4>Spending Breakdown</h4>
           ${donutChart([
             {label:'Regular debit', value:monthTotals.regularDebit, color:'var(--debit)'},
@@ -1141,7 +1141,7 @@ async function viewMonth(){
           ])}
         </div>
         
-        <div class="chart-card" style="flex: 1 1 320px; margin: 0;">
+        <div class="chart-card" style="flex: 1 1 260px; margin: 0; min-width: 0; overflow-x: auto;">
           <h4>Income vs expense</h4>
           ${(() => {
             let unsettledMonthLent = 0, unsettledConsumptionLent = 0;
