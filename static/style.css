@@ -1788,7 +1788,8 @@ footer {
 .no-entrance-anim .card,
 .no-entrance-anim .month-row,
 .no-entrance-anim .split-group-card,
-.no-entrance-anim .split-settle-card {
+.no-entrance-anim .split-settle-card,
+.no-entrance-anim .split-details-panel {
   animation: none !important;
   opacity: 1 !important;
   transform: none !important;
@@ -1841,4 +1842,20 @@ svg.linechart text {
   svg.linechart text {
     font-size: 28px;
   }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-down-fade {
+  /* The !important flag overrides the default .form-panel fadeInUp animation */
+  animation: fadeInDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) both !important;
 }

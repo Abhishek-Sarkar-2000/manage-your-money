@@ -150,6 +150,7 @@ const State = {
   splitsIndex: [],
   splitCache: {},
   splitFormOpen: false,
+  splitSpendFormOpen: false,
   splitExpandedId: null,
   splitCalloutPinned: null,
 };
@@ -1408,25 +1409,35 @@ function renderSplitDetailsPanel(group) {
     const payeeLabel = s.payee === SPLIT_YOU ? 'YOU' : escapeHtml(String(s.payee).toUpperCase());
     return `<tr>${dateCell}<td>${renderSplitShareCallout(group, s)}</td><td>${payeeLabel}</td><td class="num">${fmtINR(s.amount)}</td><td class="actions-cell"><button class="icon-btn" data-del-split-spend="${group.id}|${s.id}" title="Remove spend">✕</button></td></tr>`;
   }).join('');
+  const formHtml = State.splitSpendFormOpen ? `
+  <div class="form-panel slide-down-fade" style="margin-top:14px;">
+    <div class="form-note" style="margin-top:0; margin-bottom:14px;">Add a transaction. The amount is split equally among active members by default.</div>
+    <div class="form-row">
+      <div class="field"><label>Spend</label><input id="sp-desc" type="text" placeholder="e.g. Dinner" /></div>
+      <div class="field"><label>Paid by</label><select id="sp-payee">${memberOptions}</select></div>
+      <div class="field"><label>Date</label><input id="sp-date" type="date" value="${todayStr()}" /></div>
+      <div class="field"><label>Total amount (₹)</label><input id="sp-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+    </div>
+    <div class="split-share-grid">${shareInputs}</div>
+    <div class="form-actions">
+      <button class="btn primary" data-submit-split-spend="${group.id}" type="button">Add spend</button>
+      <button class="btn ghost" data-close-split-spend-form type="button">Cancel</button>
+    </div>
+  </div>` : '';
+  const addBtnHtml = !State.splitSpendFormOpen ? `
+  <div class="pill-grid" style="margin-top: 14px;">
+    <button class="pill-btn" data-open-split-spend-form type="button">+ Add Spend</button>
+  </div>` : '';
 
   return `
-  <div class="split-details-panel" data-split-details="${group.id}">
+  <div class="split-details-panel" data-split-details="${group.id}" style="margin-top: 2px;">
     <div class="section-title"><h2>${escapeHtml(group.description)}</h2><span class="hint">${group.people.length} people</span></div>
 
-    <div class="form-panel" style="margin-top:14px;">
-      <div class="form-row">
-        <div class="field"><label>Spend</label><input id="sp-desc" type="text" placeholder="e.g. Dinner" /></div>
-        <div class="field"><label>Paid by</label><select id="sp-payee">${memberOptions}</select></div>
-        <div class="field"><label>Date</label><input id="sp-date" type="date" value="${todayStr()}" /></div>
-        <div class="field"><label>Total amount (₹)</label><input id="sp-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
-      </div>
-      <div class="split-share-grid">${shareInputs}</div>
-      <div class="form-actions">
-        <button class="btn primary" data-submit-split-spend="${group.id}" type="button">Add spend</button>
-      </div>
-    </div>
+    ${addBtnHtml}
+    ${formHtml}
 
-    <div class="table-wrap" style="margin-top:18px;">
+    <div class="form-note" style="margin-top:18px; margin-bottom:8px;">All group spends are listed here. Click a spend name to view share divisions.</div>
+    <div class="table-wrap">
       <table class="divisions-table">
         <thead><tr><th>Date</th><th>Details</th><th>Payee</th><th>Amount</th><th></th></tr></thead>
         <tbody>
@@ -2033,6 +2044,20 @@ function bindEvents(){
     const removeSplitMember = ev.target.closest('[data-remove-split-member]');
     if(removeSplitMember){ removeSplitMember.closest('.split-member-row').remove(); return; }
 
+	const openSplitSpendForm = ev.target.closest('[data-open-split-spend-form]');
+    if(openSplitSpendForm){
+      State.splitSpendFormOpen = true;
+      await render();
+      return;
+    }
+
+    const closeSplitSpendForm = ev.target.closest('[data-close-split-spend-form]');
+    if(closeSplitSpendForm){
+      State.splitSpendFormOpen = false;
+      await render();
+      return;
+    }
+	
     const submitSplit = ev.target.closest('[data-submit-split]');
     if(submitSplit){
       const desc = ($('#sf-desc').value || '').trim();
@@ -2084,6 +2109,7 @@ function bindEvents(){
 
       if (State.splitExpandedId === id) { // Close
         State.splitExpandedId = null; 
+        State.splitSpendFormOpen = false; // <-- Add here
         render();
         return;
       }
@@ -2100,14 +2126,16 @@ function bindEvents(){
           inner.className = isRight ? 'slide-out-left' : 'slide-out-right';
           State.animTimeout = setTimeout(() => {
             State.splitExpandedId = id;
+            State.splitSpendFormOpen = false; // <-- Add here
             State.splitSlideDirection = isRight ? 'slide-in-right' : 'slide-in-left';
             render();
-          }, 300); // Changed to 300
-        } else { State.splitExpandedId = id; State.splitSlideDirection = ''; render(); }
+          }, 300);
+        } else { State.splitExpandedId = id; State.splitSpendFormOpen = false; /* <-- Add here */ State.splitSlideDirection = ''; render(); }
         return;
       }
       // Open fresh
       State.splitExpandedId = id;
+      State.splitSpendFormOpen = false; // <-- Add here
       State.splitSlideDirection = '';
       await render();
       return;
@@ -2162,6 +2190,7 @@ function bindEvents(){
 
       group.spends.push({ id: spendId, description: desc, payee, amount, date, shares, ledgerEntryId, monthKey: ledgerMonthKey });
       await saveSplit(groupId);
+	  State.splitSpendFormOpen = false;
       await render();
       showToast('Spend added to split');
       return;
