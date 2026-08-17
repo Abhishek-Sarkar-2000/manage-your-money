@@ -1799,7 +1799,7 @@ function donutChart(segments){
   const legend = segments.filter(s=>s.value>0).map(s=>`
     <div class="legend-item">
       <span class="legend-dot" style="background:${s.color}"></span>
-      ${s.label}
+      <span>${s.label}</span>
       <span class="legend-val">${fmtINR(s.value)}</span>
     </div>`).join('');
   return `

@@ -582,8 +582,13 @@ tbody tr:hover td {
 }
 
 .tag.cardcharge {
-  background: #FBF0E2;
-  color: #C07A2E;
+background: #FBF0E2;
+color: #C07A2E;
+}
+
+.tag.cashpayment {
+background: #FBF0E2;
+color: #C07A2E;
 }
 
 .tag.income {
@@ -1119,6 +1124,7 @@ transform: translateY(0);
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .legend-dot {
@@ -1139,7 +1145,7 @@ transform: translateY(0);
 .bars {
   display: flex;
   align-items: flex-end;
-  gap: 34px;
+  gap: clamp(8px, 4vw, 34px);
   height: 160px;
   padding: 0 10px;
 }
@@ -1151,10 +1157,12 @@ transform: translateY(0);
   justify-content: flex-end;
   height: 100%;
   flex: 1;
+  min-width: 0;
 }
 
 .bar {
-  width: 56px;
+  width: 70%;
+  max-width: 56px;
   border-radius: 6px 6px 3px 3px;
   transition: height 0.4s ease;
 }
@@ -1173,6 +1181,13 @@ transform: translateY(0);
   font-family: 'IBM Plex Mono', monospace;
 }
 
+@media (max-width: 420px) {
+  .bar-col .bval,
+  .bar-col .blabel {
+    font-size: 0.68rem;
+  }
+}
+
 svg.linechart {
   width: 100%;
   height: auto;
@@ -1185,6 +1200,12 @@ svg.linechart {
   font-size: 0.88rem;
   text-align: center;
   padding: 30px 0;
+}
+
+.legend-item span:not(.legend-dot):not(.legend-val) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ---------- Month header ---------- */
@@ -1498,6 +1519,25 @@ footer {
   padding: 2px 2px 4px;
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+.tag-chart-card {
+  flex: 1 0 280px;
+  min-width: 0;
+}
+
+@media (max-width: 700px) {
+  .tags-track {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+  .tags-track .tag-chart-card {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .tags-track ~ .scroll-arrow {
+    display: none !important;
+  }
 }
 
 .scroll-track::-webkit-scrollbar {
