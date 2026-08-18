@@ -1026,6 +1026,186 @@ transform: translateY(0);
   margin-bottom: 10px;
 }
 
+.shared-split-charts {
+  align-items: stretch;
+}
+
+.shared-chart-card {
+  min-width: 0;
+}
+
+.shared-chart-description {
+  margin: -4px 0 18px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.shared-debt-chart {
+  width: 100%;
+}
+
+.shared-debt-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+.shared-debt-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 140px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.shared-debt-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--royal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shared-debt-bar-wrap {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.shared-debt-bar {
+  min-width: 0;
+  flex: 1;
+  height: 30px;
+  display: flex;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--ice-2);
+  border: 1px solid var(--hair);
+}
+
+.shared-debt-segment {
+  height: 100%;
+  min-width: 2px;
+  transition: opacity 0.15s ease;
+}
+
+.shared-debt-segment:hover {
+  opacity: 0.8;
+}
+
+.shared-debt-total {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.shared-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hair);
+}
+
+.shared-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.shared-chart-legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex: 0 0 9px;
+}
+
+.shared-share-chart {
+  width: 100%;
+  min-height: 205px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 8px 4px 0;
+}
+
+.shared-share-bar-col {
+  flex: 0 0 72px;
+  min-width: 72px;
+  min-height: 190px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.shared-share-value {
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-bottom: 5px;
+  white-space: nowrap;
+}
+
+.shared-share-bar {
+  width: 42px;
+  min-height: 8px;
+  border-radius: 5px 5px 2px 2px;
+  transition: opacity 0.15s ease;
+}
+
+.shared-share-bar:hover {
+  opacity: 0.8;
+}
+
+.shared-share-label {
+  width: 72px;
+  margin-top: 8px;
+  font-size: 0.7rem;
+  color: var(--royal);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .shared-debt-row {
+    grid-template-columns: minmax(70px, 90px) minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .shared-debt-bar {
+    height: 26px;
+  }
+
+  .shared-debt-total {
+    font-size: 0.68rem;
+  }
+
+  .shared-share-chart {
+    justify-content: flex-start;
+    gap: 12px;
+  }
+
+  .shared-share-bar-col {
+    flex-basis: 64px;
+    min-width: 64px;
+  }
+
+  .shared-share-label {
+    width: 64px;
+  }
+}
+
 .range-toggle {
   display: inline-flex;
   background: var(--ice-2);
@@ -1946,4 +2126,19 @@ body.shared-mode .sp-share {
   background: transparent;
   border-color: transparent;
   color: var(--ink);
+}
+
+body.shared-mode .split-group-card {
+  cursor: default;
+}
+
+body.shared-mode .split-group-card:hover {
+  transform: none;
+  box-shadow: var(--shadow-sm);
+  border-color: var(--hair);
+}
+
+body.shared-mode .split-group-card.active {
+  border-color: var(--hair);
+  box-shadow: var(--shadow-sm);
 }

@@ -1230,7 +1230,352 @@ function splitDonut(segments, emptyMsg){
 }
 const SPLIT_PALETTE = ['var(--blue)','#C98A3C','#8E6FB0','var(--debit)','var(--credit)','#5B4B9E','var(--amber)','var(--blue-soft)','#2E7D6B','#AD4358'];
 
+function sharedStackedDebtChart(group) {
+  const { cards } = computeGroupSettlementView(group);
+
+  // Only outstanding transfers belong in this chart.
+  const outstanding = cards.filter(c => !c.settled && Number(c.amount) > 0.004);
+
+  if (!outstanding.length) {
+    return `<div class="empty-chart">No outstanding debts in this group.</div>`;
+  }
+
+  // debtor -> creditor -> amount
+  const byDebtor = {};
+
+  for (const transfer of outstanding) {
+    if (!byDebtor[transfer.from]) {
+      byDebtor[transfer.from] = {};
+    }
+
+    byDebtor[transfer.from][transfer.to] =
+      (byDebtor[transfer.from][transfer.to] || 0) + Number(transfer.amount || 0);
+  }
+
+  const debtors = Object.entries(byDebtor)
+    .map(([debtor, creditors]) => ({
+      debtor,
+      creditors: Object.entries(creditors)
+        .filter(([, amount]) => amount > 0.004)
+        .map(([creditor, amount]) => ({
+          creditor,
+          amount
+        }))
+    }))
+    .filter(x => x.creditors.length);
+
+  if (!debtors.length) {
+    return `<div class="empty-chart">No outstanding debts in this group.</div>`;
+  }
+
+  const allCreditors = [];
+  for (const debtor of debtors) {
+    for (const { creditor } of debtor.creditors) {
+      if (!allCreditors.includes(creditor)) {
+        allCreditors.push(creditor);
+      }
+    }
+  }
+
+  const colors = SPLIT_PALETTE;
+
+  const bars = debtors.map(({ debtor, creditors }) => {
+    const total = creditors.reduce((sum, x) => sum + x.amount, 0);
+
+    const segments = creditors.map(({ creditor, amount }) => {
+      const color = colors[allCreditors.indexOf(creditor) % colors.length];
+      const width = total > 0 ? (amount / total) * 100 : 0;
+
+      const creditorLabel =
+        creditor === SPLIT_YOU
+          ? getYouLabel()
+          : escapeHtml(String(creditor).toUpperCase());
+
+      return `
+        <div
+          class="shared-debt-segment"
+          style="width:${width}%; background:${color};"
+          title="${creditorLabel}: ${fmtINR(amount)}"
+        ></div>`;
+    }).join('');
+
+    const debtorLabel =
+      debtor === SPLIT_YOU
+        ? getYouLabel()
+        : escapeHtml(String(debtor).toUpperCase());
+
+    return `
+      <div class="shared-debt-row">
+        <div class="shared-debt-label" title="${debtorLabel}">
+          ${debtorLabel}
+        </div>
+
+        <div class="shared-debt-bar-wrap">
+          <div class="shared-debt-bar">
+            ${segments}
+          </div>
+          <div class="shared-debt-total num">
+            ${fmtINR(total)}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const legend = allCreditors.map((creditor, i) => {
+    const color = colors[i % colors.length];
+
+    const label =
+      creditor === SPLIT_YOU
+        ? getYouLabel()
+        : escapeHtml(String(creditor).toUpperCase());
+
+    return `
+      <div class="shared-chart-legend-item">
+        <span
+          class="shared-chart-legend-dot"
+          style="background:${color};"
+        ></span>
+        <span>${label}</span>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="shared-debt-chart">
+      <div class="shared-debt-bars">
+        ${bars}
+      </div>
+
+      <div class="shared-chart-legend">
+        ${legend}
+      </div>
+    </div>`;
+}
+
+
+function sharedSharesBarChart(group) {
+  const totals = {};
+
+  for (const person of group.people) {
+    totals[person] = 0;
+  }
+
+  for (const spend of (group.spends || [])) {
+    for (const [person, amount] of Object.entries(spend.shares || {})) {
+      totals[person] = (totals[person] || 0) + (Number(amount) || 0);
+    }
+  }
+
+  const pairs = Object.entries(totals)
+    .map(([person, value]) => ({
+      person,
+      value: Math.round(value * 100) / 100
+    }))
+    .filter(x => x.value > 0.004)
+    .sort((a, b) => b.value - a.value);
+
+  if (!pairs.length) {
+    return `<div class="empty-chart">No shares recorded in this group yet.</div>`;
+  }
+
+  const max = Math.max(1, ...pairs.map(x => x.value));
+
+  const bars = pairs.map((pair, i) => {
+    const label =
+      pair.person === SPLIT_YOU
+        ? getYouLabel()
+        : escapeHtml(String(pair.person).toUpperCase());
+
+    const height = Math.max(8, (pair.value / max) * 150);
+    const color = SPLIT_PALETTE[i % SPLIT_PALETTE.length];
+
+    return `
+      <div class="shared-share-bar-col">
+        <div class="shared-share-value num">
+          ${fmtINR(pair.value)}
+        </div>
+
+        <div
+          class="shared-share-bar"
+          style="height:${height}px; background:${color};"
+          title="${label}: ${fmtINR(pair.value)}"
+        ></div>
+
+        <div class="shared-share-label" title="${label}">
+          ${label}
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="shared-share-chart">
+      ${bars}
+    </div>`;
+}
+
+
+async function renderSharedSplitPage(group) {
+  if (!group) {
+    return `
+      <div class="section">
+        <div class="empty-chart">
+          This shared Split Money group could not be found.
+        </div>
+      </div>`;
+  }
+
+  const { cards } = computeGroupSettlementView(group);
+
+  const outstandingCards = cards.filter(c => !c.settled);
+  const settledCards = cards.filter(c => c.settled);
+
+  const groupCardHtml = renderSplitGroupCard(group);
+
+  const settlementHtml = cards.length
+    ? cards
+        .sort((a, b) =>
+          (a.settled === b.settled) ? 0 : (a.settled ? 1 : -1)
+        )
+        .map(c => renderSplitSettleCard({
+          ...c,
+          groupId: group.id,
+          groupDesc: group.description
+        }))
+        .join('')
+    : `<div class="empty-chart">No settlement transfers for this group.</div>`;
+
+  // Total share per member.
+  const shareTotals = {};
+  for (const person of group.people) {
+    shareTotals[person] = 0;
+  }
+
+  for (const spend of (group.spends || [])) {
+    for (const [person, amount] of Object.entries(spend.shares || {})) {
+      shareTotals[person] =
+        (shareTotals[person] || 0) + (Number(amount) || 0);
+    }
+  }
+
+  const shareRows = group.people.map(person => {
+    const label =
+      person === SPLIT_YOU
+        ? getYouLabel()
+        : escapeHtml(String(person).toUpperCase());
+
+    return `
+      <tr>
+        <td>${label}</td>
+        <td class="num">${fmtINR(shareTotals[person] || 0)}</td>
+      </tr>`;
+  }).join('');
+
+  return `
+    <div class="topbar">
+      <div class="brand">
+        <span class="mark">₹</span> Ledger &amp; Line
+      </div>
+    </div>
+
+    <div class="section shared-page-header">
+      <div class="month-header">
+        <h1>${escapeHtml(group.description)}</h1>
+      </div>
+
+      <p class="shared-page-subtitle">
+        Shared Split Money group · ${group.people.length} people
+      </p>
+    </div>
+
+    <div class="section">
+      <div class="section-title">
+        <h2>Group</h2>
+        <span class="hint">Shared view</span>
+      </div>
+
+      ${groupCardHtml}
+
+      <div class="shared-details-always-visible">
+        ${renderSplitDetailsPanel(group)}
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">
+        <h2>Split charts</h2>
+        <span class="hint">Outstanding balances and group shares</span>
+      </div>
+
+      <div class="charts-grid shared-split-charts">
+
+        <div class="chart-card shared-chart-card">
+          <h4>Who owes how much</h4>
+
+          <p class="shared-chart-description">
+            Outstanding amount each person owes to other members.
+          </p>
+
+          ${sharedStackedDebtChart(group)}
+        </div>
+
+        <div class="chart-card shared-chart-card">
+          <h4>Shares by members</h4>
+
+          <p class="shared-chart-description">
+            Total share each member is responsible for paying.
+          </p>
+
+          ${sharedSharesBarChart(group)}
+        </div>
+
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">
+        <h2>Shares</h2>
+        <span class="hint">Total share per member</span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Person</th>
+              <th>Total Share</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${shareRows ||
+              `<tr class="empty-row">
+                <td colspan="2">No shares recorded.</td>
+              </tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">
+        <h2>Settle up</h2>
+        <span class="hint">
+          ${outstandingCards.length
+            ? `${outstandingCards.length} outstanding transfer${outstandingCards.length === 1 ? '' : 's'}`
+            : 'All outstanding transfers settled'}
+        </span>
+      </div>
+
+      ${scrollWrapper(settlementHtml)}
+    </div>
+  `;
+}
+
 async function viewSplit(){
+  if (State.isShared) {
+    const group = await loadSplit(State.sharedSplitId);
+    return renderSharedSplitPage(group);
+  }
+
   const {groups, allCards, owedByYou, owedToYou} = await computeSplitPageData();
 
   const oweSegments = Object.entries(owedByYou).map(([person,amount],i)=>({label:person, value:amount, color:SPLIT_PALETTE[i%SPLIT_PALETTE.length]}));
@@ -2258,7 +2603,7 @@ function bindEvents(){
     }
     
     const splitCard = ev.target.closest('[data-split-card]');
-    if(splitCard && !ev.target.closest('.sgc-actions')){
+	if(splitCard && !State.isShared && !ev.target.closest('.sgc-actions')){
       const id = splitCard.dataset.splitCard;
       if (State.animTimeout) clearTimeout(State.animTimeout);
 
