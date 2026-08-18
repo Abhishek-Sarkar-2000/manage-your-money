@@ -1234,12 +1234,15 @@ function sharedStackedDebtChart(group) {
   const { cards } = computeGroupSettlementView(group);
 
   // Only outstanding transfers belong in this chart.
-  const outstanding = cards.filter(c => !c.settled && Number(c.amount) > 0.004);
+  const outstanding = cards.filter(
+    c => !c.settled && Number(c.amount) > 0.004
+  );
 
   if (!outstanding.length) {
     return `<div class="empty-chart">No outstanding debts in this group.</div>`;
   }
 
+  // Build:
   // debtor -> creditor -> amount
   const byDebtor = {};
 
@@ -1249,7 +1252,8 @@ function sharedStackedDebtChart(group) {
     }
 
     byDebtor[transfer.from][transfer.to] =
-      (byDebtor[transfer.from][transfer.to] || 0) + Number(transfer.amount || 0);
+      (byDebtor[transfer.from][transfer.to] || 0) +
+      Number(transfer.amount || 0);
   }
 
   const debtors = Object.entries(byDebtor)
@@ -1268,7 +1272,9 @@ function sharedStackedDebtChart(group) {
     return `<div class="empty-chart">No outstanding debts in this group.</div>`;
   }
 
+  // Find every creditor for the legend.
   const allCreditors = [];
+
   for (const debtor of debtors) {
     for (const { creditor } of debtor.creditors) {
       if (!allCreditors.includes(creditor)) {
@@ -1277,78 +1283,205 @@ function sharedStackedDebtChart(group) {
     }
   }
 
-  const colors = SPLIT_PALETTE;
+  // Total outstanding amount for each debtor.
+  const debtorTotals = debtors.map(({ debtor, creditors }) => ({
+    debtor,
+    creditors,
+    total: creditors.reduce(
+      (sum, item) => sum + Number(item.amount || 0),
+      0
+    )
+  }));
 
-  const bars = debtors.map(({ debtor, creditors }) => {
-    const total = creditors.reduce((sum, x) => sum + x.amount, 0);
+  // The longest bar represents 100% of the chart width.
+  const maxTotal = Math.max(
+    1,
+    ...debtorTotals.map(item => item.total)
+  );
 
-    const segments = creditors.map(({ creditor, amount }) => {
-      const color = colors[allCreditors.indexOf(creditor) % colors.length];
-      const width = total > 0 ? (amount / total) * 100 : 0;
+  /*
+   * Use five responsive x-axis intervals:
+   *
+   * 0%
+   * 25%
+   * 50%
+   * 75%
+   * 100%
+   *
+   * The actual monetary scale is based on the largest debtor.
+   */
+  const xTickCount = 5;
 
-      const creditorLabel =
+  const xTicks = Array.from(
+    { length: xTickCount },
+    (_, i) => {
+      const value = maxTotal * (i / (xTickCount - 1));
+      const percent = (i / (xTickCount - 1)) * 100;
+
+      return {
+        value,
+        percent
+      };
+    }
+  );
+
+  const gridLines = xTicks
+    .map(
+      tick => `
+        <div
+          class="shared-debt-grid-line"
+          style="left:${tick.percent}%"
+        ></div>
+      `
+    )
+    .join('');
+
+  const xLabels = xTicks
+    .map(
+      tick => `
+        <span
+          class="shared-debt-x-tick"
+          style="left:${tick.percent}%"
+        >
+          ${fmtINR(tick.value)}
+        </span>
+      `
+    )
+    .join('');
+
+  const bars = debtorTotals
+    .map(({ debtor, creditors, total }) => {
+
+      /*
+       * IMPORTANT:
+       *
+       * The complete bar width is now proportional to the
+       * debtor's total outstanding amount relative to maxTotal.
+       *
+       * Individual stacked segments then divide that bar
+       * according to the creditor amounts.
+       */
+      const totalWidth =
+	    maxTotal > 0
+	      ? (total / maxTotal) * 100
+	      : 0;
+
+      const segments = creditors
+        .map(({ creditor, amount }) => {
+          const color =
+            SPLIT_PALETTE[
+              allCreditors.indexOf(creditor) % SPLIT_PALETTE.length
+            ];
+
+          const segmentWidth =
+            total > 0
+              ? (amount / total) * 100
+              : 0;
+
+          const creditorLabel =
+            creditor === SPLIT_YOU
+              ? getYouLabel()
+              : escapeHtml(String(creditor).toUpperCase());
+
+          return `
+            <div
+              class="shared-debt-segment"
+              style="
+                width:${segmentWidth}%;
+                background:${color};
+              "
+              title="${creditorLabel}: ${fmtINR(amount)}"
+            ></div>
+          `;
+        })
+        .join('');
+
+      const debtorLabel =
+        debtor === SPLIT_YOU
+          ? getYouLabel()
+          : escapeHtml(String(debtor).toUpperCase());
+
+      return `
+        <div class="shared-debt-row">
+
+          <div
+            class="shared-debt-label"
+            title="${debtorLabel}"
+          >
+            ${debtorLabel}
+          </div>
+
+          <div class="shared-debt-plot">
+
+            <div class="shared-debt-grid">
+              ${gridLines}
+            </div>
+
+            <div
+              class="shared-debt-bar"
+              style="width:${totalWidth}%"
+            >
+              ${segments}
+            </div>
+
+            <div class="shared-debt-total num">
+              ${fmtINR(total)}
+            </div>
+
+          </div>
+
+        </div>
+      `;
+    })
+    .join('');
+
+  const legend = allCreditors
+    .map((creditor, i) => {
+      const color = SPLIT_PALETTE[i % SPLIT_PALETTE.length];
+
+      const label =
         creditor === SPLIT_YOU
           ? getYouLabel()
           : escapeHtml(String(creditor).toUpperCase());
 
       return `
-        <div
-          class="shared-debt-segment"
-          style="width:${width}%; background:${color};"
-          title="${creditorLabel}: ${fmtINR(amount)}"
-        ></div>`;
-    }).join('');
+        <div class="shared-chart-legend-item">
+          <span
+            class="shared-chart-legend-dot"
+            style="background:${color};"
+          ></span>
 
-    const debtorLabel =
-      debtor === SPLIT_YOU
-        ? getYouLabel()
-        : escapeHtml(String(debtor).toUpperCase());
-
-    return `
-      <div class="shared-debt-row">
-        <div class="shared-debt-label" title="${debtorLabel}">
-          ${debtorLabel}
+          <span>${label}</span>
         </div>
-
-        <div class="shared-debt-bar-wrap">
-          <div class="shared-debt-bar">
-            ${segments}
-          </div>
-          <div class="shared-debt-total num">
-            ${fmtINR(total)}
-          </div>
-        </div>
-      </div>`;
-  }).join('');
-
-  const legend = allCreditors.map((creditor, i) => {
-    const color = colors[i % colors.length];
-
-    const label =
-      creditor === SPLIT_YOU
-        ? getYouLabel()
-        : escapeHtml(String(creditor).toUpperCase());
-
-    return `
-      <div class="shared-chart-legend-item">
-        <span
-          class="shared-chart-legend-dot"
-          style="background:${color};"
-        ></span>
-        <span>${label}</span>
-      </div>`;
-  }).join('');
+      `;
+    })
+    .join('');
 
   return `
     <div class="shared-debt-chart">
+
       <div class="shared-debt-bars">
         ${bars}
+      </div>
+
+      <div class="shared-debt-axis">
+
+        <div class="shared-debt-axis-line"></div>
+
+        ${xLabels}
+
+      </div>
+
+      <div class="shared-chart-axis-title">
+        Amount (₹)
       </div>
 
       <div class="shared-chart-legend">
         ${legend}
       </div>
-    </div>`;
+
+    </div>
+  `;
 }
 
 
@@ -1361,7 +1494,8 @@ function sharedSharesBarChart(group) {
 
   for (const spend of (group.spends || [])) {
     for (const [person, amount] of Object.entries(spend.shares || {})) {
-      totals[person] = (totals[person] || 0) + (Number(amount) || 0);
+      totals[person] =
+        (totals[person] || 0) + (Number(amount) || 0);
     }
   }
 
@@ -1377,39 +1511,154 @@ function sharedSharesBarChart(group) {
     return `<div class="empty-chart">No shares recorded in this group yet.</div>`;
   }
 
-  const max = Math.max(1, ...pairs.map(x => x.value));
+  /*
+   * The y-axis is scaled against the largest member share.
+   *
+   * Five responsive ticks:
+   * 0
+   * 25%
+   * 50%
+   * 75%
+   * 100%
+   */
+  const maxValue = Math.max(
+    1,
+    ...pairs.map(x => x.value)
+  );
 
-  const bars = pairs.map((pair, i) => {
-    const label =
-      pair.person === SPLIT_YOU
-        ? getYouLabel()
-        : escapeHtml(String(pair.person).toUpperCase());
+  const yTickCount = 5;
 
-    const height = Math.max(8, (pair.value / max) * 150);
-    const color = SPLIT_PALETTE[i % SPLIT_PALETTE.length];
+  const yTicks = Array.from(
+    { length: yTickCount },
+    (_, i) => {
+      const value =
+        maxValue * (i / (yTickCount - 1));
 
-    return `
-      <div class="shared-share-bar-col">
-        <div class="shared-share-value num">
-          ${fmtINR(pair.value)}
-        </div>
+      const percent =
+        (i / (yTickCount - 1)) * 100;
 
+      return {
+        value,
+        percent
+      };
+    }
+  );
+
+  /*
+   * Grid lines are positioned from the bottom:
+   *
+   * 0%  -> bottom
+   * 25% -> 75% from top
+   * 50% -> 50% from top
+   * 75% -> 25% from top
+   * 100% -> top
+   */
+  const gridLines = yTicks
+    .map(tick => {
+      const bottom = tick.percent;
+
+      return `
         <div
-          class="shared-share-bar"
-          style="height:${height}px; background:${color};"
-          title="${label}: ${fmtINR(pair.value)}"
+          class="shared-share-grid-line"
+          style="bottom:${bottom}%"
         ></div>
+      `;
+    })
+    .join('');
 
-        <div class="shared-share-label" title="${label}">
-          ${label}
+  const yLabels = yTicks
+    .map(tick => {
+      const bottom = tick.percent;
+
+      return `
+        <span
+          class="shared-share-y-tick"
+          style="bottom:${bottom}%"
+        >
+          ${fmtINR(tick.value)}
+        </span>
+      `;
+    })
+    .join('');
+
+  const bars = pairs
+    .map((pair, i) => {
+
+      /*
+       * Bar height is relative to the largest share.
+       */
+      const height =
+        maxValue > 0
+          ? (pair.value / maxValue) * 100
+          : 0;
+
+      const label =
+        pair.person === SPLIT_YOU
+          ? getYouLabel()
+          : escapeHtml(String(pair.person).toUpperCase());
+
+      const color =
+        SPLIT_PALETTE[i % SPLIT_PALETTE.length];
+
+      return `
+        <div class="shared-share-bar-col">
+
+          <div class="shared-share-value num">
+            ${fmtINR(pair.value)}
+          </div>
+
+          <div class="shared-share-bar-area">
+
+            <div
+              class="shared-share-bar"
+              style="
+                height:${height}%;
+                background:${color};
+              "
+              title="${label}: ${fmtINR(pair.value)}"
+            ></div>
+
+          </div>
+
+          <div
+            class="shared-share-label"
+            title="${label}"
+          >
+            ${label}
+          </div>
+
         </div>
-      </div>`;
-  }).join('');
+      `;
+    })
+    .join('');
 
   return `
     <div class="shared-share-chart">
-      ${bars}
-    </div>`;
+
+      <div class="shared-share-y-axis">
+        ${yLabels}
+      </div>
+
+      <div class="shared-share-plot">
+
+        <div class="shared-share-grid">
+          ${gridLines}
+        </div>
+
+        <div class="shared-share-bars">
+          ${bars}
+        </div>
+
+        <div class="shared-share-axis-line"></div>
+
+      </div>
+
+    </div>
+
+    <div class="shared-share-axis-title">
+      Total Share (₹)
+    </div>
+  `;
 }
 
 
@@ -1537,13 +1786,13 @@ async function renderSharedSplitPage(group) {
       </div>
 
       <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Person</th>
-              <th>Total Share</th>
-            </tr>
-          </thead>
+	    <table class="shared-shares-table">
+	  	  <thead>
+	  	    <tr>
+	  	  	  <th>Person</th>
+	  	  	  <th>Total Share</th>
+	  	    </tr>
+	  	  </thead>
 
           <tbody>
             ${shareRows ||
