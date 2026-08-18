@@ -1475,6 +1475,8 @@ function sharedStackedDebtChart(group) {
           ? getYouLabel()
           : escapeHtml(String(debtor).toUpperCase());
 
+      const isInside = totalWidth > 50;
+
       return `
         <div class="shared-debt-row">
 
@@ -1492,15 +1494,17 @@ function sharedStackedDebtChart(group) {
             </div>
 
             <div
-			  class="shared-debt-bar"
-			  style="width:${totalWidth}%; --bar-end:${totalWidth}%"
-			>
+              class="shared-debt-bar"
+              style="width:${totalWidth}%; --bar-end:${totalWidth}%"
+            >
               ${segments}
+              
+              <!-- INSIDE: Rendered only if > 50% -->
+              ${isInside ? `<div class="shared-debt-total inside num">${fmtINR(total)}</div>` : ''}
             </div>
 
-            <div class="shared-debt-total num">
-              ${fmtINR(total)}
-            </div>
+            <!-- OUTSIDE: Rendered only if <= 50% -->
+            ${!isInside ? `<div class="shared-debt-total outside num" style="left:${totalWidth}%;">${fmtINR(total)}</div>` : ''}
 
           </div>
 
@@ -1652,10 +1656,6 @@ function sharedSharesBarChart(group) {
 
   const bars = pairs
     .map((pair, i) => {
-
-      /*
-       * Bar height is relative to the largest share.
-       */
       const height =
         maxValue > 0
           ? (pair.value / maxValue) * 100
@@ -1666,38 +1666,43 @@ function sharedSharesBarChart(group) {
           ? getYouLabel()
           : escapeHtml(String(pair.person).toUpperCase());
 
-      const color =
-        SPLIT_PALETTE[i % SPLIT_PALETTE.length];
+      const color = SPLIT_PALETTE[i % SPLIT_PALETTE.length];
+      const isInside = height > 50;
+      const formattedValue = fmtINR(pair.value);
 
       return `
         <div class="shared-share-bar-col">
-
-          <div class="shared-share-value num">
-            ${fmtINR(pair.value)}
-          </div>
-
           <div class="shared-share-bar-area">
-
+            
             <div
               class="shared-share-bar"
-              style="
-                height:${height}%;
-                background:${color};
-              "
-              title="${label}: ${fmtINR(pair.value)}"
-            ></div>
+              style="height:${height}%; background:${color};"
+              title="${label}: ${formattedValue}"
+            >
+              <!-- Value inside if > 50% -->
+              ${isInside ? `
+              <div class="shared-share-value-wrap inside">
+                <div class="shared-share-value-text num">${formattedValue}</div>
+              </div>` : ''}
+            </div>
+
+            <!-- Value outside if <= 50% -->
+            ${!isInside ? `
+            <div class="shared-share-value-wrap outside" style="bottom:${height}%;">
+              <div class="shared-share-value-text num">${formattedValue}</div>
+            </div>` : ''}
 
           </div>
-
-          <div
-            class="shared-share-label"
-            title="${label}"
-          >
-            ${label}
-          </div>
-
         </div>
       `;
+    })
+    .join('');
+
+  // The labels remain separated at the bottom as you requested previously
+  const labels = pairs
+    .map((pair) => {
+      const label = pair.person === SPLIT_YOU ? getYouLabel() : escapeHtml(String(pair.person).toUpperCase());
+      return `<div class="shared-share-label" title="${label}">${label}</div>`;
     })
     .join('');
 
@@ -1709,17 +1714,20 @@ function sharedSharesBarChart(group) {
       </div>
 
       <div class="shared-share-plot">
-
         <div class="shared-share-grid">
           ${gridLines}
         </div>
-
         <div class="shared-share-bars">
           ${bars}
         </div>
-
         <div class="shared-share-axis-line"></div>
+      </div>
+      
+      <div class="shared-share-corner"></div>
 
+      <!-- Labels stay outside the plot -->
+      <div class="shared-share-x-labels">
+        ${labels}
       </div>
 
     </div>
