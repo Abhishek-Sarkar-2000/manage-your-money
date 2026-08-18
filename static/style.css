@@ -1923,3 +1923,27 @@ svg.linechart text {
   /* The !important flag overrides the default .form-panel fadeInUp animation */
   animation: fadeInDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) both !important;
 }
+
+/* ---------- Shared Read-Only Mode ---------- */
+body.shared-mode .sgc-actions [data-settle-group-toggle],
+body.shared-mode .sgc-actions [data-del-split],
+body.shared-mode .pill-grid,
+body.shared-mode .form-panel,
+body.shared-mode td.actions-cell,
+body.shared-mode th:last-child,
+body.shared-mode .topbar .brand,
+body.shared-mode .fab-home {
+  display: none !important;
+}
+
+body.shared-mode .toggle-switch {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+body.shared-mode .sp-share {
+  pointer-events: none;
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink);
+}

@@ -153,6 +153,8 @@ const State = {
   splitSpendFormOpen: false,
   splitExpandedId: null,
   splitCalloutPinned: null,
+  isShared: false,
+  sharedSplitId: null,
 };
 
 async function loadCore(){
@@ -218,6 +220,10 @@ async function loadAllMonths(){
 
 /* ---------- Split Money: persistence ---------- */
 const SPLIT_YOU = 'YOU';
+function getYouLabel(possessive = false) {
+  if (State.isShared) return possessive ? "CREATOR's" : "CREATOR";
+  return possessive ? "YOUR" : "YOU";
+}
 async function loadSplit(id){
   if(State.splitCache[id]) return State.splitCache[id];
   const data = await Store.get('split:'+id, null);
@@ -553,7 +559,13 @@ function computeGroupSettlementView(group){
   return {rawNet, paid, cards};
 }
 async function computeSplitPageData(){
-  const groups = await loadAllSplitGroups();
+  let groups = [];
+  if (State.isShared) {
+    const singleGroup = await loadSplit(State.sharedSplitId);
+    if (singleGroup) groups.push(singleGroup);
+  } else {
+    groups = await loadAllSplitGroups();
+  }
   let allCards = [];
   for(const g of groups){
     const {cards} = computeGroupSettlementView(g);
@@ -1265,7 +1277,7 @@ async function viewSplit(){
     }
 
     const shareRows = expandedGroup.people.map(p => {
-      const label = p === SPLIT_YOU ? 'YOU' : escapeHtml(p.toUpperCase());
+      const label = p === SPLIT_YOU ? getYouLabel() : escapeHtml(p.toUpperCase());
       const amtPaid = paid[p] || 0;
       const amtShare = consumed[p] || 0;
       return `<tr>
@@ -1376,7 +1388,7 @@ function renderSplitGroupCard(group){
   const paid = computeGroupPaid(group);
   const dateLabel = group.createdAt ? new Date(group.createdAt+'T00:00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '';
   const rows = group.people.map(p => `
-    <div class="sgc-person"><span class="spn">${p===SPLIT_YOU?'YOU':escapeHtml(p.toUpperCase())}</span><span class="spv">${fmtINR(paid[p]||0)}</span></div>`).join('');
+	<div class="sgc-person"><span class="spn">${p===SPLIT_YOU ? getYouLabel() : escapeHtml(p.toUpperCase())}</span><span class="spv">${fmtINR(paid[p]||0)}</span></div>`).join('');
   const active = State.splitExpandedId === group.id ? 'active' : '';
 
   const {cards} = computeGroupSettlementView(group);
@@ -1389,6 +1401,7 @@ function renderSplitGroupCard(group){
       <label class="toggle-switch" title="${isFullySettled ? 'Un-settle all' : 'Settle all'}">
         <input type="checkbox" data-settle-group-toggle="${group.id}" ${isFullySettled ? 'checked' : ''} />
       </label>
+	  <button class="icon-btn" data-share-split="${group.id}" title="Share link" type="button">🔗</button>
       <button class="icon-btn" data-del-split="${group.id}" title="Delete group" type="button">✕</button>
     </div>
     <h4>${escapeHtml(group.description)}</h4>
@@ -1398,12 +1411,12 @@ function renderSplitGroupCard(group){
 }
 
 function renderSplitSettleCard(c){
-  const from = c.from===SPLIT_YOU ? 'YOU' : escapeHtml(c.from.toUpperCase());
-  const to = c.to===SPLIT_YOU ? 'YOU' : escapeHtml(c.to.toUpperCase());
+  const from = c.from===SPLIT_YOU ? getYouLabel() : escapeHtml(c.from.toUpperCase());
+  const to = c.to===SPLIT_YOU ? getYouLabel() : escapeHtml(c.to.toUpperCase());
   return `
   <div class="split-settle-card ${c.settled?'settled':''}">
     <div class="ssc-group">${escapeHtml(c.groupDesc||'')}</div>
-    <div class="ssc-line"><strong>${from}</strong> ${c.from===SPLIT_YOU?'pay':'pays'} <strong>${to}</strong></div>
+    <div class="ssc-line"><strong>${from}</strong> ${c.from===SPLIT_YOU && !State.isShared ? 'pay' : 'pays'} <strong>${to}</strong></div>
     <div class="ssc-amount num">${fmtINR(c.amount)}</div>
     <label class="toggle-switch">
       <input type="checkbox" data-settle-toggle
@@ -1418,7 +1431,7 @@ function renderSplitSettleCard(c){
 
 function renderSplitShareCallout(group, s){
   const shares = group.people.map(p => ({
-    label: p===SPLIT_YOU ? 'YOU' : String(p).toUpperCase(),
+    label: p===SPLIT_YOU ? getYouLabel() : String(p).toUpperCase(),
     amount: Number((s.shares||{})[p]) || 0
   }));
   const dataAttr = escapeHtml(JSON.stringify(shares));
@@ -1426,11 +1439,11 @@ function renderSplitShareCallout(group, s){
 }
 
 function renderSplitDetailsPanel(group) {
-  const memberOptions = group.people.map(p => `<option value="${escapeHtml(p)}">${p === SPLIT_YOU ? 'YOU' : escapeHtml(p.toUpperCase())}</option>`).join('');
+  const memberOptions = group.people.map(p => `<option value="${escapeHtml(p)}">${p === SPLIT_YOU ? getYouLabel() : escapeHtml(p.toUpperCase())}</option>`).join('');
   
   // Member share fields with toggle placed side-by-side with the input
   const shareInputs = group.people.map(p => {
-    const personLabel = p === SPLIT_YOU ? 'YOUR share' : `${escapeHtml(p.toUpperCase())}'s share`;
+    const personLabel = p === SPLIT_YOU ? getYouLabel(true) + ' share' : `${escapeHtml(p.toUpperCase())}'s share`;
     return `
     <div class="field split-person-share-box">
       <label>${personLabel} (₹)</label>
@@ -1454,7 +1467,7 @@ function renderSplitDetailsPanel(group) {
       seenDates.add(s.date);
       dateCell = `<td class="dv-date" rowspan="${dateCounts[s.date]}">${dateLabel}</td>`;
     }
-    const payeeLabel = s.payee === SPLIT_YOU ? 'YOU' : escapeHtml(String(s.payee).toUpperCase());
+    const payeeLabel = s.payee === SPLIT_YOU ? getYouLabel() : escapeHtml(String(s.payee).toUpperCase());
     return `<tr>${dateCell}<td>${renderSplitShareCallout(group, s)}</td><td>${payeeLabel}</td><td class="num">${fmtINR(s.amount)}</td><td class="actions-cell"><button class="icon-btn" data-del-split-spend="${group.id}|${s.id}" title="Remove spend">✕</button></td></tr>`;
   }).join('');
   const formHtml = State.splitSpendFormOpen ? `
@@ -1993,6 +2006,15 @@ function bindEvents(){
       }
       return;
     }
+	const shareBtn = ev.target.closest('[data-share-split]');
+	if (shareBtn) {
+		const id = shareBtn.dataset.shareSplit;
+		const link = window.location.origin + window.location.pathname + '?share=' + id;
+		navigator.clipboard.writeText(link).then(() => {
+			showToast('Link copied! Anyone with this link can view the split.');
+		}).catch(() => showToast('Failed to copy link.'));
+		return;
+	}
     const formBtn = ev.target.closest('[data-form]');
     if(formBtn){
       const newForm = formBtn.dataset.form;
@@ -2562,6 +2584,19 @@ async function handleSubmit(kind){
 
 /* ---------- Boot ---------- */
 (async function init() {
-  await loadCore();
+  const urlParams = new URLSearchParams(window.location.search);
+  const shareId = urlParams.get('share');
+
+  if (shareId) {
+    // Shared Read-Only Mode
+    State.isShared = true;
+    State.sharedSplitId = shareId;
+    State.view = 'split';
+    State.splitExpandedId = shareId;
+    document.body.classList.add('shared-mode'); // Locks down UI via CSS
+  } else {
+    // Normal Authenticated/Local Boot
+    await loadCore();
+  }
   await render();
 })();
