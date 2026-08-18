@@ -1672,10 +1672,6 @@ function sharedSharesBarChart(group) {
       return `
         <div class="shared-share-bar-col">
 
-          <div class="shared-share-value num">
-            ${fmtINR(pair.value)}
-          </div>
-
           <div class="shared-share-bar-area">
 
             <div
@@ -1685,7 +1681,11 @@ function sharedSharesBarChart(group) {
                 background:${color};
               "
               title="${label}: ${fmtINR(pair.value)}"
-            ></div>
+            >
+              <div class="shared-share-value num">
+                ${fmtINR(pair.value)}
+              </div>
+            </div>
 
           </div>
 

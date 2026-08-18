@@ -1058,7 +1058,7 @@ transform: translateY(0);
 
 .shared-debt-row {
   display: grid;
-  grid-template-columns: clamp(72px, 20%, 140px) minmax(0, 1fr);
+  grid-template-columns: clamp(72px, 20%, 140px) minmax(0, 1fr) 60px;
   gap: 10px;
   align-items: center;
   width: 100%;
@@ -1380,10 +1380,7 @@ transform: translateY(0);
 @media (max-width: 600px) {
 
   .shared-debt-row {
-    grid-template-columns:
-      clamp(62px, 22%, 90px)
-      minmax(0, 1fr);
-
+    grid-template-columns: clamp(62px, 22%, 90px) minmax(0, 1fr) 42px;
     gap: 7px;
   }
 
