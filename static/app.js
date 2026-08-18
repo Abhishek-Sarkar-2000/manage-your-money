@@ -1230,6 +1230,83 @@ function splitDonut(segments, emptyMsg){
 }
 const SPLIT_PALETTE = ['var(--blue)','#C98A3C','#8E6FB0','var(--debit)','var(--credit)','#5B4B9E','var(--amber)','var(--blue-soft)','#2E7D6B','#AD4358'];
 
+function formatChartMoney(value) {
+  const amount = Number(value) || 0;
+  const abs = Math.abs(amount);
+
+  let formatted;
+
+  if (abs >= 10000000) {
+    formatted = (amount / 10000000).toFixed(2) + 'Cr';
+  } else if (abs >= 100000) {
+    formatted = (amount / 100000).toFixed(2) + 'L';
+  } else if (abs >= 1000) {
+    formatted = (amount / 1000).toFixed(2) + 'K';
+  } else {
+    formatted = Math.round(amount).toString();
+  }
+
+  // Remove unnecessary trailing zeroes.
+  formatted = formatted
+    .replace(/(\.\d*?[1-9])0+(?=[A-Za-z]|$)/, '$1')
+    .replace(/\.0+(?=[A-Za-z]|$)/, '');
+
+  return `₹${formatted}`;
+}
+
+
+function niceChartStep(maxValue, tickCount = 5) {
+  if (!maxValue || maxValue <= 0) {
+    return 1;
+  }
+
+  const rawStep = maxValue / tickCount;
+
+  const magnitude =
+    Math.pow(10, Math.floor(Math.log10(rawStep)));
+
+  const normalized = rawStep / magnitude;
+
+  let niceNormalized;
+
+  if (normalized <= 1) {
+    niceNormalized = 1;
+  } else if (normalized <= 2) {
+    niceNormalized = 2;
+  } else if (normalized <= 2.5) {
+    niceNormalized = 2.5;
+  } else if (normalized <= 5) {
+    niceNormalized = 5;
+  } else {
+    niceNormalized = 10;
+  }
+
+  return niceNormalized * magnitude;
+}
+
+
+function buildNiceChartTicks(maxValue, tickCount = 5) {
+  const step = niceChartStep(maxValue, tickCount);
+
+  const niceMax =
+    Math.ceil(maxValue / step) * step;
+
+  const ticks = [];
+
+  for (
+    let value = 0;
+    value <= niceMax + step * 0.001;
+    value += step
+  ) {
+    ticks.push(Math.round(value * 100) / 100);
+  }
+
+  return {
+    ticks,
+    max: niceMax
+  };
+}
+
 function sharedStackedDebtChart(group) {
   const { cards } = computeGroupSettlementView(group);
 
@@ -1294,10 +1371,13 @@ function sharedStackedDebtChart(group) {
   }));
 
   // The longest bar represents 100% of the chart width.
-  const maxTotal = Math.max(
+  const actualMaxTotal = Math.max(
     1,
     ...debtorTotals.map(item => item.total)
   );
+  
+  const debtAxis = buildNiceChartTicks(actualMaxTotal, 4);
+  const maxTotal = debtAxis.max;
 
   /*
    * Use five responsive x-axis intervals:
@@ -1310,20 +1390,14 @@ function sharedStackedDebtChart(group) {
    *
    * The actual monetary scale is based on the largest debtor.
    */
-  const xTickCount = 5;
 
-  const xTicks = Array.from(
-    { length: xTickCount },
-    (_, i) => {
-      const value = maxTotal * (i / (xTickCount - 1));
-      const percent = (i / (xTickCount - 1)) * 100;
-
-      return {
-        value,
-        percent
-      };
-    }
-  );
+  const xTicks = debtAxis.ticks.map(value => ({
+    value,
+    percent:
+      debtAxis.max > 0
+        ? (value / debtAxis.max) * 100
+        : 0
+  }));
 
   const gridLines = xTicks
     .map(
@@ -1343,7 +1417,7 @@ function sharedStackedDebtChart(group) {
           class="shared-debt-x-tick"
           style="left:${tick.percent}%"
         >
-          ${fmtINR(tick.value)}
+          ${formatChartMoney(tick.value)}
         </span>
       `
     )
@@ -1418,9 +1492,9 @@ function sharedStackedDebtChart(group) {
             </div>
 
             <div
-              class="shared-debt-bar"
-              style="width:${totalWidth}%"
-            >
+			  class="shared-debt-bar"
+			  style="width:${totalWidth}%; --bar-end:${totalWidth}%"
+			>
               ${segments}
             </div>
 
@@ -1521,28 +1595,23 @@ function sharedSharesBarChart(group) {
    * 75%
    * 100%
    */
-  const maxValue = Math.max(
+  const actualMaxValue = Math.max(
     1,
     ...pairs.map(x => x.value)
   );
-
-  const yTickCount = 5;
-
-  const yTicks = Array.from(
-    { length: yTickCount },
-    (_, i) => {
-      const value =
-        maxValue * (i / (yTickCount - 1));
-
-      const percent =
-        (i / (yTickCount - 1)) * 100;
-
-      return {
-        value,
-        percent
-      };
-    }
-  );
+  
+  const shareAxis =
+    buildNiceChartTicks(actualMaxValue, 4);
+  
+  const maxValue = shareAxis.max;
+  
+  const yTicks = shareAxis.ticks.map(value => ({
+    value,
+    percent:
+      shareAxis.max > 0
+        ? (value / shareAxis.max) * 100
+        : 0
+  }));
 
   /*
    * Grid lines are positioned from the bottom:
@@ -1575,7 +1644,7 @@ function sharedSharesBarChart(group) {
           class="shared-share-y-tick"
           style="bottom:${bottom}%"
         >
-          ${fmtINR(tick.value)}
+          ${formatChartMoney(tick.value)}
         </span>
       `;
     })
