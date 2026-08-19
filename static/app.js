@@ -717,8 +717,6 @@ async function render(){
   }
 
   const showLoginHero = !State.isShared && !State.user;
-  const authBar = document.getElementById('auth-bar');
-  if(authBar) authBar.style.display = showLoginHero ? 'none' : '';
 
   if(showLoginHero) app.innerHTML = viewLoginHero();
   else if(State.view === 'home') app.innerHTML = await viewHome();
@@ -744,7 +742,7 @@ async function render(){
   }
   bindEvents();
   setupScrollWrappers();
-  renderHeroGoogleButton();
+  if(showLoginHero) renderHeroGoogleButton();
 }
 
 /* ---------- Signed-out landing ---------- */
@@ -3464,7 +3462,7 @@ function initGoogleSignIn(){
   }
 }
 function renderHeroGoogleButton(){
-  // if(!window.google || !window.google.accounts || !window.google.accounts.id) return;
+  if(!window.google || !window.google.accounts || !window.google.accounts.id) return;
   const el = document.getElementById('hero-google-signin-btn');
   if(!el) return;
   google.accounts.id.renderButton(el, {
