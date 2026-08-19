@@ -3464,7 +3464,7 @@ function initGoogleSignIn(){
   }
 }
 function renderHeroGoogleButton(){
-  if(!window.google || !window.google.accounts || !window.google.accounts.id) return;
+  // if(!window.google || !window.google.accounts || !window.google.accounts.id) return;
   const el = document.getElementById('hero-google-signin-btn');
   if(!el) return;
   google.accounts.id.renderButton(el, {
