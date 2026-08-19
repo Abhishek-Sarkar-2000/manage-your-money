@@ -99,13 +99,37 @@ function showToast(msg){
   showToast._h = setTimeout(()=>t.classList.remove('show'), 2200);
 }
 
+/* ---------- Server-provided config ---------- */
+const AppConfig = (() => {
+  try{
+    return JSON.parse(document.getElementById('app-config')?.textContent || '{}');
+  }catch(e){
+    console.error('Could not parse app-config', e);
+    return {};
+  }
+})();
+
+/* ---------- Auth ----------
+   A signed-out session mid-use (cookie expired, server restarted, etc.)
+   surfaces as 401s from the storage API. onAuthRequired() drops us back
+   to the signed-out state once, without spamming toasts on every call. */
+function onAuthRequired(){
+  if(State.isShared) return; // public pages never need a session
+  if(!State.user) return;    // already handled
+  State.user = null;
+  updateProfileBadge();
+  showToast('Your session expired — please sign in again.');
+  render();
+}
+
 /* ---------- Storage layer ----------
-   Talks to the local Flask backend (app.py), which persists
-   everything in a SQLite database file (money.db) on disk. */
+   Talks to the local Flask backend (app.py), which persists everything
+   per-signed-in-user in a database (money.db locally, or Turso in prod). */
 const Store = {
   async get(key, fallback){
     try{
       const res = await fetch('/api/storage/' + encodeURIComponent(key));
+      if(res.status === 401){ onAuthRequired(); return fallback; }
       if(res.status === 404) return fallback;
       if(!res.ok) throw new Error('GET failed: ' + res.status);
       const body = await res.json();
@@ -123,6 +147,7 @@ const Store = {
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({value: JSON.stringify(value)})
       });
+      if(res.status === 401){ onAuthRequired(); return false; }
       if(!res.ok) throw new Error('PUT failed: ' + res.status);
       return true;
     }catch(e){
@@ -155,6 +180,8 @@ const State = {
   splitCalloutPinned: null,
   isShared: false,
   sharedSplitId: null,
+  sharedOwner: null,
+  user: null,
 };
 
 async function loadCore(){
@@ -221,10 +248,19 @@ async function loadAllMonths(){
 /* ---------- Split Money: persistence ---------- */
 const SPLIT_YOU = 'YOU';
 function getYouLabel(possessive = false) {
-  if (State.isShared) return possessive ? "CREATOR's" : "CREATOR";
+  if (State.isShared) {
+    const rawName = (State.sharedOwner && State.sharedOwner.name);
+    const name = rawName ? rawName.split(' ')[0].toUpperCase() : 'OWNER';
+    return possessive ? `${name}'s` : name;
+  }
   return possessive ? "YOUR" : "YOU";
 }
 async function loadSplit(id){
+  if(State.isShared){
+    // Public split data is fetched once at boot via loadSharedSplit() and
+    // never touches the authenticated /api/storage endpoints.
+    return State.splitCache[id] || null;
+  }
   if(State.splitCache[id]) return State.splitCache[id];
   const data = await Store.get('split:'+id, null);
   if(data){
@@ -234,6 +270,32 @@ async function loadSplit(id){
     State.splitCache[id] = data;
   }
   return data;
+}
+async function loadSharedSplit(){
+  try{
+    const res = await fetch('/api/public/split/' + encodeURIComponent(State.sharedSplitId));
+    if(!res.ok){
+      const body = await res.json().catch(() => ({}));
+      State.splitCache[State.sharedSplitId] = null;
+      State.sharedOwner = null;
+      if(body.error) showToast(body.error);
+      return;
+    }
+    const body = await res.json();
+    const group = body.group || null;
+    if(group){
+      group.spends = group.spends || [];
+      group.settlements = group.settlements || [];
+      group.people = group.people && group.people.length ? group.people : [SPLIT_YOU];
+    }
+    State.splitCache[State.sharedSplitId] = group;
+    State.sharedOwner = body.owner || null;
+  }catch(e){
+    console.error('failed to load shared split', e);
+    State.splitCache[State.sharedSplitId] = null;
+    State.sharedOwner = null;
+    showToast('Could not load this shared split.');
+  }
 }
 async function saveSplit(id){
   await Store.set('split:'+id, State.splitCache[id]);
@@ -654,24 +716,51 @@ async function render(){
     app.classList.add('no-entrance-anim');
   }
 
-  if(State.view === 'home') app.innerHTML = await viewHome();
+  const showLoginHero = !State.isShared && !State.user;
+  const authBar = document.getElementById('auth-bar');
+  if(authBar) authBar.style.display = showLoginHero ? 'none' : '';
+
+  if(showLoginHero) app.innerHTML = viewLoginHero();
+  else if(State.view === 'home') app.innerHTML = await viewHome();
   else if(State.view === 'cards') app.innerHTML = viewCards();
   else if(State.view === 'months') app.innerHTML = await viewMonthsList();
   else if(State.view === 'month') app.innerHTML = await viewMonth();
   else if(State.view === 'split') app.innerHTML = await viewSplit();
 
-  if(State.view !== 'home'){
+  if(!showLoginHero && State.view !== 'home'){
     app.insertAdjacentHTML('beforeend', `<button class="fab-home" data-nav="home" title="Back to home" aria-label="Back to home">⌂</button>`);
   }
-  app.insertAdjacentHTML('beforeend', `
-    <div class="footer-block">
-      <p class="privacy-note">Your figures are stored privately and only visible to you.</p>
-      <div class="page-footer"><span>Don't you squander now ;)</span></div>
-    </div>
-  `);
-  app.insertAdjacentHTML('beforeend', `<div id="split-share-popover" class="split-row-popover"></div>`);
+  if(!showLoginHero){
+    const footerNote = State.isShared
+      ? "You're viewing a read-only, shared Split Money group."
+      : "Your figures are stored privately and only visible to you.";
+    app.insertAdjacentHTML('beforeend', `
+      <div class="footer-block">
+        <p class="privacy-note">${footerNote}</p>
+        <div class="page-footer"><span>Don't you squander now ;)</span></div>
+      </div>
+    `);
+    app.insertAdjacentHTML('beforeend', `<div id="split-share-popover" class="split-row-popover"></div>`);
+  }
   bindEvents();
   setupScrollWrappers();
+  if(showLoginHero) renderHeroGoogleButton();
+}
+
+/* ---------- Signed-out landing ---------- */
+function viewLoginHero(){
+  return `
+  <div class="topbar-login">
+    <div class="brand-login"><span class="mark">₹</span> Ledger &amp; Line</div>
+    <div class="hero login-hero"> 
+      <div class="eyebrow">Personal finance, kept plainly</div>
+      <h1>Manage your money <em>(made easy)</em></h1>
+      <p>Log what comes in and what goes out, track what's lent, owed and invested, split group spends with friends — all synced privately to your Google account.</p>
+      <div id="hero-google-signin-btn" class="hero-google-signin-btn"></div>
+      <div class="login-hero-note">Your Google account is used only to keep your data yours — sign in to continue.</div>
+    </div>
+  </div>
+  `;
 }
 
 /* ---------- Reusable horizontal scroll wrapper ---------- */
@@ -734,6 +823,46 @@ function hideSplitCallout(){
   if(pop) pop.classList.remove('show');
   State.splitCalloutPinned = null;
 }
+function showDeleteCallout(triggerEl, actionName, id) {
+  const pop = $('#del-popover');
+  if (!pop) return;
+  
+  pop.innerHTML = `
+    <span style="font-size: 0.9rem; font-weight: 600; color: var(--navy);">Delete?</span>
+    <div style="display: flex; gap: 6px;">
+      <button class="icon-btn" data-${actionName}="${id}" style="color: var(--credit);" title="Confirm">✓</button>
+      <button class="icon-btn" data-cancel-del style="color: var(--debit);" title="Cancel">✕</button>
+    </div>
+  `;
+  
+  pop.classList.add('show');
+  
+  const rect = triggerEl.getBoundingClientRect();
+  const popWidth = pop.offsetWidth || 130; 
+  let viewLeft = rect.left - popWidth - 10;
+  let viewTop = rect.top + (rect.height / 2) - ((pop.offsetHeight || 44) / 2);
+  
+  pop.style.left = (viewLeft + window.scrollX) + 'px';
+  pop.style.top = (viewTop + window.scrollY) + 'px';
+}
+
+function hideDeleteCallout() {
+  const pop = $('#del-popover');
+  if (pop) pop.classList.remove('show');
+}
+async function deleteMonth(key) {
+  State.monthsIndex = State.monthsIndex.filter(k => k !== key);
+  await Store.set('months-index', State.monthsIndex);
+  delete State.monthCache[key];
+  
+  // Overwrite the month data with a blank slate in the database
+  await Store.set('month:' + key, {
+    startingBalanceMode: 'manual', 
+    startingBalance: 0, 
+    entries: [], 
+    deletedEmi: []
+  });
+}
 
 /* ---------- Stat cards (shared by Home + Month view) ---------- */
 function renderStatCards(stats, splitOwed){
@@ -760,7 +889,7 @@ function renderStatCards(stats, splitOwed){
   const splitOwedCard = splitOwed ? (() => {
     const splitPop = splitOwed.list.length
       ? splitOwed.list.map(p=>`<div class="pop-row"><span class="pn">${escapeHtml(p.person)}</span><span class="pv" style="color:var(--debit)">${fmtINR(p.amount)}</span></div>`).join('')
-      : `<div class="pop-empty">You're all settled up in Split Money.</div>`;
+      : `<div class="pop-empty">You're all settled up.</div>`;
     return `
     <div class="stat-card owedbyyou" tabindex="0" data-stat-card>
       <div class="stat-back"><div class="pop-title">Who you owe</div>${splitPop}</div>
@@ -922,7 +1051,7 @@ async function viewHome(){
     <div class="brand" data-nav="home"><span class="mark">₹</span> Ledger &amp; Line</div>
   </div>
   <div class="hero">
-    <div class="eyebrow">Personal finance, kept plainly</div>
+    <div class="eyebrow">Personal finance, kept plainly : For ${escapeHtml((State.user?.name || '').split(' ')[0])}</div>
     <h1>Manage your money <em>(made easy)</em></h1>
     <p>Log what comes in and what goes out, track what's lent, owed and invested — and watch your balance take shape, month by month.</p>
   </div>
@@ -1026,7 +1155,10 @@ async function viewMonthsList(){
           <div class="mr-name">${monthKeyLabel(k)}</div>
           <div class="mr-sub">${data.entries.length} ${data.entries.length===1?'entry':'entries'} logged</div>
         </div>
-        <div class="mr-val num" style="color:${b.ending>=0?'var(--credit)':'var(--debit)'}">${fmtINR(b.ending)}</div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div class="mr-val num" style="color:${b.ending>=0?'var(--credit)':'var(--debit)'}">${fmtINR(b.ending)}</div>
+          <button class="icon-btn" data-del-month-btn="${k}" title="Delete month" type="button">✕</button>
+        </div>
       </div>`;
   }
   if(!rows) rows = `<div class="empty-chart">No months recorded yet. Add your first month from the home screen.</div>`;
@@ -1104,19 +1236,15 @@ async function viewMonth(){
   <div class="section">
     <div class="month-header">
       <h1>${monthKeyLabel(key)}</h1>
+      <h3 style="margin-bottom: 2px;">Starting balance: ${fmtINR(displayedStarting)}</h3>
     </div>
     <div class="balance-box">
-      <div class="bb-title">Starting balance</div>
-      <div class="radio-row">
-        <label class="radio-opt">
-          <input type="radio" name="sbmode" value="auto" ${mode==='auto'?'checked':''} ${!hasPrev?'disabled':''} />
-          Carry from last month ${hasPrev ? `<span class="bb-computed">(${fmtINR(prevEnding)})</span>` : `<span class="subnote">(no previous month yet)</span>`}
-        </label>
-        <label class="radio-opt">
-          <input type="radio" name="sbmode" value="manual" ${mode==='manual'?'checked':''} />
-          Set manually
-        </label>
-        ${mode==='manual' ? `<input type="number" step="0.01" id="starting-balance-manual" value="${Number(data.startingBalance)||0}" />` : ''}
+      <div class="balance-set">
+        <button class="pill-btn ${mode === 'manual' ? '' : 'active'}" id="toggle-manual-balance-btn" type="button">${mode === 'manual' ? 'Carry from last month' : 'Custom starting balance'}</button>
+        <div class="balance-set-input">
+          Set starting balance: 
+          <input type="number" step="0.01" id="starting-balance-manual" value="${Number(data.startingBalance)||0}" ${mode === 'auto' ? 'disabled' : ''} style="opacity: ${mode === 'auto' ? '0.5' : '1'}; transition: opacity 0.2s ease;" />
+        </div>
       </div>
     </div>
   </div>
@@ -2066,15 +2194,18 @@ function renderSplitGroupCard(group){
   const outstanding = cards.filter(c => !c.settled);
   const isFullySettled = cards.length > 0 && outstanding.length === 0;
 
-  return `
-  <div class="split-group-card ${active}" data-split-card="${group.id}">
+  const actionsHtml = State.isShared ? '' : `
     <div class="sgc-actions">
       <label class="toggle-switch" title="${isFullySettled ? 'Un-settle all' : 'Settle all'}">
         <input type="checkbox" data-settle-group-toggle="${group.id}" ${isFullySettled ? 'checked' : ''} />
       </label>
-	  <button class="icon-btn" data-share-split="${group.id}" title="Share link" type="button">🔗</button>
+      <button class="icon-btn" data-share-split="${group.id}" title="Share link" type="button">🔗</button>
       <button class="icon-btn" data-del-split="${group.id}" title="Delete group" type="button">✕</button>
-    </div>
+    </div>`;
+
+  return `
+  <div class="split-group-card ${active}" data-split-card="${group.id}">
+    ${actionsHtml}
     <h4>${escapeHtml(group.description)}</h4>
     <div class="sgc-date">${dateLabel}</div>
     <div class="sgc-people">${rows}</div>
@@ -2624,6 +2755,31 @@ function bindEvents(){
       await render();
       return;
     }
+    const toggleManualBtn = ev.target.closest('#toggle-manual-balance-btn');
+    if (toggleManualBtn) {
+      const mk = State.currentMonthKey;
+      const data = await loadMonth(mk);
+      // Toggle between auto and manual modes, saving state to the database
+      data.startingBalanceMode = data.startingBalanceMode === 'manual' ? 'auto' : 'manual';
+      await saveMonth(mk);
+      await render();
+      
+      // Auto-focus the input if it was just activated
+      if (data.startingBalanceMode === 'manual') {
+        setTimeout(() => $('#starting-balance-manual')?.focus(), 50);
+      }
+      return;
+    }
+    const delMonthBtn = ev.target.closest('[data-del-month-btn]');
+    if (delMonthBtn) {
+      ev.stopPropagation(); // Stop the row from routing to the month view
+      showDeleteCallout(delMonthBtn, delMonthBtn.dataset.delMonthBtn);
+      return;
+    }
+    // Dismiss the callout if clicking anywhere else outside it
+    if (!ev.target.closest('#del-popover') && !ev.target.closest('[data-del-month-btn]') && !ev.target.closest('[data-del-split]')) {
+      hideDeleteCallout();
+    }
     const openMonthEl = ev.target.closest('[data-open-month]');
     if(openMonthEl){ await openMonth(openMonthEl.dataset.openMonth, false); return; }
 
@@ -2680,10 +2836,27 @@ function bindEvents(){
 	const shareBtn = ev.target.closest('[data-share-split]');
 	if (shareBtn) {
 		const id = shareBtn.dataset.shareSplit;
-		const link = window.location.origin + window.location.pathname + '?share=' + id;
-		navigator.clipboard.writeText(link).then(() => {
+		shareBtn.disabled = true;
+		try{
+			const res = await fetch('/api/split/share', {
+				method: 'POST',
+				headers: {'Content-Type':'application/json'},
+				body: JSON.stringify({key: 'split:' + id})
+			});
+			if(res.status === 401){ onAuthRequired(); return; }
+			const body = await res.json();
+			if(!res.ok){
+				showToast(body.error || 'Could not create a share link');
+				return;
+			}
+			await navigator.clipboard.writeText(body.url);
 			showToast('Link copied! Anyone with this link can view the split.');
-		}).catch(() => showToast('Failed to copy link.'));
+		}catch(e){
+			console.error('share link failed', e);
+			showToast('Failed to copy link.');
+		}finally{
+			shareBtn.disabled = false;
+		}
 		return;
 	}
     const formBtn = ev.target.closest('[data-form]');
@@ -2903,16 +3076,28 @@ function bindEvents(){
       showToast('Split group created');
       return;
     }
-
+    
     const delSplitBtn = ev.target.closest('[data-del-split]');
     if(delSplitBtn){
-      const id = delSplitBtn.dataset.delSplit;
-      await deleteSplitGroup(id);
+      ev.stopPropagation(); // Prevents the card from expanding/collapsing when clicking the X
+      showDeleteCallout(delSplitBtn, 'confirm-del-split', delSplitBtn.dataset.delSplit);
+      return;
+    }
+    const confirmDelSplit = ev.target.closest('[data-confirm-del-split]');
+    if(confirmDelSplit){
+      ev.stopPropagation();
+      await deleteSplitGroup(confirmDelSplit.dataset.confirmDelSplit);
+      hideDeleteCallout();
       await render();
       showToast('Split group deleted');
       return;
     }
-
+    const cancelDel = ev.target.closest('[data-cancel-del]');
+    if (cancelDel) {
+      ev.stopPropagation();
+      hideDeleteCallout();
+      return;
+    }
     const spendToggle = ev.target.closest('[data-spend-toggle]');
     if(spendToggle){
       const key = spendToggle.dataset.spendShares;
@@ -3253,21 +3438,181 @@ async function handleSubmit(kind){
   showToast('Added');
 }
 
+/* ---------- Google Sign-In ---------- */
+function initGoogleSignIn(){
+  if(!window.google || !window.google.accounts || !window.google.accounts.id){
+    // gsi/client script hasn't finished loading yet — retry briefly.
+    setTimeout(initGoogleSignIn, 250);
+    return;
+  }
+  if(!AppConfig.googleClientId){
+    console.warn('GOOGLE_CLIENT_ID is not configured on the server.');
+    return;
+  }
+  google.accounts.id.initialize({
+    client_id: AppConfig.googleClientId,
+    callback: handleGoogleCredential,
+    auto_select: false,
+    cancel_on_tap_outside: true,
+  });
+  const cornerEl = document.getElementById('google-signin-btn');
+  if(cornerEl){
+    google.accounts.id.renderButton(cornerEl, {
+      type: 'standard', theme: 'outline', size: 'medium', shape: 'pill', text: 'signin_with', logo_alignment: 'left',
+      width: '180',
+    });
+  }
+}
+function renderHeroGoogleButton(){
+  if(!window.google || !window.google.accounts || !window.google.accounts.id) return;
+  const el = document.getElementById('hero-google-signin-btn');
+  if(!el) return;
+  google.accounts.id.renderButton(el, {
+    type: 'standard', theme: 'filled_blue', size: 'large', shape: 'pill', text: 'signin_with', logo_alignment: 'left',
+    width: '200'
+  });
+}
+async function handleGoogleCredential(response){
+  try{
+    const res = await fetch('/api/auth/google', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({credential: response.credential})
+    });
+    const body = await res.json().catch(() => ({}));
+    if(!res.ok){
+      showToast(body.error || 'Sign-in failed, please try again');
+      return;
+    }
+    State.user = body.user;
+    updateProfileBadge();
+    if(!State.isShared){
+      await loadCore();
+      State.view = 'home';
+    }
+    await render();
+    showToast(`Welcome, ${(body.user.name || '').split(' ')[0] || 'there'}!`);
+  }catch(e){
+    console.error('Google sign-in failed', e);
+    showToast('Sign-in failed — check your connection.');
+  }
+}
+async function checkAuth(){
+  try{
+    const res = await fetch('/api/auth/me');
+    const body = await res.json();
+    State.user = body.authenticated ? body.user : null;
+  }catch(e){
+    console.error('auth check failed', e);
+    State.user = null;
+  }
+  updateProfileBadge();
+  return State.user;
+}
+async function signOut(){
+  try{
+    await fetch('/api/auth/logout', {method: 'POST'});
+  }catch(e){
+    console.error('logout request failed', e);
+  }
+  State.user = null;
+  State.cards = [];
+  State.emiSeries = [];
+  State.monthsIndex = [];
+  State.monthCache = {};
+  State.customTags = [];
+  State.splitsIndex = [];
+  State.splitCache = {};
+  State.splitExpandedId = null;
+  State.view = 'home';
+  updateProfileBadge();
+  await render();
+  showToast('Signed out');
+}
+function updateProfileBadge(){
+  const signinEl = document.getElementById('google-signin-btn');
+  const badgeEl = document.getElementById('profile-badge');
+  const menuEl = document.getElementById('profile-menu');
+  if(!signinEl || !badgeEl) return;
+
+  if(State.user){
+    signinEl.hidden = true;
+    badgeEl.hidden = false;
+    const avatar = document.getElementById('profile-avatar');
+    const nameEl = document.getElementById('profile-name');
+    const emailEl = document.getElementById('profile-menu-email');
+    const firstName = (State.user.name || '').trim().split(/\s+/)[0] || 'Account';
+    if(avatar){
+      avatar.onerror = () => { avatar.style.display = 'none'; };
+      avatar.style.visibility = 'visible';
+      if(State.user.picture){
+        avatar.style.display = '';
+        avatar.src = State.user.picture;
+      } else {
+        avatar.style.display = 'none';
+      }
+      avatar.alt = State.user.name || '';
+    }
+    // if(nameEl) nameEl.textContent = firstName;
+    if(emailEl) emailEl.textContent = State.user.email || '';
+  } else {
+    signinEl.hidden = false;
+    badgeEl.hidden = true;
+    if(menuEl) menuEl.hidden = true;
+  }
+}
+function wireAuthBar(){
+  const badgeBtn = document.getElementById('profile-badge-btn');
+  const menuEl = document.getElementById('profile-menu');
+  const signoutBtn = document.getElementById('profile-signout-btn');
+
+  if(badgeBtn && menuEl){
+    badgeBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const willOpen = menuEl.hidden;
+      menuEl.hidden = !willOpen;
+      badgeBtn.setAttribute('aria-expanded', String(willOpen));
+    });
+    document.addEventListener('click', (ev) => {
+      const badge = document.getElementById('profile-badge');
+      if(badge && !badge.contains(ev.target)){
+        menuEl.hidden = true;
+        badgeBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+  if(signoutBtn){
+    signoutBtn.addEventListener('click', () => {
+      if(menuEl) menuEl.hidden = true;
+      signOut();
+    });
+  }
+}
+
 /* ---------- Boot ---------- */
 (async function init() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const shareId = urlParams.get('share');
+  wireAuthBar();
+  initGoogleSignIn();
+
+  // Path-based public share route: /share/split/<share_id>
+  // (also accepts a legacy ?share=<id> query param for old links)
+  const pathMatch = window.location.pathname.match(/^\/share\/split\/([^/]+)\/?$/);
+  const legacyShareId = new URLSearchParams(window.location.search).get('share');
+  const shareId = pathMatch ? decodeURIComponent(pathMatch[1]) : legacyShareId;
 
   if (shareId) {
-    // Shared Read-Only Mode
+    // Shared Read-Only Mode — no login required, data comes from the
+    // public API and is scoped entirely to this one split group.
     State.isShared = true;
     State.sharedSplitId = shareId;
     State.view = 'split';
     State.splitExpandedId = shareId;
     document.body.classList.add('shared-mode'); // Locks down UI via CSS
+    await checkAuth(); // still shows the signed-in badge if the viewer happens to be logged in
+    await loadSharedSplit();
   } else {
-    // Normal Authenticated/Local Boot
-    await loadCore();
+    const user = await checkAuth();
+    if (user) await loadCore();
   }
   await render();
 })();

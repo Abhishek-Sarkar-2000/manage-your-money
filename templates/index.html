@@ -4,22 +4,55 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Manage Your Money</title>
-  
+
   <!-- Browser Favicon -->
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon.png') }}" />
-  
+
   <!-- Apple / Mobile Home Screen Icon -->
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon.png') }}" />
-  
+
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  
+
   <!-- Flask Static Stylesheet -->
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+
+  <!-- Google Identity Services (Sign In With Google) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <!--
+    Server-provided config, passed as inert JSON (not inline JS) so it works
+    under a strict script-src CSP. app.js reads this at boot.
+  -->
+  <script id="app-config" type="application/json">{"googleClientId": {{ google_client_id | tojson }}}</script>
 </head>
 <body>
+  <!--
+    Persistent, discreet auth control. Lives outside the #app SPA root so it
+    never flickers or gets clobbered when app.js re-renders views — it is the
+    one piece of chrome that should always look the same everywhere,
+    including on public /share/split/... pages.
+  -->
+  <div id="auth-bar" class="auth-bar">
+    <!-- Signed out: Google renders its own button into this container. -->
+    <div id="google-signin-btn" class="google-signin-btn"></div>
+
+    <!-- Signed in: a small, quiet profile badge — avatar + first name only,
+         no border/background until hovered — with a tiny menu for sign out. -->
+    <div id="profile-badge" class="profile-badge" hidden>
+      <button id="profile-badge-btn" class="profile-badge-btn" type="button" aria-haspopup="true" aria-expanded="false">
+        <img id="profile-avatar" class="profile-avatar" alt="" referrerpolicy="no-referrer"/>
+        <span id="profile-name" class="profile-name"></span>
+      </button>
+      <div id="profile-menu" class="profile-menu" hidden role="menu">
+        <div id="profile-menu-email" class="profile-menu-email"></div>
+        <button id="profile-signout-btn" class="profile-menu-item" type="button" role="menuitem">Sign out</button>
+      </div>
+    </div>
+  </div>
+
   <div id="app"></div>
   <div class="toast" id="toast"></div>
 
