@@ -744,7 +744,7 @@ async function render(){
   }
   bindEvents();
   setupScrollWrappers();
-  if(showLoginHero) renderHeroGoogleButton();
+  renderHeroGoogleButton();
 }
 
 /* ---------- Signed-out landing ---------- */
