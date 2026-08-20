@@ -184,6 +184,8 @@ const State = {
   user: null,
 };
 
+let googleBtnLocation = null;
+
 async function loadCore(){
   State.cards = await Store.get('creditcards', []);
   State.emiSeries = await Store.get('emiseries', []);
@@ -716,6 +718,11 @@ async function render(){
     app.classList.add('no-entrance-anim');
   }
 
+  const authBar = document.getElementById('auth-bar');
+  const signinBtn = document.getElementById('google-signin-btn');
+  if(authBar && signinBtn && signinBtn.parentElement !== authBar){
+    authBar.insertBefore(signinBtn, authBar.firstChild);
+  }
   const showLoginHero = !State.isShared && !State.user;
 
   if(showLoginHero) app.innerHTML = viewLoginHero();
@@ -738,11 +745,39 @@ async function render(){
         <div class="page-footer"><span>Don't you squander now ;)</span></div>
       </div>
     `);
-    app.insertAdjacentHTML('beforeend', `<div id="split-share-popover" class="split-row-popover"></div>`);
+    app.insertAdjacentHTML(
+      'beforeend',
+      `<div id="split-share-popover" class="split-row-popover"></div>`
+    );
+    app.insertAdjacentHTML(
+      'beforeend',
+      `<div id="del-popover" class="del-popover"></div>`
+    );
   }
   bindEvents();
   setupScrollWrappers();
-  if(showLoginHero) renderHeroGoogleButton();
+  setupTableScrollIndicators();
+  if(showLoginHero && signinBtn){
+    const heroSlot = document.getElementById('hero-google-signin-slot');
+    if(heroSlot){
+      heroSlot.appendChild(signinBtn);
+      if(googleBtnLocation !== 'hero'){
+        renderGoogleButton(signinBtn, {
+          type: 'standard', theme: 'filled_blue', size: 'large', shape: 'pill', text: 'signin_with', logo_alignment: 'left',
+          width: '280',
+        });
+        googleBtnLocation = 'hero';
+      }
+    }
+  } else if(authBar && signinBtn && signinBtn.parentElement === authBar){
+    if(googleBtnLocation !== 'corner'){
+      renderGoogleButton(signinBtn, {
+        type: 'standard', theme: 'outline', size: 'medium', shape: 'pill', text: 'signin_with', logo_alignment: 'left',
+        width: '200',
+      });
+      googleBtnLocation = 'corner';
+    }
+  }
 }
 
 /* ---------- Signed-out landing ---------- */
@@ -754,7 +789,7 @@ function viewLoginHero(){
       <div class="eyebrow">Personal finance, kept plainly</div>
       <h1>Manage your money <em>(made easy)</em></h1>
       <p>Log what comes in and what goes out, track what's lent, owed and invested, split group spends with friends — all synced privately to your Google account.</p>
-      <div id="hero-google-signin-btn" class="hero-google-signin-btn"></div>
+      <div id="hero-google-signin-slot" class="hero-google-signin-btn"></div>
       <div class="login-hero-note">Your Google account is used only to keep your data yours — sign in to continue.</div>
     </div>
   </div>
@@ -776,19 +811,71 @@ function setupScrollWrappers(){
     const nextArrow = w.querySelector('[data-scroll-next]');
     const prevArrow = w.querySelector('[data-scroll-prev]');
     if(!track) return;
-    
+
     const checkScroll = () => {
-      const maxScroll = track.scrollWidth - track.clientWidth;
-      if (prevArrow) prevArrow.style.display = track.scrollLeft > 5 ? 'flex' : 'none';
-      if (nextArrow) nextArrow.style.display = (maxScroll > 5 && track.scrollLeft < maxScroll - 5) ? 'flex' : 'none';
+      const maxScroll = Math.max(0, track.scrollWidth - track.clientWidth);
+      const canScrollLeft = track.scrollLeft > 5;
+      const canScrollRight = maxScroll > 5 && track.scrollLeft < maxScroll - 5;
+
+      if (prevArrow) {
+        prevArrow.style.display = canScrollLeft ? 'flex' : 'none';
+      }
+
+      if (nextArrow) {
+        nextArrow.style.display = canScrollRight ? 'flex' : 'none';
+      }
+
+      track.classList.toggle('can-scroll-left', canScrollLeft && !canScrollRight);
+      track.classList.toggle('can-scroll-right', canScrollRight && !canScrollLeft);
+      track.classList.toggle('can-scroll-both', canScrollLeft && canScrollRight);
     };
 
     track.addEventListener('scroll', checkScroll, { passive: true });
-    // Use a small timeout to ensure DOM layout is fully calculated before checking width
+
+    // Recalculate when the viewport/layout changes.
+    const resizeObserver = new ResizeObserver(checkScroll);
+    resizeObserver.observe(track);
+
+    // Ensure initial dimensions are available.
     setTimeout(checkScroll, 50);
   });
 }
+function setupTableScrollIndicators(){
+  $$('.table-wrap').forEach(wrap => {
+    let shell = wrap.parentElement;
 
+    // Create a non-scrolling visual shell around the table scroller.
+    if (!shell || !shell.classList.contains('table-scroll-shell')) {
+      shell = document.createElement('div');
+      shell.className = 'table-scroll-shell';
+
+      wrap.parentNode.insertBefore(shell, wrap);
+      shell.appendChild(wrap);
+    }
+
+    const checkScroll = () => {
+      const maxScroll = Math.max(0, wrap.scrollWidth - wrap.clientWidth);
+      const canScrollLeft = wrap.scrollLeft > 5;
+      const canScrollRight =
+        maxScroll > 5 &&
+        wrap.scrollLeft < maxScroll - 5;
+
+      shell.classList.toggle('can-scroll-left', canScrollLeft);
+      shell.classList.toggle('can-scroll-right', canScrollRight);
+      shell.classList.toggle(
+        'can-scroll-both',
+        canScrollLeft && canScrollRight
+      );
+    };
+
+    wrap.addEventListener('scroll', checkScroll, { passive: true });
+
+    const resizeObserver = new ResizeObserver(checkScroll);
+    resizeObserver.observe(wrap);
+
+    setTimeout(checkScroll, 50);
+  });
+}
 /* ---------- Split spend share callout (positioned via JS so it always
    escapes table/scroll-container clipping, regardless of overflow ancestors) ---------- */
 function positionSplitCallout(pop, triggerEl){
@@ -1155,7 +1242,7 @@ async function viewMonthsList(){
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
           <div class="mr-val num" style="color:${b.ending>=0?'var(--credit)':'var(--debit)'}">${fmtINR(b.ending)}</div>
-          <button class="icon-btn" data-del-month-btn="${k}" title="Delete month" type="button">✕</button>
+          <button class="icon-btn" data-del-month="${k}" title="Delete month" type="button">✕</button>
         </div>
       </div>`;
   }
@@ -1333,7 +1420,7 @@ async function viewMonth(){
     <div class="section-title"><h2>Transactions</h2><span class="hint">${allRows.length} entries</span></div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Date</th><th>Type</th><th>Details</th><th>Amount</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th>Type</th><th>Details</th><th class="table-numeric">Amount</th><th></th></tr></thead>
         <tbody>
           ${allRows.length ? rowsHtml : `<tr class="empty-row"><td colspan="5">No entries yet — add your first spend or income above.</td></tr>`}
         </tbody>
@@ -2055,7 +2142,7 @@ async function viewSplit(){
     <div class="section-title"><h2>Shares</h2><span class="hint">Total spent per person</span></div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Person</th><th>Amount</th></tr></thead>
+        <thead><tr><th>Person</th><th class="table-numeric">Amount</th></tr></thead>
         <tbody><tr class="empty-row"><td colspan="2">Tap a group card above to see shares.</td></tr></tbody>
       </table>
     </div>
@@ -2095,8 +2182,8 @@ async function viewSplit(){
           <thead>
             <tr>
               <th>Person</th>
-              <th>Total Paid</th>
-              <th>Total Share (Owed)</th>
+              <th class="table-numeric">Total Paid</th>
+              <th class="table-numeric">Total Share (Owed)</th>
             </tr>
           </thead>
           <tbody>
@@ -2268,7 +2355,15 @@ function renderSplitDetailsPanel(group) {
       dateCell = `<td class="dv-date" rowspan="${dateCounts[s.date]}">${dateLabel}</td>`;
     }
     const payeeLabel = s.payee === SPLIT_YOU ? getYouLabel() : escapeHtml(String(s.payee).toUpperCase());
-    return `<tr>${dateCell}<td>${renderSplitShareCallout(group, s)}</td><td>${payeeLabel}</td><td class="num">${fmtINR(s.amount)}</td><td class="actions-cell"><button class="icon-btn" data-del-split-spend="${group.id}|${s.id}" title="Remove spend">✕</button></td></tr>`;
+    return `
+    <tr>${dateCell}
+      <td>
+        ${renderSplitShareCallout(group, s)}
+        <span class="src-badge">${escapeHtml(s.payee)}</span>
+      </td>
+      <td class="num">${fmtINR(s.amount)}</td>
+      <td class="actions-cell"><button class="icon-btn" data-del-split-spend="${group.id}|${s.id}" title="Remove spend">✕</button></td>
+    </tr>`;
   }).join('');
   const formHtml = State.splitSpendFormOpen ? `
   <div class="form-panel slide-down-fade" style="margin-top:14px;">
@@ -2300,7 +2395,7 @@ function renderSplitDetailsPanel(group) {
     <div class="form-note" style="margin-top:18px; margin-bottom:8px;">All group spends are listed here. Click a spend name to view share divisions.</div>
     <div class="table-wrap">
       <table class="divisions-table">
-        <thead><tr><th>Date</th><th>Details</th><th>Payee</th><th>Amount</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th>Details</th><th class="table-numeric">Amount</th><th></th></tr></thead>
         <tbody>
           ${rowsHtml || `<tr class="empty-row"><td colspan="5">No spends logged in this group yet.</td></tr>`}
         </tbody>
@@ -2768,14 +2863,38 @@ function bindEvents(){
       }
       return;
     }
-    const delMonthBtn = ev.target.closest('[data-del-month-btn]');
-    if (delMonthBtn) {
-      ev.stopPropagation(); // Stop the row from routing to the month view
-      showDeleteCallout(delMonthBtn, delMonthBtn.dataset.delMonthBtn);
+    const delMonthBtn = ev.target.closest('[data-del-month]');
+    if(delMonthBtn){
+      ev.stopPropagation();
+
+      showDeleteCallout(
+        delMonthBtn,
+        'confirm-del-month',
+        delMonthBtn.dataset.delMonth
+      );
+
+      return;
+    }
+    const confirmDelMonth = ev.target.closest('[data-confirm-del-month]');
+    if(confirmDelMonth){
+      ev.stopPropagation();
+
+      const key = confirmDelMonth.dataset.confirmDelMonth;
+      const label = monthKeyLabel(key);
+
+      await deleteMonth(key);
+      hideDeleteCallout();
+      await render();
+      showToast(`${label} deleted`);
+
       return;
     }
     // Dismiss the callout if clicking anywhere else outside it
-    if (!ev.target.closest('#del-popover') && !ev.target.closest('[data-del-month-btn]') && !ev.target.closest('[data-del-split]')) {
+    if (
+      !ev.target.closest('#del-popover') &&
+      !ev.target.closest('[data-del-month]') &&
+      !ev.target.closest('[data-del-split]')
+    ) {
       hideDeleteCallout();
     }
     const openMonthEl = ev.target.closest('[data-open-month]');
@@ -3455,20 +3574,20 @@ function initGoogleSignIn(){
   });
   const cornerEl = document.getElementById('google-signin-btn');
   if(cornerEl){
-    google.accounts.id.renderButton(cornerEl, {
+    const cornerEl = document.getElementById('google-signin-btn');
+    renderGoogleButton(cornerEl, {
       type: 'standard', theme: 'outline', size: 'medium', shape: 'pill', text: 'signin_with', logo_alignment: 'left',
-      width: '180',
+      width: '200',
     });
   }
 }
-function renderHeroGoogleButton(){
-  if(!window.google || !window.google.accounts || !window.google.accounts.id) return;
-  const el = document.getElementById('hero-google-signin-btn');
-  if(!el) return;
-  google.accounts.id.renderButton(el, {
-    type: 'standard', theme: 'filled_blue', size: 'large', shape: 'pill', text: 'signin_with', logo_alignment: 'left',
-    width: '200'
-  });
+function renderGoogleButton(container, opts){
+  if(!container) return;
+  if(!window.google || !window.google.accounts || !window.google.accounts.id){
+    setTimeout(() => renderGoogleButton(container, opts), 250);
+    return;
+  }
+  google.accounts.id.renderButton(container, opts);
 }
 async function handleGoogleCredential(response){
   try{
@@ -3513,6 +3632,7 @@ async function signOut(){
   }catch(e){
     console.error('logout request failed', e);
   }
+  if(window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
   State.user = null;
   State.cards = [];
   State.emiSeries = [];
