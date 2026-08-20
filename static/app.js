@@ -155,6 +155,20 @@ const Store = {
       showToast('Could not save — is app.py running?');
       return false;
     }
+  },
+  async remove(key){
+    try{
+      const res = await fetch('/api/storage/' + encodeURIComponent(key), {
+        method: 'DELETE'
+      });
+      if(res.status === 401){ onAuthRequired(); return false; }
+      if(!res.ok) throw new Error('DELETE failed: ' + res.status);
+      return true;
+    }catch(e){
+      console.error('storage delete failed', key, e);
+      showToast('Could not delete — is app.py running?');
+      return false;
+    }
   }
 };
 
@@ -316,6 +330,7 @@ async function deleteSplitGroup(id){
   await Store.set('splits-index', State.splitsIndex);
   delete State.splitCache[id];
   if(State.splitExpandedId === id) State.splitExpandedId = null;
+  await Store.remove('split:' + id);
 }
 async function loadAllSplitGroups(){
   const groups = [];
@@ -947,6 +962,7 @@ async function deleteMonth(key) {
     entries: [], 
     deletedEmi: []
   });
+  await Store.remove('month:' + key);
 }
 
 /* ---------- Stat cards (shared by Home + Month view) ---------- */
@@ -1287,7 +1303,9 @@ async function viewMonth(){
   const key = State.currentMonthKey;
   const data = await loadMonth(key);
   const emiRows = emiRowsForMonth(key, data.deletedEmi);
-  const allRows = [...data.entries, ...emiRows].sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+  
+  // Exclude EMIs from the table rows so they don't duplicate (since they will be cards now)
+  const allRows = [...data.entries].sort((a,b)=> (b.date||'').localeCompare(a.date||''));
   const monthTotals = computeMonthTotals(data.entries.concat(emiRows));
 
   const stats = await computeGlobalStats();
@@ -1300,7 +1318,7 @@ async function viewMonth(){
   const mode = data.startingBalanceMode || 'manual';
   const displayedStarting = (mode==='auto' && hasPrev) ? prevEnding : (Number(data.startingBalance)||0);
 
-  // Calculate rowspans for grouped dates
+  // Calculate rowspans for grouped dates (now without EMIs)
   const dateCounts = {};
   for(const e of allRows) dateCounts[e.date] = (dateCounts[e.date]||0) + 1;
   const seenDates = new Set();
@@ -1312,6 +1330,26 @@ async function viewMonth(){
     }
     return renderRow(e, key, dateCounts[e.date], isFirst);
   }).join('');
+
+  // Generate EMI Cards
+  const emiCardsHtml = emiRows.length ? `<div class="emi-list" style="margin-bottom: 20px;">` + emiRows.map(e => {
+    const totalBill = e.amount * e.totalMonths;
+    const totalPaid = e.amount * e.installment;
+    const left = e.totalMonths - e.installment;
+    return `
+    <div class="emi-card">
+      <div>
+        <h4>${escapeHtml(e.description)}</h4>
+        <div class="emi-stats">
+          Instalment ${e.installment} of ${e.totalMonths} (${left} left) <span style="opacity:0.5; margin:0 4px;">·</span> Paid ${fmtINR(totalPaid)} of ${fmtINR(totalBill)}
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <div class="num amt-debit" style="font-size: 1.1rem; font-weight: 600;">-${fmtINR(e.amount)}</div>
+        <button class="icon-btn" data-del-emi-series="${e.seriesId}" title="Delete EMI series entirely">✕</button>
+      </div>
+    </div>`;
+  }).join('') + `</div>` : '';
 
   return `
   <div class="topbar">
@@ -1325,11 +1363,11 @@ async function viewMonth(){
     </div>
     <div class="balance-box">
       <div class="balance-set">
-        <button class="pill-btn ${mode === 'manual' ? '' : 'active'}" id="toggle-manual-balance-btn" type="button">${mode === 'manual' ? 'Carry from last month' : 'Custom starting balance'}</button>
         <div class="balance-set-input">
           Set starting balance: 
           <input type="number" step="0.01" id="starting-balance-manual" value="${Number(data.startingBalance)||0}" ${mode === 'auto' ? 'disabled' : ''} style="opacity: ${mode === 'auto' ? '0.5' : '1'}; transition: opacity 0.2s ease;" />
         </div>
+        <button class="pill-btn ${mode === 'manual' ? '' : 'active'}" id="toggle-manual-balance-btn" type="button">${mode === 'manual' ? 'Custom starting balance' : 'Carry from last month'}</button>
       </div>
     </div>
   </div>
@@ -1418,8 +1456,9 @@ async function viewMonth(){
 
   <div class="section">
     <div class="section-title"><h2>Transactions</h2><span class="hint">${allRows.length} entries</span></div>
+    ${emiCardsHtml}
     <div class="table-wrap">
-      <table>
+      <table ${allRows.length ? '' : 'style="width: 100%;"'}}>
         <thead><tr><th>Date</th><th>Type</th><th>Details</th><th class="table-numeric">Amount</th><th></th></tr></thead>
         <tbody>
           ${allRows.length ? rowsHtml : `<tr class="empty-row"><td colspan="5">No entries yet — add your first spend or income above.</td></tr>`}
@@ -1429,7 +1468,7 @@ async function viewMonth(){
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Your finances, at a glance</h2><span class="hint">Same totals as the home page — hover for details</span></div>
+    <div class="section-title"><h2>This month's finances, at a glance</h2><span class="hint">Hover a card for the breakdown</span></div>
     ${renderStatCards(stats)}
   </div>
   `;
@@ -1968,6 +2007,7 @@ async function renderSharedSplitPage(group) {
   const settledCards = cards.filter(c => c.settled);
 
   const groupCardHtml = renderSplitGroupCard(group);
+  const paid = computeGroupPaid(group);
 
   const settlementHtml = cards.length
     ? cards
@@ -2000,12 +2040,13 @@ async function renderSharedSplitPage(group) {
       person === SPLIT_YOU
         ? getYouLabel()
         : escapeHtml(String(person).toUpperCase());
-
-    return `
-      <tr>
-        <td>${label}</td>
-        <td class="num">${fmtINR(shareTotals[person] || 0)}</td>
-      </tr>`;
+    const amtPaid = paid[person] || 0;
+    const amtShare = shareTotals[person] || 0;
+    return `<tr>
+      <td>${label}</td>
+      <td class="num">${fmtINR(amtPaid)}</td>
+      <td class="num">${fmtINR(amtShare)}</td>
+    </tr>`;
   }).join('');
 
   return `
@@ -2032,10 +2073,6 @@ async function renderSharedSplitPage(group) {
       </div>
 
       ${groupCardHtml}
-
-      <div class="shared-details-always-visible">
-        ${renderSplitDetailsPanel(group)}
-      </div>
     </div>
 
     <div class="section">
@@ -2045,28 +2082,27 @@ async function renderSharedSplitPage(group) {
       </div>
 
       <div class="charts-grid shared-split-charts">
-
         <div class="chart-card shared-chart-card">
           <h4>Who owes how much</h4>
-
           <p class="shared-chart-description">
             Outstanding amount each person owes to other members.
           </p>
-
           ${sharedStackedDebtChart(group)}
         </div>
 
         <div class="chart-card shared-chart-card">
           <h4>Shares by members</h4>
-
           <p class="shared-chart-description">
             Total share each member is responsible for paying.
           </p>
-
           ${sharedSharesBarChart(group)}
         </div>
 
       </div>
+    </div>
+
+    <div class="shared-details-always-visible">
+      ${renderSplitDetailsPanel(group)}
     </div>
 
     <div class="section">
@@ -2076,11 +2112,12 @@ async function renderSharedSplitPage(group) {
       </div>
 
       <div class="table-wrap">
-	    <table class="shared-shares-table">
+	    <table class="shared-shares-table" ${shareRows ? '' : 'style="width: 100%;"'}>
 	  	  <thead>
 	  	    <tr>
 	  	  	  <th>Person</th>
-	  	  	  <th>Total Share</th>
+	  	  	  <th class="table-numeric">Total Paid</th>
+	  	  	  <th class="table-numeric">Total Share</th>
 	  	    </tr>
 	  	  </thead>
 
@@ -2128,6 +2165,29 @@ async function viewSplit(){
 
   let settleCardsHtml = `<div class="empty-chart" style="flex:1 0 100%;">Tap a group card above to see settlement options.</div>`;
   
+  // 1. Setup the fallback UI for the charts when no group is expanded
+  let groupChartsHtml = `
+  <div class="section">
+    <div class="section-title">
+      <h2>Group charts</h2>
+      <span class="hint">Outstanding balances and group shares</span>
+    </div>
+    <div class="charts-grid shared-split-charts">
+      <div class="empty-chart" style="grid-column: 1 / -1;">Tap a group card above to see its charts.</div>
+    </div>
+  </div>`;
+
+  let sharesTableHtml = `
+  <div class="section">
+    <div class="section-title"><h2>Shares</h2><span class="hint">Total spent per person</span></div>
+    <div class="table-wrap">
+      <table style="width: 100%;">
+        <thead><tr><th>Person</th><th>Total Paid</th><th>Total Share (Owed)</th></tr></thead>
+        <tbody><tr class="empty-row"><td colspan="3">Tap a group card above to see shares.</td></tr></tbody>
+      </table>
+    </div>
+  </div>`;
+
   if (expandedGroup) {
     const groupCards = allCards.filter(c => c.groupId === expandedGroup.id);
     settleCardsHtml = groupCards.length
@@ -2135,20 +2195,32 @@ async function viewSplit(){
           .sort((a,b)=> (a.settled===b.settled) ? 0 : (a.settled ? 1 : -1))
           .map(c => renderSplitSettleCard(c)).join('')
       : `<div class="empty-chart" style="flex:1 0 100%;">No debts to settle in this group.</div>`;
-  }
 
-  let sharesTableHtml = `
-  <div class="section">
-    <div class="section-title"><h2>Shares</h2><span class="hint">Total spent per person</span></div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Person</th><th class="table-numeric">Amount</th></tr></thead>
-        <tbody><tr class="empty-row"><td colspan="2">Tap a group card above to see shares.</td></tr></tbody>
-      </table>
-    </div>
-  </div>`;
+    // 2. Override the fallback with the actual charts when a group IS expanded
+    groupChartsHtml = `
+    <div class="section">
+      <div class="section-title">
+        <h2>Group charts</h2>
+        <span class="hint">Outstanding balances and group shares for ${escapeHtml(expandedGroup.description)}</span>
+      </div>
+      <div class="charts-grid shared-split-charts">
+        <div class="chart-card shared-chart-card">
+          <h4>Who owes how much</h4>
+          <p class="shared-chart-description">
+            Outstanding amount each person owes to other members.
+          </p>
+          ${sharedStackedDebtChart(expandedGroup)}
+        </div>
+        <div class="chart-card shared-chart-card">
+          <h4>Shares by members</h4>
+          <p class="shared-chart-description">
+            Total share each member is responsible for paying.
+          </p>
+          ${sharedSharesBarChart(expandedGroup)}
+        </div>
+      </div>
+    </div>`;
 
-  if (expandedGroup) {
     const paid = computeGroupPaid(expandedGroup);
     
     // Calculate total share (what each person owes in aggregate, including to themselves)
@@ -2161,6 +2233,7 @@ async function viewSplit(){
     }
 
     const shareRows = expandedGroup.people.map(p => {
+      // getYouLabel() automatically changes the current user to "YOU"
       const label = p === SPLIT_YOU ? getYouLabel() : escapeHtml(p.toUpperCase());
       const amtPaid = paid[p] || 0;
       const amtShare = consumed[p] || 0;
@@ -2213,7 +2286,7 @@ async function viewSplit(){
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Split charts</h2><span class="hint">Isolated from your main ledger</span></div>
+    <div class="section-title"><h2>Global charts</h2><span class="hint">Isolated from your main ledger</span></div>
     <div class="charts-grid">
       <div class="chart-card">
         <h4>Who I owe how much</h4>
@@ -2234,6 +2307,8 @@ async function viewSplit(){
       ${renderSplitDetailsPanel(expandedGroup)}
     </div>` : ''}
   </div>
+
+  ${groupChartsHtml}
 
   ${sharesTableHtml}
 
@@ -2387,15 +2462,15 @@ function renderSplitDetailsPanel(group) {
 
   return `
   <div class="split-details-panel" data-split-details="${group.id}" style="margin-top: 2px;">
-    <div class="section-title"><h2>${escapeHtml(group.description)}</h2><span class="hint">${group.people.length} people</span></div>
+    <div class="section-title"><h2>${escapeHtml(group.description)} - Ledger</h2><span class="hint">${group.people.length} people</span></div>
 
     ${addBtnHtml}
     ${formHtml}
 
     <div class="form-note" style="margin-top:18px; margin-bottom:8px;">All group spends are listed here. Click a spend name to view share divisions.</div>
     <div class="table-wrap">
-      <table class="divisions-table">
-        <thead><tr><th>Date</th><th>Details</th><th class="table-numeric">Amount</th><th></th></tr></thead>
+      <table class="divisions-table" ${rowsHtml ? '' : `style="width: 100%;"`}>
+        <thead><tr><th>Date</th><th>Details</th><th>Amount</th><th></th></tr></thead>
         <tbody>
           ${rowsHtml || `<tr class="empty-row"><td colspan="5">No spends logged in this group yet.</td></tr>`}
         </tbody>
@@ -2893,7 +2968,8 @@ function bindEvents(){
     if (
       !ev.target.closest('#del-popover') &&
       !ev.target.closest('[data-del-month]') &&
-      !ev.target.closest('[data-del-split]')
+      !ev.target.closest('[data-del-split]') &&
+      !ev.target.closest('[data-del-emi-series]')
     ) {
       hideDeleteCallout();
     }
@@ -3054,6 +3130,26 @@ function bindEvents(){
       await saveMonth(mk);
       await render();
       showToast('Entry removed');
+      return;
+    }
+    const delEmiSeriesBtn = ev.target.closest('[data-del-emi-series]');
+    if (delEmiSeriesBtn) {
+      ev.stopPropagation();
+      showDeleteCallout(delEmiSeriesBtn, 'confirm-del-emi-series', delEmiSeriesBtn.dataset.delEmiSeries);
+      return;
+    }
+    const confirmDelEmiSeries = ev.target.closest('[data-confirm-del-emi-series]');
+    if (confirmDelEmiSeries) {
+      ev.stopPropagation();
+      const seriesId = confirmDelEmiSeries.dataset.confirmDelEmiSeries;
+      
+      // Filter out the series from global state and save to the database
+      State.emiSeries = State.emiSeries.filter(s => s.id !== seriesId);
+      await Store.set('emiseries', State.emiSeries);
+      
+      hideDeleteCallout();
+      await render();
+      showToast('EMI deleted entirely');
       return;
     }
     const delEmi = ev.target.closest('[data-del-emi]');

@@ -291,7 +291,6 @@ def auth_google():
 
     return jsonify({"user": {"user_id": user_id, "email": email, "name": name, "picture": picture}})
 
-
 @app.route("/api/auth/logout", methods=["POST"])
 def auth_logout():
     session.clear()
@@ -377,7 +376,26 @@ def storage_set(key):
         if conn:
             conn.close()
 
+@app.route("/api/storage/<path:key>", methods=["DELETE"])
+@login_required
+def storage_delete(key):
+    user_id = session["user_id"]
+    conn = None
+    try:
+        conn = get_db()
+        conn.execute(
+            "DELETE FROM user_storage WHERE user_id = ? AND key = ?", (user_id, key)
+        )
+        conn.commit()
+        return jsonify({"success": True, "key": key})
+    except Exception as e:
+        print(f"Error in DELETE /api/storage/{key}: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
+            
 # ---------- Split sharing API ----------
 def _is_split_key(key):
     return isinstance(key, str) and key.startswith("split:") and len(key) > len("split:")
