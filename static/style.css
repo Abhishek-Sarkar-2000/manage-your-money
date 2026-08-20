@@ -57,6 +57,7 @@ h4 {
 .num {
   font-family: 'IBM Plex Mono', monospace;
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 #app {
@@ -589,6 +590,55 @@ a {
   border: 1px solid var(--hair);
 }
 
+@media (max-width: 800px) {
+  .table-scroll-shell {
+    position: relative;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+
+  .table-scroll-shell::before,
+  .table-scroll-shell::after {
+    content: "";
+    position: absolute;
+    top: 1px;
+    bottom: 1px;
+    width: 18px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    z-index: 5;
+  }
+
+  /* Fixed left-edge shadow */
+  .table-scroll-shell::before {
+    left: 1px;
+    background: linear-gradient(
+      to right,
+      rgba(120, 120, 134, 0.08),
+      transparent 55%
+    );
+  }
+
+  /* Fixed right-edge shadow */
+  .table-scroll-shell::after {
+    right: 1px;
+    background: linear-gradient(
+      to left,
+      rgba(120, 120, 134, 0.08),
+      transparent 55%
+    );
+  }
+
+  .table-scroll-shell.can-scroll-left::before {
+    opacity: 1;
+  }
+
+  .table-scroll-shell.can-scroll-right::after {
+    opacity: 1;
+  }
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -606,6 +656,11 @@ thead th {
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+.table-numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 tbody td {
@@ -881,7 +936,6 @@ border: 1px solid var(--hair);
 border-radius: 10px;
 box-shadow: var(--shadow);
 padding: 14px 16px;
-z-index: 500;
 max-height: 280px;
 overflow-y: auto;
 text-align: left;
@@ -2120,6 +2174,38 @@ footer {
 .scroll-wrapper {
   position: relative;
   margin-top: 10px;
+  mask-image: none;
+  -webkit-mask-image: none;
+  z-index: 10;
+}
+
+@media (max-width: 600px) {
+  .scroll-wrapper > .can-scroll-right {
+    mask-image: linear-gradient(to right, black 96%, transparent);
+    -webkit-mask-image: linear-gradient(to right, black 96%, transparent);
+  }
+
+  .scroll-wrapper > .can-scroll-left {
+    mask-image: linear-gradient(to left, black 96%, transparent);
+    -webkit-mask-image: linear-gradient(to left, black 96%, transparent);
+  }
+
+  .scroll-wrapper > .can-scroll-both {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      black 4%,
+      black 96%,
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      black 4%,
+      black 96%,
+      transparent 100%
+    );
+  }
 }
 
 .scroll-track {
@@ -2161,7 +2247,7 @@ footer {
 
 .scroll-arrow {
   position: absolute;
-  right: -4px;
+  right: -44px;
   top: calc(50% - 22px);
   transform: translateY(-50%);
   width: 38px;
@@ -2187,7 +2273,7 @@ footer {
 
 .scroll-arrow.left {
   right: auto;
-  left: -4px;
+  left: -44px;
 }
 
 @media (hover: none) {
