@@ -180,11 +180,13 @@ const State = {
   view: 'home',
   cards: [],
   emiSeries: [],
+  sipSeries: [],
   monthsIndex: [],
   monthCache: {},
   currentMonthKey: null,
   openForm: null,
   balanceChartRange: 1,
+  existingInvestments: 0,
   customTags: [],
   splitsIndex: [],
   splitCache: {},
@@ -203,9 +205,11 @@ let googleBtnLocation = null;
 async function loadCore(){
   State.cards = await Store.get('creditcards', []);
   State.emiSeries = await Store.get('emiseries', []);
+  State.sipSeries = await Store.get('sipseries', []);
   State.monthsIndex = await Store.get('months-index', []);
   State.customTags = await Store.get('custom-spend-tags', []);
   State.splitsIndex = await Store.get('splits-index', []);
+  State.existingInvestments = await Store.get('existinginvestments', 0);
 }
 
 function allSpendTags(){
@@ -238,8 +242,9 @@ async function resolveTagFromForm(){
 }
 async function loadMonth(key){
   if(State.monthCache[key]) return State.monthCache[key];
-  const data = await Store.get('month:'+key, {startingBalanceMode:'manual', startingBalance:0, entries:[], deletedEmi:[]});
+  const data = await Store.get('month:'+key, {startingBalanceMode:'manual', startingBalance:0, entries:[], deletedEmi:[], deletedSip:[]});
   if(!data.startingBalanceMode) data.startingBalanceMode = 'manual';
+  if(!data.deletedSip) data.deletedSip = [];
   State.monthCache[key] = data;
   return data;
 }
@@ -360,11 +365,24 @@ function emiRowsForMonth(monthKey, deletedEmi){
   }
   return rows;
 }
+function sipRowsForMonth(monthKey, deletedSip){
+  const rows = [];
+  for(const series of State.sipSeries){
+    if(series.startMonth > monthKey) continue; // hasn't started yet
+    if((deletedSip||[]).includes(series.id)) continue;
+    rows.push({
+      id: 'sip-'+series.id+'-'+monthKey, type:'sip', date: monthKey+'-01',
+      description: series.description, amount: series.amount,
+      seriesId: series.id
+    });
+  }
+  return rows;
+}
 
 // Per-month totals — used for that month's own charts only
 function computeMonthTotals(entries){
-  let income=0, cashSpend=0, cardPaymentSpend=0, cardCharge=0, invest=0, emi=0;
-  
+  let income=0, cashSpend=0, cardPaymentSpend=0, cardCharge=0, invest=0, emi=0, sip=0;
+
   // New Spend Division Trackers
   let regularDebit=0, cashPayments=0, ccSpends=0, others=0;
 
@@ -396,18 +414,22 @@ function computeMonthTotals(entries){
       emi += amt; // Cashflow out
       others += amt;
     }
+    else if(e.type==='sip'){
+      sip += amt; // Cashflow out (recurring investment)
+      others += amt;
+    }
   }
   
   // Total actual consumption (ignores internal transfers like ATM and CC dues)
   const totalConsumption = regularDebit + cashPayments + ccSpends + emi;
 
   return {
-    income, cashSpend, cardPaymentSpend, cardCharge, invest, emi,
+    income, cashSpend, cardPaymentSpend, cardCharge, invest, emi, sip,
     regularDebit, cashPayments, ccSpends, others, totalConsumption
   };
 }
 function monthCashOutflow(totals){
-  return totals.cashSpend + totals.cardPaymentSpend + totals.emi + totals.invest;
+  return totals.cashSpend + totals.cardPaymentSpend + totals.emi + totals.invest + totals.sip;
 }
 
 /* ---------- Global (cross-month) computations ---------- */
@@ -419,7 +441,8 @@ async function computeMonthlyBreakdown(){
   for(const k of sortedKeys){
     const data = await loadMonth(k);
     const emiRows = emiRowsForMonth(k, data.deletedEmi);
-    const totals = computeMonthTotals(data.entries.concat(emiRows));
+    const sipRows = sipRowsForMonth(k, data.deletedSip);
+    const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows));
     let starting;
     if(data.startingBalanceMode === 'auto' && prevEnding !== null){
       starting = prevEnding;
@@ -445,8 +468,9 @@ async function computeDailyBalanceSeries(){
   for(const b of breakdown){
     const data = await loadMonth(b.monthKey);
     const emiRows = emiRowsForMonth(b.monthKey, data.deletedEmi);
-    const relevant = [...data.entries, ...emiRows].filter(e =>
-      e.type==='income' || e.type==='investment' || e.type==='emi' || e.type==='spend'
+    const sipRows = sipRowsForMonth(b.monthKey, data.deletedSip);
+    const relevant = [...data.entries, ...emiRows, ...sipRows].filter(e =>
+      e.type==='income' || e.type==='investment' || e.type==='emi' || e.type==='sip' || e.type==='spend'
     );
     const deltaByDay = {};
     for(const e of relevant){
@@ -527,17 +551,50 @@ async function computeGlobalOwed(){
 }
 
 async function computeGlobalInvestments(){
-  const list = [];
+  let total = Number(State.existingInvestments) || 0;
+  const monthlyAggregates = [];
+
   for(const k of State.monthsIndex){
     const data = await loadMonth(k);
+    let monthSum = 0;
+    
+    // Add manual investments
     for(const e of data.entries){
-      if(e.type==='investment'){
-        list.push({description:e.description, amount:Number(e.amount)||0, date:e.date, monthKey:k});
-      }
+      if(e.type==='investment') monthSum += Number(e.amount)||0;
+    }
+    
+    // Add executed SIPs
+    const sipRows = sipRowsForMonth(k, data.deletedSip);
+    for(const s of sipRows){
+      monthSum += Number(s.amount)||0;
+    }
+
+    if(monthSum > 0){
+      monthlyAggregates.push({
+        description: 'Investments for', 
+        amount: monthSum, 
+        monthKey: k
+      });
+      total += monthSum;
     }
   }
-  list.sort((a,b)=> (b.date||'').localeCompare(a.date||''));
-  const total = list.reduce((s,x)=>s+x.amount,0);
+
+  // Sort monthly aggregates with newest months first
+  monthlyAggregates.sort((a,b)=> b.monthKey.localeCompare(a.monthKey));
+
+  const list = [];
+  
+  // Inject the base amount with a shorter text and no date key
+  if (Number(State.existingInvestments) > 0) {
+    list.push({
+      description: 'Base Portfolio', 
+      amount: Number(State.existingInvestments), 
+      monthKey: null // Set to null to explicitly hide the date string
+    });
+  }
+  
+  list.push(...monthlyAggregates);
+
   return {total, list};
 }
 
@@ -743,6 +800,7 @@ async function render(){
   if(showLoginHero) app.innerHTML = viewLoginHero();
   else if(State.view === 'home') app.innerHTML = await viewHome();
   else if(State.view === 'cards') app.innerHTML = viewCards();
+  else if(State.view === 'sips') app.innerHTML = viewSips();
   else if(State.view === 'months') app.innerHTML = await viewMonthsList();
   else if(State.view === 'month') app.innerHTML = await viewMonth();
   else if(State.view === 'split') app.innerHTML = await viewSplit();
@@ -799,11 +857,20 @@ async function render(){
 function viewLoginHero(){
   return `
   <div class="topbar-login">
-    <div class="brand-login"><span class="mark">₹</span> Ledger &amp; Line</div>
+    <div class="brand-line">
+      <div class="brand-login">
+        <span class="mark">₹</span>
+        <div class="brand-login-text">
+          <span class="brand-login-name">LedgerNote</span>
+          <div class="eyebrow">Personal finance, kept plainly</div>
+        </div>
+      </div>
+    </div>
     <div class="hero login-hero"> 
-      <div class="eyebrow">Personal finance, kept plainly</div>
-      <h1>Manage your money <em>(made easy)</em></h1>
-      <p>Log what comes in and what goes out, track what's lent, owed and invested, split group spends with friends — all synced privately to your Google account.</p>
+      <div class="hero-signin-text">
+        <h1>Manage your money <em>(made easy)</em></h1>
+        <p>Log what comes in and what goes out, track what's lent, owed and invested, split group spends with friends — all synced privately to your Google account.</p>
+      </div>
       <div id="hero-google-signin-slot" class="hero-google-signin-btn"></div>
       <div class="login-hero-note">Your Google account is used only to keep your data yours — sign in to continue.</div>
     </div>
@@ -923,12 +990,12 @@ function hideSplitCallout(){
   if(pop) pop.classList.remove('show');
   State.splitCalloutPinned = null;
 }
-function showDeleteCallout(triggerEl, actionName, id) {
+function showDeleteCallout(triggerEl, actionName, id, label = 'Delete?') {
   const pop = $('#del-popover');
   if (!pop) return;
   
   pop.innerHTML = `
-    <span style="font-size: 0.9rem; font-weight: 600; color: var(--navy);">Delete?</span>
+    <span style="font-size: 0.9rem; font-weight: 600; color: var(--navy);">${escapeHtml(label)}</span>
     <div style="display: flex; gap: 6px;">
       <button class="icon-btn" data-${actionName}="${id}" style="color: var(--credit);" title="Confirm">✓</button>
       <button class="icon-btn" data-cancel-del style="color: var(--debit);" title="Cancel">✕</button>
@@ -972,7 +1039,7 @@ function renderStatCards(stats, splitOwed){
     : `<div class="pop-empty">Nobody owes you anything right now.</div>`;
 
   const investPop = stats.invested.list.length
-    ? stats.invested.list.map(i=>`<div class="pop-row"><span class="pn">${escapeHtml(i.description)}<span class="ps">${monthKeyShort(i.monthKey)}</span></span><span class="pv" style="color:var(--blue)">${fmtINR(i.amount)}</span></div>`).join('')
+    ? stats.invested.list.map(i=>`<div class="pop-row"><span class="pn">${escapeHtml(i.description)}${i.monthKey ? `<span class="ps">${monthKeyShort(i.monthKey)}</span>` : ''}</span><span class="pv" style="color:var(--blue)">${fmtINR(i.amount)}</span></div>`).join('')
     : `<div class="pop-empty">No investments logged yet.</div>`;
 
   const cardPop = stats.cardDues.list.length
@@ -1120,7 +1187,8 @@ async function renderCurrentMonthCard(){
   }
   const data = await loadMonth(key);
   const emiRows = emiRowsForMonth(key, data.deletedEmi);
-  const totals = computeMonthTotals(data.entries.concat(emiRows));
+  const sipRows = sipRowsForMonth(key, data.deletedSip);
+  const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows));
   const spends = totals.totalConsumption;
   return `
   <div class="current-month-card" data-open-month="${key}">
@@ -1149,7 +1217,7 @@ async function viewHome(){
     : null;
   return `
   <div class="topbar">
-    <div class="brand" data-nav="home"><span class="mark">₹</span> Ledger &amp; Line</div>
+    <div class="brand" data-nav="home"><span class="mark">₹</span> LedgerNote</div>
   </div>
   <div class="hero">
     <div class="eyebrow">Personal finance, kept plainly : For ${escapeHtml((State.user?.name || '').split(' ')[0])}</div>
@@ -1194,12 +1262,17 @@ async function viewHome(){
         <h3>Manage credit cards</h3>
         <p>Add your cards so card charges and payments are tracked against the right one.</p>
       </div>
+      <div class="action-card" data-nav="sips">
+        <div class="ac-icon">↻</div>
+        <h3>Manage SIPs</h3>
+        <p>Set up recurring investments so they're auto-tracked every month until you stop them.</p>
+      </div>
       <div class="action-card" data-nav="split">
         <div class="ac-icon">⇄</div>
         <h3>Split Money</h3>
         <p>Track group spends with friends, settle debts, and sync it straight into your ledger.</p>
       </div>
-    `)}
+    `, 'money-track')}
   </div>
   `;
 }
@@ -1212,13 +1285,13 @@ function viewCards(){
         <div class="cc-name">${escapeHtml(c.name)}</div>
         <div class="cc-cycle">Billing date: ${c.billingDay}${ordinalSuffix(c.billingDay)} of the month</div>
       </div>
-      <button class="icon-btn" data-del-card="${c.id}" title="Remove card">✕</button>
+      <button class="icon-btn" data-popover-trigger data-del-card="${c.id}" title="Remove card">✕</button>
     </div>
   `).join('') || `<div class="empty-chart">No cards added yet — add one below.</div>`;
 
   return `
   <div class="topbar">
-    <div class="brand" data-nav="home"><span class="mark">₹</span> Ledger &amp; Line</div>
+    <div class="brand" data-nav="home"><span class="mark">₹</span> LedgerNote</div>
   </div>
   <div class="section">
     <div class="section-title"><h2>Credit cards</h2><span class="hint">Card charges and payments are tracked per card</span></div>
@@ -1241,6 +1314,53 @@ function ordinalSuffix(n){
   switch(n%10){ case 1: return 'st'; case 2: return 'nd'; case 3: return 'rd'; default: return 'th'; }
 }
 
+/* ---------- SIPs ---------- */
+function viewSips(){
+  const rows = State.sipSeries.map(s => `
+    <div class="cc-item">
+      <div>
+        <div class="cc-name">${escapeHtml(s.description)}</div>
+        <div class="cc-cycle">${fmtINR(s.amount)} / month · started ${monthKeyLabel(s.startMonth)}</div>
+      </div>
+      <button class="icon-btn" data-popover-trigger data-del-sip-series="${s.id}" title="Delete SIP">✕</button>
+    </div>
+  `).join('') || `<div class="empty-chart">No SIPs added yet — add one below.</div>`;
+
+  return `
+  <div class="topbar">
+    <div class="brand" data-nav="home"><span class="mark">₹</span> LedgerNote</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><h2>Existing Investments</h2><span class="hint">Base portfolio built prior to this ledger</span></div>
+    <div class="card">
+      <div class="form-panel" style="margin-top:0;">
+        <div class="form-row" style="align-items: end;">
+          <div class="field"><label>Total Existing Amount (₹)</label><input id="ext-invest-amount" type="number" step="0.01" min="0" value="${State.existingInvestments || 0}" /></div>
+          <div class="form-actions" style="margin-top:0; margin-bottom:2px;"><button class="btn" id="ext-invest-save">Save Amount</button></div>
+        </div>
+        <div class="form-note" style="margin-top:8px; margin-bottom:0; border:none;">This amount serves as your base and will be dynamically added to your total investments along with manual entries and SIPs.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><h2>SIPs</h2><span class="hint">Recurring investments, tracked every month automatically</span></div>
+    <div class="card">
+      <div class="cc-list">${rows}</div>
+      <div class="form-panel">
+        <div class="form-note" style="margin-top:0;">Starts this month (${monthKeyLabel(currentMonthKey())}) and recurs every month until you delete it.</div>
+        <div class="form-row">
+          <div class="field"><label>Description</label><input id="sip-desc" type="text" placeholder="e.g. Nifty Index Fund" /></div>
+          <div class="field"><label>Amount (₹ / month)</label><input id="sip-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+        </div>
+        <div class="form-actions"><button class="btn" id="sip-add">Add SIP</button></div>
+      </div>
+    </div>
+  </div>
+  `;
+}
+
 /* ---------- MONTHS LIST ---------- */
 async function viewMonthsList(){
   const keys = [...State.monthsIndex].sort().reverse();
@@ -1258,14 +1378,14 @@ async function viewMonthsList(){
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
           <div class="mr-val num" style="color:${b.ending>=0?'var(--credit)':'var(--debit)'}">${fmtINR(b.ending)}</div>
-          <button class="icon-btn" data-del-month="${k}" title="Delete month" type="button">✕</button>
+          <button class="icon-btn" data-popover-trigger data-del-month="${k}" title="Delete month" type="button">✕</button>
         </div>
       </div>`;
   }
   if(!rows) rows = `<div class="empty-chart">No months recorded yet. Add your first month from the home screen.</div>`;
   return `
   <div class="topbar">
-    <div class="brand" data-nav="home"><span class="mark">₹</span> Ledger &amp; Line</div>
+    <div class="brand" data-nav="home"><span class="mark">₹</span> LedgerNote</div>
   </div>
   <div class="section">
     <div class="section-title"><h2>Previous months</h2><span class="hint">Tap a month to open it</span></div>
@@ -1303,10 +1423,11 @@ async function viewMonth(){
   const key = State.currentMonthKey;
   const data = await loadMonth(key);
   const emiRows = emiRowsForMonth(key, data.deletedEmi);
+  const sipRows = sipRowsForMonth(key, data.deletedSip);
   
-  // Exclude EMIs from the table rows so they don't duplicate (since they will be cards now)
+  // Exclude EMIs/SIPs from the table rows so they don't duplicate (since they will be cards now)
   const allRows = [...data.entries].sort((a,b)=> (b.date||'').localeCompare(a.date||''));
-  const monthTotals = computeMonthTotals(data.entries.concat(emiRows));
+  const monthTotals = computeMonthTotals(data.entries.concat(emiRows, sipRows));
 
   const stats = await computeGlobalStats();
   const breakdownByKey = Object.fromEntries(stats.breakdown.map(b=>[b.monthKey,b]));
@@ -1339,21 +1460,34 @@ async function viewMonth(){
     return `
     <div class="emi-card">
       <div>
-        <h4>${escapeHtml(e.description)}</h4>
+        <h4><span class="tag emi">EMI</span> ${escapeHtml(e.description)}</h4>
         <div class="emi-stats">
-          Instalment ${e.installment} of ${e.totalMonths} (${left} left) <span style="opacity:0.5; margin:0 4px;">·</span> Paid ${fmtINR(totalPaid)} of ${fmtINR(totalBill)}
+          Instalment ${e.installment}/${e.totalMonths}(${left} left) <span style="opacity:0.5; margin:0 4px;"></span></br>Paid ${fmtINR(totalPaid)} of ${fmtINR(totalBill)}
         </div>
       </div>
       <div style="display: flex; align-items: center; gap: 16px;">
-        <div class="num amt-debit" style="font-size: 1.1rem; font-weight: 600;">-${fmtINR(e.amount)}</div>
-        <button class="icon-btn" data-del-emi-series="${e.seriesId}" title="Delete EMI series entirely">✕</button>
+        <div class="num amt-debit recurring-card">-${fmtINR(e.amount)}</div>
+        <button class="icon-btn" data-popover-trigger data-del-emi-series="${e.seriesId}" title="Delete EMI series entirely">✕</button>
       </div>
     </div>`;
   }).join('') + `</div>` : '';
 
+  const sipCardsHtml = sipRows.length ? `<div class="emi-list">` + sipRows.map(e => `
+    <div class="emi-card">
+      <div>
+        <h4>${escapeHtml(e.description)}</h4>
+        <div class="emi-stats">Recurring monthly investment</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <div class="num recurring-card">-${fmtINR(e.amount)}</div>
+        <button class="icon-btn" data-popover-trigger data-skip-sip="${key}|${e.seriesId}" title="Skip this month">⤵</button>
+      </div>
+    </div>`
+  ).join('') + `</div>` : '';
+  
   return `
   <div class="topbar">
-    <div class="brand" data-nav="home"><span class="mark">₹</span> Ledger &amp; Line</div>
+    <div class="brand" data-nav="home"><span class="mark">₹</span> LedgerNote</div>
   </div>
 
   <div class="section">
@@ -1373,7 +1507,7 @@ async function viewMonth(){
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Add an entry</h2><span class="hint">Every entry needs a date</span></div>
+    <div class="section-title"><h2>Add an entry</h2><span class="hint">Log every credit and debit</span></div>
     <div class="pill-grid">
       <button class="pill-btn ${State.openForm==='spend'?'active':''}" data-form="spend">+ Spend</button>
       <button class="pill-btn alt ${State.openForm==='cardcharge'?'active':''}" data-form="cardcharge">+ Credit card spend</button>
@@ -1388,7 +1522,10 @@ async function viewMonth(){
       ${renderForm(State.openForm, key)}
     </div>` : ''}
   </div>
-
+  <div class="section">
+    <div class="section-title"><h2>This month's finances, at a glance</h2><span class="hint">Hover a card for the breakdown</span></div>
+    ${renderStatCards(stats)}
+  </div>
   <div class="section">
     <div class="section-title"><h2>This month's charts</h2><span class="hint">${monthKeyLabel(key)} only</span></div>
     <div class="charts-grid">
@@ -1399,6 +1536,7 @@ async function viewMonth(){
           {label:'Credit card spends', value:monthTotals.ccSpends, color:'#8E6FB0'},
           {label:'Cash payments', value:monthTotals.cashPayments, color:'#C98A3C'},
           {label:'EMI', value:monthTotals.emi, color:'#5B4B9E'},
+          {label:'SIP', value:monthTotals.sip, color:'#2E8B77'},
           {label:'Investment', value:monthTotals.invest, color:'var(--blue)'}
         ])}
       </div>
@@ -1425,31 +1563,31 @@ async function viewMonth(){
           return barChart([
             {label:'Income', value:monthTotals.income, color:'var(--credit)'},
             {label:'Expense', value:pureExpense, color:'var(--debit)'},
-            {label:'Invested', value:monthTotals.invest, color:'var(--blue)'},
+            {label:'Invested', value:monthTotals.invest + monthTotals.sip, color:'var(--blue)'},
             {label:'Lent', value:unsettledMonthLent, color:'var(--amber)'}
           ]);
         })()}
       </div>
       <div class="chart-card" style="grid-column:1/-1;">
         <h4>Running balance through the month</h4>
-        ${lineChart(displayedStarting, data, emiRows)}
+        ${lineChart(displayedStarting, data, emiRows.concat(sipRows))}
       </div>
       <div style="grid-column: 1 / -1; margin-top: 8px;">
         <h3 style="font-size: 1.15rem; margin-bottom: 12px; font-weight: 600; font-family: 'Fraunces', serif;">Spends by Tags</h3>
 		${scrollWrapper(`
-		<div class="chart-card tag-chart-card">
-			<h4>Debit by tag</h4>
-			${tagsBarChart(data.entries, 'spend')}
-		</div>
-		<div class="chart-card tag-chart-card">
-			<h4>Credit card spends by tag</h4>
-			${tagsBarChart(data.entries, 'cardcharge')}
-		</div>
-		<div class="chart-card tag-chart-card">
-			<h4>Cash spends by tag</h4>
-			${tagsBarChart(data.entries, 'cashpayment')}
-		</div>
-		`, 'tags-track')}
+      <div class="chart-card tag-chart-card">
+        <h4>Debit by tag</h4>
+        ${tagsBarChart(data.entries, 'spend')}
+      </div>
+      <div class="chart-card tag-chart-card">
+        <h4>Credit card spends by tag</h4>
+        ${tagsBarChart(data.entries, 'cardcharge')}
+      </div>
+      <div class="chart-card tag-chart-card">
+        <h4>Cash spends by tag</h4>
+        ${tagsBarChart(data.entries, 'cashpayment')}
+      </div>
+      `, 'tags-track')}
       </div>
     </div>
   </div>
@@ -1466,11 +1604,11 @@ async function viewMonth(){
       </table>
     </div>
   </div>
-
+  ${sipRows.length ? `
   <div class="section">
-    <div class="section-title"><h2>This month's finances, at a glance</h2><span class="hint">Hover a card for the breakdown</span></div>
-    ${renderStatCards(stats)}
-  </div>
+    <div class="section-title"><h2>SIPs</h2><span class="hint">${sipRows.length} running this month - skip by clicking ⤵</span></div>
+    ${sipCardsHtml}
+  </div>` : ''}
   `;
 }
 
@@ -2052,7 +2190,7 @@ async function renderSharedSplitPage(group) {
   return `
     <div class="topbar">
       <div class="brand">
-        <span class="mark">₹</span> Ledger &amp; Line
+        <span class="mark">₹</span> LedgerNote
       </div>
     </div>
 
@@ -2269,7 +2407,7 @@ async function viewSplit(){
 
   return `
   <div class="topbar">
-    <div class="brand" data-nav="home"><span class="mark">₹</span> Ledger &amp; Line</div>
+    <div class="brand" data-nav="home"><span class="mark">₹</span> LedgerNote</div>
   </div>
 
   <div class="section">
@@ -2360,7 +2498,7 @@ function renderSplitGroupCard(group){
         <input type="checkbox" data-settle-group-toggle="${group.id}" ${isFullySettled ? 'checked' : ''} />
       </label>
       <button class="icon-btn" data-share-split="${group.id}" title="Share link" type="button">🔗</button>
-      <button class="icon-btn" data-del-split="${group.id}" title="Delete group" type="button">✕</button>
+      <button class="icon-btn" data-popover-trigger data-del-split="${group.id}" title="Delete group" type="button">✕</button>
     </div>`;
 
   return `
@@ -2470,7 +2608,7 @@ function renderSplitDetailsPanel(group) {
     <div class="form-note" style="margin-top:18px; margin-bottom:8px;">All group spends are listed here. Click a spend name to view share divisions.</div>
     <div class="table-wrap">
       <table class="divisions-table" ${rowsHtml ? '' : `style="width: 100%;"`}>
-        <thead><tr><th>Date</th><th>Details</th><th>Amount</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th>Details</th><th ${rowsHtml ? `class="num"` : ''}>Amount</th><th></th></tr></thead>
         <tbody>
           ${rowsHtml || `<tr class="empty-row"><td colspan="5">No spends logged in this group yet.</td></tr>`}
         </tbody>
@@ -2569,15 +2707,6 @@ function renderRow(e, monthKey, rowspan = 1, isFirstDateRow = true){
       <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${monthKey}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
   }
-  if(e.type==='emi'){
-    return `<tr>
-      ${dateCell}
-      <td><span class="tag emi">EMI</span></td>
-      <td><strong>${escapeHtml(e.description)}</strong><div class="subnote">Installment ${e.installment} of ${e.totalMonths}</div></td>
-      <td class="num amt-debit">-${fmtINR(e.amount)}</td>
-      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-emi="${monthKey}|${e.seriesId}" title="Remove this month's installment">✕</button></span></td>
-    </tr>`;
-  }
   return '';
 }
 
@@ -2606,11 +2735,10 @@ function renderForm(kind, monthKey){
   if(kind==='spend'){
     return `
     <div class="form-panel">
-      <!-- New Mode Selector -->
       <div class="pill-grid" style="margin-bottom: 12px;" id="f-spend-mode-selector">
-        <button class="pill-btn active" data-spend-mode="regular" type="button">Regular</button>
-        <button class="pill-btn" data-spend-mode="atm" type="button">Cash Withdrawal</button>
-        <button class="pill-btn" data-spend-mode="card" type="button" ${State.cards.length?'':'disabled'}>Credit Card Due Payment</button>
+        <button class="pill-btn sub-pill active" data-spend-mode="regular" type="button">Regular</button>
+        <button class="pill-btn sub-pill" data-spend-mode="atm" type="button">Cash Withdrawal</button>
+        <button class="pill-btn sub-pill" data-spend-mode="card" type="button" ${State.cards.length?'':'disabled'}>Credit Card Due Payment</button>
       </div>
       <div class="form-note" id="f-mode-info" style="margin-top:0; margin-bottom:14px;">Add regular spends with tag for instant transfer modes like UPI.</div>
       
@@ -2701,6 +2829,7 @@ function renderForm(kind, monthKey){
   if(kind==='income'){
     return `
     <div class="form-panel">
+      <div class="form-note">Log amounts credited to your account from various sources.</div>
       <div class="form-row">
         <div class="field"><label>Source</label><input id="f-desc" type="text" placeholder="e.g. Salary" /></div>
         <div class="field"><label>Amount (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
@@ -2726,12 +2855,12 @@ function renderForm(kind, monthKey){
   if(kind==='owed'){
     return `
     <div class="form-panel">
+      <div class="form-note">Carries forward automatically in your totals every month until you mark it settled.</div>
       <div class="form-row">
         <div class="field"><label>Person</label><input id="f-desc" type="text" placeholder="Who owes you" /></div>
         <div class="field"><label>Amount (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
         <div class="field"><label>Date</label><input id="f-date" type="date" value="${todayStr()}" /></div>
       </div>
-      <div class="form-note">Carries forward automatically in your totals every month until you mark it settled.</div>
       <div class="form-actions">
         <button class="btn" data-submit="owed">Add</button>
         <button class="btn ghost" data-close-form>Cancel</button>
@@ -2741,12 +2870,13 @@ function renderForm(kind, monthKey){
   if(kind==='emi'){
     return `
     <div class="form-panel">
+      <div class="form-note">Select when the EMI started. It auto-carries forward each month until the specified duration is reached.</div>
       <div class="form-row">
         <div class="field"><label>Description</label><input id="f-desc" type="text" placeholder="e.g. Laptop EMI" /></div>
         <div class="field"><label>Monthly deductible (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
         <div class="field"><label>Number of months</label><input id="f-months" type="number" step="1" min="1" placeholder="e.g. 12" /></div>
+        <div class="field"><label>Starting Month</label><input id="f-emi-start" type="month" max="${currentMonthKey()}" value="${monthKey}" /></div>
       </div>
-      <div class="form-note">Starts this month (${monthKeyLabel(monthKey)}) and auto-carries forward each month until it's done. You can remove a single month's installment later.</div>
       <div class="form-actions">
         <button class="btn" data-submit="emi">Start EMI</button>
         <button class="btn ghost" data-close-form>Cancel</button>
@@ -2756,8 +2886,12 @@ function renderForm(kind, monthKey){
   if(kind==='invest'){
     return `
     <div class="form-panel">
+      <div class="form-note invest-form" style="margin-top:0;">
+        <span>Any spend added here is a one-time investment. For recurring investments, add SIP.</span>
+        <button class="pill-btn sub-pill active hyperlink" data-spend-mode="regular" data-nav="sips" type="button">Add SIP</button>
+      </div>
       <div class="form-row">
-        <div class="field"><label>Description</label><input id="f-desc" type="text" placeholder="e.g. Mutual fund SIP" /></div>
+        <div class="field"><label>Description</label><input id="f-desc" type="text" placeholder="e.g. Fixed Deposit" /></div>
         <div class="field"><label>Amount (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
         <div class="field"><label>Date</label><input id="f-date" type="date" value="${todayStr()}" /></div>
       </div>
@@ -2826,9 +2960,9 @@ function tagsBarChart(entries, targetType){
     </div>`).join('');
   return `<div class="tag-bars">${cols}</div>`;
 }
-function lineChart(startingBalance, data, emiRows){
-  const entries = [...data.entries, ...emiRows]
-    .filter(e => e.type==='income' || e.type==='investment' || e.type==='emi' || (e.type==='spend' && e.paymentMode!=='card') || (e.type==='spend' && e.paymentMode==='card'))
+function lineChart(startingBalance, data, recurringRows){
+  const entries = [...data.entries, ...recurringRows]
+    .filter(e => e.type==='income' || e.type==='investment' || e.type==='emi' || e.type==='sip' || (e.type==='spend' && e.paymentMode!=='card') || (e.type==='spend' && e.paymentMode==='card'))
     .filter(e => e.date)
     .sort((a,b)=>a.date.localeCompare(b.date));
   const start = Number(startingBalance)||0;
@@ -2909,10 +3043,19 @@ function bindEvents(){
       card.classList.toggle('open', !wasOpen);
       return;
     }
-	const statBack = ev.target.closest('.stat-back');
+	  const statBack = ev.target.closest('.stat-back');
     if(statBack && window.matchMedia('(hover: none)').matches){
       const card = statBack.closest('[data-stat-card]');
       if(card) card.classList.remove('open');
+      return;
+    }
+    const extInvestSaveBtn = ev.target.closest('#ext-invest-save');
+    if (extInvestSaveBtn) {
+      const amount = Number($('#ext-invest-amount')?.value) || 0;
+      State.existingInvestments = amount;
+      await Store.set('existinginvestments', amount);
+      await render(); // Re-render to update the total stats globally
+      showToast('Base investment amount saved');
       return;
     }
     const nav = ev.target.closest('[data-nav]');
@@ -2967,9 +3110,7 @@ function bindEvents(){
     // Dismiss the callout if clicking anywhere else outside it
     if (
       !ev.target.closest('#del-popover') &&
-      !ev.target.closest('[data-del-month]') &&
-      !ev.target.closest('[data-del-split]') &&
-      !ev.target.closest('[data-del-emi-series]')
+      !ev.target.closest('[data-popover-trigger]')
     ) {
       hideDeleteCallout();
     }
@@ -3152,15 +3293,43 @@ function bindEvents(){
       showToast('EMI deleted entirely');
       return;
     }
-    const delEmi = ev.target.closest('[data-del-emi]');
-    if(delEmi){
-      const [mk, seriesId] = delEmi.dataset.delEmi.split('|');
+    const skipSipBtn = ev.target.closest('[data-skip-sip]');
+    if (skipSipBtn) {
+      ev.stopPropagation();
+      showDeleteCallout(skipSipBtn, 'confirm-skip-sip', skipSipBtn.dataset.skipSip, 'Confirm skip');
+      return;
+    }
+    const confirmSkipSip = ev.target.closest('[data-confirm-skip-sip]');
+    if (confirmSkipSip) {
+      ev.stopPropagation();
+      const [mk, seriesId] = confirmSkipSip.dataset.confirmSkipSip.split('|');
       const data = await loadMonth(mk);
-      data.deletedEmi = data.deletedEmi || [];
-      if(!data.deletedEmi.includes(seriesId)) data.deletedEmi.push(seriesId);
+      data.deletedSip = data.deletedSip || [];
+      if(!data.deletedSip.includes(seriesId)) data.deletedSip.push(seriesId);
       await saveMonth(mk);
+      hideDeleteCallout();
       await render();
-      showToast("Removed this month's installment");
+      showToast("Skipped this month's SIP — balance updated");
+      return;
+    }
+    const delSipSeriesBtn = ev.target.closest('[data-del-sip-series]');
+    if (delSipSeriesBtn) {
+      ev.stopPropagation();
+      showDeleteCallout(delSipSeriesBtn, 'confirm-del-sip-series', delSipSeriesBtn.dataset.delSipSeries);
+      return;
+    }
+    const confirmDelSipSeries = ev.target.closest('[data-confirm-del-sip-series]');
+    if (confirmDelSipSeries) {
+      ev.stopPropagation();
+      const seriesId = confirmDelSipSeries.dataset.confirmDelSipSeries;
+
+      // Filter out the series from global state and save to the database
+      State.sipSeries = State.sipSeries.filter(s => s.id !== seriesId);
+      await Store.set('sipseries', State.sipSeries);
+
+      hideDeleteCallout();
+      await render();
+      showToast('SIP deleted entirely');
       return;
     }
     const settleOwed = ev.target.closest('[data-settle-owed]');
@@ -3221,6 +3390,17 @@ function bindEvents(){
       await Store.set('creditcards', State.cards);
       await render();
       showToast('Card added');
+      return;
+    }
+    const addSip = ev.target.closest('#sip-add');
+    if(addSip){
+      const desc = $('#sip-desc').value.trim();
+      const amount = Number($('#sip-amount').value);
+      if(!desc || !amount || amount<=0){ showToast('Enter a description and a valid amount'); return; }
+      State.sipSeries.push({id:uid(), description:desc, amount, startMonth: currentMonthKey()});
+      await Store.set('sipseries', State.sipSeries);
+      await render();
+      showToast('SIP added');
       return;
     }
 
@@ -3640,8 +3820,28 @@ async function handleSubmit(kind){
   }
   else if(kind==='emi'){
     const months = Number($('#f-months')?.value);
-    if(!desc || !amount || amount<=0 || !months || months<1){ showToast('Fill in description, amount and number of months'); return; }
-    State.emiSeries.push({id:uid(), description:desc, monthlyAmount:amount, totalMonths:months, startMonth:mk});
+    const startMonth = $('#f-emi-start')?.value || mk;
+    
+    if(!desc || !amount || amount<=0 || !months || months<1){ 
+      showToast('Fill in description, amount and number of months'); 
+      return; 
+    }
+    
+    // Calculate if the EMI is already complete based on the selected starting month
+    const elapsed = diffMonths(startMonth, currentMonthKey());
+    if (elapsed >= months) {
+      showToast('Invalid: EMI is already complete based on the starting month.');
+      return;
+    }
+
+    State.emiSeries.push({
+      id: uid(), 
+      description: desc, 
+      monthlyAmount: amount, 
+      totalMonths: months, 
+      startMonth: startMonth // Now strictly uses the user-defined date
+    });
+    
     await Store.set('emiseries', State.emiSeries);
   }
 
@@ -3731,6 +3931,7 @@ async function signOut(){
   if(window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
   State.user = null;
   State.cards = [];
+  State.emiSeries = [];
   State.emiSeries = [];
   State.monthsIndex = [];
   State.monthCache = {};
