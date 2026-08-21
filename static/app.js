@@ -1079,12 +1079,12 @@ function renderStatCards(stats, splitOwed){
       <div class="stat-popover"><div class="pop-title">starting balance + CR - DR</div>${balancePop}</div>
     </div>
     <div class="stat-card invest" tabindex="0" data-stat-card>
-      <div class="stat-back"><div class="pop-title">Every investment</div>${investPop}</div>
+      <div class="stat-back"><div class="pop-title">${stats.invested.title || 'Every investment'}</div>${investPop}</div>
       <div class="stat-front" data-stat-toggle>
         <div class="label">Amount invested <span class="hoverdot">i</span></div>
         <div class="value">${fmtINR(stats.invested.total)}</div>
       </div>
-      <div class="stat-popover"><div class="pop-title">Every investment</div>${investPop}</div>
+      <div class="stat-popover"><div class="pop-title">${stats.invested.title || 'Every investment'}</div>${investPop}</div>
     </div>
     <div class="stat-card owed" tabindex="0" data-stat-card>
       <div class="stat-back"><div class="pop-title">Who owes you</div>${owedPop}</div>
@@ -1430,6 +1430,25 @@ async function viewMonth(){
   const monthTotals = computeMonthTotals(data.entries.concat(emiRows, sipRows));
 
   const stats = await computeGlobalStats();
+
+  // Override the global investments with only this month's individual entries
+  const monthInvestList = [];
+  for(const e of data.entries){
+    if(e.type === 'investment'){
+      // Set monthKey to null so the redundant month label doesn't clutter the popover
+      monthInvestList.push({description: e.description, amount: Number(e.amount)||0, monthKey: null}); 
+    }
+  }
+  for(const s of sipRows){
+    monthInvestList.push({description: s.description + ' (SIP)', amount: Number(s.amount)||0, monthKey: null});
+  }
+  
+  stats.invested = {
+    total: monthTotals.invest + monthTotals.sip,
+    list: monthInvestList,
+    title: "This month's investments"
+  };
+
   const breakdownByKey = Object.fromEntries(stats.breakdown.map(b=>[b.monthKey,b]));
   const thisMonthCalc = breakdownByKey[key] || {starting:Number(data.startingBalance)||0};
 
