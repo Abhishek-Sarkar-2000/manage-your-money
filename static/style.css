@@ -31,6 +31,7 @@ html,
 body {
   margin: 0;
   padding: 0;
+  overflow-x: hidden;
 }
 
 body {
@@ -58,8 +59,11 @@ h4 {
 .num {
   font-family: 'IBM Plex Mono', monospace;
   font-variant-numeric: tabular-nums;
-  text-align: right;
   white-space: nowrap;
+}
+
+.table-wrap .num {
+  text-align: right;
 }
 
 #app {
@@ -765,6 +769,42 @@ a {
   border: 1px solid var(--hair);
 }
 
+table {
+  border-collapse: collapse;
+  font-size: 0.92rem;
+  width: max-content;
+  min-width: 100%;
+}
+
+thead th {
+  text-align: left;
+  padding: 12px 14px;
+  background: var(--royal);
+  color: #EAF2FB;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 500;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.table-numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+tbody td {
+  padding: 12px 14px;
+  border-top: 1px solid var(--hair);
+  vertical-align: top;
+  background: #fff;
+}
+
+tbody tr:hover td {
+  background: var(--ice-2);
+}
+
+
 @media (max-width: 480px) {
   .table-scroll-shell {
     position: relative;
@@ -814,44 +854,11 @@ a {
   }
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: max-content;
-  width: max(100%, max-content);
-  font-size: 0.92rem;
-  min-width: 680px;
-}
-
-thead th {
-  text-align: left;
-  padding: 12px 14px;
-  background: var(--royal);
-  color: #EAF2FB;
-  font-family: 'IBM Plex Mono', monospace;
-  font-weight: 500;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.table-numeric {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-tbody td {
-  padding: 12px 14px;
-  border-top: 1px solid var(--hair);
-  vertical-align: top;
-  background: #fff;
-}
-
-tbody tr:hover td {
-  background: var(--ice-2);
-}
-
 @media (max-width: 960px) {
+  table {
+    width: max-content;
+    min-width: 100%;
+  }
   thead th {
     padding: 12px 20px;
   }
@@ -868,6 +875,7 @@ tbody tr:hover td {
   font-weight: 600;
   font-family: 'IBM Plex Mono', monospace;
   text-transform: uppercase;
+  text-align: center;
   letter-spacing: 0.03em;
 }
 
@@ -1322,14 +1330,15 @@ transform: translateY(0);
 /* ---------- Charts ---------- */
 .charts-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 20px;
   margin-top: 20px;
+  width: 100%;
 }
 
 @media (max-width: 480px) {
   .charts-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -1338,6 +1347,8 @@ transform: translateY(0);
   border-radius: var(--radius-sm);
   padding: 20px;
   background: #fff;
+  min-width: 0;
+  overflow-x: auto;
 }
 
 .chart-toolbar {
@@ -2303,7 +2314,9 @@ footer {
 .month-row,
 .split-group-card,
 .split-settle-card,
-.split-details-panel {
+.split-details-panel,
+.price-item-card,
+.price-details-panel {
   animation: fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
   position: relative;
   z-index: 2;
@@ -2409,6 +2422,29 @@ footer {
   padding: 2px 2px 4px;
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+.scroll-track.price-category-track {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+  overflow-x: visible; 
+}
+.price-category-track ~ .scroll-arrow {
+  display: none !important;
+}
+
+@media (max-width: 480px) {
+  .scroll-track.price-category-track {
+    display: flex;
+    overflow-x: auto;
+    align-items: stretch;
+  }
+  .price-category-track .price-item-card {
+    flex: 0 0 75vw;
+    min-width: 240px;
+    height: auto;
+  }
 }
 
 .tag-chart-card {
@@ -2593,6 +2629,172 @@ footer {
   color: var(--credit);
 }
 
+/* ---------- Price Tracker ---------- */
+.price-item-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.price-item-card {
+  position: relative;
+  cursor: pointer;
+  background: linear-gradient(155deg, #fff 0%, var(--ice-2) 100%);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.price-item-card .pic-bottom {
+  border-top: 1px dashed var(--hair);
+  padding-top: 10px;
+  margin-top: 12px; /* Ensures a minimum gap if the card content is tall */
+}
+
+.price-item-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+  border-color: var(--sky);
+}
+
+.price-item-card.active {
+  border-color: var(--blue);
+  box-shadow: var(--shadow);
+}
+
+.price-item-card .pic-actions {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+
+.price-item-card .pic-top {
+  display: block;
+  padding-right: 24px;
+}
+
+.price-item-card .pic-top h4 {
+  display: inline; 
+  font-size: 0.88rem;
+  line-height: 1.4;
+  margin-right: 8px;
+}
+
+.price-item-card .pic-top .src-badge {
+  display: inline-block;
+  vertical-align: middle;
+  margin-top: -3px;
+}
+
+.price-item-card .pic-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.price-item-card .pic-price {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  font-size: 1.15rem;
+  color: var(--navy);
+}
+
+.price-category-section {
+  margin-bottom: 24px;
+}
+
+.price-category-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border-radius: 999px; /* Fully rounded pill shape */
+  padding: 6px 16px;
+  font-family: 'IBM Plex Mono', monospace; /* Crisp label font */
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--royal);
+  border: 1px solid var(--hair);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 14px;
+}
+
+.price-category-title::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--blue);
+  flex-shrink: 0;
+}
+
+.price-trend {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.price-trend.up {
+  color: var(--debit);
+  background: var(--debit-bg);
+}
+
+.price-trend.down {
+  color: var(--credit);
+  background: var(--credit-bg);
+}
+
+.price-trend.flat {
+  color: var(--muted);
+  background: var(--ice);
+}
+
+.price-item-card .pic-date {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.price-details-panel {
+  margin-top: 18px;
+}
+
+.price-details-panel > .section-title {
+  margin-top: 16px;
+}
+
+.meta-text {
+  display: inline-block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--muted);
+  vertical-align: middle;
+}
+
+.price-item-card .pic-top .meta-text {
+  margin-top: -3px; 
+}
+
+@media (max-width: 540px) {
+  .price-item-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .toggle-switch {
   display: flex;
   align-items: center;
@@ -2731,7 +2933,9 @@ footer {
 .no-entrance-anim .month-row,
 .no-entrance-anim .split-group-card,
 .no-entrance-anim .split-settle-card,
-.no-entrance-anim .split-details-panel {
+.no-entrance-anim .split-details-panel,
+.no-entrance-anim .price-item-card,
+.no-entrance-anim .price-details-panel {
   animation: none !important;
   opacity: 1 !important;
   transform: none !important;
@@ -2739,7 +2943,8 @@ footer {
 
 /* Prevent nested popup animations from triggering during a horizontal slide */
 [class*="slide-"] .form-panel,
-[class*="slide-"] .split-details-panel {
+[class*="slide-"] .split-details-panel,
+[class*="slide-"] .price-details-panel {
   animation: none !important;
   opacity: 1 !important;
   transform: none !important;

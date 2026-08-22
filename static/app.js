@@ -194,6 +194,12 @@ const State = {
   splitSpendFormOpen: false,
   splitExpandedId: null,
   splitCalloutPinned: null,
+  priceTrackDictionary: {},
+  priceItems: [],
+  priceFormOpen: false,
+  priceExpandedId: null,
+  priceLogFormOpen: false,
+  priceSlideDirection: null,
   isShared: false,
   sharedSplitId: null,
   sharedOwner: null,
@@ -210,6 +216,8 @@ async function loadCore(){
   State.customTags = await Store.get('custom-spend-tags', []);
   State.splitsIndex = await Store.get('splits-index', []);
   State.existingInvestments = await Store.get('existinginvestments', 0);
+  State.priceTrackDictionary = await Store.get('price-track-dict', {});
+  State.priceItems = await Store.get('price-items', []);
 }
 
 function allSpendTags(){
@@ -804,6 +812,7 @@ async function render(){
   else if(State.view === 'months') app.innerHTML = await viewMonthsList();
   else if(State.view === 'month') app.innerHTML = await viewMonth();
   else if(State.view === 'split') app.innerHTML = await viewSplit();
+  else if(State.view === 'pricetrack') app.innerHTML = await viewPriceTrack();
 
   if(!showLoginHero && State.view !== 'home'){
     app.insertAdjacentHTML('beforeend', `<button class="fab-home" data-nav="home" title="Back to home" aria-label="Back to home">⌂</button>`);
@@ -1271,6 +1280,11 @@ async function viewHome(){
         <div class="ac-icon">⇄</div>
         <h3>Split Money</h3>
         <p>Track group spends with friends, settle debts, and sync it straight into your ledger.</p>
+      </div>
+      <div class="action-card" data-nav="pricetrack">
+        <div class="ac-icon">↗</div>
+        <h3>Price Tracker</h3>
+        <p>Note down what things cost — groceries, transport, subscriptions — and watch prices move over time.</p>
       </div>
     `, 'money-track')}
   </div>
@@ -2636,11 +2650,252 @@ function renderSplitDetailsPanel(group) {
   </div>`;
 }
 
+/* ---------- Price Tracker ---------- */
+function sortedPriceHistory(item){
+  return [...(item.history || [])].sort((a,b) => (a.date||'').localeCompare(b.date||''));
+}
+
+async function viewPriceTrack(){
+  const items = [...State.priceItems].sort((a,b) => a.name.localeCompare(b.name));
+  const expandedItem = State.priceExpandedId ? State.priceItems.find(i => i.id === State.priceExpandedId) : null;
+
+  const addFormHtml = State.priceFormOpen ? `
+  <div class="form-panel">
+    <div class="form-row">
+      <div class="field"><label>Item name</label><input id="pi-name" type="text" placeholder="e.g. Milk 1L" /></div>
+      ${renderTagField()}
+      <div id="pt-dynamic-fields" style="display:contents;"></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn primary" data-submit-price-item type="button">Save item</button>
+      <button class="btn ghost" data-close-price-form type="button">Cancel</button>
+    </div>
+  </div>` : '';
+
+  // 1. Group items by tag/category
+  const groupedItems = {};
+  for(const item of items) {
+    const cat = item.category || 'Other';
+    if(!groupedItems[cat]) groupedItems[cat] = [];
+    groupedItems[cat].push(item);
+  }
+
+  // 2. Generate separate sections for each category
+  let categoriesHtml = '';
+  if (items.length === 0) {
+    categoriesHtml = `<div class="empty-chart" style="grid-column:1/-1;">No items tracked yet — add one above to get started.</div>`;
+  } else {
+    const sortedCategories = Object.keys(groupedItems).sort((a,b) => a.localeCompare(b));
+    for (const category of sortedCategories) {
+      const catItems = groupedItems[category];
+      const cardsHtml = catItems.map(i => renderPriceItemCard(i)).join('');
+      
+      const isExpandedInThisCategory = expandedItem && catItems.some(i => i.id === expandedItem.id);
+      
+      // Inject details panel directly below this specific category's row if active
+      const detailsHtml = isExpandedInThisCategory 
+        ? `<div id="price-details-anim-inner" class="${State.priceSlideDirection || ''}">
+            ${renderPriceDetailsPanel(expandedItem)}
+           </div>` 
+        : '';
+
+      categoriesHtml += `
+      <div class="price-category-section">
+        <div class="price-category-title">${escapeHtml(category)}</div>
+        ${scrollWrapper(cardsHtml, 'price-category-track')}
+        ${detailsHtml}
+      </div>`;
+    }
+  }
+
+  return `
+  <div class="topbar">
+    <div class="brand" data-nav="home"><span class="mark">₹</span> LedgerNote</div>
+  </div>
+
+  <div class="section">
+    <div class="month-header"><h1>Price Tracker</h1></div>
+    <p style="color:var(--muted); max-width:56ch; margin-top:6px;">Note down what things cost over time — groceries, transport, subscriptions — and watch how prices move.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><h2>Track an item</h2><span class="hint">Add anything you want to watch the price of</span></div>
+    <div class="pill-grid">
+      <button class="pill-btn ${State.priceFormOpen ? 'active' : ''}" data-price-form-toggle type="button">+ Add New Item</button>
+    </div>
+    ${addFormHtml}
+  </div>
+
+  <div class="section">
+    <div class="section-title"><h2>Tracked items</h2><span class="hint">Tap a card for its full price history</span></div>
+    ${categoriesHtml}
+  </div>
+  `;
+}
+
+function renderPriceItemCard(item){
+  const hist = sortedPriceHistory(item);
+  const latest = hist.length ? hist[hist.length - 1] : null;
+  const prev = hist.length > 1 ? hist[hist.length - 2] : null;
+  const active = State.priceExpandedId === item.id ? 'active' : '';
+
+  let trendHtml = '';
+  if(latest && prev){
+    const diff = latest.price - prev.price;
+    const pct = prev.price ? (diff / prev.price * 100) : 0;
+    const cls = diff === 0 ? 'flat' : (diff > 0 ? 'up' : 'down');
+    const arrow = diff === 0 ? '→' : (diff > 0 ? '↑' : '↓');
+    trendHtml = `<span class="price-trend ${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</span>`;
+  }
+
+  const dateLabel = latest && latest.date
+    ? new Date(latest.date + 'T00:00:00').toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'})
+    : null;
+
+  // Extract metadata directly from the item
+  let metaHtml = '';
+  if (item.meta) {
+    if (item.meta.quantity) {
+      metaHtml = ` <span class="meta-text">${escapeHtml(item.meta.quantity)}</span>`;
+    } else if (item.meta.source && item.meta.destination) {
+      metaHtml = ` <span class="meta-text">${escapeHtml(item.meta.source)} → ${escapeHtml(item.meta.destination)}</span>`;
+    }
+  }
+
+  return `
+  <div class="price-item-card ${active}" data-price-card="${item.id}">
+    <div class="pic-actions">
+      <button class="icon-btn" data-popover-trigger data-del-price-item="${item.id}" title="Remove item" type="button">✕</button>
+    </div>
+    <div class="pic-top">
+      <h4>${escapeHtml(item.name)}</h4></br>${metaHtml}
+      <span class="src-badge">${escapeHtml(item.category)}</span>
+    </div>
+    <div class="pic-bottom">
+      <div class="pic-price-row">
+        <span class="pic-price">${latest ? fmtINR(latest.price) : '—'}</span>
+        ${trendHtml}
+      </div>
+      <div class="pic-date">${dateLabel ? 'Updated ' + dateLabel : 'No prices logged yet'}</div>
+    </div>
+  </div>`;
+}
+
+function priceLineChart(hist){
+  if(!hist.length){
+    return `<div class="empty-chart">Log a price to see the trend line.</div>`;
+  }
+  if(hist.length === 1){
+    return `<div class="empty-chart">Log one more price to see a trend line. Latest: <strong>${fmtINR(hist[0].price)}</strong></div>`;
+  }
+  const w = 900, h = 170, padL = 85, padR = 20, padT = 16, padB = 30;
+  const vals = hist.map(p => p.price);
+  const minV = Math.min(...vals), maxV = Math.max(...vals);
+  const range = (maxV - minV) || 1;
+  const stepX = (w - padL - padR) / Math.max(1, (hist.length - 1));
+  const coords = hist.map((p, i) => {
+    const x = padL + i * stepX;
+    const y = h - padB - ((p.price - minV) / range) * (h - padT - padB);
+    return [x, y];
+  });
+  const pathD = coords.map((c, i) => (i === 0 ? 'M' : 'L') + c[0].toFixed(1) + ',' + c[1].toFixed(1)).join(' ');
+  const areaD = pathD + ` L${coords[coords.length-1][0].toFixed(1)},${h-padB} L${coords[0][0].toFixed(1)},${h-padB} Z`;
+  const gridSvg = yAxisGrid(minV, maxV, w, h, padL, padR, padT, padB, 4);
+  const dots = coords.map(([x, y], i) => {
+    const dl = new Date(hist[i].date + 'T00:00:00').toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'});
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--blue)"><title>${dl}: ${fmtINR(hist[i].price)}</title></circle>`;
+  }).join('');
+  const lastVal = hist[hist.length - 1].price;
+  return `
+  <svg class="linechart" viewBox="0 0 ${w} ${h}">
+    <defs>
+      <linearGradient id="priceLineFade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--blue)" stop-opacity="0.22"/>
+        <stop offset="100%" stop-color="var(--blue)" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    ${gridSvg}
+    <path d="${areaD}" fill="url(#priceLineFade)" stroke="none"/>
+    <path d="${pathD}" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}
+  </svg>
+  <div class="subnote">Latest price: <strong class="num">${fmtINR(lastVal)}</strong></div>
+  `;
+}
+
+function renderPriceDetailsPanel(item){
+  const hist = sortedPriceHistory(item);
+  const chart = priceLineChart(hist);
+
+  const rowsHtml = [...hist].reverse().map(h => {
+    const dateLabel = h.date ? new Date(h.date + 'T00:00:00').toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}) : '—';
+    return `
+    <tr>
+      <td>${dateLabel}</td>
+      <td class="num">${fmtINR(h.price)}</td>
+      <td>${h.note ? escapeHtml(h.note) : '<span class="subnote">—</span>'}</td>
+      <td class="actions-cell"><button class="icon-btn" data-del-price-point="${item.id}|${h.id}" title="Remove entry">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  const formHtml = State.priceLogFormOpen ? `
+  <div class="form-panel slide-down-fade" style="margin-top:14px;">
+    <div class="form-row">
+      <div class="field"><label>Date</label><input id="pp-date" type="date" value="${todayStr()}" /></div>
+      <div class="field"><label>Price (₹)</label><input id="pp-price" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+      <div class="field"><label>Note (optional)</label><input id="pp-note" type="text" placeholder="e.g. Supermarket" /></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn primary" data-submit-price-point="${item.id}" type="button">Add price</button>
+      <button class="btn ghost" data-close-price-log-form type="button">Cancel</button>
+    </div>
+  </div>` : '';
+
+  const addBtnHtml = !State.priceLogFormOpen ? `
+  <div class="pill-grid" style="margin-top:14px;">
+    <button class="pill-btn" data-open-price-log-form type="button">+ Log Price</button>
+  </div>` : '';
+
+  return `
+  <div class="price-details-panel" data-price-details="${item.id}" style="margin-top:2px;">
+    <div class="section-title"><h2>${escapeHtml(item.name)} — Price History</h2><span class="hint">${hist.length} entr${hist.length===1?'y':'ies'} logged</span></div>
+
+    <div class="chart-card" style="margin-top:14px;">
+      ${chart}
+    </div>
+
+    ${addBtnHtml}
+    ${formHtml}
+
+    <div class="section-title"><h2>Cost Entries</h2></div>
+    <div class="table-wrap">
+      <table ${rowsHtml ? '' : 'style="width:100%;"'}>
+        <thead><tr><th>Date</th><th class="table-numeric">Price</th><th>Note</th><th></th></tr></thead>
+        <tbody>
+          ${rowsHtml || `<tr class="empty-row"><td colspan="4">No prices logged yet — add one above.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
 function renderRow(e, monthKey, rowspan = 1, isFirstDateRow = true){
   let dateCell = '';
   if (isFirstDateRow) {
     const dateLabel = e.date ? new Date(e.date+'T00:00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short'}) : '—';
     dateCell = `<td class="dv-date num" rowspan="${rowspan}">${dateLabel}</td>`;
+  }
+
+  // Look up metadata from the global dictionary
+  let metaHtml = '';
+  const dictEntry = State.priceTrackDictionary ? State.priceTrackDictionary[e.description] : null;
+  if (dictEntry && dictEntry.meta) {
+    const meta = dictEntry.meta;
+    if (meta.quantity) {
+      metaHtml = `</br><span class="meta-text">${escapeHtml(meta.quantity)}</span>`;
+    } else if (meta.source && meta.destination) {
+      metaHtml = `</br><span class="meta-text">${escapeHtml(meta.source)} → ${escapeHtml(meta.destination)}</span>`;
+    }
   }
 
   if(e.type==='spend'){
@@ -2653,7 +2908,7 @@ function renderRow(e, monthKey, rowspan = 1, isFirstDateRow = true){
       ${dateCell}
       <td><span class="tag spend">Spend</span></td>
       <td>
-        <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}
+        <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
         <div class="subnote">${card ? 'Paid via '+escapeHtml(card.name)+' — reduces card dues' : 'Cash / debit'}</div>
         ${lentChips ? `<div>${lentChips}</div>` : ''}
       </td>
@@ -2671,7 +2926,7 @@ function renderRow(e, monthKey, rowspan = 1, isFirstDateRow = true){
       ${dateCell}
       <td><span class="tag cardcharge">Card spend</span></td>
       <td>
-        <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}
+        <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
         <div class="subnote">On ${card ? escapeHtml(card.name) : 'a removed card'} — adds to card dues, not deducted from balance</div>
         ${lentChips ? `<div>${lentChips}</div>` : ''}
       </td>
@@ -2684,7 +2939,7 @@ function renderRow(e, monthKey, rowspan = 1, isFirstDateRow = true){
       ${dateCell}
       <td><span class="tag cashpayment">Cash spend</span></td>
       <td>
-        <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}
+        <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
         <div class="subnote">Physical cash spent — already accounted for via withdrawal</div>
       </td>
       <td class="num amt-neutral">${fmtINR(e.amount)}</td>
@@ -2774,6 +3029,10 @@ function renderForm(kind, monthKey){
         <div id="f-tag-row" style="display:contents;">
           ${renderTagField()}
         </div>
+        <div id="spend-dynamic-fields" style="display:contents;"></div>
+      </div>
+      <div id="f-price-track-wrap" style="margin-bottom: 14px;">
+        <button class="pill-btn sub-pill" id="f-price-track-btn" type="button">+ Add to Price Tracker</button>
       </div>
       <label class="checkline" id="f-lent-container"><input type="checkbox" id="f-lent-toggle" /> Lent — someone owes me part of this</label>
       <div id="f-lent-wrap" style="display:none;">
@@ -3085,6 +3344,157 @@ function bindEvents(){
       await render();
       return;
     }
+    /* ---------- Price Tracker ---------- */
+    const priceFormToggle = ev.target.closest('[data-price-form-toggle]');
+    if(priceFormToggle){
+      State.priceFormOpen = !State.priceFormOpen;
+      await render();
+      return;
+    }
+    const closePriceForm = ev.target.closest('[data-close-price-form]');
+    if(closePriceForm){
+      State.priceFormOpen = false;
+      await render();
+      return;
+    }
+    const submitPriceItem = ev.target.closest('[data-submit-price-item]');
+    if(submitPriceItem){
+      const name = ($('#pi-name').value || '').trim();
+      if(!name){ showToast('Enter an item name'); return; }
+      const category = (await resolveTagFromForm()) || 'Other';
+      
+      let meta = {};
+      const catLower = category.toLowerCase();
+      if (catLower === 'groceries') meta.quantity = $('#pt-quantity')?.value || '';
+      if (catLower === 'transport') {
+        meta.source = $('#pt-source')?.value || '';
+        meta.destination = $('#pt-destination')?.value || '';
+      }
+
+      State.priceTrackDictionary[name] = { category, meta };
+      await Store.set('price-track-dict', State.priceTrackDictionary);
+
+      State.priceItems.push({ id: uid(), name, category, history: [], meta });
+      await Store.set('price-items', State.priceItems);
+      State.priceFormOpen = false;
+      await render();
+      showToast('Item added');
+      return;
+    }
+    const delPriceItemBtn = ev.target.closest('[data-del-price-item]');
+    if(delPriceItemBtn){
+      ev.stopPropagation(); // Prevents the card from expanding/collapsing when clicking the X
+      showDeleteCallout(delPriceItemBtn, 'confirm-del-price-item', delPriceItemBtn.dataset.delPriceItem);
+      return;
+    }
+    const confirmDelPriceItem = ev.target.closest('[data-confirm-del-price-item]');
+    if(confirmDelPriceItem){
+      ev.stopPropagation();
+      const id = confirmDelPriceItem.dataset.confirmDelPriceItem;
+      State.priceItems = State.priceItems.filter(i => i.id !== id);
+      if(State.priceExpandedId === id){
+        State.priceExpandedId = null;
+        State.priceLogFormOpen = false;
+      }
+      await Store.set('price-items', State.priceItems);
+      hideDeleteCallout();
+      await render();
+      showToast('Item removed');
+      return;
+    }
+    const priceCard = ev.target.closest('[data-price-card]');
+    if(priceCard){
+      const id = priceCard.dataset.priceCard;
+      if (State.animTimeout) clearTimeout(State.animTimeout);
+
+      if (State.priceExpandedId === id) { // Close
+        State.priceExpandedId = null;
+        State.priceLogFormOpen = false;
+        render();
+        return;
+      }
+      if (State.priceExpandedId) { // Switch between item cards
+        const cards = $$('.price-item-card');
+        let oldIdx = -1, newIdx = -1;
+        cards.forEach((c, i) => {
+          if (c.dataset.priceCard === State.priceExpandedId) oldIdx = i;
+          if (c.dataset.priceCard === id) newIdx = i;
+        });
+        const isRight = newIdx > oldIdx;
+        const inner = $('#price-details-anim-inner');
+        if (inner && oldIdx !== -1 && newIdx !== -1) {
+          inner.className = isRight ? 'slide-out-left' : 'slide-out-right';
+          State.animTimeout = setTimeout(() => {
+            State.priceExpandedId = id;
+            State.priceLogFormOpen = false;
+            State.priceSlideDirection = isRight ? 'slide-in-right' : 'slide-in-left';
+            render();
+          }, 300);
+        } else {
+          State.priceExpandedId = id;
+          State.priceLogFormOpen = false;
+          State.priceSlideDirection = '';
+          render();
+        }
+        return;
+      }
+      // Open fresh
+      State.priceExpandedId = id;
+      State.priceLogFormOpen = false;
+      State.priceSlideDirection = '';
+      await render();
+      return;
+    }
+    const openPriceLogForm = ev.target.closest('[data-open-price-log-form]');
+    if(openPriceLogForm){
+      State.priceLogFormOpen = true;
+      await render();
+      return;
+    }
+    const closePriceLogForm = ev.target.closest('[data-close-price-log-form]');
+    if(closePriceLogForm){
+      State.priceLogFormOpen = false;
+      await render();
+      return;
+    }
+    const submitPricePoint = ev.target.closest('[data-submit-price-point]');
+    if(submitPricePoint){
+      const itemId = submitPricePoint.dataset.submitPricePoint;
+      const item = State.priceItems.find(i => i.id === itemId);
+      if(!item) return;
+      const date = $('#pp-date').value || todayStr();
+      const price = Number($('#pp-price').value);
+      const note = ($('#pp-note').value || '').trim();
+      if(Number.isNaN(price) || price < 0){ showToast('Enter a valid price'); return; }
+      item.history.push({ id: uid(), date, price, note });
+      await Store.set('price-items', State.priceItems);
+      State.priceLogFormOpen = false;
+      await render();
+      showToast('Price logged');
+      return;
+    }
+    const delPricePoint = ev.target.closest('[data-del-price-point]');
+    if(delPricePoint){
+      const [itemId, pointId] = delPricePoint.dataset.delPricePoint.split('|');
+      const item = State.priceItems.find(i => i.id === itemId);
+      if(item){
+        item.history = item.history.filter(h => h.id !== pointId);
+        await Store.set('price-items', State.priceItems);
+        await render();
+        showToast('Entry removed');
+      }
+      return;
+    }
+    const priceTrackBtn = ev.target.closest('#f-price-track-btn');
+    if (priceTrackBtn) {
+      priceTrackBtn.classList.toggle('active');
+      if (priceTrackBtn.classList.contains('active')) {
+        priceTrackBtn.textContent = '✓ Added to Price Tracker';
+      } else {
+        priceTrackBtn.textContent = '+ Add to Price Tracker';
+      }
+      return;
+    }
     const toggleManualBtn = ev.target.closest('#toggle-manual-balance-btn');
     if (toggleManualBtn) {
       const mk = State.currentMonthKey;
@@ -3156,9 +3566,11 @@ function bindEvents(){
       const lentContainer = $('#f-lent-container');
       const lentWrap = $('#f-lent-wrap');
       const lentToggle = $('#f-lent-toggle');
+      const priceTrackWrap = $('#f-price-track-wrap');
 
       // Adjust field visibility and info text based on selection
       if (mode === 'regular') {
+        if (priceTrackWrap) priceTrackWrap.style.display = 'block';
         descWrap.style.display = 'block';
         cardWrap.style.display = 'none';
         tagRow.style.display = 'contents';
@@ -3166,6 +3578,7 @@ function bindEvents(){
         
         if (lentContainer) lentContainer.style.display = 'flex';
       } else if (mode === 'atm') {
+        if (priceTrackWrap) priceTrackWrap.style.display = 'none';
         descWrap.style.display = 'none';
         cardWrap.style.display = 'none';
         tagRow.style.display = 'none';
@@ -3175,6 +3588,7 @@ function bindEvents(){
         if (lentWrap) lentWrap.style.display = 'none';
         if (lentToggle) lentToggle.checked = false;
       } else if (mode === 'card') {
+        if (priceTrackWrap) priceTrackWrap.style.display = 'none';
         descWrap.style.display = 'none';
         cardWrap.style.display = 'block';
         tagRow.style.display = 'none';
@@ -3186,32 +3600,32 @@ function bindEvents(){
       }
       return;
     }
-	const shareBtn = ev.target.closest('[data-share-split]');
-	if (shareBtn) {
-		const id = shareBtn.dataset.shareSplit;
-		shareBtn.disabled = true;
-		try{
-			const res = await fetch('/api/split/share', {
-				method: 'POST',
-				headers: {'Content-Type':'application/json'},
-				body: JSON.stringify({key: 'split:' + id})
-			});
-			if(res.status === 401){ onAuthRequired(); return; }
-			const body = await res.json();
-			if(!res.ok){
-				showToast(body.error || 'Could not create a share link');
-				return;
-			}
-			await navigator.clipboard.writeText(body.url);
-			showToast('Link copied! Anyone with this link can view the split.');
-		}catch(e){
-			console.error('share link failed', e);
-			showToast('Failed to copy link.');
-		}finally{
-			shareBtn.disabled = false;
-		}
-		return;
-	}
+    const shareBtn = ev.target.closest('[data-share-split]');
+    if (shareBtn) {
+      const id = shareBtn.dataset.shareSplit;
+      shareBtn.disabled = true;
+      try{
+        const res = await fetch('/api/split/share', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({key: 'split:' + id})
+        });
+        if(res.status === 401){ onAuthRequired(); return; }
+        const body = await res.json();
+        if(!res.ok){
+          showToast(body.error || 'Could not create a share link');
+          return;
+        }
+        await navigator.clipboard.writeText(body.url);
+        showToast('Link copied! Anyone with this link can view the split.');
+      }catch(e){
+        console.error('share link failed', e);
+        showToast('Failed to copy link.');
+      }finally{
+        shareBtn.disabled = false;
+      }
+      return;
+    }
     const formBtn = ev.target.closest('[data-form]');
     if(formBtn){
       const newForm = formBtn.dataset.form;
@@ -3526,7 +3940,7 @@ function bindEvents(){
     }
     
     const splitCard = ev.target.closest('[data-split-card]');
-	if(splitCard && !State.isShared && !ev.target.closest('.sgc-actions')){
+	  if(splitCard && !State.isShared && !ev.target.closest('.sgc-actions')){
       const id = splitCard.dataset.splitCard;
       if (State.animTimeout) clearTimeout(State.animTimeout);
 
@@ -3649,8 +4063,39 @@ function bindEvents(){
       return;
     }
     if(ev.target.id === 'f-tag'){
+      const val = ev.target.value.toLowerCase();
       const customWrap = $('#f-tag-custom-wrap');
-      if(customWrap) customWrap.style.display = ev.target.value === '__custom__' ? 'block' : 'none';
+      if(customWrap) customWrap.style.display = val === '__custom__' ? 'block' : 'none';
+
+      // Price Tracker form dynamic fields
+      const ptDynamicWrap = $('#pt-dynamic-fields');
+      if (ptDynamicWrap) {
+        if (val === 'groceries') {
+          ptDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="pt-quantity" type="text" placeholder="e.g. 1kg or 1L" /></div>`;
+        } else if (val === 'transport') {
+          ptDynamicWrap.innerHTML = `
+            <div class="field"><label>Source</label><input id="pt-source" type="text" placeholder="e.g. Home" /></div>
+            <div class="field"><label>Destination</label><input id="pt-destination" type="text" placeholder="e.g. Office" /></div>
+          `;
+        } else {
+          ptDynamicWrap.innerHTML = '';
+        }
+      }
+
+      // Spend form dynamic fields
+      const spendDynamicWrap = $('#spend-dynamic-fields');
+      if (spendDynamicWrap) {
+        if (val === 'groceries') {
+          spendDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="sp-quantity" type="text" placeholder="e.g. 1kg or 1L" /></div>`;
+        } else if (val === 'transport') {
+          spendDynamicWrap.innerHTML = `
+            <div class="field"><label>Source</label><input id="sp-source" type="text" placeholder="e.g. Home" /></div>
+            <div class="field"><label>Destination</label><input id="sp-destination" type="text" placeholder="e.g. Office" /></div>
+          `;
+        } else {
+          spendDynamicWrap.innerHTML = '';
+        }
+      }
     }
     if(ev.target.id === 'f-lent-toggle'){
       const lentWrap = $('#f-lent-wrap');
@@ -3808,7 +4253,32 @@ async function handleSubmit(kind){
       mode = 'card';
     }
     if(!desc || !amount || amount<=0){ showToast('Enter a spend description and amount'); return; }
-    
+
+    if (uimode === 'regular') {
+      const syncBtn = $('#f-price-track-btn');
+      if (syncBtn && syncBtn.classList.contains('active')) {
+        let meta = {};
+        const catLower = (tag || '').toLowerCase();
+        if (catLower === 'groceries') meta.quantity = $('#sp-quantity')?.value || '';
+        if (catLower === 'transport') {
+          meta.source = $('#sp-source')?.value || '';
+          meta.destination = $('#sp-destination')?.value || '';
+        }
+
+        State.priceTrackDictionary[desc] = { category: tag, meta };
+        Store.set('price-track-dict', State.priceTrackDictionary);
+
+        let item = State.priceItems.find(i => i.name.toLowerCase() === desc.toLowerCase());
+        if (!item) {
+          item = { id: uid(), name: desc, category: tag, history: [], meta };
+          State.priceItems.push(item);
+        } else {
+          item.meta = meta; // Refresh metadata
+        }
+        item.history.push({ id: uid(), date, price: amount, note: 'Synced from Spends' });
+        Store.set('price-items', State.priceItems);
+      }
+    }
     data.entries.push({id:uid(), type:'spend', description:desc, amount, date, paymentMode:mode, cardId, tag, lent:collectLent()});
   }
   else if(kind==='cardcharge'){
