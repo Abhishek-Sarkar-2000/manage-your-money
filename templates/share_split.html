@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Shared split — LedgerNote{% endblock %}
+{% block extra_css %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/charts.css') }}?v={{ static_version }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/views/split.css') }}?v={{ static_version }}" />
+{% endblock %}
+{% block auth_bar %}{# Fully public page: no auth chrome, no sign-in button #}{% endblock %}
+{% block content %}
+  <div id="share-split-root" class="share-split-view" data-loading="true" data-share-id="{{ share_id }}"></div>
+{% endblock %}
+{% block page_script %}
+  <script type="module" src="{{ url_for('static', filename='js/views/share-split.js') }}"></script>
+{% endblock %}

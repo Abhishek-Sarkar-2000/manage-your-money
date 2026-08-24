@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Split Money — Manage Your Money{% endblock %}
+{% block extra_css %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/charts.css') }}?v={{ static_version }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/views/split.css') }}?v={{ static_version }}" />
+{% endblock %}
+{% block content %}
+  <div id="split-root" class="split-view" data-loading="true"></div>
+{% endblock %}
+{% block page_script %}
+  <script type="module" src="{{ url_for('static', filename='js/views/split.js') }}"></script>
+{% endblock %}

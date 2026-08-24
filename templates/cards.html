@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Credit cards — Manage Your Money{% endblock %}
+{% block extra_css %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/views/cards.css') }}?v={{ static_version }}" />
+{% endblock %}
+{% block content %}
+  <div id="cards-root" class="cards-view" data-loading="true"></div>
+{% endblock %}
+{% block page_script %}
+  <script type="module" src="{{ url_for('static', filename='js/views/cards.js') }}"></script>
+{% endblock %}

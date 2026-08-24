@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}SIPs — Manage Your Money{% endblock %}
+{% block extra_css %}
+  <!-- Reuses .cc-item / .cc-name / .cc-cycle styling from cards.css -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/views/cards.css') }}?v={{ static_version }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/views/sips.css') }}?v={{ static_version }}" />
+{% endblock %}
+{% block content %}
+  <div id="sips-root" class="sips-view" data-loading="true"></div>
+{% endblock %}
+{% block page_script %}
+  <script type="module" src="{{ url_for('static', filename='js/views/sips.js') }}"></script>
+{% endblock %}

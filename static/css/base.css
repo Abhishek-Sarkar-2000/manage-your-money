@@ -1,0 +1,723 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+body {
+  font-family: 'Source Serif 4', Georgia, serif;
+  color: var(--ink);
+  background:
+    repeating-linear-gradient(180deg, transparent 0 39px, rgba(47, 111, 176, 0.055) 40px 41px),
+    linear-gradient(160deg, var(--ice) 0%, var(--paper) 45%, #ffffff 100%);
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: 'Fraunces', serif;
+  color: var(--navy);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.num {
+  font-family: 'IBM Plex Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.table-wrap .num {
+  text-align: right;
+}
+
+#app {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 24px;
+  width: 75%;
+  min-width: 320px;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 960px) {
+  #app {
+    width: 100%;
+  }
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+#global-footer-container {
+  width: 100%;
+  margin-top: auto;
+}
+
+/* Components that opt back into an underline (e.g. plain inline text
+   links inside prose) can set text-decoration explicitly themselves. */
+
+
+/* ---------- Generic card / section ---------- */
+.card {
+  background: #fff;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 26px;
+}
+
+.section {
+  margin-top: 34px;
+}
+
+.section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.section-title h2 {
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.section-title .hint {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+@media (max-width: 540px) {
+  .section-title {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+
+
+/* ---------- Buttons ---------- */
+.btn {
+  font-family: 'Source Serif 4', serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 11px 20px;
+  border-radius: 999px;
+  border: 1px solid var(--blue);
+  background: var(--blue);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn:hover {
+  background: var(--navy);
+  border-color: var(--navy);
+}
+
+.btn.secondary {
+  background: #fff;
+  color: var(--blue);
+}
+
+.btn.secondary:hover {
+  background: var(--ice);
+}
+
+.btn.ghost {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--hair);
+}
+
+.btn.ghost:hover {
+  background: var(--ice-2);
+  color: var(--ink);
+}
+
+.btn.small {
+  padding: 7px 14px;
+  font-size: 0.82rem;
+}
+
+.btn.danger {
+  background: #fff;
+  color: var(--debit);
+  border-color: var(--debit-bg);
+}
+
+.btn.danger:hover {
+  background: var(--debit-bg);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pill-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pill-btn {
+  border: 1.5px dashed var(--sky);
+  background: var(--ice-2);
+  color: var(--royal);
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-family: 'Source Serif 4', serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pill-btn.active {
+  background: var(--blue);
+  border-style: solid;
+  border-color: var(--blue);
+  color: #fff;
+}
+
+.pill-btn.alt {
+  border-color: #C98A3C;
+}
+
+.pill-btn.alt.active {
+  background: #C98A3C;
+  border-color: #C98A3C;
+}
+
+.pill-btn.sub-pill {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 400;
+    font-family: 'IBM Plex Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.pill-btn.sub-pill.active {
+  background: var(--debit);
+  border-style: solid;
+  border-color: var(--debit-bd);
+  font-weight: 700;
+  color: #fff;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pill-btn:hover {
+    background: var(--ice);
+    border-color: var(--blue);
+  }
+  .pill-btn.active:hover {
+    background: var(--royal);
+  }
+  .pill-btn.sub-pill.active:hover {
+    background: var(--debit);
+  }
+  .pill-btn.sub-pill.active.hyperlink:hover {
+    background: var(--debit-bd);
+  }
+}
+
+
+/* ---------- Forms ---------- */
+.form-panel {
+  margin-top: 16px;
+  padding: 22px;
+  border-radius: var(--radius-sm);
+  background: var(--ice-2);
+  border: 1px solid var(--hair);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.field label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--hair);
+  border-radius: 7px;
+  font-family: 'Source Serif 4', serif;
+  font-size: 0.95rem;
+  background: #fff;
+  color: var(--ink);
+}
+
+.field input[type="number"] {
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.field input:focus,
+.field select:focus {
+  outline: 2px solid var(--sky);
+  outline-offset: 1px;
+  border-color: var(--blue);
+}
+
+.checkline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--royal);
+  margin: 6px 0 14px;
+}
+
+.checkline input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--blue);
+}
+
+.lent-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.lent-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.form-note {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin: 4px;
+  padding-bottom: 12px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+  border-bottom: 1.5px dashed var(--sky);
+}
+
+.invest-form {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.invest-form .pill-btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 500px) {
+  .invest-form {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 8px;
+  }
+}
+
+/* ---------- Table ---------- */
+.table-wrap {
+  overflow-x: auto;
+  overflow-y: visible;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hair);
+}
+
+table {
+  border-collapse: collapse;
+  font-size: 0.92rem;
+  width: max-content;
+  min-width: 100%;
+}
+
+thead th {
+  text-align: left;
+  padding: 12px 14px;
+  background: var(--royal);
+  color: #EAF2FB;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 500;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.table-numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+tbody td {
+  padding: 12px 14px;
+  border-top: 1px solid var(--hair);
+  vertical-align: top;
+  background: #fff;
+}
+
+tbody tr:hover td {
+  background: var(--ice-2);
+}
+
+
+@media (max-width: 480px) {
+  .table-scroll-shell {
+    position: relative;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+
+  .table-scroll-shell::before,
+  .table-scroll-shell::after {
+    content: "";
+    position: absolute;
+    top: 1px;
+    bottom: 1px;
+    width: 18px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    z-index: 5;
+  }
+
+  /* Fixed left-edge shadow */
+  .table-scroll-shell::before {
+    left: 1px;
+    background: linear-gradient(
+      to right,
+      rgba(120, 120, 134, 0.08),
+      transparent 55%
+    );
+  }
+
+  /* Fixed right-edge shadow */
+  .table-scroll-shell::after {
+    right: 1px;
+    background: linear-gradient(
+      to left,
+      rgba(120, 120, 134, 0.08),
+      transparent 55%
+    );
+  }
+
+  .table-scroll-shell.can-scroll-left::before {
+    opacity: 1;
+  }
+
+  .table-scroll-shell.can-scroll-right::after {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 960px) {
+  table {
+    width: max-content;
+    min-width: 100%;
+  }
+  thead th {
+    padding: 12px 20px;
+  }
+  tbody td {
+    padding: 12px 20px;
+  }
+}
+
+.tag {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: 'IBM Plex Mono', monospace;
+  text-transform: uppercase;
+  text-align: center;
+  letter-spacing: 0.03em;
+}
+
+.tag.spend {
+  background: var(--debit-bg);
+  color: var(--debit);
+}
+
+.tag.cardcharge {
+background: #FBF0E2;
+color: #C07A2E;
+}
+
+.tag.cashpayment {
+background: #FBF0E2;
+color: #C07A2E;
+}
+
+.tag.income {
+  background: var(--credit-bg);
+  color: var(--credit);
+}
+
+.src-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: 'IBM Plex Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  background: var(--ice);
+  color: var(--blue);
+  vertical-align: middle;
+}
+
+.tag.owed {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+
+.tag.emi {
+  background: #EDEBF9;
+  color: #5B4B9E;
+}
+
+.tag.invest {
+  background: #E4EEF9;
+  color: var(--blue);
+}
+
+.amt-credit {
+  color: var(--credit);
+  font-weight: 600;
+}
+
+.amt-debit {
+  color: var(--debit);
+  font-weight: 600;
+}
+
+.amt-neutral {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.subnote {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  background: var(--ice);
+  color: var(--royal);
+  padding: 3px 9px;
+  border-radius: 999px;
+  margin: 2px 4px 0 0;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.chip.settled {
+  background: var(--credit-bg);
+  color: var(--credit);
+  text-decoration: line-through;
+}
+
+.chip button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  font-size: 0.85rem;
+  padding: 0;
+  line-height: 1;
+}
+
+.row-actions {
+  display: flex;
+  gap: 8px;
+}
+
+td.actions-cell {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.icon-btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.95rem;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.icon-btn:hover {
+  color: var(--debit);
+  background: var(--debit-bg);
+}
+
+.empty-row td {
+  text-align: center;
+  color: var(--muted);
+  padding: 36px 12px;
+  font-style: italic;
+}
+
+
+/* ---------- Entrance animation ---------- */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.action-card,
+.current-month-card,
+.stat-card,
+.chart-card,
+.card,
+.form-panel,
+.month-row,
+.split-group-card,
+.split-settle-card,
+.split-details-panel,
+.price-item-card,
+.price-details-panel {
+  animation: fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  position: relative;
+  z-index: 2;
+}
+
+.split-details-panel > .section-title {
+  margin-top: 16px;
+}
+
+/* ---------- Shared re-render / transition suppression ----------
+   Lets a view re-render part of itself (open a form, expand a card)
+   without every card on the page replaying its mount animation, and
+   defines the slide-in/slide-out classes used by Month's 'Add an
+   entry' panel and Split's group-card switch. Was nested under a
+   Price-Tracker-only heading in the original file. */
+/* Disable full-page re-entry animations during state updates */
+.no-entrance-anim .action-card,
+.no-entrance-anim .current-month-card,
+.no-entrance-anim .stat-card,
+.no-entrance-anim .chart-card,
+.no-entrance-anim .card,
+.no-entrance-anim .form-panel,
+.no-entrance-anim .month-row,
+.no-entrance-anim .split-group-card,
+.no-entrance-anim .split-settle-card,
+.no-entrance-anim .split-details-panel,
+.no-entrance-anim .price-item-card,
+.no-entrance-anim .price-details-panel,
+.no-entrance-anim .cc-item {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+#cards-root .card,
+#sips-root .card,
+#cards-root .cc-item,
+#sips-root .cc-item,
+#cards-root .form-panel,
+#sips-root .form-panel {
+  animation: none !important;
+}
+
+/* Prevent nested popup animations from triggering during a horizontal slide */
+[class*="slide-"] .form-panel,
+[class*="slide-"] .split-details-panel,
+[class*="slide-"] .price-details-panel {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-down-fade {
+  /* The !important flag overrides the default .form-panel fadeInUp animation */
+  animation: fadeInDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+.slide-out-left { animation: slideOutLeft 0.1s ease-in forwards; }
+.slide-out-right { animation: slideOutRight 0.1s ease-in forwards; }
+.slide-in-left { animation: slideInLeft 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.slide-in-right { animation: slideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+@keyframes slideOutLeft {
+  to { transform: translateX(-30px); opacity: 0; }
+}
+@keyframes slideOutRight {
+  to { transform: translateX(30px); opacity: 0; }
+}
+@keyframes slideInRight {
+  from { transform: translateX(30px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes slideInLeft {
+  from { transform: translateX(-30px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+

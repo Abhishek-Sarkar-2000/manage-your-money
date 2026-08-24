@@ -1,0 +1,244 @@
+/* ---------- Price Tracker ---------- */
+.price-item-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.price-item-card {
+  position: relative;
+  cursor: pointer;
+  background: linear-gradient(155deg, #fff 0%, var(--ice-2) 100%);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.price-item-card .pic-bottom {
+  border-top: 1px dashed var(--hair);
+  padding-top: 10px;
+  margin-top: 12px; /* Ensures a minimum gap if the card content is tall */
+}
+
+.price-item-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+  border-color: var(--sky);
+}
+
+.price-item-card.active {
+  border-color: var(--blue);
+  box-shadow: var(--shadow);
+}
+
+.price-item-card .pic-actions {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+
+.price-item-card .pic-top {
+  display: block;
+  padding-right: 24px;
+}
+
+.price-item-card .pic-top h4 {
+  display: inline; 
+  font-size: 0.88rem;
+  line-height: 1.4;
+  margin-right: 8px;
+}
+
+.price-item-card .pic-top .src-badge {
+  display: inline-block;
+  vertical-align: middle;
+  margin-top: -3px;
+}
+
+.price-item-card .pic-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.price-item-card .pic-price {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  font-size: 1.15rem;
+  color: var(--navy);
+}
+
+.price-category-section {
+  margin-bottom: 24px;
+}
+
+.price-category-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border-radius: 999px; /* Fully rounded pill shape */
+  padding: 6px 16px;
+  font-family: 'IBM Plex Mono', monospace; /* Crisp label font */
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--royal);
+  border: 1px solid var(--hair);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 14px;
+}
+
+.price-category-title::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--blue);
+  flex-shrink: 0;
+}
+
+.price-trend {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.price-trend.up {
+  color: var(--debit);
+  background: var(--debit-bg);
+}
+
+.price-trend.down {
+  color: var(--credit);
+  background: var(--credit-bg);
+}
+
+.price-trend.flat {
+  color: var(--muted);
+  background: var(--ice);
+}
+
+.price-item-card .pic-date {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.price-details-panel {
+  margin-top: 18px;
+}
+
+.price-details-panel > .section-title {
+  margin-top: 16px;
+}
+
+
+
+.price-item-card .pic-top .meta-text {
+  margin-top: -3px; 
+}
+
+@media (max-width: 540px) {
+  .price-item-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.split-member-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 10px;
+}
+
+.split-share-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.divisions-table td.dv-date {
+  vertical-align: middle;
+  font-family: 'IBM Plex Mono', monospace;
+  white-space: nowrap;
+}
+
+::selection {
+  background: var(--sky);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* Horizontal Sibling Switch Animations */
+.slide-out-left {
+  animation: slideOutLeft 0.1s ease-in forwards;
+}
+
+.slide-out-right {
+  animation: slideOutRight 0.1s ease-in forwards;
+}
+
+.slide-in-left {
+  animation: slideInLeft 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.slide-in-right {
+  animation: slideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideOutLeft {
+  to {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+}
+
+@keyframes slideOutRight {
+  to {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+

@@ -1,0 +1,251 @@
+/* ---------- Auth bar (persistent, top-right, outside #app) ---------- */
+.auth-bar {
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.4s ease;
+}
+
+.auth-bar.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.google-signin-btn {
+  display: inline-block;
+}
+
+/* Keep the corner controls truly hidden regardless of rule order —
+   equal-specificity [hidden] vs our display rules below would otherwise
+   depend on source order. */
+.google-signin-btn[hidden],
+.profile-badge[hidden] {
+  display: none !important;
+}
+
+
+/* ---------- Profile badge (signed-in state) ---------- */
+.profile-badge {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.profile-badge-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 999px;
+  padding: 4px 12px 4px 4px;
+  cursor: pointer;
+  font-family: 'Source Serif 4', serif;
+  color: var(--royal);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.profile-badge-btn:hover,
+.profile-badge-btn[aria-expanded="true"] {
+  background: var(--ice);
+  border-color: var(--hair);
+}
+
+.profile-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--ice-2);
+  border: 1px solid var(--hair);
+  display: block;
+}
+
+.profile-name {
+  display: none;
+}
+
+.profile-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  background: #fff;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  padding: 6px;
+  animation: fadeInDown 0.15s ease both;
+}
+
+.profile-menu-email {
+  padding: 8px 10px 6px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  border-bottom: 1px solid var(--hair);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-menu-item {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.profile-menu-item:hover {
+  background: var(--ice-2);
+}
+
+@media (max-width: 480px) {
+  .auth-bar {
+    top: 12px;
+    right: 12px;
+  }
+  .profile-badge-btn {
+    padding: 4px;
+  }
+}
+
+
+/* ---------- Hero ---------- */
+.hero {
+  position: relative;
+  padding: 42px 8px 28px;
+  text-align: left;
+  overflow: hidden;
+}
+
+.hero .eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  color: var(--blue);
+  margin-bottom: 14px;
+  font-weight: 500;
+}
+
+.hero h1 {
+  font-size: clamp(2.1rem, 5vw, 3.4rem);
+  line-height: 1.08;
+  font-weight: 600;
+  max-width: 14ch;
+}
+
+.hero h1 em {
+  font-style: italic;
+  font-weight: 400;
+  color: var(--blue);
+}
+
+.hero p {
+  font-size: 1.08rem;
+  color: var(--muted);
+  max-width: 56ch;
+  margin-top: 16px;
+  line-height: 1.6;
+}
+
+@media (max-width: 960px) {
+  .topbar-login {
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    height: auto;
+    min-height: 90vh;
+  }
+  
+  .brand-login {
+    margin-right: auto;
+    margin-bottom: 32px;
+    justify-content: center;
+  }
+  
+  .login-hero {
+    width: 100%;
+    justify-items: center;
+    padding-top: 0; /* Reverts the desktop-specific 88px clearance */
+  }
+  
+  .brand-line {
+    width: 100%;
+  }
+
+  .hero-signin-text {
+    max-width: 75%;
+  }
+  
+  .hero h1 {
+    font-size: clamp(1rem, 7vw, 2.8rem);
+  }
+  
+  .login-hero-note {
+    max-width: 75% !important;
+  }
+}
+
+/* ---------- Signed-out landing hero ---------- */
+.login-hero {
+  padding-top: 42px; /* clears the fixed auth-bar corner control */
+}
+
+.hero-google-signin-btn {
+  display: block;
+  color: #fff;
+}
+
+.login-hero-note {
+  margin-top: 14px;
+  font-size: 0.82rem;
+  max-width: 80ch;
+  color: var(--muted);
+}
+
+
+/* ---------- Public shared-split banner ---------- */
+.shared-page-header {
+  padding-top: 10px;
+}
+
+.shared-page-subtitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 6px 14px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--blue);
+  background: var(--ice);
+  border: 1px solid var(--sky);
+  border-radius: 999px;
+}
+
+.shared-page-subtitle::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--blue);
+  flex-shrink: 0;
+}
+

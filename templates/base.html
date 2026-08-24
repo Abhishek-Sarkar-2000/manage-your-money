@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Manage Your Money{% endblock %}</title>
+
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon.png') }}" />
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon.png') }}" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}?v={{ static_version }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}?v={{ static_version }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}?v={{ static_version }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-bar.css') }}?v={{ static_version }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/charts.css') }}?v={{ static_version }}" />
+  {% block extra_css %}{% endblock %}
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script id="app-config" type="application/json">{"googleClientId": {{ google_client_id | tojson }}}</script>
+
+  <style>
+    body { display: flex; flex-direction: column; }
+    #app { flex: 1 0 auto; }
+    .footer-block { margin-top: auto; }
+  </style>
+</head>
+<body data-is-shared="{{ 'true' if is_shared else 'false' }}">
+  
+  {% block auth_bar %}
+  <div id="auth-bar" class="auth-bar">
+    <div id="google-signin-btn" class="google-signin-btn"></div>
+    <div id="profile-badge" class="profile-badge" hidden>
+      <button id="profile-badge-btn" class="profile-badge-btn" type="button" aria-haspopup="true" aria-expanded="false">
+        <img id="profile-avatar" class="profile-avatar" alt="" referrerpolicy="no-referrer"/>
+        <span id="profile-name" class="profile-name"></span>
+      </button>
+      <div id="profile-menu" class="profile-menu" hidden role="menu">
+        <div id="profile-menu-email" class="profile-menu-email"></div>
+        <button id="profile-signout-btn" class="profile-menu-item" type="button" role="menuitem">Sign out</button>
+      </div>
+    </div>
+  </div>
+  {% endblock %}
+
+  <div id="app">
+      {% block content %}{% endblock %}
+  
+      <!-- Global UI Overlays -->
+      <div class="toast" id="toast"></div>
+      <div id="split-share-popover" class="split-row-popover"></div>
+      <div id="del-popover" class="del-popover"></div>
+  </div>
+
+  <div id="global-footer-container"></div>
+  
+  {% if not is_shared %}
+  <script type="module">
+    import { initGoogleSignIn, checkAuth } from "{{ url_for('static', filename='js/core/auth.js') }}";
+    
+    // Fade in auth-bar after 1 second
+    setTimeout(() => {
+      const authBar = document.getElementById('auth-bar');
+      if (authBar) authBar.classList.add('visible');
+    }, 1000);
+
+    document.body.addEventListener('click', e => {
+      const navBtn = e.target.closest('[data-nav]');
+      if (navBtn) {
+        e.preventDefault();
+        const dest = navBtn.dataset.nav === 'home' ? '/' : `/${navBtn.dataset.nav}`;
+        window.location.href = dest; 
+      }
+      
+      const cancelDel = e.target.closest('[data-cancel-del]');
+      if (cancelDel) {
+        e.stopPropagation();
+        const pop = document.getElementById('del-popover');
+        if (pop) pop.classList.remove('show');
+      }
+    });
+
+    initGoogleSignIn();
+    checkAuth();
+  </script>
+  {% endif %}
+  
+  {% block page_script %}{% endblock %}
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const activeRoot = document.querySelector('[id$="-root"]');
+    const delPop = document.getElementById('del-popover');
+    const sharePop = document.getElementById('split-share-popover');
+    
+    if (activeRoot && delPop) {
+      // Keep references in memory so they survive innerHTML wipes
+      const overlays = [delPop, sharePop].filter(Boolean);
+      
+      // Watch the root and re-append overlays if the view re-renders itself
+      const observer = new MutationObserver(() => {
+        overlays.forEach(el => {
+          if (el.parentElement !== activeRoot) {
+            activeRoot.appendChild(el);
+          }
+        });
+      });
+      
+      observer.observe(activeRoot, { childList: true });
+      
+      // Initial append on load
+      overlays.forEach(el => activeRoot.appendChild(el));
+    }
+  });
+</script>
+</body>
+</html>

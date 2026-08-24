@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ month_key }} — Manage Your Money{% endblock %}
+{% block extra_css %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/charts.css') }}?v={{ static_version }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/views/month.css') }}?v={{ static_version }}" />
+{% endblock %}
+{% block content %}
+  <div id="month-root" class="month-view" data-loading="true" data-month-key="{{ month_key }}"></div>
+{% endblock %}
+{% block page_script %}
+  <script type="module" src="{{ url_for('static', filename='js/views/month.js') }}"></script>
+{% endblock %}

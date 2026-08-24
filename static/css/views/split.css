@@ -1,0 +1,619 @@
+/* ---------- Split Money ---------- */
+.split-group-card {
+  flex: 0 0 260px;
+  min-width: 230px;
+  cursor: pointer;
+  background: linear-gradient(155deg, #fff 0%, var(--ice-2) 100%);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.sgc-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  position: relative;
+}
+
+.split-group-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+  border-color: var(--sky);
+}
+
+.split-group-card.active {
+  border-color: var(--blue);
+  box-shadow: var(--shadow);
+}
+
+.split-group-card .sgc-date {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  margin-bottom: 12px;
+}
+
+.split-group-card .sgc-people {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.split-group-card .sgc-person {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+}
+
+.split-group-card .sgc-person .spn {
+  color: var(--royal);
+}
+
+.split-group-card .sgc-person .spv {
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--muted);
+}
+
+.split-group-card .sgc-header-row h4 {
+  font-size: 1.05rem;
+  margin-bottom: 0;
+  padding-right: 0; 
+}
+
+.split-group-card .sgc-actions {
+  position: static;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.split-settle-card {
+  flex: 0 0 250px;
+  min-width: 220px;
+  background: #fff;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-sm);
+}
+
+.split-settle-card .ssc-group {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.split-settle-card .ssc-line {
+  font-size: 0.95rem;
+  color: var(--ink);
+  margin-bottom: 10px;
+}
+
+.split-settle-card .ssc-line strong {
+  color: var(--navy);
+}
+
+.split-settle-card .ssc-amount {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  color: var(--debit);
+  margin-bottom: 12px;
+}
+
+.split-settle-card.settled .ssc-amount {
+  color: var(--credit);
+}
+
+/* ---------- Shared Split Chart: Who Owes How Much ---------- */
+
+.shared-debt-chart {
+  width: 100%;
+  min-width: 0;
+}
+
+.shared-debt-bars {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.shared-debt-row {
+  display: grid;
+  grid-template-columns: clamp(72px, 20%, 140px) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.shared-debt-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--royal);
+}
+
+.shared-debt-plot {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+  height: 34px;
+
+  display: flex;
+  align-items: center;
+}
+
+.shared-debt-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.shared-debt-grid-line {
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  width: 1px;
+  border-left: 1px dashed var(--hair);
+  opacity: 0.9;
+}
+
+.shared-debt-bar {
+  position: relative;
+  z-index: 2;
+
+  height: 28px;
+  min-width: 2px;
+
+  display: flex;
+  overflow: hidden;
+
+  
+  border-radius: 0px 5px 5px 0px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+
+  transition: width 0.2s ease;
+}
+
+.shared-debt-segment {
+  height: 100%;
+  min-width: 1px;
+  flex: 0 0 auto;
+  background-image: linear-gradient(270deg, rgba(255, 255, 255, 0.25) 0%, rgba(0, 0, 0, 0.05) 100%) !important;
+}
+
+.shared-debt-total {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.shared-debt-total.inside {
+  right: 8px;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(200, 200, 200, 0.25);
+}
+
+.shared-debt-total.outside {
+  transform: translateX(8px);
+  color: var(--muted);
+}
+
+.shared-debt-axis {
+  position: relative;
+  height: 28px;
+  margin-left: clamp(72px, 20%, 140px);
+  border-top: 1px solid var(--hair);
+}
+
+.shared-debt-axis-line {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.shared-debt-x-tick {
+  position: absolute;
+  top: 7px;
+
+  transform: translateX(-50%);
+
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.64rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.shared-debt-x-tick:first-child {
+  transform: translateX(0);
+}
+
+.shared-debt-x-tick:last-child {
+  transform: translateX(-100%);
+}
+
+.shared-chart-axis-title {
+  margin-top: 2px;
+  text-align: center;
+
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.shared-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+
+  margin-top: 18px;
+  padding-top: 14px;
+
+  border-top: 1px solid var(--hair);
+}
+
+.shared-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.shared-chart-legend-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  border-radius: 2px;
+}
+
+
+/* ---------- Shared Split Chart: Shares by Members ---------- */
+
+.shared-share-chart {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  grid-template-rows: 240px auto;
+}
+
+.shared-share-y-axis {
+  position: relative;
+  min-width: 0;
+}
+
+.shared-share-y-tick {
+  position: absolute;
+  right: 8px;
+
+  transform: translateY(50%);
+
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  color: var(--muted);
+
+  white-space: nowrap;
+}
+
+.shared-share-y-tick:last-child {
+  transform: translateY(50%);
+}
+
+.shared-share-plot {
+  position: relative;
+  min-width: 0;
+  height: 100%;
+}
+
+.shared-share-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.shared-share-grid-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+
+  border-top: 1px dashed var(--hair);
+
+  pointer-events: none;
+}
+
+.shared-share-bars {
+  position: absolute;
+  inset: 0;
+
+  display: grid;
+
+  /*
+   * Every member gets an equal share of the available width.
+   * This prevents horizontal scrolling.
+   */
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(0, 1fr)
+  );
+
+  gap: clamp(4px, 1.5vw, 18px);
+
+  align-items: end;
+
+  padding: 8px 8px 0;
+}
+
+.shared-share-bar-col {
+  min-width: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: end;
+  justify-items: center;
+}
+
+.shared-share-x-labels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: clamp(4px, 1.5vw, 18px);
+  padding: 0 8px;
+  align-items: start;
+}
+
+.shared-share-value-wrap {
+  position: absolute;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.shared-share-value-wrap.inside {
+  margin-top: 10px; /* Starts 10px from the top of the bar */
+}
+
+.shared-share-value-wrap.outside {
+  margin-bottom: 10px; /* Floats 10px above the bar */
+}
+
+.shared-share-value-text {
+  position: absolute;
+  top: -0.6em; /* Automatically perfectly centers the horizontal text line */
+  white-space: nowrap;
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+}
+
+.shared-share-value-wrap.inside .shared-share-value-text {
+  right: 0;
+  transform-origin: right center;
+  transform: rotate(-90deg);
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(200, 200, 200, 0.25);
+}
+
+.shared-share-value-wrap.outside .shared-share-value-text {
+  left: 0;
+  transform-origin: left center;
+  transform: rotate(-90deg);
+  color: var(--muted);
+}
+
+.shared-share-bar-area {
+  position: relative;
+
+  width: 100%;
+  max-width: 72px;
+  height: 100%;
+
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+
+  min-width: 0;
+}
+
+.shared-share-bar {
+  width: 85%;
+  min-height: 3px;
+
+  border-radius: 5px 5px 0px 0px;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, rgba(0, 0, 0, 0.05) 100%) !important;
+  transition:
+    height 0.2s ease,
+    opacity 0.15s ease;
+}
+
+.shared-share-label {
+  width: 100%;
+  padding-top: 6px;
+  font-size: clamp(0.56rem, 1vw, 0.7rem);
+  color: var(--royal);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shared-share-x-labels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: clamp(4px, 1.5vw, 18px);
+  padding: 0 8px;
+  align-items: start;
+}
+
+.shared-share-axis-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  border-top: 1px solid var(--hair);
+
+  pointer-events: none;
+}
+
+.shared-share-axis-title {
+  margin-top: 6px;
+
+  text-align: center;
+
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+@media (max-width: 960px) {
+
+  .shared-debt-row {
+    grid-template-columns:
+      clamp(62px, 22%, 90px)
+      minmax(0, 1fr);
+
+    gap: 7px;
+  }
+
+  .shared-debt-plot {
+    height: 30px;
+  }
+
+  .shared-debt-bar {
+    height: 24px;
+  }
+
+  .shared-debt-total {
+    font-size: 0.62rem;
+  }
+
+  .shared-debt-total.inside {
+    right: 6px;
+  }
+
+  .shared-debt-total.outside {
+    transform: translateX(6px);
+  }
+
+  .shared-debt-axis {
+    margin-left: clamp(62px, 22%, 90px);
+  }
+
+  .shared-debt-x-tick {
+    font-size: 0.55rem;
+  }
+
+  .shared-share-chart {
+    grid-template-columns: 48px minmax(0, 1fr);
+    grid-template-rows: 215px auto;
+  }
+
+  .shared-share-value-text {
+    font-size: 0.58rem;
+  }
+  
+  .shared-share-x-labels {
+    gap: 3px;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .shared-share-bars {
+    gap: 3px;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .shared-share-bar-area {
+    width: 90%;
+    max-width: 56px;
+  }
+
+  .shared-share-value,
+  .shared-share-label {
+    font-size: 0.54rem;
+  }
+
+  .shared-share-y-tick {
+    font-size: 0.54rem;
+    right: 5px;
+  }
+}
+
+
+
+/* ---------- Shared Read-Only Mode ---------- */
+body.shared-mode .sgc-actions [data-settle-group-toggle],
+body.shared-mode .sgc-actions [data-del-split],
+body.shared-mode .pill-grid,
+body.shared-mode .form-panel,
+body.shared-mode td.actions-cell,
+body.shared-mode th:last-child,
+body.shared-mode .fab-home {
+  display: none !important;
+}
+
+body.shared-mode .toggle-switch {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+body.shared-mode .sp-share {
+  pointer-events: none;
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink);
+}
+
+body.shared-mode .split-group-card {
+  cursor: default;
+}
+
+body.shared-mode .split-group-card:hover {
+  transform: none;
+  box-shadow: var(--shadow-sm);
+  border-color: var(--hair);
+}
+
+body.shared-mode .split-group-card.active {
+  border-color: var(--hair);
+  box-shadow: var(--shadow-sm);
+}
+
+body.shared-mode .shared-shares-table th:last-child {
+  display: table-cell !important;
+}
+
+@media (max-width: 480px) {
+  body.shared-mode .topbar,
+  body[data-is-shared="true"] .topbar {
+    justify-content: center;
+  }
+
+  body.shared-mode .topbar .brand,
+  body[data-is-shared="true"] .topbar .brand {
+    font-size: 1.5rem;
+  }
+}
