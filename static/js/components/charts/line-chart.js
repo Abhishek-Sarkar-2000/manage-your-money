@@ -35,7 +35,7 @@ export function dailyBalanceChart(series, rangeMonths) {
       ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
       : d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
   };
-  const dots = coords.map(([x, y], i) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.5" fill="var(--blue)" opacity="${tickIdxs.includes(i) ? 1 : 0}"><title>${series[i].date}: ${fmtINR(series[i].balance)}</title></circle>`).join('');
+  const dots = coords.map(([x, y], i) => `<circle class="linechart-dot" data-val="${fmtINR(series[i].balance)}" data-label="${series[i].date}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--blue)" opacity="${tickIdxs.includes(i) ? 1 : 0}" stroke="transparent" stroke-width="8" style="cursor:pointer;"></circle>`).join('');
   const labels = tickIdxs.map(i => {
     const [x] = coords[i];
     return `<text x="${x.toFixed(1)}" y="${h - 6}" fill="var(--muted)" text-anchor="right" font-family="IBM Plex Mono, monospace">${tickLabel(series[i])}</text>`;
@@ -89,7 +89,10 @@ export function lineChart(startingBalance, data, recurringRows) {
   const areaD = pathD + ` L${coords[coords.length - 1][0].toFixed(1)},${h - padB} L${coords[0][0].toFixed(1)},${h - padB} Z`;
   const gridSvg = yAxisGrid(minV, maxV, w, h, padL, padR, padT, padB, 8);
   const lastVal = points[points.length - 1].balance;
-  const dots = coords.map(([x, y], i) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--blue)"><title>${fmtINR(points[i].balance)}</title></circle>`).join('');
+  const dots = coords.map(([x, y], i) => {
+    const label = points[i].date === 'start' ? 'Start' : points[i].date;
+    return `<circle class="linechart-dot" data-val="${fmtINR(points[i].balance)}" data-label="${label}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--blue)" stroke="transparent" stroke-width="8" style="cursor:pointer;"></circle>`;
+  }).join('');
   return `
   <svg class="linechart" viewBox="0 0 ${w} ${h}">
     <defs>
@@ -130,7 +133,7 @@ export function priceLineChart(hist) {
   const gridSvg = yAxisGrid(minV, maxV, w, h, padL, padR, padT, padB, 4);
   const dots = coords.map(([x, y], i) => {
     const dl = new Date(hist[i].date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--blue)"><title>${dl}: ${fmtINR(hist[i].price)}</title></circle>`;
+    return `<circle class="linechart-dot" data-val="${fmtINR(hist[i].price)}" data-label="${dl}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--blue)" stroke="transparent" stroke-width="8" style="cursor:pointer;"></circle>`;
   }).join('');
   const lastVal = hist[hist.length - 1].price;
   return `
@@ -148,4 +151,64 @@ export function priceLineChart(hist) {
   </svg>
   <div class="subnote">Latest price: <strong class="num">${fmtINR(lastVal)}</strong></div>
   `;
+}
+
+let tooltipEl = null;
+
+export function wireChartTooltips(root = document) {
+  if (!tooltipEl) {
+    tooltipEl = document.createElement('div');
+    tooltipEl.className = 'chart-tooltip';
+    document.body.appendChild(tooltipEl);
+  }
+
+  const showTooltip = (ev) => {
+    const dot = ev.target.closest('.linechart-dot');
+    if (!dot) return;
+    
+    const val = dot.dataset.val;
+    const label = dot.dataset.label || '';
+    
+    tooltipEl.innerHTML = `<div class="ct-val">${val}</div>${label ? `<div class="ct-label">${label}</div>` : ''}`;
+    tooltipEl.classList.add('show');
+    
+    const rect = dot.getBoundingClientRect();
+    const tooltipWidth = tooltipEl.offsetWidth || 120;
+    const halfWidth = tooltipWidth / 2;
+    const padding = 12; // Safety margin from screen edges
+    
+    let centerX = rect.left + window.scrollX + rect.width / 2;
+    
+    // Clamp horizontal position so tooltip stays completely within viewport width
+    const minX = padding + halfWidth;
+    const maxX = window.innerWidth - padding - halfWidth;
+    
+    if (centerX < minX) centerX = minX;
+    if (centerX > maxX) centerX = maxX;
+    
+    tooltipEl.style.left = centerX + 'px';
+    tooltipEl.style.top = (rect.top + window.scrollY - 6) + 'px';
+  };
+
+  const hideTooltip = () => {
+    if (tooltipEl) tooltipEl.classList.remove('show');
+  };
+
+  root.addEventListener('mouseover', showTooltip);
+  root.addEventListener('mouseout', (ev) => {
+    if (ev.target.closest('.linechart-dot')) hideTooltip();
+  });
+  
+  // Touch support for mobile
+  root.addEventListener('touchstart', (ev) => {
+    const dot = ev.target.closest('.linechart-dot');
+    if (dot) {
+      showTooltip(ev);
+    }
+  }, { passive: true });
+
+  // Hide tooltip automatically when finger is lifted (unclicked)
+  document.addEventListener('touchend', hideTooltip, { passive: true });
+  document.addEventListener('touchcancel', hideTooltip, { passive: true });
+  document.addEventListener('pointerup', hideTooltip, { passive: true });
 }

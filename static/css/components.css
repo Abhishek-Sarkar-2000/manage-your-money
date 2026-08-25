@@ -171,7 +171,8 @@
   transform: translateX(-50%);
   background: var(--navy);
   color: #fff;
-  padding: 11px 22px;
+  text-align: center;
+  padding: 12px 22px;
   border-radius: 999px;
   font-size: 0.88rem;
   box-shadow: var(--shadow);
@@ -260,23 +261,21 @@
   }
 }
 
+.tags-charts-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  width: 100%;
+}
+
 .tag-chart-card {
-  flex: 1 0 280px;
+  flex: 1 1 280px;
+  max-width: 100%;
   min-width: 0;
 }
 
-@media (max-width: 480px) {
-  .tags-track {
-    flex-wrap: wrap;
-    overflow-x: visible;
-  }
-  .tags-track .tag-chart-card {
-    flex: 1 1 100%;
-    min-width: 0;
-  }
-  .tags-track ~ .scroll-arrow {
-    display: none !important;
-  }
+.tag-chart-card--wide {
+  flex-basis: 100%;
 }
 
 .scroll-track::-webkit-scrollbar {
@@ -316,7 +315,7 @@
   left: -44px;
 }
 
-@media (hover: none) and (max-width: 960px) {
+@media (max-width: 960px) {
   .scroll-arrow {
     display: none !important;
   }
@@ -329,11 +328,22 @@
 
 /* ---------- Spend tags ---------- */
 .tag-bars {
+  position: relative;
   display: flex;
   align-items: flex-end;
   gap: 12px;
   height: 180px;
   padding: 4px 4px 0;
+  border-bottom: 1px solid var(--hair);
+
+  /* Horizontal Grid Lines at 25%, 50%, and 75% */
+  background-image:
+    linear-gradient(to bottom, var(--hair) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--hair) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--hair) 1px, transparent 1px);
+  background-position: 0 25%, 0 50%, 0 75%;
+  background-size: 100% 1px;
+  background-repeat: no-repeat;
 }
 
 .tag-bar-col {
@@ -358,22 +368,10 @@
 
 .tag-bar-col .bval {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.72rem;
+  font-size: clamp(0.58rem, 1.6vw, 0.72rem);
   margin-bottom: 6px;
   color: var(--ink);
   white-space: nowrap;
-}
-
-.tag-bar-col .blabel {
-  margin-top: 8px;
-  font-size: 0.72rem;
-  color: var(--muted);
-  font-family: 'IBM Plex Mono', monospace;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  width: 100%;
 }
 
 /* ---------- Shared stat cards + popovers ----------

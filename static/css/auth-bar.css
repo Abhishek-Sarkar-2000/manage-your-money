@@ -209,6 +209,7 @@
 .hero-google-signin-btn {
   display: block;
   color: #fff;
+  opacity: 0;
 }
 
 .login-hero-note {

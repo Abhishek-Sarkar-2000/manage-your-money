@@ -149,11 +149,6 @@ a {
   border-color: var(--hair);
 }
 
-.btn.ghost:hover {
-  background: var(--ice-2);
-  color: var(--ink);
-}
-
 .btn.small {
   padding: 7px 14px;
   font-size: 0.82rem;
@@ -241,6 +236,13 @@ a {
   }
   .pill-btn.sub-pill.active.hyperlink:hover {
     background: var(--debit-bd);
+  }
+  .pill-btn.alt.active:hover {
+    background: #ac732d;
+  }
+  .btn.ghost:hover {
+    background: var(--hair);
+    color: var(--ink);
   }
 }
 
@@ -545,6 +547,10 @@ color: #C07A2E;
   font-size: 0.78rem;
   color: var(--muted);
   margin-top: 3px;
+}
+
+.chart-card .subnote {
+  margin-top: 8px;
 }
 
 .chip {

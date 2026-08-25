@@ -69,7 +69,7 @@ def get_db():
 def close_db(conn):
     # Never close the shared remote connection — only local sqlite ones opened per-request.
     if conn is not None and conn is not _shared_remote_conn:
-        close_db(conn)
+        conn.close()
 
 def _table_exists(conn, name):
     try:

@@ -64,66 +64,73 @@ async function handleGoogleCredential(response) {
   }
 }
 
-let googleBtnLocation = null;
+let isGoogleInitialized = false;
 
 export function renderGoogleButton(container, opts) {
   if (!container) return;
-  if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-    setTimeout(() => renderGoogleButton(container, opts), 250);
+
+  // Wait for Google SDK to load AND for google.accounts.id.initialize to complete
+  if (!window.google?.accounts?.id || !isGoogleInitialized) {
+    setTimeout(() => renderGoogleButton(container, opts), 100);
     return;
   }
+
+  // Clear any existing content in this slot, then render
+  container.innerHTML = '';
   google.accounts.id.renderButton(container, opts);
 }
 
-// FIXED: Added 'export' keyword here
 export function initGoogleSignIn() {
-  if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-    setTimeout(initGoogleSignIn, 250);
+  if (!window.google?.accounts?.id) {
+    setTimeout(initGoogleSignIn, 100);
     return;
   }
   if (!AppConfig.googleClientId) {
     console.warn('GOOGLE_CLIENT_ID is not configured on the server.');
     return;
   }
+
   google.accounts.id.initialize({
     client_id: AppConfig.googleClientId,
     callback: handleGoogleCredential,
     auto_select: false,
     cancel_on_tap_outside: true,
   });
+  isGoogleInitialized = true;
 
   const cornerEl = document.getElementById('google-signin-btn');
   if (cornerEl) {
     renderGoogleButton(cornerEl, {
-      type: 'standard', theme: 'outline', size: 'medium', shape: 'pill',
-      text: 'signin_with', logo_alignment: 'left', width: '200',
+      type: 'standard',
+      theme: 'outline',
+      size: 'medium',
+      shape: 'pill',
+      text: 'signin_with',
+      logo_alignment: 'left',
+      width: '200',
     });
-    googleBtnLocation = 'corner';
   }
 }
 
 export function mountHeroGoogleButton(heroSlot) {
   if (!heroSlot) return;
 
-  // 1. Hide the corner button safely using CSS instead of ripping it out of the DOM
+  // 1. Hide corner button so we don't display duplicate login prompts
   const cornerBtn = document.getElementById('google-signin-btn');
   if (cornerBtn) {
     cornerBtn.style.display = 'none';
   }
 
-  // 2. Ask Google to render a distinct, fresh button directly into the hero container
-  if (googleBtnLocation !== 'hero') {
-    renderGoogleButton(heroSlot, {
-      type: 'standard', 
-      theme: 'filled_blue', 
-      size: 'large', 
-      shape: 'pill',
-      text: 'signin_with', 
-      logo_alignment: 'left', 
-      width: '280',
-    });
-    googleBtnLocation = 'hero';
-  }
+  // 2. Render Google button directly into the hero container
+  renderGoogleButton(heroSlot, {
+    type: 'standard', 
+    theme: 'filled_blue', 
+    size: 'large', 
+    shape: 'pill',
+    text: 'signin_with', 
+    logo_alignment: 'left', 
+    width: '280',
+  });
 }
 
 function updateProfileBadge() {

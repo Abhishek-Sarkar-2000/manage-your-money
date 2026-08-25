@@ -10,8 +10,8 @@ import {
 import { renderStatCards, wireStatCardFlip } from '../components/stat-cards.js';
 import { donutChart } from '../components/charts/donut.js';
 import { barChart, tagsBarChart } from '../components/charts/bar-chart.js';
-import { lineChart } from '../components/charts/line-chart.js';
-import { scrollWrapper, setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
+import { lineChart, wireChartTooltips } from '../components/charts/line-chart.js';
+import { setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { mountLoginHero } from '../components/login-hero.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
@@ -20,7 +20,7 @@ import { markRendered } from '../components/render-guard.js';
 const root = document.getElementById('month-root');
 const monthKey = root.dataset.monthKey;
 
-const DEFAULT_TAGS = ['Groceries', 'Dining', 'Fuel', 'Subscription', 'Rent', 'Utility', 'Recharge', 'Transport', 'Gift'];
+const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Subscription', 'Rent', 'Utility', 'Recharge', 'Transport', 'Gift'];
 
 let cards = [];
 let emiSeries = [];
@@ -90,8 +90,10 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   const dictEntry = priceTrackDictionary ? priceTrackDictionary[e.description] : null;
   if (dictEntry && dictEntry.meta) {
     const meta = dictEntry.meta;
-    if (meta.quantity) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.quantity)}</span>`;
-    else if (meta.source && meta.destination) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.source)} → ${escapeHtml(meta.destination)}</span>`;
+    if (meta.source && meta.destination) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.source)} → ${escapeHtml(meta.destination)}</span>`;
+    else if (meta.quantity && meta.location) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.quantity)} @ ${escapeHtml(meta.location)}</span>`;
+    else if (meta.quantity) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.quantity)}</span>`;
+    else if (meta.location) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.location)}</span>`;
   }
 
   if (e.type === 'spend') {
@@ -543,20 +545,20 @@ async function renderMonth() {
       </div>
       <div style="grid-column: 1 / -1; margin-top: 8px;">
         <h3 style="font-size: 1.15rem; margin-bottom: 12px; font-weight: 600; font-family: 'Fraunces', serif;">Spends by Tags</h3>
-        ${scrollWrapper(`
-        <div class="chart-card tag-chart-card">
-          <h4>Debit by tag</h4>
-          ${tagsBarChart(data.entries, 'spend')}
-        </div>
-        <div class="chart-card tag-chart-card">
-          <h4>Credit card spends by tag</h4>
-          ${tagsBarChart(data.entries, 'cardcharge')}
-        </div>
-        <div class="chart-card tag-chart-card">
-          <h4>Cash spends by tag</h4>
-          ${tagsBarChart(data.entries, 'cashpayment')}
-        </div>
-        `, 'tags-track')}
+        ${(() => {
+          const TAG_WIDE_THRESHOLD = 5;
+          const tagCharts = [
+            { title: 'Debit by tag', data: tagsBarChart(data.entries, 'spend') },
+            { title: 'Credit card spends by tag', data: tagsBarChart(data.entries, 'cardcharge') },
+            { title: 'Cash spends by tag', data: tagsBarChart(data.entries, 'cashpayment') },
+          ];
+          const cardsHtml = tagCharts.map(({ title, data: { html, count } }) => `
+            <div class="chart-card tag-chart-card ${count > TAG_WIDE_THRESHOLD ? 'tag-chart-card--wide' : ''}">
+              <h4>${title}</h4>
+              ${html}
+            </div>`).join('');
+          return `<div class="tags-charts-row">${cardsHtml}</div>`;
+        })()}
       </div>
     </div>
   </div>
@@ -632,6 +634,8 @@ async function handleSubmit(kind) {
         const catLower = (tag || '').toLowerCase();
         if (catLower === 'groceries') meta.quantity = $('#sp-quantity')?.value || '';
         if (catLower === 'transport') { meta.source = $('#sp-source')?.value || ''; meta.destination = $('#sp-destination')?.value || ''; }
+        if (catLower === 'fuel') { meta.quantity = $('#sp-quantity')?.value || ''; meta.location = $('#sp-location')?.value || ''; }
+        if (catLower === 'rent') meta.location = $('#sp-location')?.value || '';
 
         priceTrackDictionary[spendDesc] = { category: tag, meta };
         Store.set('price-track-dict', priceTrackDictionary);
@@ -897,6 +901,8 @@ root.addEventListener('change', async (ev) => {
     if (ptDynamicWrap) {
       if (val === 'groceries') ptDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="pt-quantity" type="text" placeholder="e.g. 1kg or 1L" /></div>`;
       else if (val === 'transport') ptDynamicWrap.innerHTML = `<div class="field"><label>Source</label><input id="pt-source" type="text" placeholder="e.g. Home" /></div><div class="field"><label>Destination</label><input id="pt-destination" type="text" placeholder="e.g. Office" /></div>`;
+      else if (val === 'fuel') ptDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="pt-quantity" type="text" placeholder="e.g. 5L" /></div><div class="field"><label>Location</label><input id="pt-location" type="text" placeholder="e.g. IOCL Bengaluru" /></div>`;
+      else if (val === 'rent') ptDynamicWrap.innerHTML = `<div class="field"><label>Location</label><input id="pt-location" type="text" placeholder="e.g. Sunflower Heights Whitefield" /></div>`;
       else ptDynamicWrap.innerHTML = '';
     }
 
@@ -904,6 +910,8 @@ root.addEventListener('change', async (ev) => {
     if (spendDynamicWrap) {
       if (val === 'groceries') spendDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="sp-quantity" type="text" placeholder="e.g. 1kg or 1L" /></div>`;
       else if (val === 'transport') spendDynamicWrap.innerHTML = `<div class="field"><label>Source</label><input id="sp-source" type="text" placeholder="e.g. Home" /></div><div class="field"><label>Destination</label><input id="sp-destination" type="text" placeholder="e.g. Office" /></div>`;
+      else if (val === 'fuel') spendDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="sp-quantity" type="text" placeholder="e.g. 5L" /></div><div class="field"><label>Location</label><input id="sp-location" type="text" placeholder="e.g. IOCL Bengaluru" /></div>`;
+      else if (val === 'rent') spendDynamicWrap.innerHTML = `<div class="field"><label>Location</label><input id="sp-location" type="text" placeholder="e.g. Sunflower Heights Whitefield" /></div>`;
       else spendDynamicWrap.innerHTML = '';
     }
   }
@@ -926,3 +934,4 @@ window.addEventListener('auth:checked', renderMonth);
 // Wait for the first /api/auth/me round trip so we never flash the
 // signed-out login hero for an already-authenticated visitor.
 authReady.then(renderMonth);
+wireChartTooltips(root);

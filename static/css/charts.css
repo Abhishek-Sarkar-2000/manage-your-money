@@ -7,7 +7,7 @@
   width: 100%;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 600px) {
   .charts-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -17,7 +17,7 @@
   border: 1px solid var(--hair);
   border-radius: var(--radius-sm);
   padding: 20px;
-  background: #fff;
+  background: linear-gradient(135deg, #fff 0%, var(--ice-2) 100%);
   min-width: 0;
   overflow-x: auto;
 }
@@ -79,6 +79,12 @@
   color: #fff;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .range-btn:not(.active):hover {
+    background-color: var(--ice);
+  }
+}
+
 .chart-card h4 {
   font-size: 0.95rem;
   margin-bottom: 14px;
@@ -106,7 +112,7 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: radial-gradient(circle, transparent 48%, rgba(255, 255, 255, 0.22) 100%);
+  background: radial-gradient(circle, transparent 50%, rgba(255, 255, 255, 0.38) 100%);
   pointer-events: none;
   z-index: 1;
 }
@@ -289,6 +295,80 @@ svg.linechart {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.shared-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 18px;
+  padding: 14px 14px 0px 14px;
+  border-top: 1px solid var(--hair);
+  justify-content: center;
+}
+
+.shared-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.shared-chart-legend-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  border-radius: 2px;
+}
+
+.tag-chart-card .shared-chart-legend {
+  border: none;
+}
+
+/* ---------- Interactive Chart Tooltip ---------- */
+.chart-tooltip {
+  position: absolute;
+  z-index: 1000;
+  background: var(--navy);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, calc(-100% + 4px)) scale(0.98);
+  transition: 
+    opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), 
+    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 12px rgba(11, 37, 69, 0.2);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.chart-tooltip.show {
+  opacity: 1;
+  transform: translate(-50%, -100%) scale(1);
+}
+.chart-tooltip .ct-val {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.chart-tooltip .ct-label {
+  color: var(--sky);
+  font-size: 0.65rem;
+  margin-top: 2px;
+}
+
+.linechart-dot {
+  transition: r 0.15s ease;
+}
+
+.linechart-dot:hover {
+  r: 4.5;
 }
 
 /* ---------- Responsive SVG chart text scaling ---------- */

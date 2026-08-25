@@ -263,34 +263,6 @@
   color: var(--muted);
 }
 
-.shared-chart-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-
-  margin-top: 18px;
-  padding-top: 14px;
-
-  border-top: 1px solid var(--hair);
-}
-
-.shared-chart-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-
-  font-size: 0.72rem;
-  color: var(--muted);
-}
-
-.shared-chart-legend-dot {
-  width: 9px;
-  height: 9px;
-  flex: 0 0 9px;
-  border-radius: 2px;
-}
-
-
 /* ---------- Shared Split Chart: Shares by Members ---------- */
 
 .shared-share-chart {

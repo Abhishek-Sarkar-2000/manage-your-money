@@ -23,15 +23,27 @@ export function tagsBarChart(entries, targetType) {
   }
 
   const pairs = Object.entries(totals).map(([label, value]) => ({ label, value })).filter(p => p.value > 0).sort((a, b) => b.value - a.value);
-  if (!pairs.length) return `<div class="empty-chart">No tagged spends yet.</div>`;
+  if (!pairs.length) return { html: `<div class="empty-chart">No tagged spends yet.</div>`, count: 0 };
 
   const max = Math.max(1, ...pairs.map(p => p.value));
   const colors = ['var(--blue)', '#C98A3C', '#8E6FB0', 'var(--debit)', 'var(--credit)', '#5B4B9E', 'var(--amber)', 'var(--blue-soft)', '#2E7D6B', '#AD4358'];
   const cols = pairs.map((p, i) => `
     <div class="tag-bar-col">
       <div class="bval num">${fmtINRShort(p.value)}</div>
-      <div class="tag-bar" style="height:${Math.max(4, (p.value / max * 140))}px; background:${colors[i % colors.length]};"></div>
-      <div class="blabel" title="${escapeHtml(p.label)}">${escapeHtml(p.label)}</div>
+      <div class="tag-bar" style="height:${Math.max(4, (p.value / max * 140))}px; background:${colors[i % colors.length]};" title="${escapeHtml(p.label)}"></div>
     </div>`).join('');
-  return `<div class="tag-bars">${cols}</div>`;
+
+  const legend = pairs.map((p, i) => `
+    <div class="shared-chart-legend-item">
+      <span class="shared-chart-legend-dot" style="background:${colors[i % colors.length]};"></span>
+      <span>${escapeHtml(p.label)}</span>
+    </div>`).join('');
+
+  return {
+    html: `
+      <div class="tag-bars">${cols}</div>
+      <div class="shared-chart-legend">${legend}</div>
+    `,
+    count: pairs.length,
+  };
 }

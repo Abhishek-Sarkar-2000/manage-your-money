@@ -4,7 +4,7 @@ import { $, uid, escapeHtml } from '../core/dom.js';
 import { fmtINR } from '../core/format.js';
 import { currentUser, authReady } from '../core/auth.js';
 import { allSpendTags } from '../core/domain.js';
-import { priceLineChart } from '../components/charts/line-chart.js';
+import { priceLineChart, wireChartTooltips } from '../components/charts/line-chart.js';
 import { scrollWrapper, setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
 import { mountLoginHero } from '../components/login-hero.js';
@@ -94,8 +94,10 @@ function renderPriceItemCard(item) {
 
   let metaHtml = '';
   if (item.meta) {
-    if (item.meta.quantity) metaHtml = ` <span class="meta-text">${escapeHtml(item.meta.quantity)}</span>`;
-    else if (item.meta.source && item.meta.destination) metaHtml = ` <span class="meta-text">${escapeHtml(item.meta.source)} → ${escapeHtml(item.meta.destination)}</span>`;
+    if (item.meta.source && item.meta.destination) metaHtml = ` <span class="meta-text">${escapeHtml(item.meta.source)} → ${escapeHtml(item.meta.destination)}</span>`;
+    else if (item.meta.quantity && item.meta.location) metaHtml = `<span class="meta-text">${escapeHtml(item.meta.quantity)} @ ${escapeHtml(item.meta.location)}</span>`;
+    else if (item.meta.quantity) metaHtml = ` <span class="meta-text">${escapeHtml(item.meta.quantity)}</span>`;
+    else if (item.meta.location) metaHtml = ` <span class="meta-text">${escapeHtml(item.meta.location)}</span>`;
   }
 
   return `
@@ -263,6 +265,8 @@ root.addEventListener('click', async (ev) => {
     const catLower = category.toLowerCase();
     if (catLower === 'groceries') meta.quantity = $('#pt-quantity')?.value || '';
     if (catLower === 'transport') { meta.source = $('#pt-source')?.value || ''; meta.destination = $('#pt-destination')?.value || ''; }
+    if (catLower === 'fuel') { meta.quantity = $('#pt-quantity')?.value || ''; meta.location = $('#pt-location')?.value || ''; }
+    if (catLower === 'rent') meta.location = $('#pt-location')?.value || '';
 
     priceTrackDictionary[name] = { category, meta };
     await Store.set('price-track-dict', priceTrackDictionary);
@@ -361,6 +365,8 @@ root.addEventListener('change', (ev) => {
     if (ptDynamicWrap) {
       if (val === 'groceries') ptDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="pt-quantity" type="text" placeholder="e.g. 1kg or 1L" /></div>`;
       else if (val === 'transport') ptDynamicWrap.innerHTML = `<div class="field"><label>Source</label><input id="pt-source" type="text" placeholder="e.g. Home" /></div><div class="field"><label>Destination</label><input id="pt-destination" type="text" placeholder="e.g. Office" /></div>`;
+      else if (val === 'fuel') ptDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="pt-quantity" type="text" placeholder="e.g. 5L" /></div><div class="field"><label>Location</label><input id="pt-location" type="text" placeholder="e.g. IOCL Bengaluru" /></div>`;
+      else if (val === 'rent') ptDynamicWrap.innerHTML = `<div class="field"><label>Location</label><input id="pt-location" type="text" placeholder="e.g. Sunflower Heights Whitefield" /></div>`;
       else ptDynamicWrap.innerHTML = '';
     }
   }
@@ -372,3 +378,4 @@ window.addEventListener('auth:checked', renderPriceTrack);
 // Wait for the first /api/auth/me round trip so we never flash the
 // signed-out login hero for an already-authenticated visitor.
 authReady.then(renderPriceTrack);
+wireChartTooltips(root);

@@ -10,7 +10,7 @@ import { currentUser, authReady } from '../core/auth.js';
 import { computeGlobalStats, computeMonthTotals, emiRowsForMonth, sipRowsForMonth, loadMonth, computeDailyBalanceSeries, windowSeries } from '../core/domain.js';
 import { computeGlobalSplitOwedByYou } from '../core/split-domain.js';
 import { renderStatCards, wireStatCardFlip } from '../components/stat-cards.js';
-import { dailyBalanceChart } from '../components/charts/line-chart.js';
+import { dailyBalanceChart, wireChartTooltips } from '../components/charts/line-chart.js';
 import { setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { mountLoginHero } from '../components/login-hero.js';
 import { appendPageChrome } from '../components/page-chrome.js';
@@ -62,6 +62,7 @@ async function renderCurrentMonthCard(domain) {
   const data = await loadMonth(key);
   const emiRows = emiRowsForMonth(domain.emiSeries, key, data.deletedEmi);
   const sipRows = sipRowsForMonth(domain.sipSeries, key, data.deletedSip);
+  const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows));
   computeMonthTotals(data.entries.concat(emiRows, sipRows)); // parity with original (unused in markup)
   return `
   <a class="current-month-card" href="/month/${key}">
@@ -69,6 +70,11 @@ async function renderCurrentMonthCard(domain) {
       <div class="cm-eyebrow">This month</div>
       <h3>${label}</h3>
       <div class="cm-sub">${data.entries.length} ${data.entries.length === 1 ? 'entry' : 'entries'} logged so far · tap to open</div>
+    </div>
+    <div class="current-month-mini">
+      <div class="cm-stat income"><div class="cm-label">Income</div><div class="cm-value">${fmtINR(totals.income)}</div></div>
+      <div class="cm-stat spend"><div class="cm-label">Spends</div><div class="cm-value">${fmtINR(totals.totalConsumption)}</div></div>
+      <div class="cm-stat invest"><div class="cm-label">Invested</div><div class="cm-value">${fmtINR(totals.invest)}</div></div>
     </div>
   </a>`;
 }
@@ -92,6 +98,8 @@ async function buildCache() {
    from data already sitting in memory. Safe to call on every click. */
 function renderFromCache() {
   const windowedSeries = windowSeries(cache.dailySeries, balanceChartRange);
+  const isHoverable = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const statHint = isHoverable ? 'Hover a card for the breakdown' : 'Tap a card for the breakdown';
 
   markRendered(root);
   root.removeAttribute('data-loading');
@@ -105,7 +113,7 @@ function renderFromCache() {
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Your finances, at a glance</h2><span class="hint">Hover a card for the breakdown</span></div>
+    <div class="section-title"><h2>Your finances, at a glance</h2><span class="hint">${statHint}</span></div>
     ${renderStatCards(cache.stats, cache.splitOwed)}
   </div>
 
@@ -124,7 +132,7 @@ function renderFromCache() {
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Manage</h2></div>
+    <div class="section-title"><h2>Money Matters</h2></div>
     <div class="scroll-wrapper" data-scroll-wrapper>
       <div class="scroll-track money-track" data-scroll-track>
         <a class="action-card" href="/months">
@@ -196,3 +204,5 @@ wireStatCardFlip(root);
 window.addEventListener('auth:signed-in', () => { cache = null; renderHome(); });
 
 authReady.then(renderHome);
+
+wireChartTooltips(root);

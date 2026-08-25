@@ -72,7 +72,7 @@ def get_db():
 def close_db(conn):
     # Never close the shared remote connection — only local sqlite ones opened per-request.
     if conn is not None and conn is not _shared_remote_conn:
-        close_db(conn)
+        conn.close()
 
 def _table_exists(conn, name):
     try:
@@ -730,6 +730,7 @@ brotli
 .hero-google-signin-btn {
   display: block;
   color: #fff;
+  opacity: 0;
 }
 
 .login-hero-note {
@@ -1015,6 +1016,9 @@ a {
   }
   .pill-btn.sub-pill.active.hyperlink:hover {
     background: var(--debit-bd);
+  }
+  .pill-btn.alt.active:hover {
+    background: #ac732d;
   }
 }
 
@@ -1321,6 +1325,10 @@ color: #C07A2E;
   margin-top: 3px;
 }
 
+.chart-card .subnote {
+  margin-top: 8px;
+}
+
 .chip {
   display: inline-flex;
   align-items: center;
@@ -1506,7 +1514,7 @@ td.actions-cell {
   width: 100%;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 600px) {
   .charts-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1516,7 +1524,7 @@ td.actions-cell {
   border: 1px solid var(--hair);
   border-radius: var(--radius-sm);
   padding: 20px;
-  background: #fff;
+  background: linear-gradient(135deg, #fff 0%, var(--ice-2) 100%);
   min-width: 0;
   overflow-x: auto;
 }
@@ -1578,6 +1586,12 @@ td.actions-cell {
   color: #fff;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .range-btn:not(.active):hover {
+    background-color: var(--ice);
+  }
+}
+
 .chart-card h4 {
   font-size: 0.95rem;
   margin-bottom: 14px;
@@ -1600,6 +1614,16 @@ td.actions-cell {
   flex-shrink: 0;
 }
 
+.donut::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, transparent 50%, rgba(255, 255, 255, 0.38) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
 .donut::after {
   content: '';
   position: absolute;
@@ -1607,6 +1631,7 @@ td.actions-cell {
   background: #fff;
   border-radius: 50%;
   box-shadow: inset 0 0 0 1px var(--hair);
+  z-index: 2;
 }
 
 .donut-center {
@@ -1617,7 +1642,7 @@ td.actions-cell {
   justify-content: center;
   flex-direction: column;
   text-align: center;
-  z-index: 2;
+  z-index: 3;
 }
 
 .donut-center .t {
@@ -1665,18 +1690,31 @@ td.actions-cell {
 }
 
 .bars {
+  position: relative;
   display: flex;
-  align-items: flex-end;
+  align-items: stretch; /* Stretches columns so bars scale against the full container */
   gap: clamp(8px, 4vw, 34px);
-  height: 160px;
-  padding: 0 10px;
+  height: 180px;
+  padding: 0 10px 0 10px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--hair); 
+  
+  /* Horizontal Grid Lines at 25%, 50%, and 75% */
+  background-image: 
+    linear-gradient(to bottom, var(--hair) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--hair) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--hair) 1px, transparent 1px);
+  background-position: 0 25%, 0 50%, 0 75%;
+  background-size: 100% 1px;
+  background-repeat: no-repeat;
 }
 
 .bar-col {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-end; /* Pushes bars to sit flush on the X-axis */
   height: 100%;
   flex: 1;
   min-width: 0;
@@ -1685,8 +1723,12 @@ td.actions-cell {
 .bar {
   width: 70%;
   max-width: 56px;
-  border-radius: 6px 6px 3px 3px;
+  border-radius: 6px 6px 0 0; /* Flat bottom to sit perfectly on the axis */
   transition: height 0.4s ease;
+  z-index: 1;
+  
+  /* Subtle light-to-dark gradient overlay over the inline background-color */
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, rgba(0, 0, 0, 0.05) 100%) !important;
 }
 
 .bar-col .bval {
@@ -1694,13 +1736,24 @@ td.actions-cell {
   font-size: 0.78rem;
   margin-bottom: 6px;
   color: var(--ink);
+  z-index: 2;
+  background: #fff; /* Masks the background grid lines cleanly behind the text */
+  padding: 0 4px;
+  border-radius: 4px;
 }
 
 .bar-col .blabel {
-  margin-top: 10px;
+  position: absolute;
+  top: 100%; /* Anchor directly under the X-axis */
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 130%;
+  margin-top: 8px;
   font-size: 0.78rem;
   color: var(--muted);
   font-family: 'IBM Plex Mono', monospace;
+  text-align: center;
 }
 
 @media (max-width: 420px) {
@@ -1969,7 +2022,8 @@ svg.linechart text {
   transform: translateX(-50%);
   background: var(--navy);
   color: #fff;
-  padding: 11px 22px;
+  text-align: center;
+  padding: 12px 22px;
   border-radius: 999px;
   font-size: 0.88rem;
   box-shadow: var(--shadow);
@@ -2114,7 +2168,7 @@ svg.linechart text {
   left: -44px;
 }
 
-@media (hover: none) and (max-width: 960px) {
+@media (max-width: 960px) {
   .scroll-arrow {
     display: none !important;
   }
@@ -2124,7 +2178,6 @@ svg.linechart text {
   top: 42px;
   z-index: 600;
 }
-
 
 /* ---------- Spend tags ---------- */
 .tag-bars {
@@ -2150,8 +2203,9 @@ svg.linechart text {
   width: 100%;
   max-width: 56px;
   min-width: 10px;
-  border-radius: 6px 6px 3px 3px;
+  border-radius: 6px 6px 0px 0px;
   transition: height 0.4s ease;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, rgba(0, 0, 0, 0.05) 100%) !important;
 }
 
 .tag-bar-col .bval {
@@ -2199,8 +2253,15 @@ svg.linechart text {
 /* Desktop: Break popovers out of the overflow-x clipping constraint */
 @media (hover: hover) {
   .stats-grid {
+    padding-bottom: 4px;
+    margin-bottom: 0;
+  }
+  
+  /* Expand height ONLY when a specific stat-card is being hovered or focused */
+  .stats-grid:has(.stat-card:hover),
+  .stats-grid:has(.stat-card:focus-within) {
     padding-bottom: 310px;
-    margin-bottom: -310px;
+    margin-bottom: -306px;
     pointer-events: none;
   }
 
@@ -2713,6 +2774,7 @@ footer {
   display: flex;
   gap: 26px;
   flex-wrap: wrap;
+  justify-content: space-between;
 }
 
 .cm-stat {
@@ -2735,11 +2797,11 @@ footer {
 }
 
 .cm-stat.income .cm-value {
-  color: #8FE0C6;
+  color: #8fe0b7;
 }
 
 .cm-stat.spend .cm-value {
-  color: #F3AEB9;
+  color: #e9daab;
 }
 
 .cm-stat.invest .cm-value {
@@ -2764,6 +2826,14 @@ footer {
   color: var(--muted);
 }
 
+@media (max-width: 600px) {
+  .current-month-card .cm-sub {
+    font-size: 1.1rem;
+  }
+  .current-month-mini {
+    width: 100%;
+  }
+}
 
 /* ---------- Stats (hoverable on desktop, slide-reveal on mobile) ---------- */
 
@@ -3480,6 +3550,7 @@ footer {
   height: 100%;
   min-width: 1px;
   flex: 0 0 auto;
+  background-image: linear-gradient(270deg, rgba(255, 255, 255, 0.25) 0%, rgba(0, 0, 0, 0.05) 100%) !important;
 }
 
 .shared-debt-total {
@@ -3725,7 +3796,7 @@ footer {
   min-height: 3px;
 
   border-radius: 5px 5px 0px 0px;
-
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, rgba(0, 0, 0, 0.05) 100%) !important;
   transition:
     height 0.2s ease,
     opacity 0.15s ease;
@@ -3899,6 +3970,470 @@ body.shared-mode .shared-shares-table th:last-child {
   body[data-is-shared="true"] .topbar .brand {
     font-size: 1.5rem;
   }
+}
+
+=== ./static/js/components/charts/axis-grid.js ===
+/* ---------- Shared axis/tick helpers for SVG + bar charts ---------- */
+
+export function yAxisGrid(minV, maxV, w, h, padL, padR, padT, padB, count) {
+  count = count || 4;
+  const range = (maxV - minV) || 1;
+
+  const maxAbs = Math.max(Math.abs(maxV), Math.abs(minV));
+  let div = 1, suf = '';
+  if (maxAbs >= 1e7) { div = 1e7; suf = 'Cr'; }
+  else if (maxAbs >= 1e5) { div = 1e5; suf = 'L'; }
+  else if (maxAbs >= 1e3) { div = 1e3; suf = 'K'; }
+
+  let out = '';
+  for (let i = 0; i <= count; i++) {
+    const v = minV + (range * i / count);
+    const y = h - padB - ((v - minV) / range) * (h - padT - padB);
+
+    let cls = '';
+    if (count === 8) {
+      if (i % 2 !== 0) cls = 'y-tick-dense';
+      else if (i % 4 !== 0) cls = 'y-tick-med';
+    }
+
+    const scaledV = v / div;
+    const formattedNum = Math.abs(parseFloat(scaledV.toFixed(2)));
+    const sign = (v < 0 && formattedNum !== 0) ? '-' : '';
+    const textStr = `${sign}₹${formattedNum}${suf}`;
+
+    out += `<g class="${cls}">`;
+    out += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${w - padR}" y2="${y.toFixed(1)}" stroke="var(--hair)" stroke-width="1" stroke-dasharray="3,4"/>`;
+    out += `<text x="${(padL - 8).toFixed(1)}" y="${(y + 4).toFixed(1)}" fill="var(--muted)" text-anchor="end" font-family="IBM Plex Mono, monospace">${textStr}</text>`;
+    out += `</g>`;
+  }
+  return out;
+}
+
+export function formatChartMoney(value) {
+  const amount = Number(value) || 0;
+  const abs = Math.abs(amount);
+  let formatted;
+  if (abs >= 10000000) formatted = (amount / 10000000).toFixed(2) + 'Cr';
+  else if (abs >= 100000) formatted = (amount / 100000).toFixed(2) + 'L';
+  else if (abs >= 1000) formatted = (amount / 1000).toFixed(2) + 'K';
+  else formatted = Math.round(amount).toString();
+
+  formatted = formatted
+    .replace(/(\.\d*?[1-9])0+(?=[A-Za-z]|$)/, '$1')
+    .replace(/\.0+(?=[A-Za-z]|$)/, '');
+
+  return `₹${formatted}`;
+}
+
+export function niceChartStep(maxValue, tickCount = 5) {
+  if (!maxValue || maxValue <= 0) return 1;
+  const rawStep = maxValue / tickCount;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const normalized = rawStep / magnitude;
+  let niceNormalized;
+  if (normalized <= 1) niceNormalized = 1;
+  else if (normalized <= 2) niceNormalized = 2;
+  else if (normalized <= 2.5) niceNormalized = 2.5;
+  else if (normalized <= 5) niceNormalized = 5;
+  else niceNormalized = 10;
+  return niceNormalized * magnitude;
+}
+
+export function buildNiceChartTicks(maxValue, tickCount = 5) {
+  const step = niceChartStep(maxValue, tickCount);
+  const niceMax = Math.ceil(maxValue / step) * step;
+  const ticks = [];
+  for (let value = 0; value <= niceMax + step * 0.001; value += step) {
+    ticks.push(Math.round(value * 100) / 100);
+  }
+  return { ticks, max: niceMax };
+}
+
+=== ./static/js/components/charts/bar-chart.js ===
+/* ---------- Simple bar charts (self-contained, no libraries) ---------- */
+import { escapeHtml } from '../../core/dom.js';
+import { fmtINR, fmtINRShort } from '../../core/format.js';
+
+export function barChart(pairs) {
+  const max = Math.max(1, ...pairs.map(p => p.value));
+  const cols = pairs.map(p => `
+    <div class="bar-col">
+      <div class="bval num">${fmtINR(p.value)}</div>
+      <div class="bar" style="height:${Math.max(4, (p.value / max * 130))}px; background:${p.color};"></div>
+      <div class="blabel">${p.label}</div>
+    </div>`).join('');
+  return `<div class="bars">${cols}</div>`;
+}
+
+export function tagsBarChart(entries, targetType) {
+  const totals = {};
+  for (const e of entries) {
+    if (e.type === targetType) {
+      const tag = (e.tag && String(e.tag).trim()) ? e.tag : 'Untagged';
+      totals[tag] = (totals[tag] || 0) + (Number(e.amount) || 0);
+    }
+  }
+
+  const pairs = Object.entries(totals).map(([label, value]) => ({ label, value })).filter(p => p.value > 0).sort((a, b) => b.value - a.value);
+  if (!pairs.length) return `<div class="empty-chart">No tagged spends yet.</div>`;
+
+  const max = Math.max(1, ...pairs.map(p => p.value));
+  const colors = ['var(--blue)', '#C98A3C', '#8E6FB0', 'var(--debit)', 'var(--credit)', '#5B4B9E', 'var(--amber)', 'var(--blue-soft)', '#2E7D6B', '#AD4358'];
+  const cols = pairs.map((p, i) => `
+    <div class="tag-bar-col">
+      <div class="bval num">${fmtINRShort(p.value)}</div>
+      <div class="tag-bar" style="height:${Math.max(4, (p.value / max * 140))}px; background:${colors[i % colors.length]};"></div>
+      <div class="blabel" title="${escapeHtml(p.label)}">${escapeHtml(p.label)}</div>
+    </div>`).join('');
+  return `<div class="tag-bars">${cols}</div>`;
+}
+
+=== ./static/js/components/charts/donut.js ===
+/* ---------- Donut chart (self-contained, no libraries) ---------- */
+import { fmtINR } from '../../core/format.js';
+
+export function donutChart(segments) {
+  const total = segments.reduce((s, x) => s + x.value, 0);
+  if (total <= 0) return `<div class="empty-chart">No spending recorded yet this month.</div>`;
+  let acc = 0;
+  const stops = segments.filter(s => s.value > 0).map(s => {
+    const start = acc / total * 360; acc += s.value; const end = acc / total * 360;
+    return `${s.color} ${start}deg ${end}deg`;
+  }).join(', ');
+  const legend = segments.filter(s => s.value > 0).map(s => `
+    <div class="legend-item">
+      <span class="legend-dot" style="background:${s.color}"></span>
+      <span>${s.label}</span>
+      <span class="legend-val">${fmtINR(s.value)}</span>
+    </div>`).join('');
+  return `
+  <div class="donut-wrap">
+    <div class="donut" style="background:conic-gradient(${stops});">
+      <div class="donut-center"><div class="t">Total</div><div class="v">${fmtINR(total)}</div></div>
+    </div>
+    <div class="legend">${legend}</div>
+  </div>`;
+}
+
+/* Split Money's donut is the same chart with an empty-state message override. */
+export function splitDonut(segments, emptyMsg) {
+  const total = segments.reduce((s, x) => s + x.value, 0);
+  if (total <= 0) return `<div class="empty-chart">${emptyMsg}</div>`;
+  return donutChart(segments);
+}
+
+=== ./static/js/components/charts/line-chart.js ===
+/* ---------- SVG line charts (self-contained, no libraries) ---------- */
+import { fmtINR } from '../../core/format.js';
+import { yAxisGrid } from './axis-grid.js';
+
+/* Home page: long-range daily balance trend, with 1/3/6-month tick spacing. */
+export function dailyBalanceChart(series, rangeMonths) {
+  if (!series.length) return `<div class="empty-chart">Add a month to see your balance trend here.</div>`;
+  const w = 900, h = 220, padL = 85, padR = 20, padT = 16, padB = 34;
+  const vals = series.map(p => p.balance);
+  const rawMin = Math.min(...vals), rawMax = Math.max(...vals);
+  const span = (rawMax - rawMin) || Math.max(Math.abs(rawMax) * 0.1, 1000);
+  const pad = span * 0.18;
+  const minV = rawMin - pad, maxV = rawMax + pad;
+  const range = (maxV - minV) || 1;
+  const stepX = series.length > 1 ? (w - padL - padR) / (series.length - 1) : 0;
+  const coords = series.map((p, i) => {
+    const x = series.length > 1 ? padL + i * stepX : (padL + w - padR) / 2;
+    const y = h - padB - ((p.balance - minV) / range) * (h - padT - padB);
+    return [x, y];
+  });
+  const pathD = coords.map((c, i) => (i === 0 ? 'M' : 'L') + c[0].toFixed(1) + ',' + c[1].toFixed(1)).join(' ');
+  const areaD = pathD + ` L${coords[coords.length - 1][0].toFixed(1)},${h - padB} L${coords[0][0].toFixed(1)},${h - padB} Z`;
+  const gridSvg = yAxisGrid(minV, maxV, w, h, padL, padR, padT, padB, 8);
+
+  let tickIdxs = [];
+  if (rangeMonths === 1) {
+    for (let i = 0; i < series.length; i += 7) tickIdxs.push(i);
+  } else {
+    let lastMonth = null;
+    series.forEach((p, i) => { const mk = p.date.slice(0, 7); if (mk !== lastMonth) { tickIdxs.push(i); lastMonth = mk; } });
+  }
+  const tickLabel = (p) => {
+    const d = new Date(p.date + 'T00:00:00');
+    return rangeMonths === 1
+      ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+      : d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+  };
+  const dots = coords.map(([x, y], i) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.5" fill="var(--blue)" opacity="${tickIdxs.includes(i) ? 1 : 0}"><title>${series[i].date}: ${fmtINR(series[i].balance)}</title></circle>`).join('');
+  const labels = tickIdxs.map(i => {
+    const [x] = coords[i];
+    return `<text x="${x.toFixed(1)}" y="${h - 6}" fill="var(--muted)" text-anchor="right" font-family="IBM Plex Mono, monospace">${tickLabel(series[i])}</text>`;
+  }).join('');
+  const lastPoint = series[series.length - 1];
+  return `
+  <svg class="linechart" viewBox="0 0 ${w} ${h}">
+    <defs>
+      <linearGradient id="ofade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--blue)" stop-opacity="0.22"/>
+        <stop offset="100%" stop-color="var(--blue)" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    ${gridSvg}
+    <path d="${areaD}" fill="url(#ofade)" stroke="none"/>
+    <path d="${pathD}" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}
+    ${labels}
+  </svg>
+  <div class="subnote">Latest balance (${lastPoint.date}): <strong class="num">${fmtINR(lastPoint.balance)}</strong></div>`;
+}
+
+/* Month page: running balance across just that month's entries + recurring rows. */
+export function lineChart(startingBalance, data, recurringRows) {
+  const entries = [...data.entries, ...recurringRows]
+    .filter(e => e.type === 'income' || e.type === 'investment' || e.type === 'emi' || e.type === 'sip' || (e.type === 'spend' && e.paymentMode !== 'card') || (e.type === 'spend' && e.paymentMode === 'card'))
+    .filter(e => e.date)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const start = Number(startingBalance) || 0;
+  if (entries.length === 0) {
+    return `<div class="empty-chart">Balance line will appear once you add entries with dates.</div>`;
+  }
+  let running = start;
+  const points = [{ date: 'start', balance: running }];
+  for (const e of entries) {
+    const amt = Number(e.amount) || 0;
+    if (e.type === 'income') running += amt; else running -= amt;
+    points.push({ date: e.date, balance: running });
+  }
+  const w = 900, h = 170, padL = 85, padR = 20, padT = 16, padB = 30;
+  const vals = points.map(p => p.balance);
+  const minV = Math.min(...vals, start), maxV = Math.max(...vals, start);
+  const range = (maxV - minV) || 1;
+  const stepX = (w - padL - padR) / Math.max(1, (points.length - 1));
+  const coords = points.map((p, i) => {
+    const x = padL + i * stepX;
+    const y = h - padB - ((p.balance - minV) / range) * (h - padT - padB);
+    return [x, y];
+  });
+  const pathD = coords.map((c, i) => (i === 0 ? 'M' : 'L') + c[0].toFixed(1) + ',' + c[1].toFixed(1)).join(' ');
+  const areaD = pathD + ` L${coords[coords.length - 1][0].toFixed(1)},${h - padB} L${coords[0][0].toFixed(1)},${h - padB} Z`;
+  const gridSvg = yAxisGrid(minV, maxV, w, h, padL, padR, padT, padB, 8);
+  const lastVal = points[points.length - 1].balance;
+  const dots = coords.map(([x, y], i) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--blue)"><title>${fmtINR(points[i].balance)}</title></circle>`).join('');
+  return `
+  <svg class="linechart" viewBox="0 0 ${w} ${h}">
+    <defs>
+      <linearGradient id="lineFade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--blue)" stop-opacity="0.22"/>
+        <stop offset="100%" stop-color="var(--blue)" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    ${gridSvg}
+    <path d="${areaD}" fill="url(#lineFade)" stroke="none"/>
+    <path d="${pathD}" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}
+  </svg>
+  <div class="subnote">Latest balance: <strong class="num">${fmtINR(lastVal)}</strong></div>
+  `;
+}
+
+/* Price Tracker: per-item price-history trend line. */
+export function priceLineChart(hist) {
+  if (!hist.length) {
+    return `<div class="empty-chart">Log a price to see the trend line.</div>`;
+  }
+  if (hist.length === 1) {
+    return `<div class="empty-chart">Log one more price to see a trend line. Latest: <strong>${fmtINR(hist[0].price)}</strong></div>`;
+  }
+  const w = 900, h = 170, padL = 85, padR = 20, padT = 16, padB = 30;
+  const vals = hist.map(p => p.price);
+  const minV = Math.min(...vals), maxV = Math.max(...vals);
+  const range = (maxV - minV) || 1;
+  const stepX = (w - padL - padR) / Math.max(1, (hist.length - 1));
+  const coords = hist.map((p, i) => {
+    const x = padL + i * stepX;
+    const y = h - padB - ((p.price - minV) / range) * (h - padT - padB);
+    return [x, y];
+  });
+  const pathD = coords.map((c, i) => (i === 0 ? 'M' : 'L') + c[0].toFixed(1) + ',' + c[1].toFixed(1)).join(' ');
+  const areaD = pathD + ` L${coords[coords.length - 1][0].toFixed(1)},${h - padB} L${coords[0][0].toFixed(1)},${h - padB} Z`;
+  const gridSvg = yAxisGrid(minV, maxV, w, h, padL, padR, padT, padB, 4);
+  const dots = coords.map(([x, y], i) => {
+    const dl = new Date(hist[i].date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--blue)"><title>${dl}: ${fmtINR(hist[i].price)}</title></circle>`;
+  }).join('');
+  const lastVal = hist[hist.length - 1].price;
+  return `
+  <svg class="linechart" viewBox="0 0 ${w} ${h}">
+    <defs>
+      <linearGradient id="priceLineFade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--blue)" stop-opacity="0.22"/>
+        <stop offset="100%" stop-color="var(--blue)" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    ${gridSvg}
+    <path d="${areaD}" fill="url(#priceLineFade)" stroke="none"/>
+    <path d="${pathD}" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}
+  </svg>
+  <div class="subnote">Latest price: <strong class="num">${fmtINR(lastVal)}</strong></div>
+  `;
+}
+
+=== ./static/js/components/charts/split-charts.js ===
+/* ---------- Split Money charts: who-owes-how-much + shares-by-member ---------- */
+import { escapeHtml } from '../../core/dom.js';
+import { fmtINR } from '../../core/format.js';
+import { formatChartMoney, buildNiceChartTicks } from './axis-grid.js';
+import { SPLIT_YOU, computeGroupSettlementView } from '../../core/split-domain.js';
+
+export const SPLIT_PALETTE = ['var(--blue)', '#C98A3C', '#8E6FB0', 'var(--debit)', 'var(--credit)', '#5B4B9E', 'var(--amber)', 'var(--blue-soft)', '#2E7D6B', '#AD4358'];
+
+export function sharedStackedDebtChart(group, getYouLabel) {
+  const { cards } = computeGroupSettlementView(group);
+  const outstanding = cards.filter(c => !c.settled && Number(c.amount) > 0.004);
+  if (!outstanding.length) {
+    return `<div class="empty-chart">No outstanding debts in this group.</div>`;
+  }
+
+  const byDebtor = {};
+  for (const transfer of outstanding) {
+    if (!byDebtor[transfer.from]) byDebtor[transfer.from] = {};
+    byDebtor[transfer.from][transfer.to] = (byDebtor[transfer.from][transfer.to] || 0) + Number(transfer.amount || 0);
+  }
+
+  const debtors = Object.entries(byDebtor)
+    .map(([debtor, creditors]) => ({
+      debtor,
+      creditors: Object.entries(creditors).filter(([, amount]) => amount > 0.004).map(([creditor, amount]) => ({ creditor, amount })),
+    }))
+    .filter(x => x.creditors.length);
+
+  if (!debtors.length) {
+    return `<div class="empty-chart">No outstanding debts in this group.</div>`;
+  }
+
+  const allCreditors = [];
+  for (const debtor of debtors) {
+    for (const { creditor } of debtor.creditors) {
+      if (!allCreditors.includes(creditor)) allCreditors.push(creditor);
+    }
+  }
+
+  const debtorTotals = debtors.map(({ debtor, creditors }) => ({
+    debtor, creditors,
+    total: creditors.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+  }));
+
+  const actualMaxTotal = Math.max(1, ...debtorTotals.map(item => item.total));
+  const debtAxis = buildNiceChartTicks(actualMaxTotal, 4);
+  const maxTotal = debtAxis.max;
+
+  const xTicks = debtAxis.ticks.map(value => ({ value, percent: debtAxis.max > 0 ? (value / debtAxis.max) * 100 : 0 }));
+  const gridLines = xTicks.map(tick => `<div class="shared-debt-grid-line" style="left:${tick.percent}%"></div>`).join('');
+  const xLabels = xTicks.map(tick => `<span class="shared-debt-x-tick" style="left:${tick.percent}%">${formatChartMoney(tick.value)}</span>`).join('');
+
+  const bars = debtorTotals.map(({ debtor, creditors, total }) => {
+    const totalWidth = maxTotal > 0 ? (total / maxTotal) * 100 : 0;
+    const segments = creditors.map(({ creditor, amount }) => {
+      const color = SPLIT_PALETTE[allCreditors.indexOf(creditor) % SPLIT_PALETTE.length];
+      const segmentWidth = total > 0 ? (amount / total) * 100 : 0;
+      const creditorLabel = creditor === SPLIT_YOU ? getYouLabel() : escapeHtml(String(creditor).toUpperCase());
+      return `<div class="shared-debt-segment" style="width:${segmentWidth}%; background:${color};" title="${creditorLabel}: ${fmtINR(amount)}"></div>`;
+    }).join('');
+
+    const debtorLabel = debtor === SPLIT_YOU ? getYouLabel() : escapeHtml(String(debtor).toUpperCase());
+    const isInside = totalWidth > 50;
+
+    return `
+      <div class="shared-debt-row">
+        <div class="shared-debt-label" title="${debtorLabel}">${debtorLabel}</div>
+        <div class="shared-debt-plot">
+          <div class="shared-debt-grid">${gridLines}</div>
+          <div class="shared-debt-bar" style="width:${totalWidth}%; --bar-end:${totalWidth}%">
+            ${segments}
+            ${isInside ? `<div class="shared-debt-total inside num">${fmtINR(total)}</div>` : ''}
+          </div>
+          ${!isInside ? `<div class="shared-debt-total outside num" style="left:${totalWidth}%;">${fmtINR(total)}</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  const legend = allCreditors.map((creditor, i) => {
+    const color = SPLIT_PALETTE[i % SPLIT_PALETTE.length];
+    const label = creditor === SPLIT_YOU ? getYouLabel() : escapeHtml(String(creditor).toUpperCase());
+    return `<div class="shared-chart-legend-item"><span class="shared-chart-legend-dot" style="background:${color};"></span><span>${label}</span></div>`;
+  }).join('');
+
+  return `
+    <div class="shared-debt-chart">
+      <div class="shared-debt-bars">${bars}</div>
+      <div class="shared-debt-axis">
+        <div class="shared-debt-axis-line"></div>
+        ${xLabels}
+      </div>
+      <div class="shared-chart-axis-title">Amount (₹)</div>
+      <div class="shared-chart-legend">${legend}</div>
+    </div>
+  `;
+}
+
+export function sharedSharesBarChart(group, getYouLabel) {
+  const totals = {};
+  for (const person of group.people) totals[person] = 0;
+  for (const spend of (group.spends || [])) {
+    for (const [person, amount] of Object.entries(spend.shares || {})) {
+      totals[person] = (totals[person] || 0) + (Number(amount) || 0);
+    }
+  }
+
+  const pairs = Object.entries(totals)
+    .map(([person, value]) => ({ person, value: Math.round(value * 100) / 100 }))
+    .filter(x => x.value > 0.004)
+    .sort((a, b) => b.value - a.value);
+
+  if (!pairs.length) {
+    return `<div class="empty-chart">No shares recorded in this group yet.</div>`;
+  }
+
+  const actualMaxValue = Math.max(1, ...pairs.map(x => x.value));
+  const shareAxis = buildNiceChartTicks(actualMaxValue, 4);
+  const maxValue = shareAxis.max;
+  const yTicks = shareAxis.ticks.map(value => ({ value, percent: shareAxis.max > 0 ? (value / shareAxis.max) * 100 : 0 }));
+
+  const gridLines = yTicks.map(tick => `<div class="shared-share-grid-line" style="bottom:${tick.percent}%"></div>`).join('');
+  const yLabels = yTicks.map(tick => `<span class="shared-share-y-tick" style="bottom:${tick.percent}%">${formatChartMoney(tick.value)}</span>`).join('');
+
+  const bars = pairs.map((pair, i) => {
+    const height = maxValue > 0 ? (pair.value / maxValue) * 100 : 0;
+    const label = pair.person === SPLIT_YOU ? getYouLabel() : escapeHtml(String(pair.person).toUpperCase());
+    const color = SPLIT_PALETTE[i % SPLIT_PALETTE.length];
+    const isInside = height > 50;
+    const formattedValue = fmtINR(pair.value);
+    return `
+      <div class="shared-share-bar-col">
+        <div class="shared-share-bar-area">
+          <div class="shared-share-bar" style="height:${height}%; background:${color};" title="${label}: ${formattedValue}">
+            ${isInside ? `<div class="shared-share-value-wrap inside"><div class="shared-share-value-text num">${formattedValue}</div></div>` : ''}
+          </div>
+          ${!isInside ? `<div class="shared-share-value-wrap outside" style="bottom:${height}%;"><div class="shared-share-value-text num">${formattedValue}</div></div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  const labels = pairs.map((pair) => {
+    const label = pair.person === SPLIT_YOU ? getYouLabel() : escapeHtml(String(pair.person).toUpperCase());
+    return `<div class="shared-share-label" title="${label}">${label}</div>`;
+  }).join('');
+
+  return `
+    <div class="shared-share-chart">
+      <div class="shared-share-y-axis">${yLabels}</div>
+      <div class="shared-share-plot">
+        <div class="shared-share-grid">${gridLines}</div>
+        <div class="shared-share-bars">${bars}</div>
+        <div class="shared-share-axis-line"></div>
+      </div>
+      <div class="shared-share-corner"></div>
+      <div class="shared-share-x-labels">${labels}</div>
+    </div>
+    <div class="shared-share-axis-title">Total Share (₹)</div>
+  `;
 }
 
 === ./static/js/components/delete-popover.js ===
@@ -4354,66 +4889,73 @@ async function handleGoogleCredential(response) {
   }
 }
 
-let googleBtnLocation = null;
+let isGoogleInitialized = false;
 
 export function renderGoogleButton(container, opts) {
   if (!container) return;
-  if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-    setTimeout(() => renderGoogleButton(container, opts), 250);
+
+  // Wait for Google SDK to load AND for google.accounts.id.initialize to complete
+  if (!window.google?.accounts?.id || !isGoogleInitialized) {
+    setTimeout(() => renderGoogleButton(container, opts), 100);
     return;
   }
+
+  // Clear any existing content in this slot, then render
+  container.innerHTML = '';
   google.accounts.id.renderButton(container, opts);
 }
 
-// FIXED: Added 'export' keyword here
 export function initGoogleSignIn() {
-  if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-    setTimeout(initGoogleSignIn, 250);
+  if (!window.google?.accounts?.id) {
+    setTimeout(initGoogleSignIn, 100);
     return;
   }
   if (!AppConfig.googleClientId) {
     console.warn('GOOGLE_CLIENT_ID is not configured on the server.');
     return;
   }
+
   google.accounts.id.initialize({
     client_id: AppConfig.googleClientId,
     callback: handleGoogleCredential,
     auto_select: false,
     cancel_on_tap_outside: true,
   });
+  isGoogleInitialized = true;
 
   const cornerEl = document.getElementById('google-signin-btn');
   if (cornerEl) {
     renderGoogleButton(cornerEl, {
-      type: 'standard', theme: 'outline', size: 'medium', shape: 'pill',
-      text: 'signin_with', logo_alignment: 'left', width: '200',
+      type: 'standard',
+      theme: 'outline',
+      size: 'medium',
+      shape: 'pill',
+      text: 'signin_with',
+      logo_alignment: 'left',
+      width: '200',
     });
-    googleBtnLocation = 'corner';
   }
 }
 
 export function mountHeroGoogleButton(heroSlot) {
   if (!heroSlot) return;
 
-  // 1. Hide the corner button safely using CSS instead of ripping it out of the DOM
+  // 1. Hide corner button so we don't display duplicate login prompts
   const cornerBtn = document.getElementById('google-signin-btn');
   if (cornerBtn) {
     cornerBtn.style.display = 'none';
   }
 
-  // 2. Ask Google to render a distinct, fresh button directly into the hero container
-  if (googleBtnLocation !== 'hero') {
-    renderGoogleButton(heroSlot, {
-      type: 'standard', 
-      theme: 'filled_blue', 
-      size: 'large', 
-      shape: 'pill',
-      text: 'signin_with', 
-      logo_alignment: 'left', 
-      width: '280',
-    });
-    googleBtnLocation = 'hero';
-  }
+  // 2. Render Google button directly into the hero container
+  renderGoogleButton(heroSlot, {
+    type: 'standard', 
+    theme: 'filled_blue', 
+    size: 'large', 
+    shape: 'pill',
+    text: 'signin_with', 
+    logo_alignment: 'left', 
+    width: '280',
+  });
 }
 
 function updateProfileBadge() {
@@ -5413,6 +5955,7 @@ async function renderCurrentMonthCard(domain) {
   const data = await loadMonth(key);
   const emiRows = emiRowsForMonth(domain.emiSeries, key, data.deletedEmi);
   const sipRows = sipRowsForMonth(domain.sipSeries, key, data.deletedSip);
+  const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows));
   computeMonthTotals(data.entries.concat(emiRows, sipRows)); // parity with original (unused in markup)
   return `
   <a class="current-month-card" href="/month/${key}">
@@ -5420,6 +5963,11 @@ async function renderCurrentMonthCard(domain) {
       <div class="cm-eyebrow">This month</div>
       <h3>${label}</h3>
       <div class="cm-sub">${data.entries.length} ${data.entries.length === 1 ? 'entry' : 'entries'} logged so far · tap to open</div>
+    </div>
+    <div class="current-month-mini">
+      <div class="cm-stat income"><div class="cm-label">Income</div><div class="cm-value">${fmtINR(totals.income)}</div></div>
+      <div class="cm-stat spend"><div class="cm-label">Spends</div><div class="cm-value">${fmtINR(totals.totalConsumption)}</div></div>
+      <div class="cm-stat invest"><div class="cm-label">Invested</div><div class="cm-value">${fmtINR(totals.invest)}</div></div>
     </div>
   </a>`;
 }
@@ -5443,6 +5991,8 @@ async function buildCache() {
    from data already sitting in memory. Safe to call on every click. */
 function renderFromCache() {
   const windowedSeries = windowSeries(cache.dailySeries, balanceChartRange);
+  const isHoverable = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const statHint = isHoverable ? 'Hover a card for the breakdown' : 'Tap a card for the breakdown';
 
   markRendered(root);
   root.removeAttribute('data-loading');
@@ -5456,7 +6006,7 @@ function renderFromCache() {
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Your finances, at a glance</h2><span class="hint">Hover a card for the breakdown</span></div>
+    <div class="section-title"><h2>Your finances, at a glance</h2><span class="hint">${statHint}</span></div>
     ${renderStatCards(cache.stats, cache.splitOwed)}
   </div>
 
@@ -5475,7 +6025,7 @@ function renderFromCache() {
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Manage</h2></div>
+    <div class="section-title"><h2>Money Matters</h2></div>
     <div class="scroll-wrapper" data-scroll-wrapper>
       <div class="scroll-track money-track" data-scroll-track>
         <a class="action-card" href="/months">
