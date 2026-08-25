@@ -1,11 +1,11 @@
-/* ---------- Auth bar (persistent, top-right, outside #app) ---------- */
+/* ---------- App topbar cluster: theme selector + sign-in/profile ----------
+   Lives inside #app (absolutely positioned against it, not the viewport),
+   so it always sits inside the 75%-width column instead of the screen edge.
+   Rendered once in base.html => identical on every page. */
 .auth-bar {
-  position: fixed;
-  top: 16px;
-  right: 20px;
-  z-index: 80;
   display: flex;
   align-items: center;
+  gap: 12px;
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.4s ease;
@@ -18,6 +18,88 @@
 
 .google-signin-btn {
   display: inline-block;
+}
+
+.google-signin-btn[hidden],
+.profile-badge[hidden] {
+  display: none !important;
+}
+
+/* ---------- Universal theme selector (>=640px: inline pill) ---------- */
+#theme-selector.range-toggle {
+  display: inline-flex;
+}
+
+/* ---------- Sign-in / profile cluster ---------- */
+.auth-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---------- Burger (mobile only) ---------- */
+.burger-menu-btn {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  width: 30px;
+  height: 30px;
+  padding-left: 16px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.burger-line {
+  width: 16px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--royal);
+}
+
+.burger-menu-panel {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  padding: 6px;
+  z-index: 90;
+}
+
+.burger-menu-panel:not([hidden]) {
+  display: flex;
+}
+
+.burger-menu-panel .range-btn {
+  width: 100%;
+  text-align: left;
+}
+
+@media (max-width: 639px) {
+  #theme-selector.range-toggle {
+    display: none;                 /* collapses into the burger panel */
+  }
+  .burger-menu-btn {
+    display: flex;
+  }
+  /* Combined pill: burger + signin/profile share ONE border, matching
+     the google-signin-btn's own outline weight/radius. */
+  .auth-controls {
+    border: 1px solid var(--hair);
+    border-radius: 999px;
+    padding: 4px 6px;
+    background: #fff;
+  }
 }
 
 /* Keep the corner controls truly hidden regardless of rule order —
@@ -114,10 +196,6 @@
 }
 
 @media (max-width: 480px) {
-  .auth-bar {
-    top: 12px;
-    right: 12px;
-  }
   .profile-badge-btn {
     padding: 4px;
   }

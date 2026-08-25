@@ -28,6 +28,9 @@ export function loginHeroHtml() {
 }
 
 export function mountLoginHero(root) {
+  const tb = document.getElementById('global-topbar');
+  if (tb) tb.style.display = 'none';
+
   root.innerHTML = loginHeroHtml();
   mountHeroGoogleButton(document.getElementById('hero-google-signin-slot'));
 }

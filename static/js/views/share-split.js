@@ -115,10 +115,6 @@ async function renderSharedSplitPage() {
 
   markRendered(root);
   root.innerHTML = `
-  <div class="topbar">
-    <div class="brand"><span class="mark">₹</span> LedgerNote</div>
-  </div>
-
   <div class="section shared-page-header">
     <div class="month-header"><h1>${escapeHtml(group.description)}</h1></div>
     <p class="shared-page-subtitle">Shared Split Money group · ${group.people.length} people</p>

@@ -305,12 +305,11 @@ async function renderSplit() {
     </div>`;
   }
 
+  const tb = document.getElementById('global-topbar');
+  if (tb) tb.style.display = '';
+
   markRendered(root);
   root.innerHTML = `
-  <div class="topbar">
-    <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
-  </div>
-
   <div class="section">
     <div class="month-header"><h1>Split Money</h1></div>
   </div>

@@ -188,10 +188,53 @@ function wireAuthBar() {
   }
 }
 
+function initThemeSelector() {
+  const allThemeBtns = () => document.querySelectorAll('[data-theme-btn]');
+
+  function syncActiveStates() {
+    const theme = localStorage.getItem('ledger-theme') || 'default';
+    allThemeBtns().forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.themeBtn === theme);
+    });
+  }
+
+  document.addEventListener('click', (ev) => {
+    const themeBtn = ev.target.closest('[data-theme-btn]');
+    if (themeBtn) {
+      const theme = themeBtn.dataset.themeBtn;
+      localStorage.setItem('ledger-theme', theme);
+      document.documentElement.setAttribute('data-theme', theme);
+      syncActiveStates();
+      const panel = document.getElementById('burger-menu-panel');
+      const burgerBtn = document.getElementById('burger-menu-btn');
+      if (panel) panel.hidden = true;
+      if (burgerBtn) burgerBtn.setAttribute('aria-expanded', 'false');
+      return;
+    }
+
+    const burgerBtn = ev.target.closest('#burger-menu-btn');
+    const panel = document.getElementById('burger-menu-panel');
+    if (burgerBtn && panel) {
+      const willOpen = panel.hidden;
+      panel.hidden = !willOpen;
+      burgerBtn.setAttribute('aria-expanded', String(willOpen));
+      return;
+    }
+
+    if (panel && !panel.hidden && !ev.target.closest('#burger-menu-panel')) {
+      panel.hidden = true;
+      document.getElementById('burger-menu-btn')?.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  syncActiveStates();
+}
+
 window.addEventListener('auth:required', () => {
   showToast('Your session expired — please sign in again.');
   currentUser = null;
   updateProfileBadge();
 });
 
+initThemeSelector();
 wireAuthBar();

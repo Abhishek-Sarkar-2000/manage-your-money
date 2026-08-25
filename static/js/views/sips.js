@@ -39,12 +39,11 @@ async function renderSips() {
     </div>
   `).join('') || `<div class="empty-chart">No SIPs added yet — add one below.</div>`;
 
+  const tb = document.getElementById('global-topbar');
+  if (tb) tb.style.display = '';
+
   markRendered(root);
   root.innerHTML = `
-  <div class="topbar">
-    <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
-  </div>
-
   <div class="section">
     <div class="card">
       <div class="section-title"><h2>Existing Investments</h2><span class="hint">Base portfolio built prior to this ledger</span></div>

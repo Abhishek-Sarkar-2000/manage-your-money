@@ -519,14 +519,18 @@ Flask-Limiter>=3.7.0
 Flask-Compress==1.15.0
 brotli
 === ./static/css/auth-bar.css ===
-/* ---------- Auth bar (persistent, top-right, outside #app) ---------- */
+/* ---------- App topbar cluster: theme selector + sign-in/profile ----------
+   Lives inside #app (absolutely positioned against it, not the viewport),
+   so it always sits inside the 75%-width column instead of the screen edge.
+   Rendered once in base.html => identical on every page. */
 .auth-bar {
-  position: fixed;
-  top: 16px;
-  right: 20px;
+  position: absolute;
+  top: 22px;
+  right: 8px;
   z-index: 80;
   display: flex;
   align-items: center;
+  gap: 12px;
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.4s ease;
@@ -539,6 +543,94 @@ brotli
 
 .google-signin-btn {
   display: inline-block;
+}
+
+.google-signin-btn[hidden],
+.profile-badge[hidden] {
+  display: none !important;
+}
+
+/* ---------- Universal theme selector (>=640px: inline pill) ---------- */
+#theme-selector.range-toggle {
+  display: inline-flex;
+}
+
+/* ---------- Sign-in / profile cluster ---------- */
+.auth-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---------- Burger (mobile only) ---------- */
+.burger-menu-btn {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  width: 30px;
+  height: 30px;
+  padding-left: 16px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.burger-line {
+  width: 16px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--royal);
+}
+
+.burger-menu-panel {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  padding: 6px;
+  z-index: 90;
+}
+
+.burger-menu-panel:not([hidden]) {
+  display: flex;
+}
+
+.burger-menu-panel .range-btn {
+  width: 100%;
+  text-align: left;
+}
+
+@media (max-width: 639px) {
+  #theme-selector.range-toggle {
+    display: none;                 /* collapses into the burger panel */
+  }
+  .burger-menu-btn {
+    display: flex;
+  }
+  /* Combined pill: burger + signin/profile share ONE border, matching
+     the google-signin-btn's own outline weight/radius. */
+  .auth-controls {
+    border: 1px solid var(--hair);
+    border-radius: 999px;
+    padding: 4px 6px;
+    background: #fff;
+  }
+}
+
+@media (max-width: 960px) {
+  .auth-bar {
+    right: 12px;
+  }
 }
 
 /* Keep the corner controls truly hidden regardless of rule order —
@@ -635,10 +727,6 @@ brotli
 }
 
 @media (max-width: 480px) {
-  .auth-bar {
-    top: 12px;
-    right: 12px;
-  }
   .profile-badge-btn {
     padding: 4px;
   }
@@ -824,6 +912,7 @@ h4 {
   flex: 1 0 auto;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 @media (max-width: 960px) {
@@ -5478,12 +5567,55 @@ function wireAuthBar() {
   }
 }
 
+function initThemeSelector() {
+  const allThemeBtns = () => document.querySelectorAll('[data-theme-btn]');
+
+  function syncActiveStates() {
+    const theme = localStorage.getItem('ledger-theme') || 'default';
+    allThemeBtns().forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.themeBtn === theme);
+    });
+  }
+
+  document.addEventListener('click', (ev) => {
+    const themeBtn = ev.target.closest('[data-theme-btn]');
+    if (themeBtn) {
+      const theme = themeBtn.dataset.themeBtn;
+      localStorage.setItem('ledger-theme', theme);
+      document.documentElement.setAttribute('data-theme', theme);
+      syncActiveStates();
+      const panel = document.getElementById('burger-menu-panel');
+      const burgerBtn = document.getElementById('burger-menu-btn');
+      if (panel) panel.hidden = true;
+      if (burgerBtn) burgerBtn.setAttribute('aria-expanded', 'false');
+      return;
+    }
+
+    const burgerBtn = ev.target.closest('#burger-menu-btn');
+    const panel = document.getElementById('burger-menu-panel');
+    if (burgerBtn && panel) {
+      const willOpen = panel.hidden;
+      panel.hidden = !willOpen;
+      burgerBtn.setAttribute('aria-expanded', String(willOpen));
+      return;
+    }
+
+    if (panel && !panel.hidden && !ev.target.closest('#burger-menu-panel')) {
+      panel.hidden = true;
+      document.getElementById('burger-menu-btn')?.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  syncActiveStates();
+}
+
 window.addEventListener('auth:required', () => {
   showToast('Your session expired — please sign in again.');
   currentUser = null;
   updateProfileBadge();
 });
 
+initThemeSelector();
 wireAuthBar();
 === ./static/js/core/config.js ===
 /* ---------- Server-provided config ---------- */
@@ -6458,21 +6590,12 @@ function renderFromCache() {
   const windowedSeries = windowSeries(cache.dailySeries, balanceChartRange);
   const isHoverable = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   const statHint = isHoverable ? 'Hover a card for the breakdown' : 'Tap a card for the breakdown';
-  const theme = localStorage.getItem('ledger-theme') || 'default'; // <-- ADD THIS
-
+  
   markRendered(root);
   root.removeAttribute('data-loading');
   root.innerHTML = `
   <div class="topbar">
     <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
-  </div>
-
-  <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
-    <div class="range-toggle">
-      <button class="range-btn ${theme === 'default' ? 'active' : ''}" data-theme-btn="default" type="button">Default</button>
-      <button class="range-btn ${theme === 'hi-contrast' ? 'active' : ''}" data-theme-btn="hi-contrast" type="button">Hi-Contrast</button>
-      <button class="range-btn ${theme === 'dark' ? 'active' : ''}" data-theme-btn="dark" type="button">Dark</button>
-    </div>
   </div>
 
   <div class="section" style="margin-top: 14px;">
@@ -6564,23 +6687,11 @@ root.addEventListener('click', (ev) => {
     balanceChartRange = Number(rangeBtn.dataset.range);
     renderFromCache(); 
   }
-
-  const themeBtn = ev.target.closest('[data-theme-btn]');
-  if (themeBtn) {
-    const theme = themeBtn.dataset.themeBtn;
-    localStorage.setItem('ledger-theme', theme);
-    document.documentElement.setAttribute('data-theme', theme);
-    renderFromCache(); // Re-render to update active toggle class
-    return;
-  }
 });
 
 wireStatCardFlip(root);
-
 window.addEventListener('auth:signed-in', () => { cache = null; renderHome(); });
-
 authReady.then(renderHome);
-
 wireChartTooltips(root);
 === ./static/js/views/month.js ===
 /* ---------- /month/<month_key> ---------- */
@@ -8975,30 +9086,50 @@ authReady.then(renderSplit);
   </style>
 </head>
 <body data-is-shared="{{ 'true' if is_shared else 'false' }}">
-  
-  {% block auth_bar %}
-  <div id="auth-bar" class="auth-bar">
-    <div id="google-signin-btn" class="google-signin-btn"></div>
-    <div id="profile-badge" class="profile-badge" hidden>
-      <button id="profile-badge-btn" class="profile-badge-btn" type="button" aria-haspopup="true" aria-expanded="false">
-        <img id="profile-avatar" class="profile-avatar" alt="" referrerpolicy="no-referrer"/>
-        <span id="profile-name" class="profile-name"></span>
-      </button>
-      <div id="profile-menu" class="profile-menu" hidden role="menu">
-        <div id="profile-menu-email" class="profile-menu-email"></div>
-        <button id="profile-signout-btn" class="profile-menu-item" type="button" role="menuitem">Sign out</button>
-      </div>
-    </div>
-  </div>
-  {% endblock %}
 
   <div id="app">
-      {% block content %}{% endblock %}
-  
-      <!-- Global UI Overlays -->
-      <div class="toast" id="toast"></div>
-      <div id="split-share-popover" class="split-row-popover"></div>
-      <div id="del-popover" class="del-popover"></div>
+
+  {% block auth_bar %}
+    <div id="auth-bar" class="auth-bar">
+      <div id="theme-selector" class="range-toggle">
+        <button class="range-btn" data-theme-btn="default" type="button">Default</button>
+        <button class="range-btn" data-theme-btn="hi-contrast" type="button">Hi-Contrast</button>
+        <button class="range-btn" data-theme-btn="dark" type="button">Dark</button>
+      </div>
+
+      <div id="auth-controls" class="auth-controls">
+        <button id="burger-menu-btn" class="burger-menu-btn" type="button"
+                aria-haspopup="true" aria-expanded="false" aria-label="Theme options">
+          <span class="burger-line"></span><span class="burger-line"></span><span class="burger-line"></span>
+        </button>
+
+        <div id="google-signin-btn" class="google-signin-btn"></div>
+        <div id="profile-badge" class="profile-badge" hidden>
+          <button id="profile-badge-btn" class="profile-badge-btn" type="button" aria-haspopup="true" aria-expanded="false">
+            <img id="profile-avatar" class="profile-avatar" alt="" referrerpolicy="no-referrer"/>
+            <span id="profile-name" class="profile-name"></span>
+          </button>
+          <div id="profile-menu" class="profile-menu" hidden role="menu">
+            <div id="profile-menu-email" class="profile-menu-email"></div>
+            <button id="profile-signout-btn" class="profile-menu-item" type="button" role="menuitem">Sign out</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="burger-menu-panel" class="burger-menu-panel" hidden role="menu">
+        <button class="range-btn" data-theme-btn="default" type="button">Default</button>
+        <button class="range-btn" data-theme-btn="hi-contrast" type="button">Hi-Contrast</button>
+        <button class="range-btn" data-theme-btn="dark" type="button">Dark</button>
+      </div>
+    </div>
+    {% endblock %}
+
+    {% block content %}{% endblock %}
+
+    <!-- Global UI Overlays -->
+    <div class="toast" id="toast"></div>
+    <div id="split-share-popover" class="split-row-popover"></div>
+    <div id="del-popover" class="del-popover"></div>
   </div>
 
   <div id="global-footer-container"></div>

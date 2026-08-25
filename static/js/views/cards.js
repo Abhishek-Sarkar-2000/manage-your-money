@@ -36,11 +36,11 @@ async function renderCards() {
     </div>
   `).join('') || `<div class="empty-chart">No cards added yet — add one below.</div>`;
 
+  const tb = document.getElementById('global-topbar');
+  if (tb) tb.style.display = '';
+
   markRendered(root);
   root.innerHTML = `
-  <div class="topbar">
-    <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
-  </div>
   <div class="section">
     <div class="card">
       <div class="section-title"><h2>Credit cards</h2><span class="hint">Card charges and payments are tracked per card</span></div>

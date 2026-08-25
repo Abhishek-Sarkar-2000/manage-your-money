@@ -33,30 +33,56 @@
   </style>
 </head>
 <body data-is-shared="{{ 'true' if is_shared else 'false' }}">
-  
-  {% block auth_bar %}
-  <div id="auth-bar" class="auth-bar">
-    <div id="google-signin-btn" class="google-signin-btn"></div>
-    <div id="profile-badge" class="profile-badge" hidden>
-      <button id="profile-badge-btn" class="profile-badge-btn" type="button" aria-haspopup="true" aria-expanded="false">
-        <img id="profile-avatar" class="profile-avatar" alt="" referrerpolicy="no-referrer"/>
-        <span id="profile-name" class="profile-name"></span>
-      </button>
-      <div id="profile-menu" class="profile-menu" hidden role="menu">
-        <div id="profile-menu-email" class="profile-menu-email"></div>
-        <button id="profile-signout-btn" class="profile-menu-item" type="button" role="menuitem">Sign out</button>
+
+  {% block topbar %}
+  <div id="global-topbar" class="topbar-wrapper">
+    <div class="topbar">
+      <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
+      {% block auth_bar %}
+      <div id="auth-bar" class="auth-bar">
+        <div id="theme-selector" class="range-toggle">
+          <button class="range-btn" data-theme-btn="default" type="button">Default</button>
+          <button class="range-btn" data-theme-btn="hi-contrast" type="button">Hi-Contrast</button>
+          <button class="range-btn" data-theme-btn="dark" type="button">Dark</button>
+        </div>
+
+        <div id="auth-controls" class="auth-controls">
+          <button id="burger-menu-btn" class="burger-menu-btn" type="button"
+                  aria-haspopup="true" aria-expanded="false" aria-label="Theme options">
+            <span class="burger-line"></span><span class="burger-line"></span><span class="burger-line"></span>
+          </button>
+
+          <div id="google-signin-btn" class="google-signin-btn"></div>
+          <div id="profile-badge" class="profile-badge" hidden>
+            <button id="profile-badge-btn" class="profile-badge-btn" type="button" aria-haspopup="true" aria-expanded="false">
+              <img id="profile-avatar" class="profile-avatar" alt="" referrerpolicy="no-referrer"/>
+              <span id="profile-name" class="profile-name"></span>
+            </button>
+            <div id="profile-menu" class="profile-menu" hidden role="menu">
+              <div id="profile-menu-email" class="profile-menu-email"></div>
+              <button id="profile-signout-btn" class="profile-menu-item" type="button" role="menuitem">Sign out</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="burger-menu-panel" class="burger-menu-panel" hidden role="menu">
+          <button class="range-btn" data-theme-btn="default" type="button">Default</button>
+          <button class="range-btn" data-theme-btn="hi-contrast" type="button">Hi-Contrast</button>
+          <button class="range-btn" data-theme-btn="dark" type="button">Dark</button>
+        </div>
       </div>
+      {% endblock %}
     </div>
   </div>
   {% endblock %}
 
   <div id="app">
-      {% block content %}{% endblock %}
-  
-      <!-- Global UI Overlays -->
-      <div class="toast" id="toast"></div>
-      <div id="split-share-popover" class="split-row-popover"></div>
-      <div id="del-popover" class="del-popover"></div>
+    {% block content %}{% endblock %}
+
+    <!-- Global UI Overlays -->
+    <div class="toast" id="toast"></div>
+    <div id="split-share-popover" class="split-row-popover"></div>
+    <div id="del-popover" class="del-popover"></div>
   </div>
 
   <div id="global-footer-container"></div>
@@ -95,6 +121,14 @@
   {% block page_script %}{% endblock %}
   <script>
   document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('scroll', () => {
+      const tb = document.getElementById('global-topbar');
+      if (tb) {
+        if (window.scrollY > 10) tb.classList.add('scrolled');
+        else tb.classList.remove('scrolled');
+      }
+    }, { passive: true });
+
     const activeRoot = document.querySelector('[id$="-root"]');
     const delPop = document.getElementById('del-popover');
     const sharePop = document.getElementById('split-share-popover');

@@ -4,7 +4,11 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/charts.css') }}?v={{ static_version }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/views/split.css') }}?v={{ static_version }}" />
 {% endblock %}
-{% block auth_bar %}{# Fully public page: no auth chrome, no sign-in button #}{% endblock %}
+{% block topbar %}
+  <div class="topbar">
+    <div class="brand"><span class="mark">₹</span> LedgerNote</div>
+  </div>
+{% endblock %}
 {% block content %}
   <div id="share-split-root" class="share-split-view" data-loading="true" data-share-id="{{ share_id }}"></div>
 {% endblock %}

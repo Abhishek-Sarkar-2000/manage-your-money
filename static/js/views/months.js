@@ -116,11 +116,11 @@ async function renderMonths() {
   
   if (!rows) rows = `<div class="empty-chart">No months recorded yet. Add your first month from the home screen.</div>`;
 
+  const tb = document.getElementById('global-topbar');
+  if (tb) tb.style.display = '';
+
   markRendered(root);
   root.innerHTML = `
-  <div class="topbar">
-    <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
-  </div>
   <div class="section">
     <div class="section-title"><h2>Previous months</h2><span class="hint">Tap a month to open it</span></div>
     <div class="months-list">${rows}</div>

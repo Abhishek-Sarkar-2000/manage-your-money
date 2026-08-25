@@ -220,12 +220,11 @@ async function renderPriceTrack() {
     }
   }
 
+  const tb = document.getElementById('global-topbar');
+  if (tb) tb.style.display = '';
+
   markRendered(root);
   root.innerHTML = `
-  <div class="topbar">
-    <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
-  </div>
-
   <div class="section">
     <div class="month-header"><h1>Price Tracker</h1></div>
     <p style="color:var(--muted); max-width:56ch; margin-top:6px;">Note down what things cost over time — groceries, transport, subscriptions — and watch how prices move.</p>
