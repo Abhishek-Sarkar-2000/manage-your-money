@@ -1,3 +1,6 @@
 /* SIPs reuses .cc-item / .cc-name / .cc-cycle from cards.css — cards.css is
    also linked on this page. Nothing SIP-specific to add yet beyond that. */
 
+#ext-invest-save {
+  padding: 7px 16px;
+}

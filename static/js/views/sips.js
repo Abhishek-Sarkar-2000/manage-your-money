@@ -46,8 +46,8 @@ async function renderSips() {
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Existing Investments</h2><span class="hint">Base portfolio built prior to this ledger</span></div>
     <div class="card">
+      <div class="section-title"><h2>Existing Investments</h2><span class="hint">Base portfolio built prior to this ledger</span></div>
       <div class="form-panel" style="margin-top:0;">
         <div class="form-row" style="align-items: end;">
           <div class="field"><label>Total Existing Amount (₹)</label><input id="ext-invest-amount" type="number" step="0.01" min="0" value="${existingInvestments || 0}" /></div>
@@ -59,17 +59,17 @@ async function renderSips() {
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>SIPs</h2><span class="hint">Recurring investments, tracked every month automatically</span></div>
     <div class="card">
-      <div class="cc-list">${rows}</div>
-      <div class="form-panel">
-        <div class="form-note" style="margin-top:0;">Starts this month (${monthKeyLabel(currentMonthKey())}) and recurs every month until you delete it.</div>
-        <div class="form-row">
-          <div class="field"><label>Description</label><input id="sip-desc" type="text" placeholder="e.g. Nifty Index Fund" /></div>
-          <div class="field"><label>Amount (₹ / month)</label><input id="sip-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+      <div class="section-title"><h2>SIPs</h2><span class="hint">Recurring investments, tracked every month automatically</span></div>
+        <div class="cc-list">${rows}</div>
+        <div class="form-panel">
+          <div class="form-note" style="margin-top:0;">Starts this month (${monthKeyLabel(currentMonthKey())}) and recurs every month until you delete it.</div>
+          <div class="form-row">
+            <div class="field"><label>Description</label><input id="sip-desc" type="text" placeholder="e.g. Nifty Index Fund" /></div>
+            <div class="field"><label>Amount (₹ / month)</label><input id="sip-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+          </div>
+          <div class="form-actions"><button class="btn" id="sip-add">Add SIP</button></div>
         </div>
-        <div class="form-actions"><button class="btn" id="sip-add">Add SIP</button></div>
-      </div>
     </div>
   </div>
   `;

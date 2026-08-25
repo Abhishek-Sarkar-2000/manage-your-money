@@ -34,6 +34,7 @@
   --royal: #000000;
   --blue: #0000EE;
   --blue-soft: #0000EE;
+  --yellow: #dde500;
   --sky: #000000;
   --text-sky: #FFFFFF;
   --text-light: #FFFFFF;
@@ -79,12 +80,74 @@
   border-color: var(--ink);
 }
 
+:root[data-theme="hi-contrast"] .tag-bar,
+:root[data-theme="hi-contrast"] .bar {
+  background-image: none !important;
+  border: solid 1.2px #000000;
+  border-bottom: none;
+}
+
+:root[data-theme="hi-contrast"] {
+  --donut-gap-w: 1deg; 
+  --donut-border: #000000;
+}
+:root[data-theme="hi-contrast"] .donut::before {
+  background: none !important;
+}
+:root[data-theme="hi-contrast"] .donut {
+  border: 1px solid #000000;
+}
+:root[data-theme="hi-contrast"] .donut::after {
+  border: 1px solid #000000;
+  box-shadow: none; 
+}
+
+:root[data-theme="hi-contrast"] .chart-tooltip {
+  background: var(--blue);
+  color: #fff;
+  border: solid 1.2px #000000;
+}
+
+:root[data-theme="hi-contrast"] .chart-tooltip .ct-label {
+  color: #fff;
+}
+
+:root[data-theme="hi-contrast"] .cm-value {
+  color: var(--yellow) !important;
+}
+
+:root[data-theme="hi-contrast"] .src-badge,
+:root[data-theme="hi-contrast"] .fab-home,
+:root[data-theme="hi-contrast"] .action-card .ac-icon {
+  background: var(--blue);
+  color: #fff;
+}
+
+@media (hover: none) {
+  :root[data-theme="hi-contrast"] .stat-back {
+    box-shadow: none !important;
+    border: solid;
+    border-color: var(--ink);
+  }
+  
+  :root[data-theme="hi-contrast"] .stat-card.open .stat-front {
+    box-shadow: none !important;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :root[data-theme="hi-contrast"] .btn.ghost:hover {
+    background: var(--hair);
+    color: var(--text-white);
+  }
+}
+
 /* ---------- Dark Theme ---------- */
 :root[data-theme="dark"] {
   --navy: #EAEBFB;
   --royal: #c2c3f3;
-  --blue: #7E87F6;
-  --blue-soft: #636DF1;
+  --blue: #6f9ff7;
+  --blue-soft: #757ce3;
   --sky: #424982;
   --text-sky: #A8B1FF;
   --text-light: #D4D8FB;
@@ -94,7 +157,7 @@
   --paper: #0F111E;
   --ink: #D8DAF5;
   --muted: #888EB8;
-  --hair: #282D4E;
+  --hair: #252458;
   
   --credit: #5CE0B8;
   --credit-bg: rgba(92, 224, 184, 0.15);
@@ -145,11 +208,6 @@
   border-color: var(--hair) !important;
 }
 
-:root[data-theme="dark"] .btn:hover {
-  background: var(--blue-soft);
-  border-color: var(--blue-soft);
-}
-
 :root[data-theme="dark"] .stat-popover,
 :root[data-theme="dark"] .split-row-popover {
   background: var(--hair) !important;
@@ -187,10 +245,6 @@
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
 
-:root[data-theme="dark"] .bar-col .bval {
-  background: var(--ice-2); /* Masks the background grid lines cleanly behind the text */
-}
-
 :root[data-theme="dark"] .chart-tooltip {
   background: linear-gradient(135deg, var(--blue) 0%, var(--text-sky) 100%);
   color: #fff;
@@ -210,4 +264,70 @@
 
 :root[data-theme="dark"] .current-month-card:not(.empty) .cm-stat .cm-label {
   color: #B4B9F8;
+}
+
+:root[data-theme="dark"] .action-card .ac-icon {
+  background: linear-gradient(135deg, var(--blue), var(--hair));
+}
+
+:root[data-theme="dark"] .fab-home {
+  background: linear-gradient(135deg, var(--blue), var(--hair));
+  box-shadow: 0 10px 24px rgba(9, 21, 36, 0.87), 0 2px 6px rgba(9, 21, 36, 0.6);
+}
+
+:root[data-theme="dark"] .price-category-title {
+  color: var(--hair);
+}
+
+:root[data-theme="dark"] .del-popover {
+  background: var(--sky);
+  border-color: var(--hair);
+}
+
+:root[data-theme="dark"] .toast {
+  background: var(--ice);
+  border: solid 1px var(--sky) ;
+}
+
+@media (hover: none) {
+  :root[data-theme="dark"] .stat-back {
+    box-shadow: 
+      inset 5px 5px 10px rgba(22, 17, 39, 0.85), 
+      inset -5px -5px 10px rgba(255, 255, 255, 0.03) !important;
+  }
+  
+  :root[data-theme="dark"] .stat-card.open .stat-front {
+    box-shadow: 0 8px 18px rgba(22, 17, 39, 0.05), 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :root[data-theme="dark"] .btn:hover,
+  :root[data-theme="dark"] .pill-btn.active:not(.sub-pill):hover {
+    background: var(--blue-soft);
+    border-color: var(--blue-soft);
+  }
+  :root[data-theme="dark"] .btn.ghost:hover {
+    background: var(--hair);
+    color: var(--ink);
+    border-color: var(--sky);
+  }
+}
+
+@media (max-width: 480px) {
+  :root[data-theme="dark"] .table-scroll-shell::before {
+    background: linear-gradient(
+      to right,
+      rgba(0, 0, 0, 0.16),
+      transparent 55%
+    ) !important;
+  }
+
+  :root[data-theme="dark"] .table-scroll-shell::after {
+    background: linear-gradient(
+      to left,
+      rgba(0, 0, 0, 0.16),
+      transparent 55%
+    ) !important;
+  }
 }

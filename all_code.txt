@@ -564,7 +564,7 @@ brotli
   border: 1px solid transparent;
   background: transparent;
   border-radius: 999px;
-  padding: 4px 12px 4px 4px;
+  padding: 4px;
   cursor: pointer;
   font-family: 'Source Serif 4', serif;
   color: var(--royal);
@@ -1116,6 +1116,10 @@ a {
   border-bottom: 1.5px dashed var(--sky);
 }
 
+.split-details-panel .form-note {
+  border: none;
+}
+
 .invest-form {
   display: flex;
   align-items: center;
@@ -1142,6 +1146,28 @@ a {
   overflow-y: visible;
   border-radius: var(--radius-sm);
   border: 1px solid var(--hair);
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) transparent;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .table-wrap::-webkit-scrollbar {
+    height: 6px;
+  }
+  
+  .table-wrap::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  }
+  
+  .table-wrap::-webkit-scrollbar-thumb {
+    background: var(--muted);
+    border-radius: 999px;
+  }
+  
+  .table-wrap::-webkit-scrollbar-thumb:hover {
+    background: var(--blue);
+  }
 }
 
 table {
@@ -1283,6 +1309,7 @@ color: #C07A2E;
   font-family: 'IBM Plex Mono', monospace;
   text-transform: uppercase;
   letter-spacing: 0.02em;
+  margin-left: 2px;
   background: var(--ice);
   color: var(--blue);
   vertical-align: middle;
@@ -1736,7 +1763,6 @@ td.actions-cell {
   margin-bottom: 6px;
   color: var(--ink);
   z-index: 2;
-  background: #fff; /* Masks the background grid lines cleanly behind the text */
   padding: 0 4px;
   border-radius: 4px;
 }
@@ -1837,7 +1863,7 @@ svg.linechart {
 .chart-tooltip {
   position: absolute;
   z-index: 1000;
-  background: var(--navy);
+  background: linear-gradient(135deg, var(--navy) 0%, var(--royal) 100%);
   color: #fff;
   padding: 6px 10px;
   border-radius: 6px;
@@ -1989,11 +2015,11 @@ svg.linechart text {
   width: 28px;
   height: 28px;
   border-radius: 7px;
-  background: linear-gradient(135deg, var(--blue), var(--navy));
+  background: linear-gradient(135deg, #2F6FB0, #0B2545) !important;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: #ffffff !important;
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -2002,11 +2028,11 @@ svg.linechart text {
   width: 60px;
   height: 60px;
   border-radius: 12px;
-  background: linear-gradient(135deg, var(--blue), var(--navy));
+  background: linear-gradient(135deg, #2F6FB0, #0B2545) !important;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: #ffffff !important;
   font-size: 2.2rem;
   font-weight: 700;
 }
@@ -2044,6 +2070,7 @@ svg.linechart text {
   font-size: 1.35rem;
   border: none;
   cursor: pointer;
+  padding-bottom: 3px;
   box-shadow: 0 10px 24px rgba(11, 37, 69, 0.28), 0 2px 6px rgba(11, 37, 69, 0.18);
   transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
@@ -2068,7 +2095,7 @@ svg.linechart text {
   margin-right: -50vw;
   margin-top: 22px;
   height: calc(3 * 1.08 * clamp(2.1rem, 5vw, 3.4rem));
-  background: #DCE0E5;
+  background: var(--footer-bg, #DCE0E5);
   box-shadow: inset 0 10px 16px -12px rgba(11, 37, 69, 0.45), inset 0 1px 0 rgba(11, 37, 69, 0.12);
   display: flex;
   align-items: center;
@@ -2082,7 +2109,7 @@ svg.linechart text {
   font-size: clamp(1.5rem, 5vw, 3.4rem);
   line-height: 1.08;
   font-weight: 600;
-  color: #B7BCC2;
+  color: var(--footer-span, #B7BCC2);;
   text-align: center;
   letter-spacing: -0.01em;
   padding: 0 24px;
@@ -2097,7 +2124,7 @@ svg.linechart text {
   color: #fff;
   text-align: center;
   padding: 12px 22px;
-  border-radius: 999px;
+  border-radius: 22px;
   font-size: 0.88rem;
   box-shadow: var(--shadow);
   z-index: 50;
@@ -2216,9 +2243,8 @@ svg.linechart text {
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--ice-2);
   border: 1px solid var(--hair);
-  box-shadow: var(--shadow-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2230,7 +2256,7 @@ svg.linechart text {
 }
 
 .scroll-arrow:hover {
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-sm);
   transform: translateY(-50%) scale(1.06);
 }
 
@@ -2377,11 +2403,11 @@ svg.linechart text {
   color: var(--royal);
   font-size: 0.62rem;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  padding: 0px 0px 0px 4px;
   font-family: 'Source Serif 4', serif;
   font-style: italic;
   font-weight: 700;
+  text-transform: lowercase;
 }
 
 .stat-card .value {
@@ -2673,6 +2699,9 @@ transform: translateY(0);
   --blue: #2F6FB0;
   --blue-soft: #5C8FC4;
   --sky: #9BC4E4;
+  --text-sky: #9BC4E4;
+  --text-light: #CFE0F2;
+  --text-white: #FFFFFF;
   --ice: #EAF3FC;
   --ice-2: #F5F9FD;
   --paper: #FCFDFF;
@@ -2686,14 +2715,317 @@ transform: translateY(0);
   --debit-bg: #FBEBEE;
   --amber: #8A6A2F;
   --amber-bg: #F7F0DF;
+  --footer-bg: #DCE0E5;
+  --footer-span: #B7BCC2;
   --radius: 12px;
   --radius-sm: 8px;
   --shadow: 0 10px 30px rgba(11, 37, 69, 0.09), 0 2px 8px rgba(11, 37, 69, 0.05);
   --shadow-sm: 0 2px 10px rgba(11, 37, 69, 0.06);
 }
 
+/* ---------- High Contrast Theme ---------- */
+:root[data-theme="hi-contrast"] {
+  --navy: #000000;
+  --royal: #000000;
+  --blue: #0000EE;
+  --blue-soft: #0000EE;
+  --yellow: #dde500;
+  --sky: #000000;
+  --text-sky: #FFFFFF;
+  --text-light: #FFFFFF;
+  --text-white: #FFFFFF;
+  --ice: #FFFFFF;
+  --ice-2: #FFFFFF;
+  --paper: #FFFFFF;
+  --ink: #000000;
+  --muted: #000000;
+  --hair: #000000;
+  --credit: #006400;
+  --debit: #8B0000;
+  --debit-bd: #8B0000;
+  --amber: #8B6508;
+  --footer-bg: #FFFFFF;
+  --footer-span: #b8b8b8;
+}
 
+:root[data-theme="hi-contrast"] body {
+  background: #FFFFFF;
+}
 
+:root[data-theme="hi-contrast"] .card,
+:root[data-theme="hi-contrast"] .action-card,
+:root[data-theme="hi-contrast"] .chart-card,
+:root[data-theme="hi-contrast"] .stat-front,
+:root[data-theme="hi-contrast"] .split-group-card,
+:root[data-theme="hi-contrast"] .price-item-card,
+:root[data-theme="hi-contrast"] .cc-item,
+:root[data-theme="hi-contrast"] .emi-card,
+:root[data-theme="hi-contrast"] .month-row {
+  border-color: #000000 !important;
+}
+
+:root[data-theme="hi-contrast"] .stat-card .label .hoverdot {
+  color: var(--paper) !important;
+}
+
+:root[data-theme="hi-contrast"] .current-month-card:not(.empty) {
+  background: linear-gradient(135deg, var(--ink) 0%, var(--blue) 100%) !important;
+  border: solid;
+  border-width: 1px;
+  border-color: var(--ink);
+}
+
+:root[data-theme="hi-contrast"] .tag-bar,
+:root[data-theme="hi-contrast"] .bar {
+  background-image: none !important;
+  border: solid 1.2px #000000;
+  border-bottom: none;
+}
+
+:root[data-theme="hi-contrast"] {
+  --donut-gap-w: 1deg; 
+  --donut-border: #000000;
+}
+:root[data-theme="hi-contrast"] .donut::before {
+  background: none !important;
+}
+:root[data-theme="hi-contrast"] .donut {
+  border: 1px solid #000000;
+}
+:root[data-theme="hi-contrast"] .donut::after {
+  border: 1px solid #000000;
+  box-shadow: none; 
+}
+
+:root[data-theme="hi-contrast"] .chart-tooltip {
+  background: var(--blue);
+  color: #fff;
+  border: solid 1.2px #000000;
+}
+
+:root[data-theme="hi-contrast"] .chart-tooltip .ct-label {
+  color: #fff;
+}
+
+:root[data-theme="hi-contrast"] .cm-value {
+  color: var(--yellow) !important;
+}
+
+:root[data-theme="hi-contrast"] .src-badge,
+:root[data-theme="hi-contrast"] .fab-home,
+:root[data-theme="hi-contrast"] .action-card .ac-icon {
+  background: var(--blue);
+  color: #fff;
+}
+
+@media (hover: none) {
+  :root[data-theme="hi-contrast"] .stat-back {
+    box-shadow: none !important;
+    border: solid;
+    border-color: var(--ink);
+  }
+  
+  :root[data-theme="hi-contrast"] .stat-card.open .stat-front {
+    box-shadow: none !important;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :root[data-theme="hi-contrast"] .btn.ghost:hover {
+    background: var(--hair);
+    color: var(--text-white);
+  }
+}
+
+/* ---------- Dark Theme ---------- */
+:root[data-theme="dark"] {
+  --navy: #EAEBFB;
+  --royal: #c2c3f3;
+  --blue: #6f9ff7;
+  --blue-soft: #757ce3;
+  --sky: #424982;
+  --text-sky: #A8B1FF;
+  --text-light: #D4D8FB;
+  --text-white: #FFFFFF;
+  --ice: #0F111E;
+  --ice-2: #171A2E; 
+  --paper: #0F111E;
+  --ink: #D8DAF5;
+  --muted: #888EB8;
+  --hair: #252458;
+  
+  --credit: #5CE0B8;
+  --credit-bg: rgba(92, 224, 184, 0.15);
+  --debit: #FF7B93;
+  --debit-bd: #FF7B93;
+  --debit-bg: rgba(255, 123, 147, 0.15);
+  --amber: #FCD277;
+  --amber-bg: rgba(252, 210, 119, 0.15);
+  --footer-bg: radial-gradient(ellipse 70% 80% at 50% 0%, var(--sky) 0%, var(--ice-2) 75%);
+  --footer-span: var(--muted);
+}
+
+/* Force Brand text to white */
+:root[data-theme="dark"] .brand,
+:root[data-theme="dark"] .brand-login {
+  color: #ffffff !important;
+}
+
+:root[data-theme="dark"] body {
+  background:
+    repeating-linear-gradient(180deg, transparent 0 39px, rgba(136, 142, 184, 0.12) 40px 41px),
+    linear-gradient(160deg, var(--ice) 0%, var(--paper) 45%, var(--ice-2) 100%);
+}
+
+:root[data-theme="dark"] .card,
+:root[data-theme="dark"] .current-month-card.empty,
+:root[data-theme="dark"] .stat-back,
+:root[data-theme="dark"] .price-item-card,
+:root[data-theme="dark"] .cc-item,
+:root[data-theme="dark"] .emi-card,
+:root[data-theme="dark"] .month-row,
+:root[data-theme="dark"] .profile-menu,
+:root[data-theme="dark"] tbody td,
+:root[data-theme="dark"] .field select,
+:root[data-theme="dark"] .donut::after {
+  background: var(--ice-2) !important;
+  color: var(--navy);
+  border-color: var(--hair) !important;
+}
+
+:root[data-theme="dark"] .chart-card,
+:root[data-theme="dark"] .action-card,
+:root[data-theme="dark"] .split-group-card,
+:root[data-theme="dark"] .split-settle-card,
+:root[data-theme="dark"] .stat-front {
+  background: linear-gradient(135deg, var(--hair) 0%, var(--ice-2) 100%) !important;
+  color: var(--navy);
+  border-color: var(--hair) !important;
+}
+
+:root[data-theme="dark"] .stat-popover,
+:root[data-theme="dark"] .split-row-popover {
+  background: var(--hair) !important;
+  color: var(--navy);
+  border-color: var(--ice-2) !important;
+}
+
+:root[data-theme="dark"] .field input,
+:root[data-theme="dark"] .toggle-switch input,
+:root[data-theme="dark"] .balance-box input[type="number"] {
+  background: var(--paper) !important;
+  color: var(--ink);
+  border-color: var(--hair) !important;
+}
+
+:root[data-theme="dark"] thead th {
+  background: var(--hair) !important;
+  color: var(--navy);
+  border-color: var(--hair) !important;
+}
+
+:root[data-theme="dark"] svg.linechart text {
+  fill: var(--muted) !important;
+}
+
+:root[data-theme="dark"] svg.linechart line {
+  stroke: var(--sky) !important;
+}
+
+:root[data-theme="dark"] .current-month-card:not(.empty) {
+  background: linear-gradient(135deg, #181938 0%, #252458 55%, #3C367E 100%) !important;
+  border: solid;
+  border-width: 1px;
+  border-color: var(--blue);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme="dark"] .chart-tooltip {
+  background: linear-gradient(135deg, var(--blue) 0%, var(--text-sky) 100%);
+  color: #fff;
+}
+
+:root[data-theme="dark"] .chart-tooltip .ct-label {
+  color: #fff;
+}
+
+:root[data-theme="dark"] .current-month-card:not(.empty) .cm-eyebrow {
+  color: #A8B1FF;
+}
+
+:root[data-theme="dark"] .current-month-card:not(.empty) .cm-sub {
+  color: #D4D8FB;
+}
+
+:root[data-theme="dark"] .current-month-card:not(.empty) .cm-stat .cm-label {
+  color: #B4B9F8;
+}
+
+:root[data-theme="dark"] .action-card .ac-icon {
+  background: linear-gradient(135deg, var(--blue), var(--hair));
+}
+
+:root[data-theme="dark"] .fab-home {
+  background: linear-gradient(135deg, var(--blue), var(--hair));
+  box-shadow: 0 10px 24px rgba(9, 21, 36, 0.87), 0 2px 6px rgba(9, 21, 36, 0.6);
+}
+
+:root[data-theme="dark"] .price-category-title {
+  color: var(--hair);
+}
+
+:root[data-theme="dark"] .del-popover {
+  background: var(--sky);
+  border-color: var(--hair);
+}
+
+:root[data-theme="dark"] .toast {
+  background: var(--ice);
+  border: solid 1px var(--sky) ;
+}
+
+@media (hover: none) {
+  :root[data-theme="dark"] .stat-back {
+    box-shadow: 
+      inset 5px 5px 10px rgba(22, 17, 39, 0.85), 
+      inset -5px -5px 10px rgba(255, 255, 255, 0.03) !important;
+  }
+  
+  :root[data-theme="dark"] .stat-card.open .stat-front {
+    box-shadow: 0 8px 18px rgba(22, 17, 39, 0.05), 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :root[data-theme="dark"] .btn:hover,
+  :root[data-theme="dark"] .pill-btn.active:not(.sub-pill):hover {
+    background: var(--blue-soft);
+    border-color: var(--blue-soft);
+  }
+  :root[data-theme="dark"] .btn.ghost:hover {
+    background: var(--hair);
+    color: var(--ink);
+    border-color: var(--sky);
+  }
+}
+
+@media (max-width: 480px) {
+  :root[data-theme="dark"] .table-scroll-shell::before {
+    background: linear-gradient(
+      to right,
+      rgba(0, 0, 0, 0.16),
+      transparent 55%
+    ) !important;
+  }
+
+  :root[data-theme="dark"] .table-scroll-shell::after {
+    background: linear-gradient(
+      to left,
+      rgba(0, 0, 0, 0.16),
+      transparent 55%
+    ) !important;
+  }
+}
 === ./static/css/views/cards.css ===
 /* ---------- Credit cards ---------- */
 .cc-list {
@@ -2714,10 +3046,10 @@ transform: translateY(0);
 }
 
 .cc-item .cc-name {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.02rem;
   font-weight: 600;
   color: var(--navy);
-  font-family: 'Fraunces', serif;
-  font-size: 1.02rem;
 }
 
 .cc-item .cc-cycle {
@@ -2825,19 +3157,23 @@ footer {
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--sky);
+  color: var(--text-sky);
   margin-bottom: 6px;
 }
 
 .current-month-card h3 {
-  color: #fff;
+  color: var(--text-white);
   font-size: 1.4rem;
   margin-bottom: 6px;
 }
 
 .current-month-card .cm-sub {
-  font-size: 0.85rem;
-  color: #CFE0F2;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.56rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-light);
 }
 
 .current-month-mini {
@@ -2897,9 +3233,6 @@ footer {
 }
 
 @media (max-width: 600px) {
-  .current-month-card .cm-sub {
-    font-size: 1.1rem;
-  }
   .current-month-mini {
     width: 100%;
   }
@@ -3420,7 +3753,9 @@ footer {
 /* SIPs reuses .cc-item / .cc-name / .cc-cycle from cards.css — cards.css is
    also linked on this page. Nothing SIP-specific to add yet beyond that. */
 
-
+#ext-invest-save {
+  padding: 7px 16px;
+}
 === ./static/css/views/split.css ===
 /* ---------- Split Money ---------- */
 .split-group-card {
@@ -4149,17 +4484,31 @@ import { fmtINR } from '../../core/format.js';
 export function donutChart(segments) {
   const total = segments.reduce((s, x) => s + x.value, 0);
   if (total <= 0) return `<div class="empty-chart">No spending recorded yet this month.</div>`;
+  
   let acc = 0;
-  const stops = segments.filter(s => s.value > 0).map(s => {
-    const start = acc / total * 360; acc += s.value; const end = acc / total * 360;
-    return `${s.color} ${start}deg ${end}deg`;
+  const filtered = segments.filter(s => s.value > 0);
+  
+  const stops = filtered.map((s, idx, arr) => {
+    const start = acc / total * 360; 
+    acc += s.value; 
+    const end = acc / total * 360;
+    
+    // If there is only one piece, no separator gaps are needed
+    if (arr.length === 1) {
+      return `${s.color} ${start}deg ${end}deg`;
+    }
+    
+    // Injects a CSS-controlled gap at the end of each slice to act as the border
+    return `${s.color} ${start}deg calc(${end}deg - var(--donut-gap-w, 0deg)), var(--donut-border, transparent) calc(${end}deg - var(--donut-gap-w, 0deg)) ${end}deg`;
   }).join(', ');
-  const legend = segments.filter(s => s.value > 0).map(s => `
+
+  const legend = filtered.map(s => `
     <div class="legend-item">
       <span class="legend-dot" style="background:${s.color}"></span>
       <span>${s.label}</span>
       <span class="legend-val">${fmtINR(s.value)}</span>
     </div>`).join('');
+
   return `
   <div class="donut-wrap">
     <div class="donut" style="background:conic-gradient(${stops});">
@@ -5962,16 +6311,16 @@ async function renderCards() {
     <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
   </div>
   <div class="section">
-    <div class="section-title"><h2>Credit cards</h2><span class="hint">Card charges and payments are tracked per card</span></div>
     <div class="card">
-      <div class="cc-list">${rows}</div>
-      <div class="form-panel">
-        <div class="form-row">
-          <div class="field"><label>Card description</label><input id="cc-name" type="text" placeholder="e.g. HDFC Regalia" /></div>
-          <div class="field"><label>Billing cycle (day of month bill is generated)</label><input id="cc-day" type="number" min="1" max="31" placeholder="e.g. 18" /></div>
+      <div class="section-title"><h2>Credit cards</h2><span class="hint">Card charges and payments are tracked per card</span></div>
+        <div class="cc-list">${rows}</div>
+        <div class="form-panel">
+          <div class="form-row">
+            <div class="field"><label>Card description</label><input id="cc-name" type="text" placeholder="e.g. HDFC Regalia" /></div>
+            <div class="field"><label>Billing cycle (day of month bill is generated)</label><input id="cc-day" type="number" min="1" max="31" placeholder="e.g. 18" /></div>
+          </div>
+          <div class="form-actions"><button class="btn" id="cc-add">Add card</button></div>
         </div>
-        <div class="form-actions"><button class="btn" id="cc-add">Add card</button></div>
-      </div>
     </div>
   </div>
   `;
@@ -6109,6 +6458,7 @@ function renderFromCache() {
   const windowedSeries = windowSeries(cache.dailySeries, balanceChartRange);
   const isHoverable = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   const statHint = isHoverable ? 'Hover a card for the breakdown' : 'Tap a card for the breakdown';
+  const theme = localStorage.getItem('ledger-theme') || 'default'; // <-- ADD THIS
 
   markRendered(root);
   root.removeAttribute('data-loading');
@@ -6117,7 +6467,15 @@ function renderFromCache() {
     <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
   </div>
 
-  <div class="section">
+  <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+    <div class="range-toggle">
+      <button class="range-btn ${theme === 'default' ? 'active' : ''}" data-theme-btn="default" type="button">Default</button>
+      <button class="range-btn ${theme === 'hi-contrast' ? 'active' : ''}" data-theme-btn="hi-contrast" type="button">Hi-Contrast</button>
+      <button class="range-btn ${theme === 'dark' ? 'active' : ''}" data-theme-btn="dark" type="button">Dark</button>
+    </div>
+  </div>
+
+  <div class="section" style="margin-top: 14px;">
     ${cache.currentMonthCardHtml}
   </div>
 
@@ -6205,6 +6563,15 @@ root.addEventListener('click', (ev) => {
   if (rangeBtn) {
     balanceChartRange = Number(rangeBtn.dataset.range);
     renderFromCache(); 
+  }
+
+  const themeBtn = ev.target.closest('[data-theme-btn]');
+  if (themeBtn) {
+    const theme = themeBtn.dataset.themeBtn;
+    localStorage.setItem('ledger-theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+    renderFromCache(); // Re-render to update active toggle class
+    return;
   }
 });
 
@@ -7927,8 +8294,8 @@ async function renderSips() {
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Existing Investments</h2><span class="hint">Base portfolio built prior to this ledger</span></div>
     <div class="card">
+      <div class="section-title"><h2>Existing Investments</h2><span class="hint">Base portfolio built prior to this ledger</span></div>
       <div class="form-panel" style="margin-top:0;">
         <div class="form-row" style="align-items: end;">
           <div class="field"><label>Total Existing Amount (₹)</label><input id="ext-invest-amount" type="number" step="0.01" min="0" value="${existingInvestments || 0}" /></div>
@@ -7940,17 +8307,17 @@ async function renderSips() {
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>SIPs</h2><span class="hint">Recurring investments, tracked every month automatically</span></div>
     <div class="card">
-      <div class="cc-list">${rows}</div>
-      <div class="form-panel">
-        <div class="form-note" style="margin-top:0;">Starts this month (${monthKeyLabel(currentMonthKey())}) and recurs every month until you delete it.</div>
-        <div class="form-row">
-          <div class="field"><label>Description</label><input id="sip-desc" type="text" placeholder="e.g. Nifty Index Fund" /></div>
-          <div class="field"><label>Amount (₹ / month)</label><input id="sip-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+      <div class="section-title"><h2>SIPs</h2><span class="hint">Recurring investments, tracked every month automatically</span></div>
+        <div class="cc-list">${rows}</div>
+        <div class="form-panel">
+          <div class="form-note" style="margin-top:0;">Starts this month (${monthKeyLabel(currentMonthKey())}) and recurs every month until you delete it.</div>
+          <div class="form-row">
+            <div class="field"><label>Description</label><input id="sip-desc" type="text" placeholder="e.g. Nifty Index Fund" /></div>
+            <div class="field"><label>Amount (₹ / month)</label><input id="sip-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+          </div>
+          <div class="form-actions"><button class="btn" id="sip-add">Add SIP</button></div>
         </div>
-        <div class="form-actions"><button class="btn" id="sip-add">Add SIP</button></div>
-      </div>
     </div>
   </div>
   `;
@@ -8596,7 +8963,11 @@ authReady.then(renderSplit);
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script id="app-config" type="application/json">{"googleClientId": {{ google_client_id | tojson }}}</script>
-
+  <script>
+    const savedTheme = localStorage.getItem('ledger-theme') || 'default';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  </script>
+  
   <style>
     body { display: flex; flex-direction: column; }
     #app { flex: 1 0 auto; }

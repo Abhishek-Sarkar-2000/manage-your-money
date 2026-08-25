@@ -230,7 +230,6 @@
   margin-bottom: 6px;
   color: var(--ink);
   z-index: 2;
-  background: #fff; /* Masks the background grid lines cleanly behind the text */
   padding: 0 4px;
   border-radius: 4px;
 }

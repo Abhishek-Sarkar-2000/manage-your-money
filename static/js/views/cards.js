@@ -42,16 +42,16 @@ async function renderCards() {
     <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
   </div>
   <div class="section">
-    <div class="section-title"><h2>Credit cards</h2><span class="hint">Card charges and payments are tracked per card</span></div>
     <div class="card">
-      <div class="cc-list">${rows}</div>
-      <div class="form-panel">
-        <div class="form-row">
-          <div class="field"><label>Card description</label><input id="cc-name" type="text" placeholder="e.g. HDFC Regalia" /></div>
-          <div class="field"><label>Billing cycle (day of month bill is generated)</label><input id="cc-day" type="number" min="1" max="31" placeholder="e.g. 18" /></div>
+      <div class="section-title"><h2>Credit cards</h2><span class="hint">Card charges and payments are tracked per card</span></div>
+        <div class="cc-list">${rows}</div>
+        <div class="form-panel">
+          <div class="form-row">
+            <div class="field"><label>Card description</label><input id="cc-name" type="text" placeholder="e.g. HDFC Regalia" /></div>
+            <div class="field"><label>Billing cycle (day of month bill is generated)</label><input id="cc-day" type="number" min="1" max="31" placeholder="e.g. 18" /></div>
+          </div>
+          <div class="form-actions"><button class="btn" id="cc-add">Add card</button></div>
         </div>
-        <div class="form-actions"><button class="btn" id="cc-add">Add card</button></div>
-      </div>
     </div>
   </div>
   `;

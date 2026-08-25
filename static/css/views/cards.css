@@ -17,10 +17,10 @@
 }
 
 .cc-item .cc-name {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.02rem;
   font-weight: 600;
   color: var(--navy);
-  font-family: 'Fraunces', serif;
-  font-size: 1.02rem;
 }
 
 .cc-item .cc-cycle {
