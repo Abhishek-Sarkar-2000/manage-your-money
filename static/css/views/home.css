@@ -81,19 +81,23 @@
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--sky);
+  color: var(--text-sky);
   margin-bottom: 6px;
 }
 
 .current-month-card h3 {
-  color: #fff;
+  color: var(--text-white);
   font-size: 1.4rem;
   margin-bottom: 6px;
 }
 
 .current-month-card .cm-sub {
-  font-size: 0.85rem;
-  color: #CFE0F2;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.56rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-light);
 }
 
 .current-month-mini {
@@ -153,9 +157,6 @@
 }
 
 @media (max-width: 600px) {
-  .current-month-card .cm-sub {
-    font-size: 1.1rem;
-  }
   .current-month-mini {
     width: 100%;
   }

@@ -331,7 +331,7 @@ svg.linechart {
 .chart-tooltip {
   position: absolute;
   z-index: 1000;
-  background: var(--navy);
+  background: linear-gradient(135deg, var(--navy) 0%, var(--royal) 100%);
   color: #fff;
   padding: 6px 10px;
   border-radius: 6px;

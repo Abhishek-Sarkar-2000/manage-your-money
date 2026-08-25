@@ -924,11 +924,6 @@ a {
   border-color: var(--hair);
 }
 
-.btn.ghost:hover {
-  background: var(--ice-2);
-  color: var(--ink);
-}
-
 .btn.small {
   padding: 7px 14px;
   font-size: 0.82rem;
@@ -1019,6 +1014,10 @@ a {
   }
   .pill-btn.alt.active:hover {
     background: #ac732d;
+  }
+  .btn.ghost:hover {
+    background: var(--hair);
+    color: var(--ink);
   }
 }
 
@@ -1804,6 +1803,80 @@ svg.linechart {
   white-space: nowrap;
 }
 
+.shared-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 18px;
+  padding: 14px 14px 0px 14px;
+  border-top: 1px solid var(--hair);
+  justify-content: center;
+}
+
+.shared-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.shared-chart-legend-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  border-radius: 2px;
+}
+
+.tag-chart-card .shared-chart-legend {
+  border: none;
+}
+
+/* ---------- Interactive Chart Tooltip ---------- */
+.chart-tooltip {
+  position: absolute;
+  z-index: 1000;
+  background: var(--navy);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, calc(-100% + 4px)) scale(0.98);
+  transition: 
+    opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), 
+    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 12px rgba(11, 37, 69, 0.2);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.chart-tooltip.show {
+  opacity: 1;
+  transform: translate(-50%, -100%) scale(1);
+}
+.chart-tooltip .ct-val {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.chart-tooltip .ct-label {
+  color: var(--sky);
+  font-size: 0.65rem;
+  margin-top: 2px;
+}
+
+.linechart-dot {
+  transition: r 0.15s ease;
+}
+
+.linechart-dot:hover {
+  r: 4.5;
+}
+
 /* ---------- Responsive SVG chart text scaling ---------- */
 @media (max-width: 820px) {
   .y-tick-dense {
@@ -2112,23 +2185,21 @@ svg.linechart text {
   }
 }
 
+.tags-charts-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  width: 100%;
+}
+
 .tag-chart-card {
-  flex: 1 0 280px;
+  flex: 1 1 280px;
+  max-width: 100%;
   min-width: 0;
 }
 
-@media (max-width: 480px) {
-  .tags-track {
-    flex-wrap: wrap;
-    overflow-x: visible;
-  }
-  .tags-track .tag-chart-card {
-    flex: 1 1 100%;
-    min-width: 0;
-  }
-  .tags-track ~ .scroll-arrow {
-    display: none !important;
-  }
+.tag-chart-card--wide {
+  flex-basis: 100%;
 }
 
 .scroll-track::-webkit-scrollbar {
@@ -2181,11 +2252,22 @@ svg.linechart text {
 
 /* ---------- Spend tags ---------- */
 .tag-bars {
+  position: relative;
   display: flex;
   align-items: flex-end;
   gap: 12px;
   height: 180px;
   padding: 4px 4px 0;
+  border-bottom: 1px solid var(--hair);
+
+  /* Horizontal Grid Lines at 25%, 50%, and 75% */
+  background-image:
+    linear-gradient(to bottom, var(--hair) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--hair) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--hair) 1px, transparent 1px);
+  background-position: 0 25%, 0 50%, 0 75%;
+  background-size: 100% 1px;
+  background-repeat: no-repeat;
 }
 
 .tag-bar-col {
@@ -2210,22 +2292,10 @@ svg.linechart text {
 
 .tag-bar-col .bval {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.72rem;
+  font-size: clamp(0.58rem, 1.6vw, 0.72rem);
   margin-bottom: 6px;
   color: var(--ink);
   white-space: nowrap;
-}
-
-.tag-bar-col .blabel {
-  margin-top: 8px;
-  font-size: 0.72rem;
-  color: var(--muted);
-  font-family: 'IBM Plex Mono', monospace;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  width: 100%;
 }
 
 /* ---------- Shared stat cards + popovers ----------
@@ -3617,34 +3687,6 @@ footer {
   color: var(--muted);
 }
 
-.shared-chart-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-
-  margin-top: 18px;
-  padding-top: 14px;
-
-  border-top: 1px solid var(--hair);
-}
-
-.shared-chart-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-
-  font-size: 0.72rem;
-  color: var(--muted);
-}
-
-.shared-chart-legend-dot {
-  width: 9px;
-  height: 9px;
-  flex: 0 0 9px;
-  border-radius: 2px;
-}
-
-
 /* ---------- Shared Split Chart: Shares by Members ---------- */
 
 .shared-share-chart {
@@ -4075,17 +4117,29 @@ export function tagsBarChart(entries, targetType) {
   }
 
   const pairs = Object.entries(totals).map(([label, value]) => ({ label, value })).filter(p => p.value > 0).sort((a, b) => b.value - a.value);
-  if (!pairs.length) return `<div class="empty-chart">No tagged spends yet.</div>`;
+  if (!pairs.length) return { html: `<div class="empty-chart">No tagged spends yet.</div>`, count: 0 };
 
   const max = Math.max(1, ...pairs.map(p => p.value));
   const colors = ['var(--blue)', '#C98A3C', '#8E6FB0', 'var(--debit)', 'var(--credit)', '#5B4B9E', 'var(--amber)', 'var(--blue-soft)', '#2E7D6B', '#AD4358'];
   const cols = pairs.map((p, i) => `
     <div class="tag-bar-col">
       <div class="bval num">${fmtINRShort(p.value)}</div>
-      <div class="tag-bar" style="height:${Math.max(4, (p.value / max * 140))}px; background:${colors[i % colors.length]};"></div>
-      <div class="blabel" title="${escapeHtml(p.label)}">${escapeHtml(p.label)}</div>
+      <div class="tag-bar" style="height:${Math.max(4, (p.value / max * 140))}px; background:${colors[i % colors.length]};" title="${escapeHtml(p.label)}"></div>
     </div>`).join('');
-  return `<div class="tag-bars">${cols}</div>`;
+
+  const legend = pairs.map((p, i) => `
+    <div class="shared-chart-legend-item">
+      <span class="shared-chart-legend-dot" style="background:${colors[i % colors.length]};"></span>
+      <span>${escapeHtml(p.label)}</span>
+    </div>`).join('');
+
+  return {
+    html: `
+      <div class="tag-bars">${cols}</div>
+      <div class="shared-chart-legend">${legend}</div>
+    `,
+    count: pairs.length,
+  };
 }
 
 === ./static/js/components/charts/donut.js ===
@@ -4160,7 +4214,7 @@ export function dailyBalanceChart(series, rangeMonths) {
       ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
       : d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
   };
-  const dots = coords.map(([x, y], i) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.5" fill="var(--blue)" opacity="${tickIdxs.includes(i) ? 1 : 0}"><title>${series[i].date}: ${fmtINR(series[i].balance)}</title></circle>`).join('');
+  const dots = coords.map(([x, y], i) => `<circle class="linechart-dot" data-val="${fmtINR(series[i].balance)}" data-label="${series[i].date}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--blue)" opacity="${tickIdxs.includes(i) ? 1 : 0}" stroke="transparent" stroke-width="8" style="cursor:pointer;"></circle>`).join('');
   const labels = tickIdxs.map(i => {
     const [x] = coords[i];
     return `<text x="${x.toFixed(1)}" y="${h - 6}" fill="var(--muted)" text-anchor="right" font-family="IBM Plex Mono, monospace">${tickLabel(series[i])}</text>`;
@@ -4214,7 +4268,10 @@ export function lineChart(startingBalance, data, recurringRows) {
   const areaD = pathD + ` L${coords[coords.length - 1][0].toFixed(1)},${h - padB} L${coords[0][0].toFixed(1)},${h - padB} Z`;
   const gridSvg = yAxisGrid(minV, maxV, w, h, padL, padR, padT, padB, 8);
   const lastVal = points[points.length - 1].balance;
-  const dots = coords.map(([x, y], i) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--blue)"><title>${fmtINR(points[i].balance)}</title></circle>`).join('');
+  const dots = coords.map(([x, y], i) => {
+    const label = points[i].date === 'start' ? 'Start' : points[i].date;
+    return `<circle class="linechart-dot" data-val="${fmtINR(points[i].balance)}" data-label="${label}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--blue)" stroke="transparent" stroke-width="8" style="cursor:pointer;"></circle>`;
+  }).join('');
   return `
   <svg class="linechart" viewBox="0 0 ${w} ${h}">
     <defs>
@@ -4255,7 +4312,7 @@ export function priceLineChart(hist) {
   const gridSvg = yAxisGrid(minV, maxV, w, h, padL, padR, padT, padB, 4);
   const dots = coords.map(([x, y], i) => {
     const dl = new Date(hist[i].date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--blue)"><title>${dl}: ${fmtINR(hist[i].price)}</title></circle>`;
+    return `<circle class="linechart-dot" data-val="${fmtINR(hist[i].price)}" data-label="${dl}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--blue)" stroke="transparent" stroke-width="8" style="cursor:pointer;"></circle>`;
   }).join('');
   const lastVal = hist[hist.length - 1].price;
   return `
@@ -4275,6 +4332,65 @@ export function priceLineChart(hist) {
   `;
 }
 
+let tooltipEl = null;
+
+export function wireChartTooltips(root = document) {
+  if (!tooltipEl) {
+    tooltipEl = document.createElement('div');
+    tooltipEl.className = 'chart-tooltip';
+    document.body.appendChild(tooltipEl);
+  }
+
+  const showTooltip = (ev) => {
+    const dot = ev.target.closest('.linechart-dot');
+    if (!dot) return;
+    
+    const val = dot.dataset.val;
+    const label = dot.dataset.label || '';
+    
+    tooltipEl.innerHTML = `<div class="ct-val">${val}</div>${label ? `<div class="ct-label">${label}</div>` : ''}`;
+    tooltipEl.classList.add('show');
+    
+    const rect = dot.getBoundingClientRect();
+    const tooltipWidth = tooltipEl.offsetWidth || 120;
+    const halfWidth = tooltipWidth / 2;
+    const padding = 12; // Safety margin from screen edges
+    
+    let centerX = rect.left + window.scrollX + rect.width / 2;
+    
+    // Clamp horizontal position so tooltip stays completely within viewport width
+    const minX = padding + halfWidth;
+    const maxX = window.innerWidth - padding - halfWidth;
+    
+    if (centerX < minX) centerX = minX;
+    if (centerX > maxX) centerX = maxX;
+    
+    tooltipEl.style.left = centerX + 'px';
+    tooltipEl.style.top = (rect.top + window.scrollY - 6) + 'px';
+  };
+
+  const hideTooltip = () => {
+    if (tooltipEl) tooltipEl.classList.remove('show');
+  };
+
+  root.addEventListener('mouseover', showTooltip);
+  root.addEventListener('mouseout', (ev) => {
+    if (ev.target.closest('.linechart-dot')) hideTooltip();
+  });
+  
+  // Touch support for mobile
+  root.addEventListener('touchstart', (ev) => {
+    const dot = ev.target.closest('.linechart-dot');
+    if (dot) {
+      showTooltip(ev);
+    }
+  }, { passive: true });
+
+  // Hide tooltip automatically when finger is lifted (unclicked)
+  document.addEventListener('touchend', hideTooltip, { passive: true });
+  document.addEventListener('touchcancel', hideTooltip, { passive: true });
+  document.addEventListener('pointerup', hideTooltip, { passive: true });
+}
 === ./static/js/components/charts/split-charts.js ===
 /* ---------- Split Money charts: who-owes-how-much + shares-by-member ---------- */
 import { escapeHtml } from '../../core/dom.js';
@@ -5903,7 +6019,7 @@ import { currentUser, authReady } from '../core/auth.js';
 import { computeGlobalStats, computeMonthTotals, emiRowsForMonth, sipRowsForMonth, loadMonth, computeDailyBalanceSeries, windowSeries } from '../core/domain.js';
 import { computeGlobalSplitOwedByYou } from '../core/split-domain.js';
 import { renderStatCards, wireStatCardFlip } from '../components/stat-cards.js';
-import { dailyBalanceChart } from '../components/charts/line-chart.js';
+import { dailyBalanceChart, wireChartTooltips } from '../components/charts/line-chart.js';
 import { setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { mountLoginHero } from '../components/login-hero.js';
 import { appendPageChrome } from '../components/page-chrome.js';
@@ -6097,6 +6213,8 @@ wireStatCardFlip(root);
 window.addEventListener('auth:signed-in', () => { cache = null; renderHome(); });
 
 authReady.then(renderHome);
+
+wireChartTooltips(root);
 === ./static/js/views/month.js ===
 /* ---------- /month/<month_key> ---------- */
 import { Store } from '../core/store.js';
@@ -6110,8 +6228,8 @@ import {
 import { renderStatCards, wireStatCardFlip } from '../components/stat-cards.js';
 import { donutChart } from '../components/charts/donut.js';
 import { barChart, tagsBarChart } from '../components/charts/bar-chart.js';
-import { lineChart } from '../components/charts/line-chart.js';
-import { scrollWrapper, setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
+import { lineChart, wireChartTooltips } from '../components/charts/line-chart.js';
+import { setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { mountLoginHero } from '../components/login-hero.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
@@ -6120,7 +6238,7 @@ import { markRendered } from '../components/render-guard.js';
 const root = document.getElementById('month-root');
 const monthKey = root.dataset.monthKey;
 
-const DEFAULT_TAGS = ['Groceries', 'Dining', 'Fuel', 'Subscription', 'Rent', 'Utility', 'Recharge', 'Transport', 'Gift'];
+const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Subscription', 'Rent', 'Utility', 'Recharge', 'Transport', 'Gift'];
 
 let cards = [];
 let emiSeries = [];
@@ -6190,8 +6308,10 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   const dictEntry = priceTrackDictionary ? priceTrackDictionary[e.description] : null;
   if (dictEntry && dictEntry.meta) {
     const meta = dictEntry.meta;
-    if (meta.quantity) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.quantity)}</span>`;
-    else if (meta.source && meta.destination) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.source)} → ${escapeHtml(meta.destination)}</span>`;
+    if (meta.source && meta.destination) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.source)} → ${escapeHtml(meta.destination)}</span>`;
+    else if (meta.quantity && meta.location) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.quantity)} @ ${escapeHtml(meta.location)}</span>`;
+    else if (meta.quantity) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.quantity)}</span>`;
+    else if (meta.location) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.location)}</span>`;
   }
 
   if (e.type === 'spend') {
@@ -6643,20 +6763,20 @@ async function renderMonth() {
       </div>
       <div style="grid-column: 1 / -1; margin-top: 8px;">
         <h3 style="font-size: 1.15rem; margin-bottom: 12px; font-weight: 600; font-family: 'Fraunces', serif;">Spends by Tags</h3>
-        ${scrollWrapper(`
-        <div class="chart-card tag-chart-card">
-          <h4>Debit by tag</h4>
-          ${tagsBarChart(data.entries, 'spend')}
-        </div>
-        <div class="chart-card tag-chart-card">
-          <h4>Credit card spends by tag</h4>
-          ${tagsBarChart(data.entries, 'cardcharge')}
-        </div>
-        <div class="chart-card tag-chart-card">
-          <h4>Cash spends by tag</h4>
-          ${tagsBarChart(data.entries, 'cashpayment')}
-        </div>
-        `, 'tags-track')}
+        ${(() => {
+          const TAG_WIDE_THRESHOLD = 5;
+          const tagCharts = [
+            { title: 'Debit by tag', data: tagsBarChart(data.entries, 'spend') },
+            { title: 'Credit card spends by tag', data: tagsBarChart(data.entries, 'cardcharge') },
+            { title: 'Cash spends by tag', data: tagsBarChart(data.entries, 'cashpayment') },
+          ];
+          const cardsHtml = tagCharts.map(({ title, data: { html, count } }) => `
+            <div class="chart-card tag-chart-card ${count > TAG_WIDE_THRESHOLD ? 'tag-chart-card--wide' : ''}">
+              <h4>${title}</h4>
+              ${html}
+            </div>`).join('');
+          return `<div class="tags-charts-row">${cardsHtml}</div>`;
+        })()}
       </div>
     </div>
   </div>
@@ -6732,6 +6852,8 @@ async function handleSubmit(kind) {
         const catLower = (tag || '').toLowerCase();
         if (catLower === 'groceries') meta.quantity = $('#sp-quantity')?.value || '';
         if (catLower === 'transport') { meta.source = $('#sp-source')?.value || ''; meta.destination = $('#sp-destination')?.value || ''; }
+        if (catLower === 'fuel') { meta.quantity = $('#sp-quantity')?.value || ''; meta.location = $('#sp-location')?.value || ''; }
+        if (catLower === 'rent') meta.location = $('#sp-location')?.value || '';
 
         priceTrackDictionary[spendDesc] = { category: tag, meta };
         Store.set('price-track-dict', priceTrackDictionary);
@@ -6997,6 +7119,8 @@ root.addEventListener('change', async (ev) => {
     if (ptDynamicWrap) {
       if (val === 'groceries') ptDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="pt-quantity" type="text" placeholder="e.g. 1kg or 1L" /></div>`;
       else if (val === 'transport') ptDynamicWrap.innerHTML = `<div class="field"><label>Source</label><input id="pt-source" type="text" placeholder="e.g. Home" /></div><div class="field"><label>Destination</label><input id="pt-destination" type="text" placeholder="e.g. Office" /></div>`;
+      else if (val === 'fuel') ptDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="pt-quantity" type="text" placeholder="e.g. 5L" /></div><div class="field"><label>Location</label><input id="pt-location" type="text" placeholder="e.g. IOCL Bengaluru" /></div>`;
+      else if (val === 'rent') ptDynamicWrap.innerHTML = `<div class="field"><label>Location</label><input id="pt-location" type="text" placeholder="e.g. Sunflower Heights Whitefield" /></div>`;
       else ptDynamicWrap.innerHTML = '';
     }
 
@@ -7004,6 +7128,8 @@ root.addEventListener('change', async (ev) => {
     if (spendDynamicWrap) {
       if (val === 'groceries') spendDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="sp-quantity" type="text" placeholder="e.g. 1kg or 1L" /></div>`;
       else if (val === 'transport') spendDynamicWrap.innerHTML = `<div class="field"><label>Source</label><input id="sp-source" type="text" placeholder="e.g. Home" /></div><div class="field"><label>Destination</label><input id="sp-destination" type="text" placeholder="e.g. Office" /></div>`;
+      else if (val === 'fuel') spendDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="sp-quantity" type="text" placeholder="e.g. 5L" /></div><div class="field"><label>Location</label><input id="sp-location" type="text" placeholder="e.g. IOCL Bengaluru" /></div>`;
+      else if (val === 'rent') spendDynamicWrap.innerHTML = `<div class="field"><label>Location</label><input id="sp-location" type="text" placeholder="e.g. Sunflower Heights Whitefield" /></div>`;
       else spendDynamicWrap.innerHTML = '';
     }
   }
@@ -7026,7 +7152,7 @@ window.addEventListener('auth:checked', renderMonth);
 // Wait for the first /api/auth/me round trip so we never flash the
 // signed-out login hero for an already-authenticated visitor.
 authReady.then(renderMonth);
-
+wireChartTooltips(root);
 === ./static/js/views/months.js ===
 /* ---------- /months ---------- */
 import { Store } from '../core/store.js';
@@ -7198,7 +7324,7 @@ import { $, uid, escapeHtml } from '../core/dom.js';
 import { fmtINR } from '../core/format.js';
 import { currentUser, authReady } from '../core/auth.js';
 import { allSpendTags } from '../core/domain.js';
-import { priceLineChart } from '../components/charts/line-chart.js';
+import { priceLineChart, wireChartTooltips } from '../components/charts/line-chart.js';
 import { scrollWrapper, setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
 import { mountLoginHero } from '../components/login-hero.js';
@@ -7288,8 +7414,10 @@ function renderPriceItemCard(item) {
 
   let metaHtml = '';
   if (item.meta) {
-    if (item.meta.quantity) metaHtml = ` <span class="meta-text">${escapeHtml(item.meta.quantity)}</span>`;
-    else if (item.meta.source && item.meta.destination) metaHtml = ` <span class="meta-text">${escapeHtml(item.meta.source)} → ${escapeHtml(item.meta.destination)}</span>`;
+    if (item.meta.source && item.meta.destination) metaHtml = ` <span class="meta-text">${escapeHtml(item.meta.source)} → ${escapeHtml(item.meta.destination)}</span>`;
+    else if (item.meta.quantity && item.meta.location) metaHtml = `<span class="meta-text">${escapeHtml(item.meta.quantity)} @ ${escapeHtml(item.meta.location)}</span>`;
+    else if (item.meta.quantity) metaHtml = ` <span class="meta-text">${escapeHtml(item.meta.quantity)}</span>`;
+    else if (item.meta.location) metaHtml = ` <span class="meta-text">${escapeHtml(item.meta.location)}</span>`;
   }
 
   return `
@@ -7457,6 +7585,8 @@ root.addEventListener('click', async (ev) => {
     const catLower = category.toLowerCase();
     if (catLower === 'groceries') meta.quantity = $('#pt-quantity')?.value || '';
     if (catLower === 'transport') { meta.source = $('#pt-source')?.value || ''; meta.destination = $('#pt-destination')?.value || ''; }
+    if (catLower === 'fuel') { meta.quantity = $('#pt-quantity')?.value || ''; meta.location = $('#pt-location')?.value || ''; }
+    if (catLower === 'rent') meta.location = $('#pt-location')?.value || '';
 
     priceTrackDictionary[name] = { category, meta };
     await Store.set('price-track-dict', priceTrackDictionary);
@@ -7555,6 +7685,8 @@ root.addEventListener('change', (ev) => {
     if (ptDynamicWrap) {
       if (val === 'groceries') ptDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="pt-quantity" type="text" placeholder="e.g. 1kg or 1L" /></div>`;
       else if (val === 'transport') ptDynamicWrap.innerHTML = `<div class="field"><label>Source</label><input id="pt-source" type="text" placeholder="e.g. Home" /></div><div class="field"><label>Destination</label><input id="pt-destination" type="text" placeholder="e.g. Office" /></div>`;
+      else if (val === 'fuel') ptDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="pt-quantity" type="text" placeholder="e.g. 5L" /></div><div class="field"><label>Location</label><input id="pt-location" type="text" placeholder="e.g. IOCL Bengaluru" /></div>`;
+      else if (val === 'rent') ptDynamicWrap.innerHTML = `<div class="field"><label>Location</label><input id="pt-location" type="text" placeholder="e.g. Sunflower Heights Whitefield" /></div>`;
       else ptDynamicWrap.innerHTML = '';
     }
   }
@@ -7566,7 +7698,7 @@ window.addEventListener('auth:checked', renderPriceTrack);
 // Wait for the first /api/auth/me round trip so we never flash the
 // signed-out login hero for an already-authenticated visitor.
 authReady.then(renderPriceTrack);
-
+wireChartTooltips(root);
 === ./static/js/views/share-split.js ===
 /* ---------- /share/split/<id> ----------
    Fully public: no auth bar chrome, no /api/storage calls. Reads via the

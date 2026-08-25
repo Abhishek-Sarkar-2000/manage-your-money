@@ -100,6 +100,7 @@ function renderFromCache() {
   const windowedSeries = windowSeries(cache.dailySeries, balanceChartRange);
   const isHoverable = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   const statHint = isHoverable ? 'Hover a card for the breakdown' : 'Tap a card for the breakdown';
+  const theme = localStorage.getItem('ledger-theme') || 'default'; // <-- ADD THIS
 
   markRendered(root);
   root.removeAttribute('data-loading');
@@ -108,7 +109,15 @@ function renderFromCache() {
     <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
   </div>
 
-  <div class="section">
+  <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+    <div class="range-toggle">
+      <button class="range-btn ${theme === 'default' ? 'active' : ''}" data-theme-btn="default" type="button">Default</button>
+      <button class="range-btn ${theme === 'hi-contrast' ? 'active' : ''}" data-theme-btn="hi-contrast" type="button">Hi-Contrast</button>
+      <button class="range-btn ${theme === 'dark' ? 'active' : ''}" data-theme-btn="dark" type="button">Dark</button>
+    </div>
+  </div>
+
+  <div class="section" style="margin-top: 14px;">
     ${cache.currentMonthCardHtml}
   </div>
 
@@ -196,6 +205,15 @@ root.addEventListener('click', (ev) => {
   if (rangeBtn) {
     balanceChartRange = Number(rangeBtn.dataset.range);
     renderFromCache(); 
+  }
+
+  const themeBtn = ev.target.closest('[data-theme-btn]');
+  if (themeBtn) {
+    const theme = themeBtn.dataset.themeBtn;
+    localStorage.setItem('ledger-theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+    renderFromCache(); // Re-render to update active toggle class
+    return;
   }
 });
 

@@ -21,7 +21,11 @@
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script id="app-config" type="application/json">{"googleClientId": {{ google_client_id | tojson }}}</script>
-
+  <script>
+    const savedTheme = localStorage.getItem('ledger-theme') || 'default';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  </script>
+  
   <style>
     body { display: flex; flex-direction: column; }
     #app { flex: 1 0 auto; }

@@ -65,11 +65,11 @@
   width: 28px;
   height: 28px;
   border-radius: 7px;
-  background: linear-gradient(135deg, var(--blue), var(--navy));
+  background: linear-gradient(135deg, #2F6FB0, #0B2545) !important;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: #ffffff !important;
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -78,11 +78,11 @@
   width: 60px;
   height: 60px;
   border-radius: 12px;
-  background: linear-gradient(135deg, var(--blue), var(--navy));
+  background: linear-gradient(135deg, #2F6FB0, #0B2545) !important;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: #ffffff !important;
   font-size: 2.2rem;
   font-weight: 700;
 }
@@ -144,7 +144,7 @@
   margin-right: -50vw;
   margin-top: 22px;
   height: calc(3 * 1.08 * clamp(2.1rem, 5vw, 3.4rem));
-  background: #DCE0E5;
+  background: var(--footer-bg, #DCE0E5);
   box-shadow: inset 0 10px 16px -12px rgba(11, 37, 69, 0.45), inset 0 1px 0 rgba(11, 37, 69, 0.12);
   display: flex;
   align-items: center;
@@ -158,7 +158,7 @@
   font-size: clamp(1.5rem, 5vw, 3.4rem);
   line-height: 1.08;
   font-weight: 600;
-  color: #B7BCC2;
+  color: var(--footer-span, #B7BCC2);;
   text-align: center;
   letter-spacing: -0.01em;
   padding: 0 24px;
@@ -292,9 +292,8 @@
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--ice-2);
   border: 1px solid var(--hair);
-  box-shadow: var(--shadow-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -306,7 +305,7 @@
 }
 
 .scroll-arrow:hover {
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-sm);
   transform: translateY(-50%) scale(1.06);
 }
 
@@ -453,11 +452,11 @@
   color: var(--royal);
   font-size: 0.62rem;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  padding: 0px 0px 0px 4px;
   font-family: 'Source Serif 4', serif;
   font-style: italic;
   font-weight: 700;
+  text-transform: lowercase;
 }
 
 .stat-card .value {

@@ -4,6 +4,9 @@
   --blue: #2F6FB0;
   --blue-soft: #5C8FC4;
   --sky: #9BC4E4;
+  --text-sky: #9BC4E4;
+  --text-light: #CFE0F2;
+  --text-white: #FFFFFF;
   --ice: #EAF3FC;
   --ice-2: #F5F9FD;
   --paper: #FCFDFF;
@@ -17,10 +20,194 @@
   --debit-bg: #FBEBEE;
   --amber: #8A6A2F;
   --amber-bg: #F7F0DF;
+  --footer-bg: #DCE0E5;
+  --footer-span: #B7BCC2;
   --radius: 12px;
   --radius-sm: 8px;
   --shadow: 0 10px 30px rgba(11, 37, 69, 0.09), 0 2px 8px rgba(11, 37, 69, 0.05);
   --shadow-sm: 0 2px 10px rgba(11, 37, 69, 0.06);
 }
 
+/* ---------- High Contrast Theme ---------- */
+:root[data-theme="hi-contrast"] {
+  --navy: #000000;
+  --royal: #000000;
+  --blue: #0000EE;
+  --blue-soft: #0000EE;
+  --sky: #000000;
+  --text-sky: #FFFFFF;
+  --text-light: #FFFFFF;
+  --text-white: #FFFFFF;
+  --ice: #FFFFFF;
+  --ice-2: #FFFFFF;
+  --paper: #FFFFFF;
+  --ink: #000000;
+  --muted: #000000;
+  --hair: #000000;
+  --credit: #006400;
+  --debit: #8B0000;
+  --debit-bd: #8B0000;
+  --amber: #8B6508;
+  --footer-bg: #FFFFFF;
+  --footer-span: #b8b8b8;
+}
 
+:root[data-theme="hi-contrast"] body {
+  background: #FFFFFF;
+}
+
+:root[data-theme="hi-contrast"] .card,
+:root[data-theme="hi-contrast"] .action-card,
+:root[data-theme="hi-contrast"] .chart-card,
+:root[data-theme="hi-contrast"] .stat-front,
+:root[data-theme="hi-contrast"] .split-group-card,
+:root[data-theme="hi-contrast"] .price-item-card,
+:root[data-theme="hi-contrast"] .cc-item,
+:root[data-theme="hi-contrast"] .emi-card,
+:root[data-theme="hi-contrast"] .month-row {
+  border-color: #000000 !important;
+}
+
+:root[data-theme="hi-contrast"] .stat-card .label .hoverdot {
+  color: var(--paper) !important;
+}
+
+:root[data-theme="hi-contrast"] .current-month-card:not(.empty) {
+  background: linear-gradient(135deg, var(--ink) 0%, var(--blue) 100%) !important;
+  border: solid;
+  border-width: 1px;
+  border-color: var(--ink);
+}
+
+/* ---------- Dark Theme ---------- */
+:root[data-theme="dark"] {
+  --navy: #EAEBFB;
+  --royal: #c2c3f3;
+  --blue: #7E87F6;
+  --blue-soft: #636DF1;
+  --sky: #424982;
+  --text-sky: #A8B1FF;
+  --text-light: #D4D8FB;
+  --text-white: #FFFFFF;
+  --ice: #0F111E;
+  --ice-2: #171A2E; 
+  --paper: #0F111E;
+  --ink: #D8DAF5;
+  --muted: #888EB8;
+  --hair: #282D4E;
+  
+  --credit: #5CE0B8;
+  --credit-bg: rgba(92, 224, 184, 0.15);
+  --debit: #FF7B93;
+  --debit-bd: #FF7B93;
+  --debit-bg: rgba(255, 123, 147, 0.15);
+  --amber: #FCD277;
+  --amber-bg: rgba(252, 210, 119, 0.15);
+  --footer-bg: radial-gradient(ellipse 70% 80% at 50% 0%, var(--sky) 0%, var(--ice-2) 75%);
+  --footer-span: var(--muted);
+}
+
+/* Force Brand text to white */
+:root[data-theme="dark"] .brand,
+:root[data-theme="dark"] .brand-login {
+  color: #ffffff !important;
+}
+
+:root[data-theme="dark"] body {
+  background:
+    repeating-linear-gradient(180deg, transparent 0 39px, rgba(136, 142, 184, 0.12) 40px 41px),
+    linear-gradient(160deg, var(--ice) 0%, var(--paper) 45%, var(--ice-2) 100%);
+}
+
+:root[data-theme="dark"] .card,
+:root[data-theme="dark"] .current-month-card.empty,
+:root[data-theme="dark"] .stat-back,
+:root[data-theme="dark"] .price-item-card,
+:root[data-theme="dark"] .cc-item,
+:root[data-theme="dark"] .emi-card,
+:root[data-theme="dark"] .month-row,
+:root[data-theme="dark"] .profile-menu,
+:root[data-theme="dark"] tbody td,
+:root[data-theme="dark"] .field select,
+:root[data-theme="dark"] .donut::after {
+  background: var(--ice-2) !important;
+  color: var(--navy);
+  border-color: var(--hair) !important;
+}
+
+:root[data-theme="dark"] .chart-card,
+:root[data-theme="dark"] .action-card,
+:root[data-theme="dark"] .split-group-card,
+:root[data-theme="dark"] .split-settle-card,
+:root[data-theme="dark"] .stat-front {
+  background: linear-gradient(135deg, var(--hair) 0%, var(--ice-2) 100%) !important;
+  color: var(--navy);
+  border-color: var(--hair) !important;
+}
+
+:root[data-theme="dark"] .btn:hover {
+  background: var(--blue-soft);
+  border-color: var(--blue-soft);
+}
+
+:root[data-theme="dark"] .stat-popover,
+:root[data-theme="dark"] .split-row-popover {
+  background: var(--hair) !important;
+  color: var(--navy);
+  border-color: var(--ice-2) !important;
+}
+
+:root[data-theme="dark"] .field input,
+:root[data-theme="dark"] .toggle-switch input,
+:root[data-theme="dark"] .balance-box input[type="number"] {
+  background: var(--paper) !important;
+  color: var(--ink);
+  border-color: var(--hair) !important;
+}
+
+:root[data-theme="dark"] thead th {
+  background: var(--hair) !important;
+  color: var(--navy);
+  border-color: var(--hair) !important;
+}
+
+:root[data-theme="dark"] svg.linechart text {
+  fill: var(--muted) !important;
+}
+
+:root[data-theme="dark"] svg.linechart line {
+  stroke: var(--sky) !important;
+}
+
+:root[data-theme="dark"] .current-month-card:not(.empty) {
+  background: linear-gradient(135deg, #181938 0%, #252458 55%, #3C367E 100%) !important;
+  border: solid;
+  border-width: 1px;
+  border-color: var(--blue);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme="dark"] .bar-col .bval {
+  background: var(--ice-2); /* Masks the background grid lines cleanly behind the text */
+}
+
+:root[data-theme="dark"] .chart-tooltip {
+  background: linear-gradient(135deg, var(--blue) 0%, var(--text-sky) 100%);
+  color: #fff;
+}
+
+:root[data-theme="dark"] .chart-tooltip .ct-label {
+  color: #fff;
+}
+
+:root[data-theme="dark"] .current-month-card:not(.empty) .cm-eyebrow {
+  color: #A8B1FF;
+}
+
+:root[data-theme="dark"] .current-month-card:not(.empty) .cm-sub {
+  color: #D4D8FB;
+}
+
+:root[data-theme="dark"] .current-month-card:not(.empty) .cm-stat .cm-label {
+  color: #B4B9F8;
+}
