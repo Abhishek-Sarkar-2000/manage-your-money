@@ -123,6 +123,14 @@ function renderPriceDetailsPanel(item) {
   const hist = sortedPriceHistory(item);
   const chart = priceLineChart(hist);
 
+  let metaHtml = '';
+  if (item.meta) {
+    if (item.meta.source && item.meta.destination) metaHtml = `<span class="meta-text">${escapeHtml(item.meta.source)} → ${escapeHtml(item.meta.destination)}</span>`;
+    else if (item.meta.quantity && item.meta.location) metaHtml = `<span class="meta-text">${escapeHtml(item.meta.quantity)} @ ${escapeHtml(item.meta.location)}</span>`;
+    else if (item.meta.quantity) metaHtml = `<span class="meta-text">${escapeHtml(item.meta.quantity)}</span>`;
+    else if (item.meta.location) metaHtml = `<span class="meta-text">${escapeHtml(item.meta.location)}</span>`;
+  }
+
   const rowsHtml = [...hist].reverse().map(h => {
     const dateLabel = h.date ? new Date(h.date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
     return `
@@ -154,7 +162,13 @@ function renderPriceDetailsPanel(item) {
 
   return `
   <div class="price-details-panel" data-price-details="${item.id}" style="margin-top:2px;">
-    <div class="section-title"><h2>${escapeHtml(item.name)} — Price History</h2><span class="hint">${hist.length} entr${hist.length === 1 ? 'y' : 'ies'} logged</span></div>
+    <div class="section-title">
+      <div>
+        <h2>${escapeHtml(item.name)} — Price History</h2>
+        ${metaHtml ? `<div style="margin-top: 4px;">${metaHtml}</div>` : ''}
+      </div>
+      <span class="hint">${hist.length} entr${hist.length === 1 ? 'y' : 'ies'} logged</span>
+    </div>
     <div class="chart-card" style="margin-top:14px;">${chart}</div>
     ${addBtnHtml}
     ${formHtml}

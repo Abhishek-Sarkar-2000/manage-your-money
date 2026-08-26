@@ -87,9 +87,8 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   }
 
   let metaHtml = '';
-  const dictEntry = priceTrackDictionary ? priceTrackDictionary[e.description] : null;
-  if (dictEntry && dictEntry.meta) {
-    const meta = dictEntry.meta;
+  const meta = e.meta || null;
+  if (meta) {
     if (meta.source && meta.destination) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.source)} → ${escapeHtml(meta.destination)}</span>`;
     else if (meta.quantity && meta.location) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.quantity)} @ ${escapeHtml(meta.location)}</span>`;
     else if (meta.quantity) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.quantity)}</span>`;
@@ -626,27 +625,37 @@ async function handleSubmit(kind) {
     }
     if (!spendDesc || !amount || amount <= 0) { showToast('Enter a spend description and amount'); return; }
 
+    let meta = null;
     if (uimode === 'regular') {
-      const syncBtn = $('#f-price-track-btn');
-      if (syncBtn && syncBtn.classList.contains('active')) {
-        let meta = {};
-        const catLower = (tag || '').toLowerCase();
+      const catLower = (tag || '').toLowerCase();
+      if (['groceries', 'transport', 'fuel', 'rent'].includes(catLower)) {
+        meta = {};
         if (catLower === 'groceries') meta.quantity = $('#sp-quantity')?.value || '';
         if (catLower === 'transport') { meta.source = $('#sp-source')?.value || ''; meta.destination = $('#sp-destination')?.value || ''; }
         if (catLower === 'fuel') { meta.quantity = $('#sp-quantity')?.value || ''; meta.location = $('#sp-location')?.value || ''; }
         if (catLower === 'rent') meta.location = $('#sp-location')?.value || '';
+      }
 
-        priceTrackDictionary[spendDesc] = { category: tag, meta };
-        Store.set('price-track-dict', priceTrackDictionary);
+      const syncBtn = $('#f-price-track-btn');
+      if (syncBtn && syncBtn.classList.contains('active')) {
+        const isSameMeta = (a, b) => {
+          return (a?.source || '') === (b?.source || '') &&
+                 (a?.destination || '') === (b?.destination || '') &&
+                 (a?.quantity || '') === (b?.quantity || '') &&
+                 (a?.location || '') === (b?.location || '');
+        };
 
-        let item = priceItems.find(i => i.name.toLowerCase() === spendDesc.toLowerCase());
-        if (!item) { item = { id: uid(), name: spendDesc, category: tag, history: [], meta }; priceItems.push(item); }
-        else item.meta = meta;
+        // Find an existing Price Track item matching BOTH description and exact route/metadata
+        let item = priceItems.find(i => i.name.toLowerCase() === spendDesc.toLowerCase() && isSameMeta(i.meta, meta));
+        if (!item) {
+          item = { id: uid(), name: spendDesc, category: tag, history: [], meta };
+          priceItems.push(item);
+        }
         item.history.push({ id: uid(), date, price: amount, note: 'Synced from Spends' });
-        Store.set('price-items', priceItems);
+        await Store.set('price-items', priceItems);
       }
     }
-    data.entries.push({ id: uid(), type: 'spend', description: spendDesc, amount, date, paymentMode: mode, cardId, tag, lent: collectLent() });
+    data.entries.push({ id: uid(), type: 'spend', description: spendDesc, amount, date, paymentMode: mode, cardId, tag, lent: collectLent(), meta });
   } else if (kind === 'cardcharge') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a spend description and amount'); return; }
     const cardId = $('#f-card').value;

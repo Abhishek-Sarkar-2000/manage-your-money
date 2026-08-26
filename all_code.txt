@@ -524,10 +524,6 @@ brotli
    so it always sits inside the 75%-width column instead of the screen edge.
    Rendered once in base.html => identical on every page. */
 .auth-bar {
-  position: absolute;
-  top: 22px;
-  right: 8px;
-  z-index: 80;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -624,12 +620,6 @@ brotli
     border-radius: 999px;
     padding: 4px 6px;
     background: #fff;
-  }
-}
-
-@media (max-width: 960px) {
-  .auth-bar {
-    right: 12px;
   }
 }
 
@@ -818,7 +808,7 @@ brotli
 .hero-google-signin-btn {
   display: block;
   color: #fff;
-  opacity: 0;
+  animation: fadeInUp 0.4s ease forwards;
 }
 
 .login-hero-note {
@@ -2038,11 +2028,41 @@ svg.linechart text {
 
 === ./static/css/components.css ===
 /* ---------- Top bar ---------- */
+.topbar-wrapper {
+  position: sticky;
+  top: 0;
+  width: 100%;
+  z-index: 100;
+  background-color: transparent;
+  border-bottom: 1px solid transparent;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.topbar-wrapper.scrolled {
+  background-color: var(--paper);
+  border-bottom-color: var(--hair);
+}
+
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 22px 0 10px;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 22px 24px 10px;
+  width: 75%;
+  min-width: 320px;
+  transition: padding 0.3s ease;
+}
+
+.topbar-wrapper.scrolled .topbar {
+  padding: 12px 24px 10px;
+}
+
+@media (max-width: 960px) {
+  .topbar {
+    width: 100%;
+  }
 }
 
 .topbar-login {
@@ -3060,7 +3080,9 @@ transform: translateY(0);
 }
 
 :root[data-theme="dark"] .price-category-title {
-  color: var(--hair);
+  background: var(--hair);
+  color: var(--navy);
+  box-shadow: 0 10px 24px rgba(2, 11, 22, 0.77), 0 2px 6px rgba(9, 21, 36, 0.6);
 }
 
 :root[data-theme="dark"] .del-popover {
@@ -5073,6 +5095,9 @@ export function loginHeroHtml() {
 }
 
 export function mountLoginHero(root) {
+  const tb = document.getElementById('global-topbar');
+  if (tb) tb.style.display = 'none';
+
   root.innerHTML = loginHeroHtml();
   mountHeroGoogleButton(document.getElementById('hero-google-signin-slot'));
 }
@@ -6437,11 +6462,11 @@ async function renderCards() {
     </div>
   `).join('') || `<div class="empty-chart">No cards added yet — add one below.</div>`;
 
+  const tb = document.getElementById('global-topbar');
+  if (tb) tb.style.display = '';
+
   markRendered(root);
   root.innerHTML = `
-  <div class="topbar">
-    <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
-  </div>
   <div class="section">
     <div class="card">
       <div class="section-title"><h2>Credit cards</h2><span class="hint">Card charges and payments are tracked per card</span></div>
@@ -6591,13 +6616,12 @@ function renderFromCache() {
   const isHoverable = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   const statHint = isHoverable ? 'Hover a card for the breakdown' : 'Tap a card for the breakdown';
   
+  const tb = document.getElementById('global-topbar');
+  if (tb) tb.style.display = '';
+
   markRendered(root);
   root.removeAttribute('data-loading');
   root.innerHTML = `
-  <div class="topbar">
-    <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
-  </div>
-
   <div class="section" style="margin-top: 14px;">
     ${cache.currentMonthCardHtml}
   </div>
@@ -7169,12 +7193,11 @@ async function renderMonth() {
   }
   const pureExpense = Math.max(0, monthTotals.totalConsumption - unsettledConsumptionLent);
 
+  const tb = document.getElementById('global-topbar');
+  if (tb) tb.style.display = '';
+
   markRendered(root);
   root.innerHTML = `
-  <div class="topbar">
-    <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
-  </div>
-
   <div class="section">
     <div class="month-header">
       <h1>${monthKeyLabel(monthKey)}</h1>
@@ -7750,11 +7773,11 @@ async function renderMonths() {
   
   if (!rows) rows = `<div class="empty-chart">No months recorded yet. Add your first month from the home screen.</div>`;
 
+  const tb = document.getElementById('global-topbar');
+  if (tb) tb.style.display = '';
+
   markRendered(root);
   root.innerHTML = `
-  <div class="topbar">
-    <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
-  </div>
   <div class="section">
     <div class="section-title"><h2>Previous months</h2><span class="hint">Tap a month to open it</span></div>
     <div class="months-list">${rows}</div>
@@ -8018,12 +8041,11 @@ async function renderPriceTrack() {
     }
   }
 
+  const tb = document.getElementById('global-topbar');
+  if (tb) tb.style.display = '';
+
   markRendered(root);
   root.innerHTML = `
-  <div class="topbar">
-    <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
-  </div>
-
   <div class="section">
     <div class="month-header"><h1>Price Tracker</h1></div>
     <p style="color:var(--muted); max-width:56ch; margin-top:6px;">Note down what things cost over time — groceries, transport, subscriptions — and watch how prices move.</p>
@@ -8295,10 +8317,6 @@ async function renderSharedSplitPage() {
 
   markRendered(root);
   root.innerHTML = `
-  <div class="topbar">
-    <div class="brand"><span class="mark">₹</span> LedgerNote</div>
-  </div>
-
   <div class="section shared-page-header">
     <div class="month-header"><h1>${escapeHtml(group.description)}</h1></div>
     <p class="shared-page-subtitle">Shared Split Money group · ${group.people.length} people</p>
@@ -8398,12 +8416,11 @@ async function renderSips() {
     </div>
   `).join('') || `<div class="empty-chart">No SIPs added yet — add one below.</div>`;
 
+  const tb = document.getElementById('global-topbar');
+  if (tb) tb.style.display = '';
+
   markRendered(root);
   root.innerHTML = `
-  <div class="topbar">
-    <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
-  </div>
-
   <div class="section">
     <div class="card">
       <div class="section-title"><h2>Existing Investments</h2><span class="hint">Base portfolio built prior to this ledger</span></div>
@@ -8789,12 +8806,11 @@ async function renderSplit() {
     </div>`;
   }
 
+  const tb = document.getElementById('global-topbar');
+  if (tb) tb.style.display = '';
+
   markRendered(root);
   root.innerHTML = `
-  <div class="topbar">
-    <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
-  </div>
-
   <div class="section">
     <div class="month-header"><h1>Split Money</h1></div>
   </div>
@@ -9087,43 +9103,49 @@ authReady.then(renderSplit);
 </head>
 <body data-is-shared="{{ 'true' if is_shared else 'false' }}">
 
-  <div id="app">
+  {% block topbar %}
+  <div id="global-topbar" class="topbar-wrapper">
+    <div class="topbar">
+      <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
+      {% block auth_bar %}
+      <div id="auth-bar" class="auth-bar">
+        <div id="theme-selector" class="range-toggle">
+          <button class="range-btn" data-theme-btn="default" type="button">Default</button>
+          <button class="range-btn" data-theme-btn="hi-contrast" type="button">Hi-Contrast</button>
+          <button class="range-btn" data-theme-btn="dark" type="button">Dark</button>
+        </div>
 
-  {% block auth_bar %}
-    <div id="auth-bar" class="auth-bar">
-      <div id="theme-selector" class="range-toggle">
-        <button class="range-btn" data-theme-btn="default" type="button">Default</button>
-        <button class="range-btn" data-theme-btn="hi-contrast" type="button">Hi-Contrast</button>
-        <button class="range-btn" data-theme-btn="dark" type="button">Dark</button>
-      </div>
-
-      <div id="auth-controls" class="auth-controls">
-        <button id="burger-menu-btn" class="burger-menu-btn" type="button"
-                aria-haspopup="true" aria-expanded="false" aria-label="Theme options">
-          <span class="burger-line"></span><span class="burger-line"></span><span class="burger-line"></span>
-        </button>
-
-        <div id="google-signin-btn" class="google-signin-btn"></div>
-        <div id="profile-badge" class="profile-badge" hidden>
-          <button id="profile-badge-btn" class="profile-badge-btn" type="button" aria-haspopup="true" aria-expanded="false">
-            <img id="profile-avatar" class="profile-avatar" alt="" referrerpolicy="no-referrer"/>
-            <span id="profile-name" class="profile-name"></span>
+        <div id="auth-controls" class="auth-controls">
+          <button id="burger-menu-btn" class="burger-menu-btn" type="button"
+                  aria-haspopup="true" aria-expanded="false" aria-label="Theme options">
+            <span class="burger-line"></span><span class="burger-line"></span><span class="burger-line"></span>
           </button>
-          <div id="profile-menu" class="profile-menu" hidden role="menu">
-            <div id="profile-menu-email" class="profile-menu-email"></div>
-            <button id="profile-signout-btn" class="profile-menu-item" type="button" role="menuitem">Sign out</button>
+
+          <div id="google-signin-btn" class="google-signin-btn"></div>
+          <div id="profile-badge" class="profile-badge" hidden>
+            <button id="profile-badge-btn" class="profile-badge-btn" type="button" aria-haspopup="true" aria-expanded="false">
+              <img id="profile-avatar" class="profile-avatar" alt="" referrerpolicy="no-referrer"/>
+              <span id="profile-name" class="profile-name"></span>
+            </button>
+            <div id="profile-menu" class="profile-menu" hidden role="menu">
+              <div id="profile-menu-email" class="profile-menu-email"></div>
+              <button id="profile-signout-btn" class="profile-menu-item" type="button" role="menuitem">Sign out</button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div id="burger-menu-panel" class="burger-menu-panel" hidden role="menu">
-        <button class="range-btn" data-theme-btn="default" type="button">Default</button>
-        <button class="range-btn" data-theme-btn="hi-contrast" type="button">Hi-Contrast</button>
-        <button class="range-btn" data-theme-btn="dark" type="button">Dark</button>
+        <div id="burger-menu-panel" class="burger-menu-panel" hidden role="menu">
+          <button class="range-btn" data-theme-btn="default" type="button">Default</button>
+          <button class="range-btn" data-theme-btn="hi-contrast" type="button">Hi-Contrast</button>
+          <button class="range-btn" data-theme-btn="dark" type="button">Dark</button>
+        </div>
       </div>
+      {% endblock %}
     </div>
-    {% endblock %}
+  </div>
+  {% endblock %}
 
+  <div id="app">
     {% block content %}{% endblock %}
 
     <!-- Global UI Overlays -->
@@ -9168,6 +9190,17 @@ authReady.then(renderSplit);
   {% block page_script %}{% endblock %}
   <script>
   document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('scroll', () => {
+      const tb = document.getElementById('global-topbar');
+      if (tb) {
+        if (window.scrollY > 20) {
+          tb.classList.add('scrolled');
+        } else if (window.scrollY < 10) {
+          tb.classList.remove('scrolled');
+        }
+      }
+    }, { passive: true });
+
     const activeRoot = document.querySelector('[id$="-root"]');
     const delPop = document.getElementById('del-popover');
     const sharePop = document.getElementById('split-share-popover');
@@ -9222,7 +9255,7 @@ authReady.then(renderSplit);
   <!-- Our MPA entry script will mount directly to this div -->
   <div id="home-root" class="home-view" data-loading="true">
     <div style="display: flex; justify-content: center; align-items: center; min-height: 100vh;">
-      <div style="background: #fff; border: 1px solid var(--hair); border-radius: var(--radius); box-shadow: var(--shadow); padding: 40px 30px; width: 100%; max-width: 360px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">
+      <div class="card" style="box-shadow: var(--shadow); padding: 40px 30px; width: 100%; max-width: 360px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">
         <!-- Simple modern CSS loading spinner -->
         <div style="width: 36px; height: 36px; border: 3px solid var(--ice); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 24px;"></div>
         <!-- Centered text positioned toward the bottom with top margin -->
@@ -9292,7 +9325,11 @@ authReady.then(renderSplit);
   <link rel="stylesheet" href="{{ url_for('static', filename='css/charts.css') }}?v={{ static_version }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/views/split.css') }}?v={{ static_version }}" />
 {% endblock %}
-{% block auth_bar %}{# Fully public page: no auth chrome, no sign-in button #}{% endblock %}
+{% block topbar %}
+  <div class="topbar">
+    <div class="brand"><span class="mark">₹</span> LedgerNote</div>
+  </div>
+{% endblock %}
 {% block content %}
   <div id="share-split-root" class="share-split-view" data-loading="true" data-share-id="{{ share_id }}"></div>
 {% endblock %}

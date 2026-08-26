@@ -81,10 +81,16 @@
 }
 
 :root[data-theme="hi-contrast"] .tag-bar,
-:root[data-theme="hi-contrast"] .bar {
+:root[data-theme="hi-contrast"] .bar,
+:root[data-theme="hi-contrast"] .shared-share-bar {
   background-image: none !important;
   border: solid 1.2px #000000;
   border-bottom: none;
+}
+:root[data-theme="hi-contrast"] .shared-debt-segment {
+  background-image: none !important;
+  border: solid 1.2px #000000;
+  border-left: none;
 }
 
 :root[data-theme="hi-contrast"] {
@@ -179,7 +185,8 @@
 :root[data-theme="dark"] body {
   background:
     repeating-linear-gradient(180deg, transparent 0 39px, rgba(136, 142, 184, 0.12) 40px 41px),
-    linear-gradient(160deg, var(--ice) 0%, var(--paper) 45%, var(--ice-2) 100%);
+    linear-gradient(160deg, #191847 0%, var(--paper) 45%, var(--ice-2) 100%);
+    background-attachment: scroll, fixed;
 }
 
 :root[data-theme="dark"] .card,
@@ -192,20 +199,22 @@
 :root[data-theme="dark"] .profile-menu,
 :root[data-theme="dark"] tbody td,
 :root[data-theme="dark"] .field select,
+:root[data-theme="dark"] .burger-menu-panel,
 :root[data-theme="dark"] .donut::after {
   background: var(--ice-2) !important;
   color: var(--navy);
-  border-color: var(--hair) !important;
+  border-color: var(--sky) !important;
 }
 
 :root[data-theme="dark"] .chart-card,
 :root[data-theme="dark"] .action-card,
 :root[data-theme="dark"] .split-group-card,
 :root[data-theme="dark"] .split-settle-card,
-:root[data-theme="dark"] .stat-front {
+:root[data-theme="dark"] .stat-front,
+:root[data-theme="dark"] .balance-box {
   background: linear-gradient(135deg, var(--hair) 0%, var(--ice-2) 100%) !important;
   color: var(--navy);
-  border-color: var(--hair) !important;
+  border-color: var(--sky) !important;
 }
 
 :root[data-theme="dark"] .stat-popover,
@@ -233,6 +242,10 @@
   fill: var(--muted) !important;
 }
 
+:root[data-theme="dark"] .meta-text {
+  color: var(--royal) !important;
+}
+
 :root[data-theme="dark"] svg.linechart line {
   stroke: var(--sky) !important;
 }
@@ -241,7 +254,7 @@
   background: linear-gradient(135deg, #181938 0%, #252458 55%, #3C367E 100%) !important;
   border: solid;
   border-width: 1px;
-  border-color: var(--blue);
+  border-color: var(--blue-soft);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
 
@@ -278,6 +291,7 @@
 :root[data-theme="dark"] .price-category-title {
   background: var(--hair);
   color: var(--navy);
+  border: 1px solid var(--blue-soft);
   box-shadow: 0 10px 24px rgba(2, 11, 22, 0.77), 0 2px 6px rgba(9, 21, 36, 0.6);
 }
 
@@ -289,6 +303,11 @@
 :root[data-theme="dark"] .toast {
   background: var(--ice);
   border: solid 1px var(--sky) ;
+}
+
+:root[data-theme="dark"] .auth-controls {
+  border: 1px solid var(--blue-soft);
+  background: var(--hair);
 }
 
 @media (hover: none) {
