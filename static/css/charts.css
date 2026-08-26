@@ -24,8 +24,10 @@
 
 .chart-toolbar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   margin-bottom: 10px;
+  width: 100%;
+  min-width: 0;
 }
 
 .shared-split-charts {

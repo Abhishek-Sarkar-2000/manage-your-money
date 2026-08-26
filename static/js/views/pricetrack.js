@@ -107,7 +107,6 @@ function renderPriceItemCard(item) {
     </div>
     <div class="pic-top">
       <h4>${escapeHtml(item.name)}</h4></br>${metaHtml}
-      <span class="src-badge">${escapeHtml(item.category)}</span>
     </div>
     <div class="pic-bottom">
       <div class="pic-price-row">

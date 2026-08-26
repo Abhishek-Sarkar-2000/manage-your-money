@@ -1,9 +1,9 @@
 /* ---------- /months ---------- */
 import { Store } from '../core/store.js';
-import { fmtINR, fmtINRShort, monthKeyLabel, monthKeyShort, currentMonthKey, addMonths } from '../core/format.js';
+import { escapeHtml } from '../core/dom.js';
+import { fmtINR, fmtINRShort, monthKeyLabel, monthKeyShort } from '../core/format.js';
 import { currentUser, authReady } from '../core/auth.js';
 import { emiRowsForMonth, sipRowsForMonth, computeMonthTotals, allSpendTags } from '../core/domain.js';
-import { escapeHtml } from '../core/dom.js';
 import { setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
 import { mountLoginHero } from '../components/login-hero.js';
@@ -12,19 +12,16 @@ import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
 
 const root = document.getElementById('months-root');
+const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Subscription', 'Rent', 'Utility', 'Recharge', 'Transport', 'Gift'];
+
 let monthsIndex = [];
 let emiSeries = [];
 let sipSeries = [];
-let domainLoaded = false;
-
-// ---- Monthly Charts state ----
-const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Subscription', 'Rent', 'Utility', 'Recharge', 'Transport', 'Gift'];
-const CHART_SPEND_TYPES = ['spend', 'cardcharge', 'cashpayment'];
 let customTags = [];
-let selectedTag = null;
+let domainLoaded = false;
+let bulkDataCache = null;
 let chartRangeMonths = 6;
-let lastBulkData = null;
-let allMonthKeysAsc = [];
+let selectedTag = '';
 
 // Fetched once per page load; deleteMonth() mutates monthsIndex in memory
 // and persists it, so later re-renders never need to refetch it.
@@ -45,6 +42,7 @@ async function deleteMonth(key) {
   
   // Wipe from the new SessionStorage cache so the UI doesn't resurrect it
   sessionStorage.removeItem('month:' + key);
+  if (bulkDataCache) delete bulkDataCache['month:' + key];
   
   await Store.set('month:' + key, { startingBalanceMode: 'manual', startingBalance: 0, entries: [], deletedEmi: [] });
   await Store.remove('month:' + key);
@@ -154,11 +152,13 @@ function renderMonthlyChartsSection(bulkData, allMonthKeys) {
     <div class="section-title"><h2>Monthly Charts</h2><span class="hint">Tag spend over time</span></div>
     <div class="chart-card">
       <div class="chart-toolbar chart-toolbar--split">
-        <select id="tag-chart-select" class="tag-select" ${tagOptions.length ? '' : 'disabled'}>${optionsHtml}</select>
-        <div class="range-toggle">
-          <button class="range-btn ${chartRangeMonths === 6 ? 'active' : ''}" data-chart-range="6" type="button">6M</button>
-          <button class="range-btn ${chartRangeMonths === 9 ? 'active' : ''}" data-chart-range="9" type="button">9M</button>
-          <button class="range-btn ${chartRangeMonths === 12 ? 'active' : ''}" data-chart-range="12" type="button">1Y</button>
+        <div style="display:flex; flex-wrap: wrap; gap: 8px; justify-content: space-between;">
+          <select id="tag-chart-select" class="tag-select" ${tagOptions.length ? '' : 'disabled'}>${optionsHtml}</select>
+          <div class="range-toggle">
+            <button class="range-btn ${chartRangeMonths === 6 ? 'active' : ''}" data-chart-range="6" type="button">6M</button>
+            <button class="range-btn ${chartRangeMonths === 9 ? 'active' : ''}" data-chart-range="9" type="button">9M</button>
+            <button class="range-btn ${chartRangeMonths === 12 ? 'active' : ''}" data-chart-range="12" type="button">1Y</button>
+          </div>
         </div>
       </div>
       ${chartHtml}
@@ -186,11 +186,12 @@ async function renderMonths() {
   const keysDesc = [...monthsIndex].sort().reverse();
   const keysAsc = [...monthsIndex].sort(); // Required for chronological carry-over math
   
-  // 1. Perform ONE bulk fetch for every month in the index
-  const keysToFetch = keysDesc.map(k => 'month:' + k);
-  const bulkData = await Store.bulkGet(keysToFetch);
-  lastBulkData = bulkData;
-  allMonthKeysAsc = keysAsc;
+  // 1. Perform ONE bulk fetch for every month in the index and cache it
+  if (!bulkDataCache) {
+    const keysToFetch = keysDesc.map(k => 'month:' + k);
+    bulkDataCache = await Store.bulkGet(keysToFetch);
+  }
+  const bulkData = bulkDataCache;
 
   // 2. Compute the breakdown entirely from memory
   const breakdown = computeMonthlyBreakdownFromBulk(keysAsc, bulkData);
@@ -217,6 +218,65 @@ async function renderMonths() {
   
   if (!rows) rows = `<div class="empty-chart">No months recorded yet. Add your first month from the home screen.</div>`;
 
+  let chartHtml = '';
+  if (keysAsc.length > 0) {
+      const tags = allSpendTags(DEFAULT_TAGS, customTags);
+      if (!selectedTag && tags.length) selectedTag = tags[0];
+
+      const latestMonth = keysAsc[keysAsc.length - 1];
+      const [ly, lm] = latestMonth.split('-').map(Number);
+      const rangeKeys = [];
+      for (let i = chartRangeMonths - 1; i >= 0; i--) {
+          let y = ly, m = lm - i;
+          while (m <= 0) { m += 12; y -= 1; }
+          rangeKeys.push(`${y}-${String(m).padStart(2, '0')}`);
+      }
+
+      let totalRangeSpend = 0;
+      const pairs = rangeKeys.map(k => {
+          const data = bulkData['month:' + k] || { entries: [] };
+          let sum = 0;
+          for (const e of data.entries) {
+              if (['spend', 'cardcharge', 'cashpayment'].includes(e.type)) {
+                  const t = (e.tag || 'Untagged').trim().toLowerCase();
+                  if (t === selectedTag.toLowerCase()) sum += (Number(e.amount) || 0);
+              }
+          }
+          totalRangeSpend += sum;
+          return { label: monthKeyShort(k), value: sum, color: 'var(--blue)' };
+      });
+
+      const tagOptions = tags.map(t => `<option value="${escapeHtml(t)}" ${t.toLowerCase() === selectedTag.toLowerCase() ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('');
+
+      let chartContent = `<div class="empty-chart">No spends tagged under "${escapeHtml(selectedTag)}" in this period.</div>`;
+      if (totalRangeSpend > 0) {
+          const maxVal = Math.max(1, ...pairs.map(p => p.value));
+          const cols = pairs.map(p => `
+            <div class="bar-col">
+              <div class="bval num" style="font-size: 0.68rem;">${fmtINRShort(p.value)}</div>
+              <div class="bar" style="height:${Math.max(4, (p.value / maxVal * 130))}px; background:${p.color};"></div>
+              <div class="blabel">${p.label}</div>
+            </div>`).join('');
+          chartContent = `<div class="bars">${cols}</div>`;
+      }
+
+      chartHtml = `
+      <div class="section-title"><h2>Monthly Charts</h2><span class="hint">Tag spending over time</span></div>
+      <div class="chart-card">
+        <div class="chart-toolbar" style="gap: 8px; flex-wrap: nowrap; align-items: stretch;">
+          <select id="tag-chart-select" style="padding: 4px 12px; border: 1px solid var(--hair); border-radius: 999px; background: var(--ice-2); font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--muted); cursor: pointer; outline: none; flex: 1 1 0%; min-width: 0; max-width: 200px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">
+            ${tagOptions}
+          </select>
+          <div class="range-toggle" style="flex-shrink: 0; margin: 0;">
+            <button class="range-btn ${chartRangeMonths === 6 ? 'active' : ''}" data-tag-range="6" type="button">6M</button>
+            <button class="range-btn ${chartRangeMonths === 9 ? 'active' : ''}" data-tag-range="9" type="button">9M</button>
+            <button class="range-btn ${chartRangeMonths === 12 ? 'active' : ''}" data-tag-range="12" type="button">1Y</button>
+          </div>
+        </div>
+        ${chartContent}
+      </div>`;
+  }
+
   const tb = document.getElementById('global-topbar');
   if (tb) tb.style.display = '';
 
@@ -226,8 +286,9 @@ async function renderMonths() {
     <div class="section-title"><h2>Previous months</h2><span class="hint">Tap a month to open it</span></div>
     <div class="months-list">${rows}</div>
   </div>
-  
-  <div id="monthly-charts-section">${renderMonthlyChartsSection(bulkData, keysAsc)}</div>
+  <div class="section">
+    ${chartHtml}
+  </div>
   `;
 
   appendPageChrome(root);
@@ -235,11 +296,18 @@ async function renderMonths() {
   setupTableScrollIndicators(root);
 }
 
+root.addEventListener('change', async (ev) => {
+  if (ev.target.id === 'tag-chart-select') {
+    selectedTag = ev.target.value;
+    await renderMonths();
+  }
+});
+
 root.addEventListener('click', async (ev) => {
-  const chartRangeBtn = ev.target.closest('[data-chart-range]');
-  if (chartRangeBtn) {
-    chartRangeMonths = Number(chartRangeBtn.dataset.chartRange);
-    refreshChartSection();
+  const rangeBtn = ev.target.closest('[data-tag-range]');
+  if (rangeBtn) {
+    chartRangeMonths = Number(rangeBtn.dataset.tagRange);
+    await renderMonths();
     return;
   }
 
@@ -274,7 +342,7 @@ root.addEventListener('change', (ev) => {
   }
 });
 
-window.addEventListener('auth:signed-in', renderMonths);
+window.addEventListener('auth:signed-in', () => { bulkDataCache = null; renderMonths(); });
 window.addEventListener('auth:checked', renderMonths);
 
 // Wait for the first /api/auth/me round trip so we never flash the

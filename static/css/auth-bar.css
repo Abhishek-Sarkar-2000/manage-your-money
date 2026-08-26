@@ -62,7 +62,6 @@
 }
 
 .burger-menu-panel {
-  display: none;
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
@@ -70,17 +69,23 @@
   gap: 2px;
   min-width: 160px;
   background: #fff;
-  margin-right: 8px;
   border: 1px solid var(--hair);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow);
-  animation: fadeInDown 0.15s ease both;
   padding: 6px;
   z-index: 90;
+  margin-right: 8px;
+  display: flex;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.15s ease, visibility 0.15s ease, transform 0.15s ease;
 }
 
-.burger-menu-panel:not([hidden]) {
-  display: flex;
+.burger-menu-panel.show {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .burger-menu-panel .range-btn {
@@ -165,7 +170,17 @@
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow);
   padding: 6px;
-  animation: fadeInDown 0.15s ease both;
+  
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.15s ease, visibility 0.15s ease, transform 0.15s ease;
+}
+
+.profile-menu.show {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .profile-menu-email {

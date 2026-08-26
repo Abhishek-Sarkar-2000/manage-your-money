@@ -129,6 +129,15 @@
   color: #fff;
 }
 
+:root[data-theme="hi-contrast"] .price-category-title {
+  background: var(--blue);
+  color: var(--text-white);
+  border: 1px solid var(--navy);
+}
+:root[data-theme="hi-contrast"] .price-category-title::before {
+  background: var(--text-white);
+}
+
 @media (hover: none) {
   :root[data-theme="hi-contrast"] .stat-back {
     box-shadow: none !important;
@@ -197,6 +206,7 @@
 :root[data-theme="dark"] .emi-card,
 :root[data-theme="dark"] .month-row,
 :root[data-theme="dark"] .profile-menu,
+:root[data-theme="dark"] .burger-menu-panel,
 :root[data-theme="dark"] tbody td,
 :root[data-theme="dark"] .field select,
 :root[data-theme="dark"] .burger-menu-panel,
