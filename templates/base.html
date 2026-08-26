@@ -124,8 +124,11 @@
     document.addEventListener('scroll', () => {
       const tb = document.getElementById('global-topbar');
       if (tb) {
-        if (window.scrollY > 10) tb.classList.add('scrolled');
-        else tb.classList.remove('scrolled');
+        if (window.scrollY > 20) {
+          tb.classList.add('scrolled');
+        } else if (window.scrollY < 10) {
+          tb.classList.remove('scrolled');
+        }
       }
     }, { passive: true });
 

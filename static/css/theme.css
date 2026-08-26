@@ -276,7 +276,9 @@
 }
 
 :root[data-theme="dark"] .price-category-title {
-  color: var(--hair);
+  background: var(--hair);
+  color: var(--navy);
+  box-shadow: 0 10px 24px rgba(2, 11, 22, 0.77), 0 2px 6px rgba(9, 21, 36, 0.6);
 }
 
 :root[data-theme="dark"] .del-popover {
