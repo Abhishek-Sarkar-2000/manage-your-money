@@ -1,3 +1,38 @@
+/* ---------- Monthly Charts (tag spend bar chart) ---------- */
+.chart-toolbar--split {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.tag-select {
+  padding: 8px 30px 8px 12px;
+  border: 1px solid var(--hair);
+  border-radius: 7px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78rem;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.tag-select:focus {
+  outline: 2px solid var(--sky);
+  outline-offset: 1px;
+  border-color: var(--blue);
+}
+
+@media (max-width: 480px) {
+  .tag-select {
+    flex: 1 1 100%;
+  }
+  .chart-toolbar--split .range-toggle {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+}
+
 /* ---------- Previous months list ---------- */
 .months-list {
   display: flex;

@@ -200,7 +200,8 @@
 :root[data-theme="dark"] tbody td,
 :root[data-theme="dark"] .field select,
 :root[data-theme="dark"] .burger-menu-panel,
-:root[data-theme="dark"] .donut::after {
+:root[data-theme="dark"] .donut::after,
+:root[data-theme="dark"] .tag-select {
   background: var(--ice-2) !important;
   color: var(--navy);
   border-color: var(--sky) !important;

@@ -556,6 +556,7 @@ brotli
   display: flex;
   align-items: center;
   gap: 8px;
+  border-radius: 999px;
 }
 
 /* ---------- Burger (mobile only) ---------- */
@@ -590,9 +591,11 @@ brotli
   gap: 2px;
   min-width: 160px;
   background: #fff;
+  margin-right: 8px;
   border: 1px solid var(--hair);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow);
+  animation: fadeInDown 0.15s ease both;
   padding: 6px;
   z-index: 90;
 }
@@ -2885,10 +2888,16 @@ transform: translateY(0);
 }
 
 :root[data-theme="hi-contrast"] .tag-bar,
-:root[data-theme="hi-contrast"] .bar {
+:root[data-theme="hi-contrast"] .bar,
+:root[data-theme="hi-contrast"] .shared-share-bar {
   background-image: none !important;
   border: solid 1.2px #000000;
   border-bottom: none;
+}
+:root[data-theme="hi-contrast"] .shared-debt-segment {
+  background-image: none !important;
+  border: solid 1.2px #000000;
+  border-left: none;
 }
 
 :root[data-theme="hi-contrast"] {
@@ -2983,7 +2992,8 @@ transform: translateY(0);
 :root[data-theme="dark"] body {
   background:
     repeating-linear-gradient(180deg, transparent 0 39px, rgba(136, 142, 184, 0.12) 40px 41px),
-    linear-gradient(160deg, var(--ice) 0%, var(--paper) 45%, var(--ice-2) 100%);
+    linear-gradient(160deg, #191847 0%, var(--paper) 45%, var(--ice-2) 100%);
+    background-attachment: scroll, fixed;
 }
 
 :root[data-theme="dark"] .card,
@@ -2996,20 +3006,22 @@ transform: translateY(0);
 :root[data-theme="dark"] .profile-menu,
 :root[data-theme="dark"] tbody td,
 :root[data-theme="dark"] .field select,
+:root[data-theme="dark"] .burger-menu-panel,
 :root[data-theme="dark"] .donut::after {
   background: var(--ice-2) !important;
   color: var(--navy);
-  border-color: var(--hair) !important;
+  border-color: var(--sky) !important;
 }
 
 :root[data-theme="dark"] .chart-card,
 :root[data-theme="dark"] .action-card,
 :root[data-theme="dark"] .split-group-card,
 :root[data-theme="dark"] .split-settle-card,
-:root[data-theme="dark"] .stat-front {
+:root[data-theme="dark"] .stat-front,
+:root[data-theme="dark"] .balance-box {
   background: linear-gradient(135deg, var(--hair) 0%, var(--ice-2) 100%) !important;
   color: var(--navy);
-  border-color: var(--hair) !important;
+  border-color: var(--sky) !important;
 }
 
 :root[data-theme="dark"] .stat-popover,
@@ -3037,6 +3049,10 @@ transform: translateY(0);
   fill: var(--muted) !important;
 }
 
+:root[data-theme="dark"] .meta-text {
+  color: var(--royal) !important;
+}
+
 :root[data-theme="dark"] svg.linechart line {
   stroke: var(--sky) !important;
 }
@@ -3045,7 +3061,7 @@ transform: translateY(0);
   background: linear-gradient(135deg, #181938 0%, #252458 55%, #3C367E 100%) !important;
   border: solid;
   border-width: 1px;
-  border-color: var(--blue);
+  border-color: var(--blue-soft);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
 
@@ -3082,6 +3098,7 @@ transform: translateY(0);
 :root[data-theme="dark"] .price-category-title {
   background: var(--hair);
   color: var(--navy);
+  border: 1px solid var(--blue-soft);
   box-shadow: 0 10px 24px rgba(2, 11, 22, 0.77), 0 2px 6px rgba(9, 21, 36, 0.6);
 }
 
@@ -3093,6 +3110,11 @@ transform: translateY(0);
 :root[data-theme="dark"] .toast {
   background: var(--ice);
   border: solid 1px var(--sky) ;
+}
+
+:root[data-theme="dark"] .auth-controls {
+  border: 1px solid var(--blue-soft);
+  background: var(--hair);
 }
 
 @media (hover: none) {
@@ -3390,6 +3412,7 @@ footer {
   background: var(--ice-2);
   border: 1px solid var(--hair);
   border-radius: var(--radius-sm);
+  background: linear-gradient(160deg, #fff, var(--ice-2));
   padding: 12px 16px;
   position: relative;
   z-index: 2;
@@ -6807,9 +6830,8 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   }
 
   let metaHtml = '';
-  const dictEntry = priceTrackDictionary ? priceTrackDictionary[e.description] : null;
-  if (dictEntry && dictEntry.meta) {
-    const meta = dictEntry.meta;
+  const meta = e.meta || null;
+  if (meta) {
     if (meta.source && meta.destination) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.source)} → ${escapeHtml(meta.destination)}</span>`;
     else if (meta.quantity && meta.location) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.quantity)} @ ${escapeHtml(meta.location)}</span>`;
     else if (meta.quantity) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.quantity)}</span>`;
@@ -7346,27 +7368,37 @@ async function handleSubmit(kind) {
     }
     if (!spendDesc || !amount || amount <= 0) { showToast('Enter a spend description and amount'); return; }
 
+    let meta = null;
     if (uimode === 'regular') {
-      const syncBtn = $('#f-price-track-btn');
-      if (syncBtn && syncBtn.classList.contains('active')) {
-        let meta = {};
-        const catLower = (tag || '').toLowerCase();
+      const catLower = (tag || '').toLowerCase();
+      if (['groceries', 'transport', 'fuel', 'rent'].includes(catLower)) {
+        meta = {};
         if (catLower === 'groceries') meta.quantity = $('#sp-quantity')?.value || '';
         if (catLower === 'transport') { meta.source = $('#sp-source')?.value || ''; meta.destination = $('#sp-destination')?.value || ''; }
         if (catLower === 'fuel') { meta.quantity = $('#sp-quantity')?.value || ''; meta.location = $('#sp-location')?.value || ''; }
         if (catLower === 'rent') meta.location = $('#sp-location')?.value || '';
+      }
 
-        priceTrackDictionary[spendDesc] = { category: tag, meta };
-        Store.set('price-track-dict', priceTrackDictionary);
+      const syncBtn = $('#f-price-track-btn');
+      if (syncBtn && syncBtn.classList.contains('active')) {
+        const isSameMeta = (a, b) => {
+          return (a?.source || '') === (b?.source || '') &&
+                 (a?.destination || '') === (b?.destination || '') &&
+                 (a?.quantity || '') === (b?.quantity || '') &&
+                 (a?.location || '') === (b?.location || '');
+        };
 
-        let item = priceItems.find(i => i.name.toLowerCase() === spendDesc.toLowerCase());
-        if (!item) { item = { id: uid(), name: spendDesc, category: tag, history: [], meta }; priceItems.push(item); }
-        else item.meta = meta;
+        // Find an existing Price Track item matching BOTH description and exact route/metadata
+        let item = priceItems.find(i => i.name.toLowerCase() === spendDesc.toLowerCase() && isSameMeta(i.meta, meta));
+        if (!item) {
+          item = { id: uid(), name: spendDesc, category: tag, history: [], meta };
+          priceItems.push(item);
+        }
         item.history.push({ id: uid(), date, price: amount, note: 'Synced from Spends' });
-        Store.set('price-items', priceItems);
+        await Store.set('price-items', priceItems);
       }
     }
-    data.entries.push({ id: uid(), type: 'spend', description: spendDesc, amount, date, paymentMode: mode, cardId, tag, lent: collectLent() });
+    data.entries.push({ id: uid(), type: 'spend', description: spendDesc, amount, date, paymentMode: mode, cardId, tag, lent: collectLent(), meta });
   } else if (kind === 'cardcharge') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a spend description and amount'); return; }
     const cardId = $('#f-card').value;
@@ -7944,6 +7976,14 @@ function renderPriceDetailsPanel(item) {
   const hist = sortedPriceHistory(item);
   const chart = priceLineChart(hist);
 
+  let metaHtml = '';
+  if (item.meta) {
+    if (item.meta.source && item.meta.destination) metaHtml = `<span class="meta-text">${escapeHtml(item.meta.source)} → ${escapeHtml(item.meta.destination)}</span>`;
+    else if (item.meta.quantity && item.meta.location) metaHtml = `<span class="meta-text">${escapeHtml(item.meta.quantity)} @ ${escapeHtml(item.meta.location)}</span>`;
+    else if (item.meta.quantity) metaHtml = `<span class="meta-text">${escapeHtml(item.meta.quantity)}</span>`;
+    else if (item.meta.location) metaHtml = `<span class="meta-text">${escapeHtml(item.meta.location)}</span>`;
+  }
+
   const rowsHtml = [...hist].reverse().map(h => {
     const dateLabel = h.date ? new Date(h.date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
     return `
@@ -7975,7 +8015,13 @@ function renderPriceDetailsPanel(item) {
 
   return `
   <div class="price-details-panel" data-price-details="${item.id}" style="margin-top:2px;">
-    <div class="section-title"><h2>${escapeHtml(item.name)} — Price History</h2><span class="hint">${hist.length} entr${hist.length === 1 ? 'y' : 'ies'} logged</span></div>
+    <div class="section-title">
+      <div>
+        <h2>${escapeHtml(item.name)} — Price History</h2>
+        ${metaHtml ? `<div style="margin-top: 4px;">${metaHtml}</div>` : ''}
+      </div>
+      <span class="hint">${hist.length} entr${hist.length === 1 ? 'y' : 'ies'} logged</span>
+    </div>
     <div class="chart-card" style="margin-top:14px;">${chart}</div>
     ${addBtnHtml}
     ${formHtml}
