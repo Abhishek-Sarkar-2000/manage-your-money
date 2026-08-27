@@ -37,7 +37,7 @@
   {% block topbar %}
   <div id="global-topbar" class="topbar-wrapper">
     <div class="topbar">
-      <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
+      <a class="brand" href="/home"><span class="mark">₹</span><span id="brand-name">LedgerNote</span></a>
       {% block auth_bar %}
       <div id="auth-bar" class="auth-bar">
         <div id="theme-selector" class="range-toggle">
@@ -58,17 +58,20 @@
               <img id="profile-avatar" class="profile-avatar" alt="" referrerpolicy="no-referrer"/>
               <span id="profile-name" class="profile-name"></span>
             </button>
-            <div id="profile-menu" class="profile-menu" role="menu">
-              <div id="profile-menu-email" class="profile-menu-email"></div>
-              <button id="profile-signout-btn" class="profile-menu-item" type="button" role="menuitem">Sign out</button>
-            </div>
           </div>
-        </div>
 
-        <div id="burger-menu-panel" class="burger-menu-panel" role="menu">
-          <button class="range-btn" data-theme-btn="default" type="button">Default</button>
-          <button class="range-btn" data-theme-btn="hi-contrast" type="button">Hi-Contrast</button>
-          <button class="range-btn" data-theme-btn="dark" type="button">Dark</button>
+          <!-- Unified Dropdown Menu -->
+          <div id="profile-menu" class="profile-menu" role="menu">
+            <div class="mobile-theme-group">
+              <div class="pm-group-label">Theme <span style="font-size: 0.55rem; margin-top: 3px;">▾</span></div>
+              <button class="profile-menu-item theme-opt" data-theme-btn="default" type="button">Light</button>
+              <button class="profile-menu-item theme-opt" data-theme-btn="hi-contrast" type="button">Hi-contrast</button>
+              <button class="profile-menu-item theme-opt" data-theme-btn="dark" type="button">Dark</button>
+              <div class="pm-divider" id="pm-theme-divider"></div>
+            </div>
+            <div id="profile-menu-email" class="profile-menu-email"></div>
+            <button id="profile-signout-btn" class="profile-menu-item" type="button" role="menuitem">Sign out</button>
+          </div>
         </div>
       </div>
       {% endblock %}

@@ -5,8 +5,34 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/views/split.css') }}?v={{ static_version }}" />
 {% endblock %}
 {% block topbar %}
-  <div class="topbar">
-    <div class="brand"><span class="mark">₹</span> LedgerNote</div>
+  <div id="global-topbar" class="topbar-wrapper">
+    <div class="topbar">
+      <div class="brand"><span class="mark">₹</span> <span id="brand-name">LedgerNote</span></div>
+      
+      <div id="auth-bar" class="auth-bar">
+        <div id="theme-selector" class="range-toggle">
+          <button class="range-btn" data-theme-btn="default" type="button">Default</button>
+          <button class="range-btn" data-theme-btn="hi-contrast" type="button">Hi-Contrast</button>
+          <button class="range-btn" data-theme-btn="dark" type="button">Dark</button>
+        </div>
+
+        <div id="auth-controls" class="auth-controls">
+          <button id="burger-menu-btn" class="burger-menu-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Theme options">
+            <span class="burger-line"></span><span class="burger-line"></span><span class="burger-line"></span>
+          </button>
+
+          <div id="profile-menu" class="profile-menu" role="menu">
+            <div class="mobile-theme-group">
+              <div class="pm-group-label">Theme <span style="font-size: 0.55rem; margin-top: 3px;">▾</span></div>
+              <button class="profile-menu-item theme-opt" data-theme-btn="default" type="button">Light</button>
+              <button class="profile-menu-item theme-opt" data-theme-btn="hi-contrast" type="button">Hi-contrast</button>
+              <button class="profile-menu-item theme-opt" data-theme-btn="dark" type="button">Dark</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+    </div>
   </div>
 {% endblock %}
 {% block content %}

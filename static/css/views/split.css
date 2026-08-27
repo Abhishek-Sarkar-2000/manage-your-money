@@ -35,7 +35,8 @@
   font-size: 0.72rem;
   color: var(--muted);
   font-family: 'IBM Plex Mono', monospace;
-  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--sky);
 }
 
 .split-group-card .sgc-people {
@@ -43,6 +44,7 @@
   flex-direction: column;
   gap: 6px;
   margin-bottom: 6px;
+  margin-top: 6px;
 }
 
 .split-group-card .sgc-person {
@@ -125,18 +127,14 @@
   position: relative;
   width: 100%;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 14px 10px;
+  align-items: center;
 }
 
 .shared-debt-row {
-  display: grid;
-  grid-template-columns: clamp(72px, 20%, 140px) minmax(0, 1fr);
-  gap: 10px;
-  align-items: center;
-  width: 100%;
-  min-width: 0;
+  display: contents;
 }
 
 .shared-debt-label {
@@ -145,8 +143,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 
+  font-family: 'IBM Plex Mono', monospace;
   font-size: 0.78rem;
   font-weight: 600;
+  text-align: right;
   color: var(--royal);
 }
 
@@ -225,7 +225,6 @@
 .shared-debt-axis {
   position: relative;
   height: 28px;
-  margin-left: clamp(72px, 20%, 140px);
   border-top: 1px solid var(--hair);
 }
 
@@ -423,6 +422,7 @@
 .shared-share-label {
   width: 100%;
   padding-top: 6px;
+  font-family: 'IBM Plex Mono', monospace;
   font-size: clamp(0.56rem, 1vw, 0.7rem);
   color: var(--royal);
   text-align: center;
@@ -461,12 +461,8 @@
 
 @media (max-width: 960px) {
 
-  .shared-debt-row {
-    grid-template-columns:
-      clamp(62px, 22%, 90px)
-      minmax(0, 1fr);
-
-    gap: 7px;
+  .shared-debt-bars {
+    gap: 14px 7px;
   }
 
   .shared-debt-plot {
@@ -487,10 +483,6 @@
 
   .shared-debt-total.outside {
     transform: translateX(6px);
-  }
-
-  .shared-debt-axis {
-    margin-left: clamp(62px, 22%, 90px);
   }
 
   .shared-debt-x-tick {
@@ -578,10 +570,14 @@ body.shared-mode .shared-shares-table th:last-child {
   display: table-cell !important;
 }
 
-@media (max-width: 480px) {
-  body.shared-mode .topbar,
-  body[data-is-shared="true"] .topbar {
-    justify-content: center;
+@media (max-width: 639px) {
+  body.shared-mode .burger-menu-btn {
+    padding: 0px;
+    align-items: center;
+  }
+  body.shared-mode .auth-controls {
+    padding: 0px;
+    border-radius: 10px;
   }
 
   body.shared-mode .topbar .brand,

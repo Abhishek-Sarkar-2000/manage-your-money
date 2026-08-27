@@ -32,10 +32,11 @@
 
 /* ---------- Sign-in / profile cluster ---------- */
 .auth-controls {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  border-radius: 999px;
+  padding-left: 4px;
+  gap: 4px;
 }
 
 /* ---------- Burger (mobile only) ---------- */
@@ -61,38 +62,6 @@
   background: var(--royal);
 }
 
-.burger-menu-panel {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 160px;
-  background: #fff;
-  border: 1px solid var(--hair);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow);
-  padding: 6px;
-  z-index: 90;
-  margin-right: 8px;
-  display: flex;
-  visibility: hidden;
-  opacity: 0;
-  transform: translateY(-8px);
-  transition: opacity 0.15s ease, visibility 0.15s ease, transform 0.15s ease;
-}
-
-.burger-menu-panel.show {
-  visibility: visible;
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.burger-menu-panel .range-btn {
-  width: 100%;
-  text-align: left;
-}
-
 @media (max-width: 639px) {
   #theme-selector.range-toggle {
     display: none;                 /* collapses into the burger panel */
@@ -105,7 +74,6 @@
   .auth-controls {
     border: 1px solid var(--hair);
     border-radius: 999px;
-    padding: 4px 6px;
     background: #fff;
   }
 }
@@ -132,7 +100,6 @@
   gap: 8px;
   border: 1px solid transparent;
   background: transparent;
-  border-radius: 999px;
   padding: 4px;
   cursor: pointer;
   font-family: 'Source Serif 4', serif;
@@ -144,6 +111,7 @@
 .profile-badge-btn[aria-expanded="true"] {
   background: var(--ice);
   border-color: var(--hair);
+  border-radius: 999px;
 }
 
 .profile-avatar {
@@ -199,18 +167,59 @@
   text-align: left;
   border: none;
   background: transparent;
-  padding: 9px 10px;
+  padding: 7px 10px;
   border-radius: var(--radius-sm);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.88rem;
+  font-size: 0.72rem;
   font-weight: 600;
   color: var(--ink);
   cursor: pointer;
   transition: background 0.15s ease;
+  position: relative;
 }
 
 .profile-menu-item:hover {
   background: var(--ice-2);
+}
+
+.mobile-theme-group {
+  display: none;
+}
+
+.pm-group-label {
+  padding: 8px 10px 4px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+}
+
+.pm-divider {
+  height: 1px;
+  background: var(--hair);
+  margin: 4px 0;
+}
+
+.theme-opt {
+  padding-left: 24px;
+  font-weight: 500;
+}
+
+.theme-opt.active {
+  color: var(--blue);
+}
+
+.theme-opt.active::before {
+  content: '✓';
+  position: absolute;
+  left: 8px;
+}
+
+@media (max-width: 639px) {
+  .mobile-theme-group {
+    display: block;
+  }
 }
 
 @media (max-width: 480px) {

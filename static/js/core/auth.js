@@ -137,13 +137,31 @@ function updateProfileBadge() {
   const signinEl = document.getElementById('google-signin-btn');
   const badgeEl = document.getElementById('profile-badge');
   const menuEl = document.getElementById('profile-menu');
+  const brandNameEl = document.getElementById('brand-name');
   if (!signinEl || !badgeEl) return;
 
+  const burgerBtn = document.getElementById('burger-menu-btn');
+  const emailEl = document.getElementById('profile-menu-email');
+  const signoutBtn = document.getElementById('profile-signout-btn');
+  const themeDivider = document.getElementById('pm-theme-divider');
+
   if (currentUser) {
+    if (brandNameEl) {
+      const isHome = window.location.pathname === '/' || window.location.pathname === '/home';
+      if (isHome) {
+        const firstName = (currentUser.name || '').split(' ')[0] || 'User';
+        brandNameEl.textContent = `${firstName}'s LedgerNote`;
+      } else {
+        brandNameEl.textContent = 'LedgerNote';
+      }
+    }
     signinEl.hidden = true;
     badgeEl.hidden = false;
+    if (burgerBtn) burgerBtn.hidden = true;
+    if (emailEl) emailEl.style.display = '';
+    if (signoutBtn) signoutBtn.style.display = '';
+    if (themeDivider) themeDivider.style.display = '';
     const avatar = document.getElementById('profile-avatar');
-    const emailEl = document.getElementById('profile-menu-email');
     if (avatar) {
       avatar.onerror = () => { avatar.style.display = 'none'; };
       avatar.style.visibility = 'visible';
@@ -157,41 +175,46 @@ function updateProfileBadge() {
     }
     if (emailEl) emailEl.textContent = currentUser.email || '';
   } else {
+    if (brandNameEl) {
+      brandNameEl.textContent = 'LedgerNote';
+    }
     signinEl.hidden = false;
     badgeEl.hidden = true;
+    if (burgerBtn) burgerBtn.hidden = false;
+    if (emailEl) emailEl.style.display = 'none';
+    if (signoutBtn) signoutBtn.style.display = 'none';
+    if (themeDivider) themeDivider.style.display = 'none';
     if (menuEl) menuEl.classList.remove('show');
   }
 }
 
 function wireAuthBar() {
   const badgeBtn = document.getElementById('profile-badge-btn');
+  const burgerBtn = document.getElementById('burger-menu-btn');
   const menuEl = document.getElementById('profile-menu');
   const signoutBtn = document.getElementById('profile-signout-btn');
 
-  if (badgeBtn && menuEl) {
-    badgeBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      const willOpen = !menuEl.classList.contains('show');
-      
-      // Close the burger menu if we are opening the profile menu
-      if (willOpen) {
-        const burgerPanel = document.getElementById('burger-menu-panel');
-        const burgerBtn = document.getElementById('burger-menu-btn');
-        if (burgerPanel) burgerPanel.classList.remove('show');
-        if (burgerBtn) burgerBtn.setAttribute('aria-expanded', 'false');
-      }
-      
-      menuEl.classList.toggle('show', willOpen);
-      badgeBtn.setAttribute('aria-expanded', String(willOpen));
-    });
-    document.addEventListener('click', (ev) => {
-      const badge = document.getElementById('profile-badge');
-      if (badge && !badge.contains(ev.target)) {
-        menuEl.classList.remove('show');
-        badgeBtn.setAttribute('aria-expanded', 'false');
-      }
-    });
-  }
+  const toggleMenu = (ev) => {
+    ev.stopPropagation();
+    if (!menuEl) return;
+    const willOpen = !menuEl.classList.contains('show');
+    menuEl.classList.toggle('show', willOpen);
+    if (badgeBtn) badgeBtn.setAttribute('aria-expanded', String(willOpen));
+    if (burgerBtn) burgerBtn.setAttribute('aria-expanded', String(willOpen));
+  };
+
+  if (badgeBtn) badgeBtn.addEventListener('click', toggleMenu);
+  if (burgerBtn) burgerBtn.addEventListener('click', toggleMenu);
+
+  document.addEventListener('click', (ev) => {
+    const authControls = document.getElementById('auth-controls');
+    if (authControls && !authControls.contains(ev.target)) {
+      if (menuEl) menuEl.classList.remove('show');
+      if (badgeBtn) badgeBtn.setAttribute('aria-expanded', 'false');
+      if (burgerBtn) burgerBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+
   if (signoutBtn) {
     signoutBtn.addEventListener('click', () => signOut());
   }
@@ -214,34 +237,14 @@ function initThemeSelector() {
       localStorage.setItem('ledger-theme', theme);
       document.documentElement.setAttribute('data-theme', theme);
       syncActiveStates();
-      const panel = document.getElementById('burger-menu-panel');
+      
+      const profileMenu = document.getElementById('profile-menu');
+      const profileBtn = document.getElementById('profile-badge-btn');
       const burgerBtn = document.getElementById('burger-menu-btn');
-      if (panel) panel.classList.remove('show');
+      
+      if (profileMenu) profileMenu.classList.remove('show');
+      if (profileBtn) profileBtn.setAttribute('aria-expanded', 'false');
       if (burgerBtn) burgerBtn.setAttribute('aria-expanded', 'false');
-      return;
-    }
-
-    const burgerBtn = ev.target.closest('#burger-menu-btn');
-    const panel = document.getElementById('burger-menu-panel');
-    if (burgerBtn && panel) {
-      const willOpen = !panel.classList.contains('show');
-      
-      // Close the profile menu if we are opening the burger menu
-      if (willOpen) {
-        const profileMenu = document.getElementById('profile-menu');
-        const profileBtn = document.getElementById('profile-badge-btn');
-        if (profileMenu) profileMenu.classList.remove('show');
-        if (profileBtn) profileBtn.setAttribute('aria-expanded', 'false');
-      }
-      
-      panel.classList.toggle('show', willOpen);
-      burgerBtn.setAttribute('aria-expanded', String(willOpen));
-      return;
-    }
-
-    if (panel && panel.classList.contains('show') && !ev.target.closest('#burger-menu-panel')) {
-      panel.classList.remove('show');
-      document.getElementById('burger-menu-btn')?.setAttribute('aria-expanded', 'false');
     }
   });
 

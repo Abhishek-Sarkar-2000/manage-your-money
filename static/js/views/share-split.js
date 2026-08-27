@@ -14,19 +14,93 @@ import { appendPageChrome } from '../components/page-chrome.js';
 import { wireSplitCallouts } from '../components/split-callout.js';
 import { markRendered } from '../components/render-guard.js';
 
+function initPublicThemeSelector() {
+  const syncActiveStates = () => {
+    const theme = localStorage.getItem('ledger-theme') || 'default';
+    document.querySelectorAll('[data-theme-btn]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.themeBtn === theme);
+    });
+  };
+
+  document.addEventListener('click', (ev) => {
+    const themeBtn = ev.target.closest('[data-theme-btn]');
+    if (themeBtn) {
+      const theme = themeBtn.dataset.themeBtn;
+      localStorage.setItem('ledger-theme', theme);
+      document.documentElement.setAttribute('data-theme', theme);
+      syncActiveStates();
+      
+      const profileMenu = document.getElementById('profile-menu');
+      const burgerBtn = document.getElementById('burger-menu-btn');
+      if (profileMenu) profileMenu.classList.remove('show');
+      if (burgerBtn) burgerBtn.setAttribute('aria-expanded', 'false');
+      return;
+    }
+
+    const burgerBtn = ev.target.closest('#burger-menu-btn');
+    const profileMenu = document.getElementById('profile-menu');
+    
+    if (burgerBtn && profileMenu) {
+      const willOpen = !profileMenu.classList.contains('show');
+      profileMenu.classList.toggle('show', willOpen);
+      burgerBtn.setAttribute('aria-expanded', String(willOpen));
+      return;
+    }
+
+    if (profileMenu && profileMenu.classList.contains('show') && !ev.target.closest('.auth-controls')) {
+      profileMenu.classList.remove('show');
+      const bBtn = document.getElementById('burger-menu-btn');
+      if (bBtn) bBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  syncActiveStates();
+}
+
+// Initialize immediately so click controls work regardless of async rendering
+initPublicThemeSelector();
+
+// Reveal the topbar controls after 1s to mimic the auth-check delay
+setTimeout(() => {
+  const authBar = document.getElementById('auth-bar');
+  if (authBar) {
+    authBar.style.opacity = '1';
+    authBar.style.visibility = 'visible';
+  }
+}, 1000);
+
 const root = document.getElementById('share-split-root');
 const shareId = root.dataset.shareId;
 
 function renderSplitGroupCardReadOnly(group, youLabel) {
   const paid = computeGroupPaid(group);
   const dateLabel = group.createdAt ? new Date(group.createdAt + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+  const totalSpends = (group.spends || []).reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+  
+  const headerRow = `
+    <div class="sgc-person" style="font-size: 0.65rem; font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; letter-spacing: 0.05em; color: var(--blue); margin-bottom: 2px;">
+      <span>Members</span>
+      <span>Total Paid</span>
+    </div>`;
+
   const rows = group.people.map(p => `
     <div class="sgc-person"><span class="spn">${p === SPLIT_YOU ? youLabel() : escapeHtml(p.toUpperCase())}</span><span class="spv">${fmtINR(paid[p] || 0)}</span></div>`).join('');
+    
+  const footerRow = `
+    <div class="sgc-person" style="margin-top: 4px; padding-top: 10px; border-top: 1px dashed var(--sky); color: var(--navy); font-weight: 600;">
+      <span>Total</span>
+      <span class="num">${fmtINR(totalSpends)}</span>
+    </div>`;
+
   return `
   <div class="split-group-card active" data-split-card="${group.id}">
     <h4>${escapeHtml(group.description)}</h4>
     <div class="sgc-date">${dateLabel}</div>
-    <div class="sgc-people">${rows}</div>
+    <div class="sgc-people">
+      ${headerRow}
+      ${rows}
+      ${footerRow}
+    </div>
   </div>`;
 }
 
@@ -113,11 +187,16 @@ async function renderSharedSplitPage() {
     return `<tr><td>${label}</td><td class="num">${fmtINR(paid[person] || 0)}</td><td class="num">${fmtINR(shareTotals[person] || 0)}</td></tr>`;
   }).join('');
 
+  const totalSpends = (group.spends || []).reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+
   markRendered(root);
   root.innerHTML = `
   <div class="section shared-page-header">
-    <div class="month-header"><h1>${escapeHtml(group.description)}</h1></div>
-    <p class="shared-page-subtitle">Shared Split Money group · ${group.people.length} people</p>
+    <div class="month-header">
+      <h1>${escapeHtml(group.description)}</h1>
+      <h4 style="margin: 8px 0px 2px 0px;">Total Spends: ${fmtINR(totalSpends)}</h4>
+    </div>
+    <p class="shared-page-subtitle">Shared group · ${group.people.length} people</p>
   </div>
 
   <div class="section">

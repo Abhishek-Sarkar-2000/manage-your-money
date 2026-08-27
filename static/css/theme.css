@@ -182,7 +182,7 @@
   --amber: #FCD277;
   --amber-bg: rgba(252, 210, 119, 0.15);
   --footer-bg: radial-gradient(ellipse 70% 80% at 50% 0%, var(--sky) 0%, var(--ice-2) 75%);
-  --footer-span: var(--muted);
+  --footer-span: #4a4d79;
 }
 
 /* Force Brand text to white */
@@ -206,12 +206,12 @@
 :root[data-theme="dark"] .emi-card,
 :root[data-theme="dark"] .month-row,
 :root[data-theme="dark"] .profile-menu,
-:root[data-theme="dark"] .burger-menu-panel,
 :root[data-theme="dark"] tbody td,
 :root[data-theme="dark"] .field select,
 :root[data-theme="dark"] .burger-menu-panel,
 :root[data-theme="dark"] .donut::after,
-:root[data-theme="dark"] .tag-select {
+:root[data-theme="dark"] .tag-select,
+:root[data-theme="dark"] .stat-popover {
   background: var(--ice-2) !important;
   color: var(--navy);
   border-color: var(--sky) !important;
@@ -228,7 +228,6 @@
   border-color: var(--sky) !important;
 }
 
-:root[data-theme="dark"] .stat-popover,
 :root[data-theme="dark"] .split-row-popover {
   background: var(--hair) !important;
   color: var(--navy);
@@ -246,7 +245,6 @@
 :root[data-theme="dark"] thead th {
   background: var(--hair) !important;
   color: var(--navy);
-  border-color: var(--hair) !important;
 }
 
 :root[data-theme="dark"] svg.linechart text {
@@ -316,9 +314,11 @@
   border: solid 1px var(--sky) ;
 }
 
-:root[data-theme="dark"] .auth-controls {
-  border: 1px solid var(--blue-soft);
-  background: var(--hair);
+@media (max-width: 639px) {
+  :root[data-theme="dark"] .auth-controls {
+    border: 1px solid var(--blue-soft);
+    background: var(--hair);
+  }
 }
 
 @media (hover: none) {

@@ -72,8 +72,23 @@ function renderSplitAddForm() {
 function renderSplitGroupCard(group) {
   const paid = computeGroupPaid(group);
   const dateLabel = group.createdAt ? new Date(group.createdAt + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+  const totalSpends = (group.spends || []).reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+  
+  const headerRow = `
+    <div class="sgc-person" style="font-size: 0.65rem; font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; letter-spacing: 0.05em; color: var(--blue); margin-bottom: 2px;">
+      <span>Members</span>
+      <span>Total Paid</span>
+    </div>`;
+
   const rows = group.people.map(p => `
     <div class="sgc-person"><span class="spn">${p === SPLIT_YOU ? youLabel() : escapeHtml(p.toUpperCase())}</span><span class="spv">${fmtINR(paid[p] || 0)}</span></div>`).join('');
+    
+  const footerRow = `
+    <div class="sgc-person" style="margin-top: 4px; padding-top: 10px; border-top: 1px dashed var(--sky); color: var(--navy); font-weight: 600;">
+      <span>Total Spends</span>
+      <span class="num">${fmtINR(totalSpends)}</span>
+    </div>`;
+    
   const active = splitExpandedId === group.id ? 'active' : '';
 
   const { cards } = computeGroupSettlementView(group);
@@ -96,7 +111,11 @@ function renderSplitGroupCard(group) {
       ${actionsHtml}
     </div>
     <div class="sgc-date">${dateLabel}</div>
-    <div class="sgc-people">${rows}</div>
+    <div class="sgc-people">
+      ${headerRow}
+      ${rows}
+      ${footerRow}
+    </div>
   </div>`;
 }
 
@@ -184,9 +203,14 @@ function renderSplitDetailsPanel(group) {
     <button class="pill-btn" data-open-split-spend-form type="button">+ Add Spend</button>
   </div>` : '';
 
+  const totalSpends = (group.spends || []).reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+
   return `
   <div class="split-details-panel" data-split-details="${group.id}" style="margin-top: 2px;">
-    <div class="section-title"><h2>${escapeHtml(group.description)} - Ledger</h2><span class="hint">${group.people.length} people</span></div>
+    <div class="section-title">
+      <h2>${escapeHtml(group.description)} - Ledger</h2>
+      <span class="hint">Total Spends: ${fmtINR(totalSpends)} · ${group.people.length} people</span>
+    </div>
     ${addBtnHtml}
     ${formHtml}
     <div class="form-note" style="margin-top:18px; margin-bottom:8px;">All group spends are listed here. Click a spend name to view share divisions.</div>

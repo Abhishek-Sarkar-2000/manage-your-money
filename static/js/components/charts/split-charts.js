@@ -84,10 +84,13 @@ export function sharedStackedDebtChart(group, getYouLabel) {
 
   return `
     <div class="shared-debt-chart">
-      <div class="shared-debt-bars">${bars}</div>
-      <div class="shared-debt-axis">
-        <div class="shared-debt-axis-line"></div>
-        ${xLabels}
+      <div class="shared-debt-bars">
+        ${bars}
+        <div></div>
+        <div class="shared-debt-axis">
+          <div class="shared-debt-axis-line"></div>
+          ${xLabels}
+        </div>
       </div>
       <div class="shared-chart-axis-title">Amount (₹)</div>
       <div class="shared-chart-legend">${legend}</div>

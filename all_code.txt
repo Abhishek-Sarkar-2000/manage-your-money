@@ -553,10 +553,11 @@ brotli
 
 /* ---------- Sign-in / profile cluster ---------- */
 .auth-controls {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  border-radius: 999px;
+  padding-left: 4px;
+  gap: 4px;
 }
 
 /* ---------- Burger (mobile only) ---------- */
@@ -582,33 +583,6 @@ brotli
   background: var(--royal);
 }
 
-.burger-menu-panel {
-  display: none;
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 160px;
-  background: #fff;
-  margin-right: 8px;
-  border: 1px solid var(--hair);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow);
-  animation: fadeInDown 0.15s ease both;
-  padding: 6px;
-  z-index: 90;
-}
-
-.burger-menu-panel:not([hidden]) {
-  display: flex;
-}
-
-.burger-menu-panel .range-btn {
-  width: 100%;
-  text-align: left;
-}
-
 @media (max-width: 639px) {
   #theme-selector.range-toggle {
     display: none;                 /* collapses into the burger panel */
@@ -621,7 +595,6 @@ brotli
   .auth-controls {
     border: 1px solid var(--hair);
     border-radius: 999px;
-    padding: 4px 6px;
     background: #fff;
   }
 }
@@ -648,7 +621,6 @@ brotli
   gap: 8px;
   border: 1px solid transparent;
   background: transparent;
-  border-radius: 999px;
   padding: 4px;
   cursor: pointer;
   font-family: 'Source Serif 4', serif;
@@ -660,6 +632,7 @@ brotli
 .profile-badge-btn[aria-expanded="true"] {
   background: var(--ice);
   border-color: var(--hair);
+  border-radius: 999px;
 }
 
 .profile-avatar {
@@ -686,7 +659,17 @@ brotli
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow);
   padding: 6px;
-  animation: fadeInDown 0.15s ease both;
+  
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.15s ease, visibility 0.15s ease, transform 0.15s ease;
+}
+
+.profile-menu.show {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .profile-menu-email {
@@ -705,18 +688,59 @@ brotli
   text-align: left;
   border: none;
   background: transparent;
-  padding: 9px 10px;
+  padding: 7px 10px;
   border-radius: var(--radius-sm);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.88rem;
+  font-size: 0.72rem;
   font-weight: 600;
   color: var(--ink);
   cursor: pointer;
   transition: background 0.15s ease;
+  position: relative;
 }
 
 .profile-menu-item:hover {
   background: var(--ice-2);
+}
+
+.mobile-theme-group {
+  display: none;
+}
+
+.pm-group-label {
+  padding: 8px 10px 4px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+}
+
+.pm-divider {
+  height: 1px;
+  background: var(--hair);
+  margin: 4px 0;
+}
+
+.theme-opt {
+  padding-left: 24px;
+  font-weight: 500;
+}
+
+.theme-opt.active {
+  color: var(--blue);
+}
+
+.theme-opt.active::before {
+  content: '✓';
+  position: absolute;
+  left: 8px;
+}
+
+@media (max-width: 639px) {
+  .mobile-theme-group {
+    display: block;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1639,8 +1663,10 @@ td.actions-cell {
 
 .chart-toolbar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   margin-bottom: 10px;
+  width: 100%;
+  min-width: 0;
 }
 
 .shared-split-charts {
@@ -2936,6 +2962,15 @@ transform: translateY(0);
   color: #fff;
 }
 
+:root[data-theme="hi-contrast"] .price-category-title {
+  background: var(--blue);
+  color: var(--text-white);
+  border: 1px solid var(--navy);
+}
+:root[data-theme="hi-contrast"] .price-category-title::before {
+  background: var(--text-white);
+}
+
 @media (hover: none) {
   :root[data-theme="hi-contrast"] .stat-back {
     box-shadow: none !important;
@@ -2980,7 +3015,7 @@ transform: translateY(0);
   --amber: #FCD277;
   --amber-bg: rgba(252, 210, 119, 0.15);
   --footer-bg: radial-gradient(ellipse 70% 80% at 50% 0%, var(--sky) 0%, var(--ice-2) 75%);
-  --footer-span: var(--muted);
+  --footer-span: #4a4d79;
 }
 
 /* Force Brand text to white */
@@ -3007,7 +3042,9 @@ transform: translateY(0);
 :root[data-theme="dark"] tbody td,
 :root[data-theme="dark"] .field select,
 :root[data-theme="dark"] .burger-menu-panel,
-:root[data-theme="dark"] .donut::after {
+:root[data-theme="dark"] .donut::after,
+:root[data-theme="dark"] .tag-select,
+:root[data-theme="dark"] .stat-popover {
   background: var(--ice-2) !important;
   color: var(--navy);
   border-color: var(--sky) !important;
@@ -3024,7 +3061,6 @@ transform: translateY(0);
   border-color: var(--sky) !important;
 }
 
-:root[data-theme="dark"] .stat-popover,
 :root[data-theme="dark"] .split-row-popover {
   background: var(--hair) !important;
   color: var(--navy);
@@ -3042,7 +3078,6 @@ transform: translateY(0);
 :root[data-theme="dark"] thead th {
   background: var(--hair) !important;
   color: var(--navy);
-  border-color: var(--hair) !important;
 }
 
 :root[data-theme="dark"] svg.linechart text {
@@ -3112,9 +3147,11 @@ transform: translateY(0);
   border: solid 1px var(--sky) ;
 }
 
-:root[data-theme="dark"] .auth-controls {
-  border: 1px solid var(--blue-soft);
-  background: var(--hair);
+@media (max-width: 639px) {
+  :root[data-theme="dark"] .auth-controls {
+    border: 1px solid var(--blue-soft);
+    background: var(--hair);
+  }
 }
 
 @media (hover: none) {
@@ -3583,6 +3620,41 @@ footer {
 
 
 === ./static/css/views/months.css ===
+/* ---------- Monthly Charts (tag spend bar chart) ---------- */
+.chart-toolbar--split {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.tag-select {
+  padding: 8px 30px 8px 12px;
+  border: 1px solid var(--hair);
+  border-radius: 7px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78rem;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.tag-select:focus {
+  outline: 2px solid var(--sky);
+  outline-offset: 1px;
+  border-color: var(--blue);
+}
+
+@media (max-width: 480px) {
+  .tag-select {
+    flex: 1 1 100%;
+  }
+  .chart-toolbar--split .range-toggle {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+}
+
 /* ---------- Previous months list ---------- */
 .months-list {
   display: flex;
@@ -3928,7 +4000,8 @@ footer {
   font-size: 0.72rem;
   color: var(--muted);
   font-family: 'IBM Plex Mono', monospace;
-  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--sky);
 }
 
 .split-group-card .sgc-people {
@@ -3936,6 +4009,7 @@ footer {
   flex-direction: column;
   gap: 6px;
   margin-bottom: 6px;
+  margin-top: 6px;
 }
 
 .split-group-card .sgc-person {
@@ -4018,18 +4092,14 @@ footer {
   position: relative;
   width: 100%;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 14px 10px;
+  align-items: center;
 }
 
 .shared-debt-row {
-  display: grid;
-  grid-template-columns: clamp(72px, 20%, 140px) minmax(0, 1fr);
-  gap: 10px;
-  align-items: center;
-  width: 100%;
-  min-width: 0;
+  display: contents;
 }
 
 .shared-debt-label {
@@ -4038,8 +4108,10 @@ footer {
   text-overflow: ellipsis;
   white-space: nowrap;
 
+  font-family: 'IBM Plex Mono', monospace;
   font-size: 0.78rem;
   font-weight: 600;
+  text-align: right;
   color: var(--royal);
 }
 
@@ -4118,7 +4190,6 @@ footer {
 .shared-debt-axis {
   position: relative;
   height: 28px;
-  margin-left: clamp(72px, 20%, 140px);
   border-top: 1px solid var(--hair);
 }
 
@@ -4316,6 +4387,7 @@ footer {
 .shared-share-label {
   width: 100%;
   padding-top: 6px;
+  font-family: 'IBM Plex Mono', monospace;
   font-size: clamp(0.56rem, 1vw, 0.7rem);
   color: var(--royal);
   text-align: center;
@@ -4354,12 +4426,8 @@ footer {
 
 @media (max-width: 960px) {
 
-  .shared-debt-row {
-    grid-template-columns:
-      clamp(62px, 22%, 90px)
-      minmax(0, 1fr);
-
-    gap: 7px;
+  .shared-debt-bars {
+    gap: 14px 7px;
   }
 
   .shared-debt-plot {
@@ -4380,10 +4448,6 @@ footer {
 
   .shared-debt-total.outside {
     transform: translateX(6px);
-  }
-
-  .shared-debt-axis {
-    margin-left: clamp(62px, 22%, 90px);
   }
 
   .shared-debt-x-tick {
@@ -4471,10 +4535,14 @@ body.shared-mode .shared-shares-table th:last-child {
   display: table-cell !important;
 }
 
-@media (max-width: 480px) {
-  body.shared-mode .topbar,
-  body[data-is-shared="true"] .topbar {
-    justify-content: center;
+@media (max-width: 639px) {
+  body.shared-mode .burger-menu-btn {
+    padding: 0px;
+    align-items: center;
+  }
+  body.shared-mode .auth-controls {
+    padding: 0px;
+    border-radius: 10px;
   }
 
   body.shared-mode .topbar .brand,
@@ -4961,10 +5029,13 @@ export function sharedStackedDebtChart(group, getYouLabel) {
 
   return `
     <div class="shared-debt-chart">
-      <div class="shared-debt-bars">${bars}</div>
-      <div class="shared-debt-axis">
-        <div class="shared-debt-axis-line"></div>
-        ${xLabels}
+      <div class="shared-debt-bars">
+        ${bars}
+        <div></div>
+        <div class="shared-debt-axis">
+          <div class="shared-debt-axis-line"></div>
+          ${xLabels}
+        </div>
       </div>
       <div class="shared-chart-axis-title">Amount (₹)</div>
       <div class="shared-chart-legend">${legend}</div>
@@ -5564,13 +5635,31 @@ function updateProfileBadge() {
   const signinEl = document.getElementById('google-signin-btn');
   const badgeEl = document.getElementById('profile-badge');
   const menuEl = document.getElementById('profile-menu');
+  const brandNameEl = document.getElementById('brand-name');
   if (!signinEl || !badgeEl) return;
 
+  const burgerBtn = document.getElementById('burger-menu-btn');
+  const emailEl = document.getElementById('profile-menu-email');
+  const signoutBtn = document.getElementById('profile-signout-btn');
+  const themeDivider = document.getElementById('pm-theme-divider');
+
   if (currentUser) {
+    if (brandNameEl) {
+      const isHome = window.location.pathname === '/' || window.location.pathname === '/home';
+      if (isHome) {
+        const firstName = (currentUser.name || '').split(' ')[0] || 'User';
+        brandNameEl.textContent = `${firstName}'s LedgerNote`;
+      } else {
+        brandNameEl.textContent = 'LedgerNote';
+      }
+    }
     signinEl.hidden = true;
     badgeEl.hidden = false;
+    if (burgerBtn) burgerBtn.hidden = true;
+    if (emailEl) emailEl.style.display = '';
+    if (signoutBtn) signoutBtn.style.display = '';
+    if (themeDivider) themeDivider.style.display = '';
     const avatar = document.getElementById('profile-avatar');
-    const emailEl = document.getElementById('profile-menu-email');
     if (avatar) {
       avatar.onerror = () => { avatar.style.display = 'none'; };
       avatar.style.visibility = 'visible';
@@ -5584,32 +5673,46 @@ function updateProfileBadge() {
     }
     if (emailEl) emailEl.textContent = currentUser.email || '';
   } else {
+    if (brandNameEl) {
+      brandNameEl.textContent = 'LedgerNote';
+    }
     signinEl.hidden = false;
     badgeEl.hidden = true;
-    if (menuEl) menuEl.hidden = true;
+    if (burgerBtn) burgerBtn.hidden = false;
+    if (emailEl) emailEl.style.display = 'none';
+    if (signoutBtn) signoutBtn.style.display = 'none';
+    if (themeDivider) themeDivider.style.display = 'none';
+    if (menuEl) menuEl.classList.remove('show');
   }
 }
 
 function wireAuthBar() {
   const badgeBtn = document.getElementById('profile-badge-btn');
+  const burgerBtn = document.getElementById('burger-menu-btn');
   const menuEl = document.getElementById('profile-menu');
   const signoutBtn = document.getElementById('profile-signout-btn');
 
-  if (badgeBtn && menuEl) {
-    badgeBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      const willOpen = menuEl.hidden;
-      menuEl.hidden = !willOpen;
-      badgeBtn.setAttribute('aria-expanded', String(willOpen));
-    });
-    document.addEventListener('click', (ev) => {
-      const badge = document.getElementById('profile-badge');
-      if (badge && !badge.contains(ev.target)) {
-        menuEl.hidden = true;
-        badgeBtn.setAttribute('aria-expanded', 'false');
-      }
-    });
-  }
+  const toggleMenu = (ev) => {
+    ev.stopPropagation();
+    if (!menuEl) return;
+    const willOpen = !menuEl.classList.contains('show');
+    menuEl.classList.toggle('show', willOpen);
+    if (badgeBtn) badgeBtn.setAttribute('aria-expanded', String(willOpen));
+    if (burgerBtn) burgerBtn.setAttribute('aria-expanded', String(willOpen));
+  };
+
+  if (badgeBtn) badgeBtn.addEventListener('click', toggleMenu);
+  if (burgerBtn) burgerBtn.addEventListener('click', toggleMenu);
+
+  document.addEventListener('click', (ev) => {
+    const authControls = document.getElementById('auth-controls');
+    if (authControls && !authControls.contains(ev.target)) {
+      if (menuEl) menuEl.classList.remove('show');
+      if (badgeBtn) badgeBtn.setAttribute('aria-expanded', 'false');
+      if (burgerBtn) burgerBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+
   if (signoutBtn) {
     signoutBtn.addEventListener('click', () => signOut());
   }
@@ -5632,25 +5735,14 @@ function initThemeSelector() {
       localStorage.setItem('ledger-theme', theme);
       document.documentElement.setAttribute('data-theme', theme);
       syncActiveStates();
-      const panel = document.getElementById('burger-menu-panel');
+      
+      const profileMenu = document.getElementById('profile-menu');
+      const profileBtn = document.getElementById('profile-badge-btn');
       const burgerBtn = document.getElementById('burger-menu-btn');
-      if (panel) panel.hidden = true;
+      
+      if (profileMenu) profileMenu.classList.remove('show');
+      if (profileBtn) profileBtn.setAttribute('aria-expanded', 'false');
       if (burgerBtn) burgerBtn.setAttribute('aria-expanded', 'false');
-      return;
-    }
-
-    const burgerBtn = ev.target.closest('#burger-menu-btn');
-    const panel = document.getElementById('burger-menu-panel');
-    if (burgerBtn && panel) {
-      const willOpen = panel.hidden;
-      panel.hidden = !willOpen;
-      burgerBtn.setAttribute('aria-expanded', String(willOpen));
-      return;
-    }
-
-    if (panel && !panel.hidden && !ev.target.closest('#burger-menu-panel')) {
-      panel.hidden = true;
-      document.getElementById('burger-menu-btn')?.setAttribute('aria-expanded', 'false');
     }
   });
 
@@ -7689,9 +7781,10 @@ wireChartTooltips(root);
 === ./static/js/views/months.js ===
 /* ---------- /months ---------- */
 import { Store } from '../core/store.js';
-import { fmtINR, monthKeyLabel } from '../core/format.js';
+import { escapeHtml } from '../core/dom.js';
+import { fmtINR, fmtINRShort, monthKeyLabel, monthKeyShort } from '../core/format.js';
 import { currentUser, authReady } from '../core/auth.js';
-import { emiRowsForMonth, sipRowsForMonth, computeMonthTotals } from '../core/domain.js';
+import { emiRowsForMonth, sipRowsForMonth, computeMonthTotals, allSpendTags } from '../core/domain.js';
 import { setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
 import { mountLoginHero } from '../components/login-hero.js';
@@ -7700,19 +7793,26 @@ import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
 
 const root = document.getElementById('months-root');
+const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Subscription', 'Rent', 'Utility', 'Recharge', 'Transport', 'Gift'];
+
 let monthsIndex = [];
 let emiSeries = [];
 let sipSeries = [];
+let customTags = [];
 let domainLoaded = false;
+let bulkDataCache = null;
+let chartRangeMonths = 6;
+let selectedTag = '';
 
 // Fetched once per page load; deleteMonth() mutates monthsIndex in memory
 // and persists it, so later re-renders never need to refetch it.
 async function loadDomain() {
   if (domainLoaded) return;
-  [monthsIndex, emiSeries, sipSeries] = await Promise.all([
+  [monthsIndex, emiSeries, sipSeries, customTags] = await Promise.all([
     Store.get('months-index', []),
     Store.get('emiseries', []),
     Store.get('sipseries', []),
+    Store.get('custom-spend-tags', []),
   ]);
   domainLoaded = true;
 }
@@ -7723,6 +7823,7 @@ async function deleteMonth(key) {
   
   // Wipe from the new SessionStorage cache so the UI doesn't resurrect it
   sessionStorage.removeItem('month:' + key);
+  if (bulkDataCache) delete bulkDataCache['month:' + key];
   
   await Store.set('month:' + key, { startingBalanceMode: 'manual', startingBalance: 0, entries: [], deletedEmi: [] });
   await Store.remove('month:' + key);
@@ -7764,6 +7865,96 @@ function computeMonthlyBreakdownFromBulk(keysAscending, bulkData) {
   return rows;
 }
 
+function monthKeysForChartRange(n) {
+  const cur = currentMonthKey();
+  const keys = [];
+  for (let i = n - 1; i >= 0; i--) keys.push(addMonths(cur, -i));
+  return keys;
+}
+
+// Union of every tag actually used across all loaded months, merged with
+// DEFAULT_TAGS + customTags — same dedupe rule used elsewhere in the app.
+function collectTagOptions(bulkData, keys) {
+  const found = [];
+  for (const k of keys) {
+    const data = bulkData['month:' + k];
+    if (!data || !data.entries) continue;
+    for (const e of data.entries) {
+      if (CHART_SPEND_TYPES.includes(e.type) && e.tag) found.push(e.tag);
+    }
+  }
+  return allSpendTags([...DEFAULT_TAGS, ...found], customTags);
+}
+
+function computeTagSeries(bulkData, keys, tag) {
+  return keys.map(k => {
+    const data = bulkData['month:' + k];
+    let total = 0;
+    if (data && data.entries) {
+      for (const e of data.entries) {
+        if (CHART_SPEND_TYPES.includes(e.type) && e.tag === tag) total += Number(e.amount) || 0;
+      }
+    }
+    return { key: k, value: total };
+  });
+}
+
+function renderTagBarChart(series, tag) {
+  const totalSum = series.reduce((s, p) => s + p.value, 0);
+  if (totalSum === 0) {
+    return `<div class="empty-chart">No spends tagged under "${escapeHtml(tag)}" in this period.</div>`;
+  }
+  const max = Math.max(1, ...series.map(p => p.value));
+  const cols = series.map(p => `
+    <div class="bar-col">
+      <div class="bval num">${fmtINRShort(p.value)}</div>
+      <div class="bar" style="height:${Math.max(4, (p.value / max * 140))}px; background: var(--blue);"></div>
+      <div class="blabel">${monthKeyShort(p.key)}</div>
+    </div>`).join('');
+  return `<div class="bars">${cols}</div>`;
+}
+
+function renderMonthlyChartsSection(bulkData, allMonthKeys) {
+  const tagOptions = collectTagOptions(bulkData, allMonthKeys);
+  if (!selectedTag || !tagOptions.includes(selectedTag)) selectedTag = tagOptions[0] || '';
+
+  const rangeKeys = monthKeysForChartRange(chartRangeMonths);
+  const series = selectedTag ? computeTagSeries(bulkData, rangeKeys, selectedTag) : [];
+  const chartHtml = selectedTag
+    ? renderTagBarChart(series, selectedTag)
+    : `<div class="empty-chart">Add a tagged spend to see this chart.</div>`;
+
+  const optionsHtml = tagOptions
+    .map(t => `<option value="${escapeHtml(t)}" ${t === selectedTag ? 'selected' : ''}>${escapeHtml(t)}</option>`)
+    .join('');
+
+  return `
+  <div class="section">
+    <div class="section-title"><h2>Monthly Charts</h2><span class="hint">Tag spend over time</span></div>
+    <div class="chart-card">
+      <div class="chart-toolbar chart-toolbar--split">
+        <div style="display:flex; flex-wrap: wrap; gap: 8px; justify-content: space-between;">
+          <select id="tag-chart-select" class="tag-select" ${tagOptions.length ? '' : 'disabled'}>${optionsHtml}</select>
+          <div class="range-toggle">
+            <button class="range-btn ${chartRangeMonths === 6 ? 'active' : ''}" data-chart-range="6" type="button">6M</button>
+            <button class="range-btn ${chartRangeMonths === 9 ? 'active' : ''}" data-chart-range="9" type="button">9M</button>
+            <button class="range-btn ${chartRangeMonths === 12 ? 'active' : ''}" data-chart-range="12" type="button">1Y</button>
+          </div>
+        </div>
+      </div>
+      ${chartHtml}
+    </div>
+  </div>`;
+}
+
+// Re-renders only the chart card from data already cached in memory —
+// no Store.get/bulkGet call, so range/tag switches never hit the network.
+function refreshChartSection() {
+  const container = document.getElementById('monthly-charts-section');
+  if (!container || !lastBulkData) return;
+  container.innerHTML = renderMonthlyChartsSection(lastBulkData, allMonthKeysAsc);
+}
+
 async function renderMonths() {
   if (!currentUser) {
     markRendered(root);
@@ -7776,9 +7967,12 @@ async function renderMonths() {
   const keysDesc = [...monthsIndex].sort().reverse();
   const keysAsc = [...monthsIndex].sort(); // Required for chronological carry-over math
   
-  // 1. Perform ONE bulk fetch for every month in the index
-  const keysToFetch = keysDesc.map(k => 'month:' + k);
-  const bulkData = await Store.bulkGet(keysToFetch);
+  // 1. Perform ONE bulk fetch for every month in the index and cache it
+  if (!bulkDataCache) {
+    const keysToFetch = keysDesc.map(k => 'month:' + k);
+    bulkDataCache = await Store.bulkGet(keysToFetch);
+  }
+  const bulkData = bulkDataCache;
 
   // 2. Compute the breakdown entirely from memory
   const breakdown = computeMonthlyBreakdownFromBulk(keysAsc, bulkData);
@@ -7805,6 +7999,65 @@ async function renderMonths() {
   
   if (!rows) rows = `<div class="empty-chart">No months recorded yet. Add your first month from the home screen.</div>`;
 
+  let chartHtml = '';
+  if (keysAsc.length > 0) {
+      const tags = allSpendTags(DEFAULT_TAGS, customTags);
+      if (!selectedTag && tags.length) selectedTag = tags[0];
+
+      const latestMonth = keysAsc[keysAsc.length - 1];
+      const [ly, lm] = latestMonth.split('-').map(Number);
+      const rangeKeys = [];
+      for (let i = chartRangeMonths - 1; i >= 0; i--) {
+          let y = ly, m = lm - i;
+          while (m <= 0) { m += 12; y -= 1; }
+          rangeKeys.push(`${y}-${String(m).padStart(2, '0')}`);
+      }
+
+      let totalRangeSpend = 0;
+      const pairs = rangeKeys.map(k => {
+          const data = bulkData['month:' + k] || { entries: [] };
+          let sum = 0;
+          for (const e of data.entries) {
+              if (['spend', 'cardcharge', 'cashpayment'].includes(e.type)) {
+                  const t = (e.tag || 'Untagged').trim().toLowerCase();
+                  if (t === selectedTag.toLowerCase()) sum += (Number(e.amount) || 0);
+              }
+          }
+          totalRangeSpend += sum;
+          return { label: monthKeyShort(k), value: sum, color: 'var(--blue)' };
+      });
+
+      const tagOptions = tags.map(t => `<option value="${escapeHtml(t)}" ${t.toLowerCase() === selectedTag.toLowerCase() ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('');
+
+      let chartContent = `<div class="empty-chart">No spends tagged under "${escapeHtml(selectedTag)}" in this period.</div>`;
+      if (totalRangeSpend > 0) {
+          const maxVal = Math.max(1, ...pairs.map(p => p.value));
+          const cols = pairs.map(p => `
+            <div class="bar-col">
+              <div class="bval num" style="font-size: 0.68rem;">${fmtINRShort(p.value)}</div>
+              <div class="bar" style="height:${Math.max(4, (p.value / maxVal * 130))}px; background:${p.color};"></div>
+              <div class="blabel">${p.label}</div>
+            </div>`).join('');
+          chartContent = `<div class="bars">${cols}</div>`;
+      }
+
+      chartHtml = `
+      <div class="section-title"><h2>Monthly Charts</h2><span class="hint">Tag spending over time</span></div>
+      <div class="chart-card">
+        <div class="chart-toolbar" style="gap: 8px; flex-wrap: nowrap; align-items: stretch;">
+          <select id="tag-chart-select" style="padding: 4px 12px; border: 1px solid var(--hair); border-radius: 999px; background: var(--ice-2); font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--muted); cursor: pointer; outline: none; flex: 1 1 0%; min-width: 0; max-width: 200px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">
+            ${tagOptions}
+          </select>
+          <div class="range-toggle" style="flex-shrink: 0; margin: 0;">
+            <button class="range-btn ${chartRangeMonths === 6 ? 'active' : ''}" data-tag-range="6" type="button">6M</button>
+            <button class="range-btn ${chartRangeMonths === 9 ? 'active' : ''}" data-tag-range="9" type="button">9M</button>
+            <button class="range-btn ${chartRangeMonths === 12 ? 'active' : ''}" data-tag-range="12" type="button">1Y</button>
+          </div>
+        </div>
+        ${chartContent}
+      </div>`;
+  }
+
   const tb = document.getElementById('global-topbar');
   if (tb) tb.style.display = '';
 
@@ -7814,6 +8067,9 @@ async function renderMonths() {
     <div class="section-title"><h2>Previous months</h2><span class="hint">Tap a month to open it</span></div>
     <div class="months-list">${rows}</div>
   </div>
+  <div class="section">
+    ${chartHtml}
+  </div>
   `;
 
   appendPageChrome(root);
@@ -7821,7 +8077,21 @@ async function renderMonths() {
   setupTableScrollIndicators(root);
 }
 
+root.addEventListener('change', async (ev) => {
+  if (ev.target.id === 'tag-chart-select') {
+    selectedTag = ev.target.value;
+    await renderMonths();
+  }
+});
+
 root.addEventListener('click', async (ev) => {
+  const rangeBtn = ev.target.closest('[data-tag-range]');
+  if (rangeBtn) {
+    chartRangeMonths = Number(rangeBtn.dataset.tagRange);
+    await renderMonths();
+    return;
+  }
+
   const delMonthBtn = ev.target.closest('[data-del-month]');
   if (delMonthBtn) {
     ev.preventDefault();
@@ -7844,7 +8114,16 @@ root.addEventListener('click', async (ev) => {
 });
 
 wireDeletePopoverDismiss(root);
-window.addEventListener('auth:signed-in', renderMonths);
+
+root.addEventListener('change', (ev) => {
+  const tagSelect = ev.target.closest('#tag-chart-select');
+  if (tagSelect) {
+    selectedTag = tagSelect.value;
+    refreshChartSection();
+  }
+});
+
+window.addEventListener('auth:signed-in', () => { bulkDataCache = null; renderMonths(); });
 window.addEventListener('auth:checked', renderMonths);
 
 // Wait for the first /api/auth/me round trip so we never flash the
@@ -7960,7 +8239,6 @@ function renderPriceItemCard(item) {
     </div>
     <div class="pic-top">
       <h4>${escapeHtml(item.name)}</h4></br>${metaHtml}
-      <span class="src-badge">${escapeHtml(item.category)}</span>
     </div>
     <div class="pic-bottom">
       <div class="pic-price-row">
@@ -8262,19 +8540,93 @@ import { appendPageChrome } from '../components/page-chrome.js';
 import { wireSplitCallouts } from '../components/split-callout.js';
 import { markRendered } from '../components/render-guard.js';
 
+function initPublicThemeSelector() {
+  const syncActiveStates = () => {
+    const theme = localStorage.getItem('ledger-theme') || 'default';
+    document.querySelectorAll('[data-theme-btn]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.themeBtn === theme);
+    });
+  };
+
+  document.addEventListener('click', (ev) => {
+    const themeBtn = ev.target.closest('[data-theme-btn]');
+    if (themeBtn) {
+      const theme = themeBtn.dataset.themeBtn;
+      localStorage.setItem('ledger-theme', theme);
+      document.documentElement.setAttribute('data-theme', theme);
+      syncActiveStates();
+      
+      const profileMenu = document.getElementById('profile-menu');
+      const burgerBtn = document.getElementById('burger-menu-btn');
+      if (profileMenu) profileMenu.classList.remove('show');
+      if (burgerBtn) burgerBtn.setAttribute('aria-expanded', 'false');
+      return;
+    }
+
+    const burgerBtn = ev.target.closest('#burger-menu-btn');
+    const profileMenu = document.getElementById('profile-menu');
+    
+    if (burgerBtn && profileMenu) {
+      const willOpen = !profileMenu.classList.contains('show');
+      profileMenu.classList.toggle('show', willOpen);
+      burgerBtn.setAttribute('aria-expanded', String(willOpen));
+      return;
+    }
+
+    if (profileMenu && profileMenu.classList.contains('show') && !ev.target.closest('.auth-controls')) {
+      profileMenu.classList.remove('show');
+      const bBtn = document.getElementById('burger-menu-btn');
+      if (bBtn) bBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  syncActiveStates();
+}
+
+// Initialize immediately so click controls work regardless of async rendering
+initPublicThemeSelector();
+
+// Reveal the topbar controls after 1s to mimic the auth-check delay
+setTimeout(() => {
+  const authBar = document.getElementById('auth-bar');
+  if (authBar) {
+    authBar.style.opacity = '1';
+    authBar.style.visibility = 'visible';
+  }
+}, 1000);
+
 const root = document.getElementById('share-split-root');
 const shareId = root.dataset.shareId;
 
 function renderSplitGroupCardReadOnly(group, youLabel) {
   const paid = computeGroupPaid(group);
   const dateLabel = group.createdAt ? new Date(group.createdAt + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+  const totalSpends = (group.spends || []).reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+  
+  const headerRow = `
+    <div class="sgc-person" style="font-size: 0.65rem; font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; letter-spacing: 0.05em; color: var(--blue); margin-bottom: 2px;">
+      <span>Members</span>
+      <span>Total Paid</span>
+    </div>`;
+
   const rows = group.people.map(p => `
     <div class="sgc-person"><span class="spn">${p === SPLIT_YOU ? youLabel() : escapeHtml(p.toUpperCase())}</span><span class="spv">${fmtINR(paid[p] || 0)}</span></div>`).join('');
+    
+  const footerRow = `
+    <div class="sgc-person" style="margin-top: 4px; padding-top: 10px; border-top: 1px dashed var(--sky); color: var(--navy); font-weight: 600;">
+      <span>Total</span>
+      <span class="num">${fmtINR(totalSpends)}</span>
+    </div>`;
+
   return `
   <div class="split-group-card active" data-split-card="${group.id}">
     <h4>${escapeHtml(group.description)}</h4>
     <div class="sgc-date">${dateLabel}</div>
-    <div class="sgc-people">${rows}</div>
+    <div class="sgc-people">
+      ${headerRow}
+      ${rows}
+      ${footerRow}
+    </div>
   </div>`;
 }
 
@@ -8361,11 +8713,16 @@ async function renderSharedSplitPage() {
     return `<tr><td>${label}</td><td class="num">${fmtINR(paid[person] || 0)}</td><td class="num">${fmtINR(shareTotals[person] || 0)}</td></tr>`;
   }).join('');
 
+  const totalSpends = (group.spends || []).reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+
   markRendered(root);
   root.innerHTML = `
   <div class="section shared-page-header">
-    <div class="month-header"><h1>${escapeHtml(group.description)}</h1></div>
-    <p class="shared-page-subtitle">Shared Split Money group · ${group.people.length} people</p>
+    <div class="month-header">
+      <h1>${escapeHtml(group.description)}</h1>
+      <h4 style="margin: 8px 0px 2px 0px;">Total Spends: ${fmtINR(totalSpends)}</h4>
+    </div>
+    <p class="shared-page-subtitle">Shared group · ${group.people.length} people</p>
   </div>
 
   <div class="section">
@@ -8419,7 +8776,6 @@ async function renderSharedSplitPage() {
 
 wireSplitCallouts(root);
 renderSharedSplitPage();
-
 === ./static/js/views/sips.js ===
 /* ---------- /sips ---------- */
 import { Store } from '../core/store.js';
@@ -8619,8 +8975,23 @@ function renderSplitAddForm() {
 function renderSplitGroupCard(group) {
   const paid = computeGroupPaid(group);
   const dateLabel = group.createdAt ? new Date(group.createdAt + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+  const totalSpends = (group.spends || []).reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+  
+  const headerRow = `
+    <div class="sgc-person" style="font-size: 0.65rem; font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; letter-spacing: 0.05em; color: var(--blue); margin-bottom: 2px;">
+      <span>Members</span>
+      <span>Total Paid</span>
+    </div>`;
+
   const rows = group.people.map(p => `
     <div class="sgc-person"><span class="spn">${p === SPLIT_YOU ? youLabel() : escapeHtml(p.toUpperCase())}</span><span class="spv">${fmtINR(paid[p] || 0)}</span></div>`).join('');
+    
+  const footerRow = `
+    <div class="sgc-person" style="margin-top: 4px; padding-top: 10px; border-top: 1px dashed var(--sky); color: var(--navy); font-weight: 600;">
+      <span>Total Spends</span>
+      <span class="num">${fmtINR(totalSpends)}</span>
+    </div>`;
+    
   const active = splitExpandedId === group.id ? 'active' : '';
 
   const { cards } = computeGroupSettlementView(group);
@@ -8643,7 +9014,11 @@ function renderSplitGroupCard(group) {
       ${actionsHtml}
     </div>
     <div class="sgc-date">${dateLabel}</div>
-    <div class="sgc-people">${rows}</div>
+    <div class="sgc-people">
+      ${headerRow}
+      ${rows}
+      ${footerRow}
+    </div>
   </div>`;
 }
 
@@ -8731,9 +9106,14 @@ function renderSplitDetailsPanel(group) {
     <button class="pill-btn" data-open-split-spend-form type="button">+ Add Spend</button>
   </div>` : '';
 
+  const totalSpends = (group.spends || []).reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+
   return `
   <div class="split-details-panel" data-split-details="${group.id}" style="margin-top: 2px;">
-    <div class="section-title"><h2>${escapeHtml(group.description)} - Ledger</h2><span class="hint">${group.people.length} people</span></div>
+    <div class="section-title">
+      <h2>${escapeHtml(group.description)} - Ledger</h2>
+      <span class="hint">Total Spends: ${fmtINR(totalSpends)} · ${group.people.length} people</span>
+    </div>
     ${addBtnHtml}
     ${formHtml}
     <div class="form-note" style="margin-top:18px; margin-bottom:8px;">All group spends are listed here. Click a spend name to view share divisions.</div>
@@ -9152,7 +9532,7 @@ authReady.then(renderSplit);
   {% block topbar %}
   <div id="global-topbar" class="topbar-wrapper">
     <div class="topbar">
-      <a class="brand" href="/home"><span class="mark">₹</span> LedgerNote</a>
+      <a class="brand" href="/home"><span class="mark">₹</span><span id="brand-name">LedgerNote</span></a>
       {% block auth_bar %}
       <div id="auth-bar" class="auth-bar">
         <div id="theme-selector" class="range-toggle">
@@ -9173,17 +9553,20 @@ authReady.then(renderSplit);
               <img id="profile-avatar" class="profile-avatar" alt="" referrerpolicy="no-referrer"/>
               <span id="profile-name" class="profile-name"></span>
             </button>
-            <div id="profile-menu" class="profile-menu" hidden role="menu">
-              <div id="profile-menu-email" class="profile-menu-email"></div>
-              <button id="profile-signout-btn" class="profile-menu-item" type="button" role="menuitem">Sign out</button>
-            </div>
           </div>
-        </div>
 
-        <div id="burger-menu-panel" class="burger-menu-panel" hidden role="menu">
-          <button class="range-btn" data-theme-btn="default" type="button">Default</button>
-          <button class="range-btn" data-theme-btn="hi-contrast" type="button">Hi-Contrast</button>
-          <button class="range-btn" data-theme-btn="dark" type="button">Dark</button>
+          <!-- Unified Dropdown Menu -->
+          <div id="profile-menu" class="profile-menu" role="menu">
+            <div class="mobile-theme-group">
+              <div class="pm-group-label">Theme <span style="font-size: 0.55rem; margin-top: 3px;">▾</span></div>
+              <button class="profile-menu-item theme-opt" data-theme-btn="default" type="button">Light</button>
+              <button class="profile-menu-item theme-opt" data-theme-btn="hi-contrast" type="button">Hi-contrast</button>
+              <button class="profile-menu-item theme-opt" data-theme-btn="dark" type="button">Dark</button>
+              <div class="pm-divider" id="pm-theme-divider"></div>
+            </div>
+            <div id="profile-menu-email" class="profile-menu-email"></div>
+            <button id="profile-signout-btn" class="profile-menu-item" type="button" role="menuitem">Sign out</button>
+          </div>
         </div>
       </div>
       {% endblock %}
@@ -9300,7 +9683,7 @@ authReady.then(renderSplit);
 {% block content %}
   <!-- Our MPA entry script will mount directly to this div -->
   <div id="home-root" class="home-view" data-loading="true">
-    <div style="display: flex; justify-content: center; align-items: center; min-height: 100vh;">
+    <div style="display: flex; justify-content: center; align-items: center; height: calc(100vh - 110px);">
       <div class="card" style="box-shadow: var(--shadow); padding: 40px 30px; width: 100%; max-width: 360px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">
         <!-- Simple modern CSS loading spinner -->
         <div style="width: 36px; height: 36px; border: 3px solid var(--ice); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 24px;"></div>
@@ -9372,8 +9755,34 @@ authReady.then(renderSplit);
   <link rel="stylesheet" href="{{ url_for('static', filename='css/views/split.css') }}?v={{ static_version }}" />
 {% endblock %}
 {% block topbar %}
-  <div class="topbar">
-    <div class="brand"><span class="mark">₹</span> LedgerNote</div>
+  <div id="global-topbar" class="topbar-wrapper">
+    <div class="topbar">
+      <div class="brand"><span class="mark">₹</span> <span id="brand-name">LedgerNote</span></div>
+      
+      <div id="auth-bar" class="auth-bar">
+        <div id="theme-selector" class="range-toggle">
+          <button class="range-btn" data-theme-btn="default" type="button">Default</button>
+          <button class="range-btn" data-theme-btn="hi-contrast" type="button">Hi-Contrast</button>
+          <button class="range-btn" data-theme-btn="dark" type="button">Dark</button>
+        </div>
+
+        <div id="auth-controls" class="auth-controls">
+          <button id="burger-menu-btn" class="burger-menu-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Theme options">
+            <span class="burger-line"></span><span class="burger-line"></span><span class="burger-line"></span>
+          </button>
+
+          <div id="profile-menu" class="profile-menu" role="menu">
+            <div class="mobile-theme-group">
+              <div class="pm-group-label">Theme <span style="font-size: 0.55rem; margin-top: 3px;">▾</span></div>
+              <button class="profile-menu-item theme-opt" data-theme-btn="default" type="button">Light</button>
+              <button class="profile-menu-item theme-opt" data-theme-btn="hi-contrast" type="button">Hi-contrast</button>
+              <button class="profile-menu-item theme-opt" data-theme-btn="dark" type="button">Dark</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+    </div>
   </div>
 {% endblock %}
 {% block content %}
