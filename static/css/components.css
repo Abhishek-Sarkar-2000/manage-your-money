@@ -682,20 +682,11 @@ transform: translateY(0);
     box-shadow: 0 8px 18px rgba(11, 37, 69, 0.22), 0 1px 0 rgba(255, 255, 255, 0.4);
   }
 
-  .stat-back {
-    display: flex;
-    flex-direction: column;
-    position: absolute;
-    inset: 0;
-    z-index: 1;
+  .stat-card {
     background: var(--hair);
-    border-radius: var(--radius-sm);
-    box-shadow: inset 5px 5px 10px rgba(11, 37, 69, 0.14), inset -5px -5px 10px rgba(255, 255, 255, 0.75);
-    padding: 14px 16px;
-    overflow-y: auto;
   }
 
-  .stat-back::after {
+  .stat-card::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -703,12 +694,39 @@ transform: translateY(0);
     background: linear-gradient(0deg, var(--ice), var(--ice-2));
     opacity: 0;
     transition: opacity 0.3s ease;
-    z-index: -1;
+    z-index: 0;
     pointer-events: none;
   }
 
-  .stat-card.open .stat-back::after {
+  :root[data-theme="hi-contrast"] .stat-card {
+    background: #000000;
+  }
+
+  /* Fade the background to white when opened */
+  :root[data-theme="hi-contrast"] .stat-card::before {
+    background: #ffffff;
+  }
+
+  /* Camouflage the text against the black base when closed */
+  :root[data-theme="hi-contrast"] .stat-card:not(.open) .stat-back * {
+    color: #000000 !important;
+  }
+  
+  .stat-card.open::before {
     opacity: 1;
+  }
+
+  .stat-back {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: transparent !important;
+    border-radius: var(--radius-sm);
+    box-shadow: inset 5px 5px 10px rgba(11, 37, 69, 0.14), inset -5px -5px 10px rgba(255, 255, 255, 0.75);
+    padding: 14px 16px;
+    overflow-y: auto;
   }
   .stat-card:not(.open) .stat-back * {
     color: var(--ice) !important;

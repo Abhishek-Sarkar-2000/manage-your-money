@@ -2348,7 +2348,7 @@ svg.linechart text {
     align-items: stretch;
   }
   .price-category-track .price-item-card {
-    flex: 0 0 75vw;
+    flex: 0 0 60vw;
     min-width: 240px;
     height: auto;
   }
@@ -2522,7 +2522,7 @@ svg.linechart text {
   border-radius: var(--radius-sm);
   padding: 18px 18px;
   border: 1px solid var(--hair);
-  background: linear-gradient(160deg, #fff, var(--ice-2));
+  background: linear-gradient(155deg, #fff, var(--ice));
 }
 
 .stat-card .label {
@@ -2734,19 +2734,6 @@ transform: translateY(0);
     display: none !important;
   }
 
-  .stat-back {
-    display: flex;
-    flex-direction: column;
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    background: var(--ice-2);
-    border-radius: var(--radius-sm);
-    box-shadow: inset 5px 5px 10px rgba(11, 37, 69, 0.14), inset -5px -5px 10px rgba(255, 255, 255, 0.75);
-    padding: 14px 16px;
-    overflow-y: auto;
-  }
-
   .stat-front {
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
     cursor: pointer;
@@ -2757,6 +2744,34 @@ transform: translateY(0);
     box-shadow: 0 8px 18px rgba(11, 37, 69, 0.22), 0 1px 0 rgba(255, 255, 255, 0.4);
   }
 
+  .stat-back {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: var(--hair);
+    border-radius: var(--radius-sm);
+    box-shadow: inset 5px 5px 10px rgba(11, 37, 69, 0.14), inset -5px -5px 10px rgba(255, 255, 255, 0.75);
+    padding: 14px 16px;
+    overflow-y: auto;
+  }
+
+  .stat-back::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(0deg, var(--ice), var(--ice-2));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .stat-card.open .stat-back::after {
+    opacity: 1;
+  }
   .stat-card:not(.open) .stat-back * {
     color: var(--ice) !important;
     transition: color 0.3s ease;
@@ -2945,6 +2960,10 @@ transform: translateY(0);
   box-shadow: none; 
 }
 
+:root[data-theme="hi-contrast"] .stat-back {
+  background: #fff !important;
+}
+
 :root[data-theme="hi-contrast"] .chart-tooltip {
   background: var(--blue);
   color: #fff;
@@ -3032,13 +3051,12 @@ transform: translateY(0);
   background:
     repeating-linear-gradient(180deg, transparent 0 39px, rgba(136, 142, 184, 0.12) 40px 41px),
     linear-gradient(160deg, #191847 0%, var(--paper) 45%, var(--ice-2) 100%);
-    background-attachment: scroll, fixed;
+  background-attachment: scroll, fixed;
 }
 
 :root[data-theme="dark"] .card,
 :root[data-theme="dark"] .current-month-card.empty,
 :root[data-theme="dark"] .stat-back,
-:root[data-theme="dark"] .price-item-card,
 :root[data-theme="dark"] .cc-item,
 :root[data-theme="dark"] .emi-card,
 :root[data-theme="dark"] .month-row,
@@ -3059,6 +3077,7 @@ transform: translateY(0);
 :root[data-theme="dark"] .split-group-card,
 :root[data-theme="dark"] .split-settle-card,
 :root[data-theme="dark"] .stat-front,
+:root[data-theme="dark"] .price-item-card,
 :root[data-theme="dark"] .balance-box {
   background: linear-gradient(135deg, var(--hair) 0%, var(--ice-2) 100%) !important;
   color: var(--navy);
@@ -3152,8 +3171,12 @@ transform: translateY(0);
 }
 
 :root[data-theme="dark"] .shared-share-grid-line,
-:root[data-theme="dark"] .shared-share-axis-line {
+:root[data-theme="dark"] .shared-share-axis-line,
+:root[data-theme="dark"] .shared-debt-axis {
   border-top-color: var(--sky);
+}
+:root[data-theme="dark"] .shared-debt-grid-line {
+  border-left-color: var(--sky);
 }
 
 @media (max-width: 639px) {
@@ -3255,7 +3278,7 @@ footer {
 === ./static/css/views/home.css ===
 /* ---------- Button grid on home ---------- */
 .action-card {
-  background: linear-gradient(155deg, #ffffff 0%, var(--ice-2) 100%);
+  background: linear-gradient(155deg, #fff 0%, var(--ice) 100%);
   border: 1px solid var(--hair);
   border-radius: var(--radius);
   padding: 26px 22px;
@@ -3458,7 +3481,7 @@ footer {
   background: var(--ice-2);
   border: 1px solid var(--hair);
   border-radius: var(--radius-sm);
-  background: linear-gradient(160deg, #fff, var(--ice-2));
+  background: linear-gradient(155deg, #fff, var(--ice-2));
   padding: 12px 16px;
   position: relative;
   z-index: 2;
@@ -3730,7 +3753,7 @@ footer {
 .price-item-card {
   position: relative;
   cursor: pointer;
-  background: linear-gradient(155deg, #fff 0%, var(--ice-2) 100%);
+  background: linear-gradient(155deg, #fff 0%, var(--ice) 100%);
   border: 1px solid var(--hair);
   border-radius: var(--radius);
   padding: 14px 16px;
@@ -4053,7 +4076,7 @@ footer {
 .split-settle-card {
   flex: 0 0 250px;
   min-width: 220px;
-  background: #fff;
+  background:  linear-gradient(155deg, #fff 0%, var(--ice) 100%);
   border: 1px solid var(--hair);
   border-radius: var(--radius-sm);
   padding: 16px 18px;
@@ -4508,7 +4531,6 @@ footer {
 body.shared-mode .sgc-actions [data-settle-group-toggle],
 body.shared-mode .sgc-actions [data-del-split],
 body.shared-mode .pill-grid,
-body.shared-mode .form-panel,
 body.shared-mode td.actions-cell,
 body.shared-mode th:last-child,
 body.shared-mode .fab-home {
@@ -4992,11 +5014,18 @@ export function sharedStackedDebtChart(group, getYouLabel) {
       if (!allCreditors.includes(creditor)) allCreditors.push(creditor);
     }
   }
+  
+  allCreditors.sort((a, b) => a === SPLIT_YOU ? -1 : (b === SPLIT_YOU ? 1 : 0));
 
-  const debtorTotals = debtors.map(({ debtor, creditors }) => ({
-    debtor, creditors,
-    total: creditors.reduce((sum, item) => sum + Number(item.amount || 0), 0),
-  }));
+  const debtorTotals = debtors.map(({ debtor, creditors }) => {
+    creditors.sort((a, b) => a.creditor === SPLIT_YOU ? -1 : (b.creditor === SPLIT_YOU ? 1 : 0));
+    return {
+      debtor, creditors,
+      total: creditors.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    };
+  });
+  
+  debtorTotals.sort((a, b) => a.debtor === SPLIT_YOU ? -1 : (b.debtor === SPLIT_YOU ? 1 : 0));
 
   const actualMaxTotal = Math.max(1, ...debtorTotals.map(item => item.total));
   const debtAxis = buildNiceChartTicks(actualMaxTotal, 4);
@@ -5066,7 +5095,11 @@ export function sharedSharesBarChart(group, getYouLabel) {
   const pairs = Object.entries(totals)
     .map(([person, value]) => ({ person, value: Math.round(value * 100) / 100 }))
     .filter(x => x.value > 0.004)
-    .sort((a, b) => b.value - a.value);
+    .sort((a, b) => {
+      if (a.person === SPLIT_YOU) return -1;
+      if (b.person === SPLIT_YOU) return 1;
+      return b.value - a.value;
+    });
 
   if (!pairs.length) {
     return `<div class="empty-chart">No shares recorded in this group yet.</div>`;
@@ -5140,12 +5173,14 @@ export function showDeleteCallout(triggerEl, actionName, id, label = 'Delete?') 
   pop.classList.add('show');
 
   const rect = triggerEl.getBoundingClientRect();
+  const appRect = pop.offsetParent ? pop.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
   const popWidth = pop.offsetWidth || 130;
-  const viewLeft = rect.left - popWidth - 10;
-  const viewTop = rect.top + (rect.height / 2) - ((pop.offsetHeight || 44) / 2);
+  
+  const viewLeft = rect.left - appRect.left - popWidth - 10;
+  const viewTop = rect.top - appRect.top + (rect.height / 2) - ((pop.offsetHeight || 44) / 2);
 
-  pop.style.left = (viewLeft + window.scrollX) + 'px';
-  pop.style.top = (viewTop + window.scrollY) + 'px';
+  pop.style.left = viewLeft + 'px';
+  pop.style.top = viewTop + 'px';
 }
 
 export function hideDeleteCallout() {
@@ -5331,18 +5366,22 @@ let pinnedKey = null;
 
 function positionSplitCallout(pop, triggerEl) {
   const rect = triggerEl.getBoundingClientRect();
+  const appRect = pop.offsetParent ? pop.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
   const popWidth = pop.offsetWidth || 260;
+  
   let viewLeft = rect.left;
   if (viewLeft + popWidth > window.innerWidth - 12) {
     viewLeft = Math.max(12, window.innerWidth - popWidth - 12);
   }
+  
   let viewTop = rect.bottom + 6;
   const popHeight = pop.offsetHeight || 0;
   if (popHeight && viewTop + popHeight > window.innerHeight - 12) {
     viewTop = rect.top - popHeight - 6;
   }
-  pop.style.left = (viewLeft + window.scrollX) + 'px';
-  pop.style.top = (viewTop + window.scrollY) + 'px';
+  
+  pop.style.left = (viewLeft - appRect.left) + 'px';
+  pop.style.top = (viewTop - appRect.top) + 'px';
 }
 
 export function showSplitCallout(triggerEl) {
@@ -5608,16 +5647,33 @@ export function initGoogleSignIn() {
   isGoogleInitialized = true;
 
   const cornerEl = document.getElementById('google-signin-btn');
+  const mobileLoginBtn = document.getElementById('mobile-login-btn');
+  
   if (cornerEl) {
-    renderGoogleButton(cornerEl, {
-      type: 'standard',
-      theme: 'outline',
-      size: 'medium',
-      shape: 'pill',
-      text: 'signin_with',
-      logo_alignment: 'left',
-      width: '200',
-    });
+    const renderCornerButton = () => {
+      const isMobile = window.matchMedia('(max-width: 639px)').matches;
+      if (isMobile) {
+        cornerEl.style.display = 'none';
+        if (mobileLoginBtn && !currentUser) {
+          mobileLoginBtn.style.display = 'flex';
+        }
+      } else {
+        cornerEl.style.display = 'inline-block';
+        if (mobileLoginBtn) mobileLoginBtn.style.display = 'none';
+        renderGoogleButton(cornerEl, {
+          type: 'standard',
+          theme: 'outline',
+          size: 'medium',
+          shape: 'pill',
+          text: 'signin_with',
+          logo_alignment: 'left',
+          width: '200',
+        });
+      }
+    };
+    
+    renderCornerButton();
+    window.matchMedia('(max-width: 639px)').addEventListener('change', renderCornerButton);
   }
 }
 
@@ -5664,12 +5720,22 @@ function updateProfileBadge() {
         brandNameEl.textContent = 'LedgerNote';
       }
     }
-    signinEl.hidden = true;
-    badgeEl.hidden = false;
-    if (burgerBtn) burgerBtn.hidden = true;
-    if (emailEl) emailEl.style.display = '';
-    if (signoutBtn) signoutBtn.style.display = '';
-    if (themeDivider) themeDivider.style.display = '';
+    const isMobile = window.matchMedia('(max-width: 639px)').matches;
+    if (isMobile) {
+      signinEl.style.display = 'none';
+      const mobileLoginBtn = document.getElementById('mobile-login-btn');
+      if (mobileLoginBtn) mobileLoginBtn.style.display = 'flex';
+    } else {
+      signinEl.hidden = false;
+      signinEl.style.display = 'inline-block';
+    }
+    badgeEl.hidden = true;
+    if (burgerBtn) burgerBtn.hidden = false;
+    if (emailEl) emailEl.style.display = 'none';
+    if (signoutBtn) signoutBtn.style.display = 'none';
+    const signinBtn = document.getElementById('profile-signin-btn');
+    if (signinBtn) signinBtn.style.display = 'block';
+    if (themeDivider) themeDivider.style.display = 'block';
     const avatar = document.getElementById('profile-avatar');
     if (avatar) {
       avatar.onerror = () => { avatar.style.display = 'none'; };
@@ -5702,6 +5768,14 @@ function wireAuthBar() {
   const burgerBtn = document.getElementById('burger-menu-btn');
   const menuEl = document.getElementById('profile-menu');
   const signoutBtn = document.getElementById('profile-signout-btn');
+  const signinBtn = document.getElementById('profile-signin-btn');
+  const mobileLoginBtn = document.getElementById('mobile-login-btn');
+
+  if (signinBtn) {
+    signinBtn.addEventListener('click', () => {
+      window.location.href = '/home';
+    });
+  }
 
   const toggleMenu = (ev) => {
     ev.stopPropagation();
@@ -5710,10 +5784,12 @@ function wireAuthBar() {
     menuEl.classList.toggle('show', willOpen);
     if (badgeBtn) badgeBtn.setAttribute('aria-expanded', String(willOpen));
     if (burgerBtn) burgerBtn.setAttribute('aria-expanded', String(willOpen));
+    if (mobileLoginBtn) mobileLoginBtn.setAttribute('aria-expanded', String(willOpen));
   };
 
   if (badgeBtn) badgeBtn.addEventListener('click', toggleMenu);
   if (burgerBtn) burgerBtn.addEventListener('click', toggleMenu);
+  if (mobileLoginBtn) mobileLoginBtn.addEventListener('click', toggleMenu);
 
   document.addEventListener('click', (ev) => {
     const authControls = document.getElementById('auth-controls');
@@ -6517,20 +6593,23 @@ export const Store = {
     sessionStorage.setItem(key, JSON.stringify(value));
 
     pendingWrites++;
-    fetch('/api/storage/' + encodeURIComponent(key), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value: JSON.stringify(value) }),
-      keepalive: true,
-    }).then(res => {
-      if (res.status === 401) { onAuthRequired(); return; }
+    try {
+      const res = await fetch('/api/storage/' + encodeURIComponent(key), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: JSON.stringify(value) }),
+        keepalive: true,
+      });
+      if (res.status === 401) { onAuthRequired(); return false; }
       if (!res.ok) throw new Error('PUT failed: ' + res.status);
-    }).catch(e => {
+      return true;
+    } catch (e) {
       console.error('storage set failed', key, e);
       showToast('Could not save to server — check your connection');
-    }).finally(() => { pendingWrites--; });
-
-    return true;
+      return false;
+    } finally {
+      pendingWrites--;
+    }
   },
 
   async remove(key) {
@@ -8769,6 +8848,7 @@ function cloneGroupForImport(group, owner, importerName) {
   const clone = JSON.parse(JSON.stringify(group));
 
   const swapIdentity = (value) => {
+    if (importerName === SPLIT_YOU) return value;
     if (value === SPLIT_YOU) return originalOwnerName;
     if (value === importerName) return SPLIT_YOU;
     return value;
@@ -8776,6 +8856,7 @@ function cloneGroupForImport(group, owner, importerName) {
 
   clone.id = 'split_' + uid();
   clone.people = clone.people.map(swapIdentity);
+  clone.people.sort((a, b) => a === SPLIT_YOU ? -1 : (b === SPLIT_YOU ? 1 : 0));
 
   clone.spends = (clone.spends || []).map(s => {
     const { ledgerEntryId, monthKey, ...rest } = s;
@@ -8831,7 +8912,9 @@ async function finalizeImport(clonedGroup, splitsIndex, existingId) {
     await Store.set('splits-index', splitsIndex);
     await Store.set('split:' + clonedGroup.id, clonedGroup);
   }
-  window.location.href = '/split';
+  importDuplicateState = null;
+  await renderSharedSplitPage();
+  showToast('Split group added');
 }
 
 // Store.get() serves 'splits-index' from sessionStorage when present (see
@@ -8905,6 +8988,19 @@ async function renderSharedSplitPage() {
   }).join('');
 
   const totalSpends = (group.spends || []).reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+
+  const brandEl = document.querySelector('.brand');
+  if (brandEl) {
+    if (currentUser) {
+      brandEl.href = '/home';
+      brandEl.style.cursor = 'pointer';
+      brandEl.setAttribute('title', 'Back to home');
+    } else {
+      brandEl.removeAttribute('href');
+      brandEl.style.cursor = 'default';
+      brandEl.removeAttribute('title');
+    }
+  }
 
   markRendered(root);
   root.innerHTML = `
@@ -9003,8 +9099,10 @@ root.addEventListener('click', async (ev) => {
 });
 
 wireSplitCallouts(root);
+window.addEventListener('auth:signed-in', renderSharedSplitPage);
+window.addEventListener('auth:checked', renderSharedSplitPage);
+initGoogleSignIn();
 renderSharedSplitPage();
-window.addEventListener('auth:signed-in', refreshImportSection);
 === ./static/js/views/sips.js ===
 /* ---------- /sips ---------- */
 import { Store } from '../core/store.js';
@@ -9158,6 +9256,7 @@ let splitsIndex = [];
 let monthsIndex = [];
 let splitFormOpen = false;
 let splitSpendFormOpen = false;
+let splitAddMemberFormOpen = false;
 let splitExpandedId = null;
 let splitSlideDirection = '';
 let animTimeout = null;
@@ -9340,9 +9439,27 @@ function renderSplitDetailsPanel(group) {
       <button class="btn ghost" data-close-split-spend-form type="button">Cancel</button>
     </div>
   </div>` : '';
-  const addBtnHtml = !splitSpendFormOpen ? `
+  const addMemberFormHtml = splitAddMemberFormOpen ? `
+  <div class="form-panel slide-down-fade" style="margin-top:14px;">
+    <div class="form-note" style="margin-top:0; margin-bottom:8px;">Add a new person to this split group.</div>
+    <div class="split-member-row">
+      <div class="field">
+        <label>Person Name</label>
+        <div style="display: flex; gap: 8px; width: 100%;">
+          <input id="sam-name" type="text" placeholder="Name" style="flex: 1;" />
+        </div>
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top: 16px;">
+      <button class="btn primary" data-submit-new-member="${group.id}" type="button">Add person</button>
+      <button class="btn ghost" data-close-split-member-form type="button">Cancel</button>
+    </div>
+  </div>` : '';
+
+  const addBtnHtml = (!splitSpendFormOpen && !splitAddMemberFormOpen) ? `
   <div class="pill-grid" style="margin-top: 14px;">
     <button class="pill-btn" data-open-split-spend-form type="button">+ Add Spend</button>
+    <button class="pill-btn alt" data-open-split-member-form type="button">+ Add Member</button>
   </div>` : '';
 
   const totalSpends = (group.spends || []).reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
@@ -9355,6 +9472,7 @@ function renderSplitDetailsPanel(group) {
     </div>
     ${addBtnHtml}
     ${formHtml}
+    ${addMemberFormHtml}
     <div class="form-note" style="margin-top:18px; margin-bottom:8px;">All group spends are listed here. Click a spend name to view share divisions.</div>
     <div class="table-wrap">
       <table class="divisions-table" ${rowsHtml ? '' : `style="width: 100%;"`}>
@@ -9606,7 +9724,7 @@ root.addEventListener('click', async (ev) => {
   if (splitCard && !ev.target.closest('.sgc-actions')) {
     const id = splitCard.dataset.splitCard;
     if (animTimeout) clearTimeout(animTimeout);
-    if (splitExpandedId === id) { splitExpandedId = null; splitSpendFormOpen = false; await renderSplit(); return; }
+    if (splitExpandedId === id) { splitExpandedId = null; splitSpendFormOpen = false; splitAddMemberFormOpen = false; await renderSplit(); return; }
     if (splitExpandedId) {
       const cardsEls = $$('.split-group-card');
       let oldIdx = -1, newIdx = -1;
@@ -9616,22 +9734,51 @@ root.addEventListener('click', async (ev) => {
       if (inner && oldIdx !== -1 && newIdx !== -1) {
         inner.className = isRight ? 'slide-out-left' : 'slide-out-right';
         animTimeout = setTimeout(async () => {
-          splitExpandedId = id; splitSpendFormOpen = false;
+          splitExpandedId = id; splitSpendFormOpen = false; splitAddMemberFormOpen = false;
           splitSlideDirection = isRight ? 'slide-in-right' : 'slide-in-left';
           await renderSplit();
         }, 300);
-      } else { splitExpandedId = id; splitSpendFormOpen = false; splitSlideDirection = ''; await renderSplit(); }
+      } else { splitExpandedId = id; splitSpendFormOpen = false; splitAddMemberFormOpen = false; splitSlideDirection = ''; await renderSplit(); }
       return;
     }
-    splitExpandedId = id; splitSpendFormOpen = false; splitSlideDirection = '';
+    splitExpandedId = id; splitSpendFormOpen = false; splitAddMemberFormOpen = false; splitSlideDirection = '';
     await renderSplit();
     return;
   }
 
   const openSplitSpendForm = ev.target.closest('[data-open-split-spend-form]');
-  if (openSplitSpendForm) { splitSpendFormOpen = true; await renderSplit(); return; }
+  if (openSplitSpendForm) { splitSpendFormOpen = true; splitAddMemberFormOpen = false; await renderSplit(); return; }
   const closeSplitSpendForm = ev.target.closest('[data-close-split-spend-form]');
   if (closeSplitSpendForm) { splitSpendFormOpen = false; await renderSplit(); return; }
+
+  const openSplitMemberForm = ev.target.closest('[data-open-split-member-form]');
+  if (openSplitMemberForm) { splitAddMemberFormOpen = true; splitSpendFormOpen = false; await renderSplit(); return; }
+  const closeSplitMemberForm = ev.target.closest('[data-close-split-member-form]');
+  if (closeSplitMemberForm) { splitAddMemberFormOpen = false; await renderSplit(); return; }
+
+  const submitNewMember = ev.target.closest('[data-submit-new-member]');
+  if (submitNewMember) {
+    const groupId = submitNewMember.dataset.submitNewMember;
+    const name = ($('#sam-name').value || '').trim();
+    if (!name) { showToast('Enter a name'); return; }
+    
+    const group = await loadSplit(groupId, false);
+    if (!group) return;
+    
+    const key = name.toLowerCase();
+    const existing = group.people.map(p => p.toLowerCase());
+    if (existing.includes(key)) {
+      showToast('Person already exists in this group');
+      return;
+    }
+    
+    group.people.push(name);
+    await saveSplit(groupId);
+    splitAddMemberFormOpen = false;
+    await renderSplit();
+    showToast('Member added');
+    return;
+  }
 
   const submitSplitSpend = ev.target.closest('[data-submit-split-spend]');
   if (submitSplitSpend) {
@@ -9794,6 +9941,13 @@ authReady.then(renderSplit);
           </button>
 
           <div id="google-signin-btn" class="google-signin-btn"></div>
+          
+          <button id="mobile-login-btn" class="profile-badge-btn" style="display: none; padding: 4px 6px 4px 4px;" type="button" aria-label="Sign in" title="Sign in">
+            <div class="profile-avatar" style="display: flex; align-items: center; justify-content: center; color: var(--muted); background: var(--ice-2);">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </div>
+          </button>
+
           <div id="profile-badge" class="profile-badge" hidden>
             <button id="profile-badge-btn" class="profile-badge-btn" type="button" aria-haspopup="true" aria-expanded="false">
               <img id="profile-avatar" class="profile-avatar" alt="" referrerpolicy="no-referrer"/>
@@ -9811,6 +9965,7 @@ authReady.then(renderSplit);
               <div class="pm-divider" id="pm-theme-divider"></div>
             </div>
             <div id="profile-menu-email" class="profile-menu-email"></div>
+            <button id="profile-signin-btn" class="profile-menu-item" type="button" role="menuitem" style="display: none;">Sign in</button>
             <button id="profile-signout-btn" class="profile-menu-item" type="button" role="menuitem">Sign out</button>
           </div>
         </div>
@@ -10003,7 +10158,7 @@ authReady.then(renderSplit);
 {% block topbar %}
   <div id="global-topbar" class="topbar-wrapper">
     <div class="topbar">
-      <div class="brand"><span class="mark">₹</span> <span id="brand-name">LedgerNote</span></div>
+      <a class="brand" id="shared-brand-link"><span class="mark">₹</span> <span id="brand-name">LedgerNote</span></a>
       
       <div id="auth-bar" class="auth-bar">
         <div id="theme-selector" class="range-toggle">
@@ -10025,16 +10180,33 @@ authReady.then(renderSplit);
             </button>
           </div>
 
-          <div id="profile-menu" class="profile-menu" role="menu">
-            <div class="mobile-theme-group">
-              <div class="pm-group-label">Theme <span style="font-size: 0.55rem; margin-top: 3px;">▾</span></div>
-              <button class="profile-menu-item theme-opt" data-theme-btn="default" type="button">Light</button>
-              <button class="profile-menu-item theme-opt" data-theme-btn="hi-contrast" type="button">Hi-contrast</button>
-              <button class="profile-menu-item theme-opt" data-theme-btn="dark" type="button">Dark</button>
-              <div class="pm-divider" id="pm-theme-divider"></div>
-            </div>
-            <div id="profile-menu-email" class="profile-menu-email"></div>
-            <button id="profile-signout-btn" class="profile-menu-item" type="button" role="menuitem">Sign out</button>
+          <div id="google-signin-btn" class="google-signin-btn"></div>
+              
+              <button id="mobile-login-btn" class="profile-badge-btn" style="display: none; padding: 4px 6px 4px 4px;" type="button" aria-label="Sign in" title="Sign in">
+                <div class="profile-avatar" style="display: flex; align-items: center; justify-content: center; color: var(--muted); background: var(--ice-2);">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                </div>
+              </button>
+
+              <div id="profile-badge" class="profile-badge" hidden>
+                <button id="profile-badge-btn" class="profile-badge-btn" type="button" aria-haspopup="true" aria-expanded="false">
+                  <img id="profile-avatar" class="profile-avatar" alt="" referrerpolicy="no-referrer"/>
+                  <span id="profile-name" class="profile-name"></span>
+                </button>
+              </div>
+
+              <div id="profile-menu" class="profile-menu" role="menu">
+                <div class="mobile-theme-group">
+                  <div class="pm-group-label">Theme <span style="font-size: 0.55rem; margin-top: 3px;">▾</span></div>
+                  <button class="profile-menu-item theme-opt" data-theme-btn="default" type="button">Light</button>
+                  <button class="profile-menu-item theme-opt" data-theme-btn="hi-contrast" type="button">Hi-contrast</button>
+                  <button class="profile-menu-item theme-opt" data-theme-btn="dark" type="button">Dark</button>
+                  <div class="pm-divider" id="pm-theme-divider"></div>
+                </div>
+                <div id="profile-menu-email" class="profile-menu-email"></div>
+                <button id="profile-signin-btn" class="profile-menu-item" type="button" role="menuitem" style="display: none;">Sign in</button>
+                <button id="profile-signout-btn" class="profile-menu-item" type="button" role="menuitem">Sign out</button>
+              </div>
           </div>
         </div>
       </div>

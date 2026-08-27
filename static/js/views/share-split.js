@@ -485,4 +485,5 @@ root.addEventListener('click', async (ev) => {
 wireSplitCallouts(root);
 window.addEventListener('auth:signed-in', renderSharedSplitPage);
 window.addEventListener('auth:checked', renderSharedSplitPage);
+initGoogleSignIn();
 renderSharedSplitPage();

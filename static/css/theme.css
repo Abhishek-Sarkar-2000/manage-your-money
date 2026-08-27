@@ -108,10 +108,6 @@
   box-shadow: none; 
 }
 
-:root[data-theme="hi-contrast"] .stat-back {
-  background: #fff !important;
-}
-
 :root[data-theme="hi-contrast"] .chart-tooltip {
   background: var(--blue);
   color: #fff;
@@ -199,7 +195,7 @@
   background:
     repeating-linear-gradient(180deg, transparent 0 39px, rgba(136, 142, 184, 0.12) 40px 41px),
     linear-gradient(160deg, #191847 0%, var(--paper) 45%, var(--ice-2) 100%);
-    background-attachment: scroll, fixed;
+  background-attachment: scroll, fixed;
 }
 
 :root[data-theme="dark"] .card,

@@ -53,6 +53,13 @@
           </button>
 
           <div id="google-signin-btn" class="google-signin-btn"></div>
+          
+          <button id="mobile-login-btn" class="profile-badge-btn" style="display: none; padding: 4px 6px 4px 4px;" type="button" aria-label="Sign in" title="Sign in">
+            <div class="profile-avatar" style="display: flex; align-items: center; justify-content: center; color: var(--muted); background: var(--ice-2);">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </div>
+          </button>
+
           <div id="profile-badge" class="profile-badge" hidden>
             <button id="profile-badge-btn" class="profile-badge-btn" type="button" aria-haspopup="true" aria-expanded="false">
               <img id="profile-avatar" class="profile-avatar" alt="" referrerpolicy="no-referrer"/>
@@ -70,6 +77,7 @@
               <div class="pm-divider" id="pm-theme-divider"></div>
             </div>
             <div id="profile-menu-email" class="profile-menu-email"></div>
+            <button id="profile-signin-btn" class="profile-menu-item" type="button" role="menuitem" style="display: none;">Sign in</button>
             <button id="profile-signout-btn" class="profile-menu-item" type="button" role="menuitem">Sign out</button>
           </div>
         </div>

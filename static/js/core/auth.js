@@ -99,16 +99,33 @@ export function initGoogleSignIn() {
   isGoogleInitialized = true;
 
   const cornerEl = document.getElementById('google-signin-btn');
+  const mobileLoginBtn = document.getElementById('mobile-login-btn');
+  
   if (cornerEl) {
-    renderGoogleButton(cornerEl, {
-      type: 'standard',
-      theme: 'outline',
-      size: 'medium',
-      shape: 'pill',
-      text: 'signin_with',
-      logo_alignment: 'left',
-      width: '200',
-    });
+    const renderCornerButton = () => {
+      const isMobile = window.matchMedia('(max-width: 639px)').matches;
+      if (isMobile) {
+        cornerEl.style.display = 'none';
+        if (mobileLoginBtn) {
+          mobileLoginBtn.style.display = currentUser ? 'none' : 'flex';
+        }
+      } else {
+        cornerEl.style.display = currentUser ? 'none' : 'inline-block';
+        if (mobileLoginBtn) mobileLoginBtn.style.display = 'none';
+        renderGoogleButton(cornerEl, {
+          type: 'standard',
+          theme: 'outline',
+          size: 'medium',
+          shape: 'pill',
+          text: 'signin_with',
+          logo_alignment: 'left',
+          width: '200',
+        });
+      }
+    };
+    
+    renderCornerButton();
+    window.matchMedia('(max-width: 639px)').addEventListener('change', renderCornerButton);
   }
 }
 
@@ -155,12 +172,22 @@ function updateProfileBadge() {
         brandNameEl.textContent = 'LedgerNote';
       }
     }
-    signinEl.hidden = true;
+    const isMobile = window.matchMedia('(max-width: 639px)').matches;
+    const mobileLoginBtn = document.getElementById('mobile-login-btn');
+    if (isMobile) {
+      signinEl.style.display = 'none';
+      if (mobileLoginBtn) mobileLoginBtn.style.display = 'none';
+    } else {
+      signinEl.hidden = true;
+      signinEl.style.display = 'none';
+    }
     badgeEl.hidden = false;
-    if (burgerBtn) burgerBtn.hidden = true;
-    if (emailEl) emailEl.style.display = '';
-    if (signoutBtn) signoutBtn.style.display = '';
-    if (themeDivider) themeDivider.style.display = '';
+    if (burgerBtn) burgerBtn.hidden = false;
+    if (emailEl) emailEl.style.display = 'block';
+    if (signoutBtn) signoutBtn.style.display = 'block';
+    const signinBtn = document.getElementById('profile-signin-btn');
+    if (signinBtn) signinBtn.style.display = 'none';
+    if (themeDivider) themeDivider.style.display = 'block';
     const avatar = document.getElementById('profile-avatar');
     if (avatar) {
       avatar.onerror = () => { avatar.style.display = 'none'; };
@@ -178,11 +205,22 @@ function updateProfileBadge() {
     if (brandNameEl) {
       brandNameEl.textContent = 'LedgerNote';
     }
-    signinEl.hidden = false;
+    const isMobile = window.matchMedia('(max-width: 639px)').matches;
+    const mobileLoginBtn = document.getElementById('mobile-login-btn');
+    if (isMobile) {
+      signinEl.style.display = 'none';
+      if (mobileLoginBtn) mobileLoginBtn.style.display = 'flex';
+    } else {
+      signinEl.hidden = false;
+      signinEl.style.display = 'inline-block';
+      if (mobileLoginBtn) mobileLoginBtn.style.display = 'none';
+    }
     badgeEl.hidden = true;
     if (burgerBtn) burgerBtn.hidden = false;
     if (emailEl) emailEl.style.display = 'none';
     if (signoutBtn) signoutBtn.style.display = 'none';
+    const signinBtn = document.getElementById('profile-signin-btn');
+    if (signinBtn) signinBtn.style.display = 'block';
     if (themeDivider) themeDivider.style.display = 'none';
     if (menuEl) menuEl.classList.remove('show');
   }
@@ -193,6 +231,14 @@ function wireAuthBar() {
   const burgerBtn = document.getElementById('burger-menu-btn');
   const menuEl = document.getElementById('profile-menu');
   const signoutBtn = document.getElementById('profile-signout-btn');
+  const signinBtn = document.getElementById('profile-signin-btn');
+  const mobileLoginBtn = document.getElementById('mobile-login-btn');
+
+  if (signinBtn) {
+    signinBtn.addEventListener('click', () => {
+      window.location.href = '/home';
+    });
+  }
 
   const toggleMenu = (ev) => {
     ev.stopPropagation();
@@ -201,10 +247,12 @@ function wireAuthBar() {
     menuEl.classList.toggle('show', willOpen);
     if (badgeBtn) badgeBtn.setAttribute('aria-expanded', String(willOpen));
     if (burgerBtn) burgerBtn.setAttribute('aria-expanded', String(willOpen));
+    if (mobileLoginBtn) mobileLoginBtn.setAttribute('aria-expanded', String(willOpen));
   };
 
   if (badgeBtn) badgeBtn.addEventListener('click', toggleMenu);
   if (burgerBtn) burgerBtn.addEventListener('click', toggleMenu);
+  if (mobileLoginBtn) mobileLoginBtn.addEventListener('click', toggleMenu);
 
   document.addEventListener('click', (ev) => {
     const authControls = document.getElementById('auth-controls');
