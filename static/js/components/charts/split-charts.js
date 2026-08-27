@@ -36,11 +36,18 @@ export function sharedStackedDebtChart(group, getYouLabel) {
       if (!allCreditors.includes(creditor)) allCreditors.push(creditor);
     }
   }
+  
+  allCreditors.sort((a, b) => a === SPLIT_YOU ? -1 : (b === SPLIT_YOU ? 1 : 0));
 
-  const debtorTotals = debtors.map(({ debtor, creditors }) => ({
-    debtor, creditors,
-    total: creditors.reduce((sum, item) => sum + Number(item.amount || 0), 0),
-  }));
+  const debtorTotals = debtors.map(({ debtor, creditors }) => {
+    creditors.sort((a, b) => a.creditor === SPLIT_YOU ? -1 : (b.creditor === SPLIT_YOU ? 1 : 0));
+    return {
+      debtor, creditors,
+      total: creditors.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    };
+  });
+  
+  debtorTotals.sort((a, b) => a.debtor === SPLIT_YOU ? -1 : (b.debtor === SPLIT_YOU ? 1 : 0));
 
   const actualMaxTotal = Math.max(1, ...debtorTotals.map(item => item.total));
   const debtAxis = buildNiceChartTicks(actualMaxTotal, 4);
@@ -110,7 +117,11 @@ export function sharedSharesBarChart(group, getYouLabel) {
   const pairs = Object.entries(totals)
     .map(([person, value]) => ({ person, value: Math.round(value * 100) / 100 }))
     .filter(x => x.value > 0.004)
-    .sort((a, b) => b.value - a.value);
+    .sort((a, b) => {
+      if (a.person === SPLIT_YOU) return -1;
+      if (b.person === SPLIT_YOU) return 1;
+      return b.value - a.value;
+    });
 
   if (!pairs.length) {
     return `<div class="empty-chart">No shares recorded in this group yet.</div>`;

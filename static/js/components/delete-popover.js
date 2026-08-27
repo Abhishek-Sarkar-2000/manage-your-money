@@ -20,12 +20,14 @@ export function showDeleteCallout(triggerEl, actionName, id, label = 'Delete?') 
   pop.classList.add('show');
 
   const rect = triggerEl.getBoundingClientRect();
+  const appRect = pop.offsetParent ? pop.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
   const popWidth = pop.offsetWidth || 130;
-  const viewLeft = rect.left - popWidth - 10;
-  const viewTop = rect.top + (rect.height / 2) - ((pop.offsetHeight || 44) / 2);
+  
+  const viewLeft = rect.left - appRect.left - popWidth - 10;
+  const viewTop = rect.top - appRect.top + (rect.height / 2) - ((pop.offsetHeight || 44) / 2);
 
-  pop.style.left = (viewLeft + window.scrollX) + 'px';
-  pop.style.top = (viewTop + window.scrollY) + 'px';
+  pop.style.left = viewLeft + 'px';
+  pop.style.top = viewTop + 'px';
 }
 
 export function hideDeleteCallout() {

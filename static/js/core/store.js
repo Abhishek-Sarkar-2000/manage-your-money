@@ -95,20 +95,23 @@ export const Store = {
     sessionStorage.setItem(key, JSON.stringify(value));
 
     pendingWrites++;
-    fetch('/api/storage/' + encodeURIComponent(key), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value: JSON.stringify(value) }),
-      keepalive: true,
-    }).then(res => {
-      if (res.status === 401) { onAuthRequired(); return; }
+    try {
+      const res = await fetch('/api/storage/' + encodeURIComponent(key), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: JSON.stringify(value) }),
+        keepalive: true,
+      });
+      if (res.status === 401) { onAuthRequired(); return false; }
       if (!res.ok) throw new Error('PUT failed: ' + res.status);
-    }).catch(e => {
+      return true;
+    } catch (e) {
       console.error('storage set failed', key, e);
       showToast('Could not save to server — check your connection');
-    }).finally(() => { pendingWrites--; });
-
-    return true;
+      return false;
+    } finally {
+      pendingWrites--;
+    }
   },
 
   async remove(key) {

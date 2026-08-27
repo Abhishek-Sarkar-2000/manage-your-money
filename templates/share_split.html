@@ -7,7 +7,7 @@
 {% block topbar %}
   <div id="global-topbar" class="topbar-wrapper">
     <div class="topbar">
-      <div class="brand"><span class="mark">₹</span> <span id="brand-name">LedgerNote</span></div>
+      <a class="brand" id="shared-brand-link"><span class="mark">₹</span> <span id="brand-name">LedgerNote</span></a>
       
       <div id="auth-bar" class="auth-bar">
         <div id="theme-selector" class="range-toggle">
@@ -21,13 +21,24 @@
             <span class="burger-line"></span><span class="burger-line"></span><span class="burger-line"></span>
           </button>
 
+          <div id="google-signin-btn" class="google-signin-btn"></div>
+          <div id="profile-badge" class="profile-badge" hidden>
+            <button id="profile-badge-btn" class="profile-badge-btn" type="button" aria-haspopup="true" aria-expanded="false">
+              <img id="profile-avatar" class="profile-avatar" alt="" referrerpolicy="no-referrer"/>
+              <span id="profile-name" class="profile-name"></span>
+            </button>
+          </div>
+
           <div id="profile-menu" class="profile-menu" role="menu">
             <div class="mobile-theme-group">
               <div class="pm-group-label">Theme <span style="font-size: 0.55rem; margin-top: 3px;">▾</span></div>
               <button class="profile-menu-item theme-opt" data-theme-btn="default" type="button">Light</button>
               <button class="profile-menu-item theme-opt" data-theme-btn="hi-contrast" type="button">Hi-contrast</button>
               <button class="profile-menu-item theme-opt" data-theme-btn="dark" type="button">Dark</button>
+              <div class="pm-divider" id="pm-theme-divider"></div>
             </div>
+            <div id="profile-menu-email" class="profile-menu-email"></div>
+            <button id="profile-signout-btn" class="profile-menu-item" type="button" role="menuitem">Sign out</button>
           </div>
         </div>
       </div>

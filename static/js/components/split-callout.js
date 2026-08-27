@@ -8,18 +8,22 @@ let pinnedKey = null;
 
 function positionSplitCallout(pop, triggerEl) {
   const rect = triggerEl.getBoundingClientRect();
+  const appRect = pop.offsetParent ? pop.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
   const popWidth = pop.offsetWidth || 260;
+  
   let viewLeft = rect.left;
   if (viewLeft + popWidth > window.innerWidth - 12) {
     viewLeft = Math.max(12, window.innerWidth - popWidth - 12);
   }
+  
   let viewTop = rect.bottom + 6;
   const popHeight = pop.offsetHeight || 0;
   if (popHeight && viewTop + popHeight > window.innerHeight - 12) {
     viewTop = rect.top - popHeight - 6;
   }
-  pop.style.left = (viewLeft + window.scrollX) + 'px';
-  pop.style.top = (viewTop + window.scrollY) + 'px';
+  
+  pop.style.left = (viewLeft - appRect.left) + 'px';
+  pop.style.top = (viewTop - appRect.top) + 'px';
 }
 
 export function showSplitCallout(triggerEl) {

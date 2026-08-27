@@ -346,6 +346,10 @@ a {
   border: none;
 }
 
+.split-member-row .btn {
+  margin: 4px 0px;
+}
+
 .invest-form {
   display: flex;
   align-items: center;

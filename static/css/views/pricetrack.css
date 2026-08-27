@@ -9,7 +9,7 @@
 .price-item-card {
   position: relative;
   cursor: pointer;
-  background: linear-gradient(155deg, #fff 0%, var(--ice-2) 100%);
+  background: linear-gradient(155deg, #fff 0%, var(--ice) 100%);
   border: 1px solid var(--hair);
   border-radius: var(--radius);
   padding: 14px 16px;

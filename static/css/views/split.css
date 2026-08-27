@@ -79,7 +79,7 @@
 .split-settle-card {
   flex: 0 0 250px;
   min-width: 220px;
-  background: #fff;
+  background:  linear-gradient(155deg, #fff 0%, var(--ice) 100%);
   border: 1px solid var(--hair);
   border-radius: var(--radius-sm);
   padding: 16px 18px;
@@ -526,13 +526,14 @@
   }
 }
 
-
+.split-member-row {
+  margin: 8px 0px;
+}
 
 /* ---------- Shared Read-Only Mode ---------- */
 body.shared-mode .sgc-actions [data-settle-group-toggle],
 body.shared-mode .sgc-actions [data-del-split],
 body.shared-mode .pill-grid,
-body.shared-mode .form-panel,
 body.shared-mode td.actions-cell,
 body.shared-mode th:last-child,
 body.shared-mode .fab-home {

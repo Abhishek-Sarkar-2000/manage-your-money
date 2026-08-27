@@ -108,6 +108,10 @@
   box-shadow: none; 
 }
 
+:root[data-theme="hi-contrast"] .stat-back {
+  background: #fff !important;
+}
+
 :root[data-theme="hi-contrast"] .chart-tooltip {
   background: var(--blue);
   color: #fff;
@@ -201,7 +205,6 @@
 :root[data-theme="dark"] .card,
 :root[data-theme="dark"] .current-month-card.empty,
 :root[data-theme="dark"] .stat-back,
-:root[data-theme="dark"] .price-item-card,
 :root[data-theme="dark"] .cc-item,
 :root[data-theme="dark"] .emi-card,
 :root[data-theme="dark"] .month-row,
@@ -222,6 +225,7 @@
 :root[data-theme="dark"] .split-group-card,
 :root[data-theme="dark"] .split-settle-card,
 :root[data-theme="dark"] .stat-front,
+:root[data-theme="dark"] .price-item-card,
 :root[data-theme="dark"] .balance-box {
   background: linear-gradient(135deg, var(--hair) 0%, var(--ice-2) 100%) !important;
   color: var(--navy);
@@ -312,6 +316,15 @@
 :root[data-theme="dark"] .toast {
   background: var(--ice);
   border: solid 1px var(--sky) ;
+}
+
+:root[data-theme="dark"] .shared-share-grid-line,
+:root[data-theme="dark"] .shared-share-axis-line,
+:root[data-theme="dark"] .shared-debt-axis {
+  border-top-color: var(--sky);
+}
+:root[data-theme="dark"] .shared-debt-grid-line {
+  border-left-color: var(--sky);
 }
 
 @media (max-width: 639px) {
