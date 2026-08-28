@@ -14,7 +14,8 @@ body {
   color: var(--ink);
   background:
     repeating-linear-gradient(180deg, transparent 0 39px, rgba(47, 111, 176, 0.055) 40px 41px),
-    linear-gradient(160deg, var(--ice) 0%, var(--paper) 45%, #ffffff 100%);
+    linear-gradient(160deg, var(--ice-2) 0%, var(--paper) 45%, var(--ice-2) 100%);
+  background-attachment: scroll, fixed;
   display: flex;
   flex-direction: column;
   -webkit-font-smoothing: antialiased;

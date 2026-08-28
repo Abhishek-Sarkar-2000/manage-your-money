@@ -105,7 +105,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       <td><span class="tag spend">Spend</span></td>
       <td>
         <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
-        <div class="subnote">${card ? 'Paid via ' + escapeHtml(card.name) + ' — reduces card dues' : 'Cash / debit'}</div>
+        <div class="subnote">${card ? 'Paid for ' + escapeHtml(card.name) + ' — reduces card dues' : 'Cash / debit'}</div>
         ${lentChips ? `<div>${lentChips}</div>` : ''}
       </td>
       <td class="num amt-debit">-${fmtINR(e.amount)}</td>

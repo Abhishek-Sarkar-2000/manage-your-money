@@ -74,32 +74,6 @@ def close_db(conn):
     if conn is not None and conn is not _shared_remote_conn:
         conn.close()
 
-def _table_exists(conn, name):
-    try:
-        cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name = ?", (name,))
-        return cur.fetchone() is not None
-    except Exception:
-        return False
-
-def migrate_legacy_data(conn, user_id):
-    if not _table_exists(conn, "storage"):
-        return
-    try:
-        cur = conn.execute("SELECT key, value FROM storage")
-        rows = cur.fetchall()
-        for key, value in rows:
-            conn.execute(
-                """
-                INSERT INTO user_storage (user_id, key, value, updated_at)
-                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(user_id, key) DO NOTHING
-                """,
-                (user_id, key, value),
-            )
-        conn.commit()
-    except Exception as e:
-        print(f"Legacy migration skipped/failed: {e}")
-
 def init_db():
     conn = get_db()
     try:
@@ -269,8 +243,16 @@ def auth_google():
     conn = None
     try:
         conn = get_db()
-        cur = conn.execute("SELECT COUNT(*) FROM users")
-        is_first_user_ever = bool(cur.fetchone()[0] == 0)
+
+        # Was this specific user_id already in `users` before this request?
+        # This is what tells the frontend whether it's safe to migrate the
+        # guest's localStorage data up (brand-new signup) or whether doing
+        # so would risk clobbering/duplicating an existing cloud account's
+        # data (returning user, signing in on a new/cleared browser).
+        existing_user_row = conn.execute(
+            "SELECT 1 FROM users WHERE user_id = ?", (user_id,)
+        ).fetchone()
+        is_new_user = existing_user_row is None
 
         conn.execute(
             """
@@ -281,9 +263,6 @@ def auth_google():
             (user_id, email, name, picture),
         )
         conn.commit()
-
-        if is_first_user_ever:
-            migrate_legacy_data(conn, user_id)
     except Exception:
         traceback.print_exc()
         return jsonify({"error": "Could not complete sign-in"}), 500
@@ -296,7 +275,10 @@ def auth_google():
     session["email"] = email
     session.permanent = True
 
-    return jsonify({"user": {"user_id": user_id, "email": email, "name": name, "picture": picture}})
+    return jsonify({
+        "user": {"user_id": user_id, "email": email, "name": name, "picture": picture},
+        "isNewUser": is_new_user,
+    })
 
 @app.route("/api/auth/logout", methods=["POST"])
 def auth_logout():
@@ -595,7 +577,7 @@ brotli
   .auth-controls {
     border: 1px solid var(--hair);
     border-radius: 999px;
-    background: #fff;
+    background: var(--paper);
   }
 }
 
@@ -654,7 +636,7 @@ brotli
   top: calc(100% + 8px);
   right: 0;
   min-width: 200px;
-  background: #fff;
+  background: var(--paper);
   border: 1px solid var(--hair);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow);
@@ -838,6 +820,13 @@ brotli
   animation: fadeInUp 0.4s ease forwards;
 }
 
+/* Force the Google SDK's injected wrapper to be transparent */
+.hero-google-signin-btn > div,
+#hero-google-signin-slot > div,
+.google-signin-btn > div {
+  background-color: transparent !important;
+}
+
 .login-hero-note {
   margin-top: 14px;
   font-size: 0.82rem;
@@ -845,6 +834,43 @@ brotli
   color: var(--muted);
 }
 
+
+/* ---------- Guest-mode banner ---------- */
+.guest-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 18px 0 0;
+  padding: 12px 18px;
+  border: 1px solid var(--sky);
+  background: var(--ice);
+  border-radius: 12px;
+}
+
+.guest-banner-text {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--ink, #333);
+  max-width: 68ch;
+}
+
+.guest-banner-text strong {
+  color: var(--blue);
+}
+
+.guest-banner-signin {
+  flex-shrink: 0;
+}
+
+@media (max-width: 639px) {
+  .guest-banner {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: left;
+  }
+}
 
 /* ---------- Public shared-split banner ---------- */
 .shared-page-header {
@@ -894,7 +920,8 @@ body {
   color: var(--ink);
   background:
     repeating-linear-gradient(180deg, transparent 0 39px, rgba(47, 111, 176, 0.055) 40px 41px),
-    linear-gradient(160deg, var(--ice) 0%, var(--paper) 45%, #ffffff 100%);
+    linear-gradient(160deg, var(--ice-2) 0%, var(--paper) 45%, var(--ice-2) 100%);
+  background-attachment: scroll, fixed;
   display: flex;
   flex-direction: column;
   -webkit-font-smoothing: antialiased;
@@ -1845,6 +1872,14 @@ td.actions-cell {
   background-position: 0 25%, 0 50%, 0 75%;
   background-size: 100% 1px;
   background-repeat: no-repeat;
+}
+
+:root[data-theme="dark"] .bars {
+  border-bottom-color: var(--sky);
+  background-image: 
+    linear-gradient(to bottom, var(--sky) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--sky) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--sky) 1px, transparent 1px);
 }
 
 .bar-col {
@@ -3029,6 +3064,7 @@ transform: translateY(0);
 
 /* ---------- Dark Theme ---------- */
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --navy: #EAEBFB;
   --royal: #c2c3f3;
   --blue: #6f9ff7;
@@ -3046,7 +3082,7 @@ transform: translateY(0);
   
   --credit: #5CE0B8;
   --credit-bg: rgba(92, 224, 184, 0.15);
-  --debit: #FF7B93;
+  --debit: #e93354;
   --debit-bd: #FF7B93;
   --debit-bg: rgba(255, 123, 147, 0.15);
   --amber: #FCD277;
@@ -5219,50 +5255,52 @@ export function wireDeletePopoverDismiss(root = document) {
 }
 
 === ./static/js/components/login-hero.js ===
-/* ---------- Signed-out landing ----------
-   Any authenticated view calls this instead of its normal render when
-   core/auth.js reports no signed-in user. */
-import { mountHeroGoogleButton } from '../core/auth.js';
+/* ---------- Guest-mode banner ----------
+   Guests can use every view against localStorage now, so this is no longer
+   a full-screen gate — it's a small "back up your data" strip that
+   page-chrome.js mounts into every non-shared page when there's no
+   signed-in user. */
+import { renderGoogleButton } from '../core/auth.js';
 
-export function loginHeroHtml() {
+export function guestBannerHtml() {
   return `
-  <div class="topbar-login">
-    <div class="brand-line">
-      <div class="brand-login">
-        <span class="mark">₹</span>
-        <div class="brand-login-text">
-          <span class="brand-login-name">LedgerNote</span>
-          <div class="eyebrow">Personal finance, kept plainly</div>
-        </div>
-      </div>
+  <div class="guest-banner" role="note">
+    <div class="guest-banner-text">
+      <strong>You're using LedgerNote as a guest.</strong>
+      Everything you enter here is stored only in this browser. Clearing your
+      browser data, switching devices, or reinstalling will permanently erase
+      it. Sign in to back it up safely.
     </div>
-    <div class="hero login-hero">
-      <div class="hero-signin-text">
-        <h1>Manage your money <em>(made easy)</em></h1>
-        <p>Log what comes in and what goes out, track what's lent, owed and invested, split group spends with friends — all synced privately to your Google account.</p>
-      </div>
-      <div id="hero-google-signin-slot" class="hero-google-signin-btn"></div>
-      <div class="login-hero-note">Your Google account is used only to keep your data yours — sign in to continue.</div>
-    </div>
+    <div id="guest-banner-signin-slot" class="guest-banner-signin"></div>
   </div>
   `;
 }
 
-export function mountLoginHero(root) {
-  const tb = document.getElementById('global-topbar');
-  if (tb) tb.style.display = 'none';
-
-  root.innerHTML = loginHeroHtml();
-  mountHeroGoogleButton(document.getElementById('hero-google-signin-slot'));
+export function mountGuestBanner(container) {
+  if (!container) return;
+  container.innerHTML = guestBannerHtml();
+  renderGoogleButton(document.getElementById('guest-banner-signin-slot'), {
+    type: 'standard',
+    theme: 'filled_blue',
+    size: 'medium',
+    shape: 'pill',
+    text: 'signin_with',
+    logo_alignment: 'left',
+    width: '220',
+  });
 }
-
 === ./static/js/components/page-chrome.js ===
 /* ---------- Shared per-page chrome ----------
    The "back to home" FAB and the privacy footer used to be appended by the
    monolith's single render() after every view. Each page template now owns
    its own <div id="..."-root">; this helper appends the same trailing
    markup so every view keeps the identical footer/FAB/popover-host
-   elements without duplicating the HTML in every view module. */
+   elements without duplicating the HTML in every view module. It also owns
+   the guest-mode "back up your data" banner, since every authenticated view
+   calls this after rendering. */
+import { currentUser } from '../core/auth.js';
+import { mountGuestBanner } from './login-hero.js';
+
 export function appendPageChrome(root, { showFabHome = true, isShared = false } = {}) {
   if (showFabHome) {
     root.insertAdjacentHTML('beforeend',
@@ -5285,8 +5323,28 @@ export function appendPageChrome(root, { showFabHome = true, isShared = false } 
       <div class="page-footer"><span>Don't you squander now ;)</span></div>
     </div>
   `;
-}
 
+  // Guest-mode reminder: never on public/shared pages, never once signed in.
+  // Lives as the first child of #app so it picks up the same max-width,
+  // centering, and side padding every view's content already uses, instead
+  // of sitting full-bleed outside that container.
+  let guestBannerContainer = document.getElementById('guest-banner-container');
+  if (!isShared && !currentUser) {
+    if (!guestBannerContainer) {
+      guestBannerContainer = document.createElement('div');
+      guestBannerContainer.id = 'guest-banner-container';
+      const appEl = document.getElementById('app');
+      if (appEl) {
+        appEl.insertBefore(guestBannerContainer, appEl.firstChild);
+      } else {
+        document.body.insertBefore(guestBannerContainer, document.body.firstChild);
+      }
+    }
+    mountGuestBanner(guestBannerContainer);
+  } else if (guestBannerContainer) {
+    guestBannerContainer.remove();
+  }
+}
 === ./static/js/components/render-guard.js ===
 /* ---------- First-render tracking ----------
    The CSS 'fadeInUp' mount animation on cards/panels should only play once,
@@ -5570,6 +5628,54 @@ export function showToast(msg) {
    calling into per-page render logic directly. */
 import { AppConfig } from './config.js';
 import { showToast } from '../components/toast.js';
+import { Store } from './store.js';
+
+// App-specific localStorage keys guest mode writes to (kept in sync with
+// every Store.get/set key used across static/js/views/*.js).
+const GUEST_STATIC_KEYS = [
+  'creditcards', 'months-index', 'emiseries', 'sipseries', 'splits-index',
+  'custom-spend-tags', 'existinginvestments',
+];
+
+function isGuestDataKey(key) {
+  return GUEST_STATIC_KEYS.includes(key) || key.startsWith('month:') || key.startsWith('split:');
+}
+
+/* Runs once, immediately after a brand-new signup (never for a returning
+   user). Walks localStorage for the app's own guest-mode keys, pushes each
+   one to the now-authenticated backend via Store.set — which, now that
+   currentUser is populated, talks to /api/storage/* instead of
+   localStorage — and only clears a key locally once that write succeeds.
+   If anything fails partway through, the untouched keys simply stay in
+   localStorage and nothing is lost. */
+async function migrateGuestDataToCloud() {
+  const keysToMigrate = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && isGuestDataKey(key)) keysToMigrate.push(key);
+  }
+  if (keysToMigrate.length === 0) return;
+
+  let migratedCount = 0;
+  for (const key of keysToMigrate) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw === null) continue;
+      const value = JSON.parse(raw);
+      const ok = await Store.set(key, value);
+      if (ok) {
+        localStorage.removeItem(key);
+        migratedCount++;
+      }
+    } catch (e) {
+      console.error('Failed to migrate guest key to cloud', key, e);
+    }
+  }
+
+  if (migratedCount > 0) {
+    showToast(`Backed up ${migratedCount} local item${migratedCount === 1 ? '' : 's'} from this device to your account.`);
+  }
+}
 
 export let currentUser = null;
 
@@ -5619,6 +5725,15 @@ async function handleGoogleCredential(response) {
     currentUser = body.user;
     updateProfileBadge();
     showToast(`Welcome, ${(body.user.name || '').split(' ')[0] || 'there'}!`);
+
+    // New signup: the guest's local data is the only copy that exists
+    // anywhere, so migrate it up and clear it locally once confirmed saved.
+    // Returning user: their cloud data is authoritative — leave
+    // localStorage exactly as it is, so it's still there if they sign out.
+    if (body.isNewUser) {
+      await migrateGuestDataToCloud();
+    }
+
     window.dispatchEvent(new CustomEvent('auth:signed-in', { detail: currentUser }));
   } catch (e) {
     console.error('Google sign-in failed', e);
@@ -5846,6 +5961,11 @@ function initThemeSelector() {
       const theme = themeBtn.dataset.themeBtn;
       localStorage.setItem('ledger-theme', theme);
       document.documentElement.setAttribute('data-theme', theme);
+      
+      const themeColors = { 'default': '#FCFDFF', 'dark': '#0F111E', 'hi-contrast': '#FFFFFF' };
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.content = themeColors[theme] || '#FCFDFF';
+
       syncActiveStates();
       
       const profileMenu = document.getElementById('profile-menu');
@@ -6529,6 +6649,7 @@ export async function settleAllInGroup(group, monthsIndex) {
    is broadcast as a DOM event — each page decides what "session expired"
    means for itself instead of this module owning a global render(). */
 import { showToast } from '../components/toast.js';
+import { currentUser } from './auth.js';
 
 function onAuthRequired() {
   if (document.body.dataset.isShared === 'true') return; // public pages never need a session
@@ -6545,8 +6666,40 @@ window.addEventListener('beforeunload', (e) => {
   }
 });
 
+// Small helper: retry a request a couple of times with a short delay before
+// giving up on it. Most bulk-fetch failures are a single transient blip (a
+// dev server mid-restart, one dropped packet) — retrying quietly clears
+// those without ever bothering the user. 401/404 are real answers, not
+// failures, so they return immediately without retrying.
+async function fetchWithRetry(url, options, attempts = 2, delayMs = 300) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok || res.status === 401 || res.status === 404) return res;
+      lastErr = new Error('Request failed: ' + res.status);
+    } catch (e) {
+      lastErr = e;
+    }
+    if (i < attempts - 1) await new Promise(r => setTimeout(r, delayMs));
+  }
+  throw lastErr;
+}
+
 export const Store = {
   async get(key, fallback) {
+    // Guest mode: localStorage is the only source of truth, never hit the network.
+    if (!currentUser) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw === null) return fallback;
+        return JSON.parse(raw);
+      } catch (e) {
+        console.error('local storage get failed', key, e);
+        return fallback;
+      }
+    }
+
     try {
       // 1. Check local session cache first to bypass network completely
       const cached = sessionStorage.getItem(key);
@@ -6573,6 +6726,20 @@ export const Store = {
 
   // NEW: Fetch multiple keys in a single HTTP request to prevent N+1 queries
   async bulkGet(keys, fallback = {}) {
+    // Guest mode: pull every key straight out of localStorage, no network call.
+    if (!currentUser) {
+      const result = {};
+      try {
+        keys.forEach(k => {
+          const raw = localStorage.getItem(k);
+          if (raw !== null) result[k] = JSON.parse(raw);
+        });
+      } catch (e) {
+        console.error('local storage bulk get failed', e);
+      }
+      return result;
+    }
+
     try {
       const missingKeys = [];
       const result = {};
@@ -6590,31 +6757,87 @@ export const Store = {
       // If everything was cached, no network call needed!
       if (missingKeys.length === 0) return result;
 
-      // Fetch only the missing keys
-      const res = await fetch('/api/storage/bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keys: missingKeys })
+      // 1. Try the bulk endpoint, with a couple of quiet retries for transient blips.
+      try {
+        const res = await fetchWithRetry('/api/storage/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keys: missingKeys })
+        });
+
+        if (res.status === 401) { onAuthRequired(); return fallback; }
+        if (!res.ok) throw new Error('Bulk GET failed: ' + res.status);
+
+        const body = await res.json();
+        for (const [k, v] of Object.entries(body)) {
+          sessionStorage.setItem(k, JSON.stringify(v));
+          result[k] = v;
+        }
+        return result;
+      } catch (e) {
+        console.warn('bulk fetch failed after retries, falling back to per-key fetches', e);
+      }
+
+      // 2. Bulk endpoint is still down — recover by fetching each missing
+      // key individually instead of giving up on all of them. This is the
+      // same per-key route Store.get() already uses, so it works as long as
+      // the server itself is reachable, even if /api/storage/bulk isn't.
+      const settled = await Promise.allSettled(
+        missingKeys.map(async (k) => {
+          const r = await fetch('/api/storage/' + encodeURIComponent(k));
+          if (r.status === 401) throw new Error('auth-required');
+          if (r.status === 404) return { k, value: undefined };
+          if (!r.ok) throw new Error('GET failed: ' + r.status);
+          const body = await r.json();
+          return { k, value: JSON.parse(body.value) };
+        })
+      );
+
+      let anySucceeded = false;
+      let authRequired = false;
+      settled.forEach((s) => {
+        if (s.status === 'fulfilled') {
+          anySucceeded = true;
+          const { k, value } = s.value;
+          if (value !== undefined) {
+            sessionStorage.setItem(k, JSON.stringify(value));
+            result[k] = value;
+          }
+        } else if (s.reason && s.reason.message === 'auth-required') {
+          authRequired = true;
+        }
       });
 
-      if (res.status === 401) { onAuthRequired(); return fallback; }
-      if (!res.ok) throw new Error('Bulk GET failed: ' + res.status);
-
-      const body = await res.json();
-      for (const [k, v] of Object.entries(body)) {
-        sessionStorage.setItem(k, JSON.stringify(v));
-        result[k] = v;
+      if (authRequired) { onAuthRequired(); return fallback; }
+      if (!anySucceeded) {
+        // Only reached if the bulk endpoint AND every individual per-key
+        // request failed — a genuine outage, not a one-off blip.
+        console.error('storage bulk get failed for all keys');
+        showToast('Could not load your data — check your connection and try again.');
+        return fallback;
       }
       return result;
     } catch (e) {
       console.error('storage bulk get failed', e);
-      showToast('Could not fetch bulk data.');
+      showToast('Could not load your data — check your connection and try again.');
       return fallback;
     }
   },
 
   // inside set(key, value):
-  async set(key, value) {
+ async set(key, value) {
+    // Guest mode: persist to localStorage only, no server round trip.
+    if (!currentUser) {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+        return true;
+      } catch (e) {
+        console.error('local storage set failed', key, e);
+        showToast('Could not save locally — your browser storage may be full.');
+        return false;
+      }
+    }
+
     sessionStorage.setItem(key, JSON.stringify(value));
 
     pendingWrites++;
@@ -6638,6 +6861,17 @@ export const Store = {
   },
 
   async remove(key) {
+    // Guest mode: delete straight from localStorage, no server round trip.
+    if (!currentUser) {
+      try {
+        localStorage.removeItem(key);
+        return true;
+      } catch (e) {
+        console.error('local storage remove failed', key, e);
+        return false;
+      }
+    }
+
     try {
       const res = await fetch('/api/storage/' + encodeURIComponent(key), { method: 'DELETE' });
       if (res.status === 401) { onAuthRequired(); return false; }
@@ -6658,8 +6892,7 @@ export const Store = {
 import { Store } from '../core/store.js';
 import { $, uid, escapeHtml } from '../core/dom.js';
 import { ordinalSuffix } from '../core/format.js';
-import { currentUser, authReady } from '../core/auth.js';
-import { mountLoginHero } from '../components/login-hero.js';
+import { authReady } from '../core/auth.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
@@ -6669,12 +6902,6 @@ let cards = [];
 let domainLoaded = false;
 
 async function renderCards() {
-  if (!currentUser) {
-    markRendered(root);
-    mountLoginHero(root);
-    return;
-  }
-
   // Fetched once; add/delete mutate `cards` in memory and persist it, so
   // later re-renders reuse the in-memory array instead of refetching.
   if (!domainLoaded) {
@@ -6751,13 +6978,12 @@ authReady.then(renderCards);
    it never re-hits the network. */
 import { Store } from '../core/store.js';
 import { fmtINR, currentMonthKey, monthKeyLabel } from '../core/format.js';
-import { currentUser, authReady } from '../core/auth.js';
+import { authReady } from '../core/auth.js';
 import { computeGlobalStats, computeMonthTotals, emiRowsForMonth, sipRowsForMonth, loadMonth, computeDailyBalanceSeries, windowSeries } from '../core/domain.js';
 import { computeGlobalSplitOwedByYou } from '../core/split-domain.js';
 import { renderStatCards, wireStatCardFlip } from '../components/stat-cards.js';
 import { dailyBalanceChart, wireChartTooltips } from '../components/charts/line-chart.js';
 import { setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
-import { mountLoginHero } from '../components/login-hero.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { markRendered } from '../components/render-guard.js';
 
@@ -6916,21 +7142,7 @@ function renderFromCache() {
   setupTableScrollIndicators(root);
 }
 
-// Add a guard variable at the top level of home.js
-let heroMounted = false;
-
 async function renderHome() {
-  if (!currentUser) {
-    // PREVENT DOUBLE-RENDER: If the hero is already mounted, do not wipe the DOM again!
-    if (heroMounted) return; 
-    
-    markRendered(root);
-    mountLoginHero(root);
-    heroMounted = true;
-    return;
-  }
-  
-  heroMounted = false; // Reset if user signs in
   if (!cache) cache = await buildCache();
   renderFromCache();
 }
@@ -6952,7 +7164,7 @@ wireChartTooltips(root);
 import { Store } from '../core/store.js';
 import { $, $$, uid, escapeHtml } from '../core/dom.js';
 import { fmtINR, todayStr, currentMonthKey, monthKeyLabel, addMonths, diffMonths } from '../core/format.js';
-import { currentUser, authReady } from '../core/auth.js';
+import { authReady } from '../core/auth.js';
 import {
   loadMonth, saveMonth, ensureMonthIndexed, emiRowsForMonth, sipRowsForMonth,
   computeMonthTotals, computeGlobalStats, cardById, allSpendTags,
@@ -6962,7 +7174,6 @@ import { donutChart } from '../components/charts/donut.js';
 import { barChart, tagsBarChart } from '../components/charts/bar-chart.js';
 import { lineChart, wireChartTooltips } from '../components/charts/line-chart.js';
 import { setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
-import { mountLoginHero } from '../components/login-hero.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
@@ -7330,12 +7541,6 @@ function renderForm(kind) {
 
 /* ---------- Main render ---------- */
 async function renderMonth() {
-  if (!currentUser) {
-    markRendered(root);
-    mountLoginHero(root);
-    return;
-  }
-
   await loadDomain();
 
   // First-touch: mirrors the old openMonth()'s one-time carry/manual decision.
@@ -7898,11 +8103,10 @@ wireChartTooltips(root);
 import { Store } from '../core/store.js';
 import { escapeHtml } from '../core/dom.js';
 import { fmtINR, fmtINRShort, monthKeyLabel, monthKeyShort } from '../core/format.js';
-import { currentUser, authReady } from '../core/auth.js';
+import { authReady } from '../core/auth.js';
 import { emiRowsForMonth, sipRowsForMonth, computeMonthTotals, allSpendTags } from '../core/domain.js';
 import { setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
-import { mountLoginHero } from '../components/login-hero.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
@@ -8071,12 +8275,6 @@ function refreshChartSection() {
 }
 
 async function renderMonths() {
-  if (!currentUser) {
-    markRendered(root);
-    mountLoginHero(root);
-    return;
-  }
-
   await loadDomain();
   
   const keysDesc = [...monthsIndex].sort().reverse();
@@ -8085,9 +8283,13 @@ async function renderMonths() {
   // 1. Perform ONE bulk fetch for every month in the index and cache it
   if (!bulkDataCache) {
     const keysToFetch = keysDesc.map(k => 'month:' + k);
-    bulkDataCache = await Store.bulkGet(keysToFetch);
+    const result = await Store.bulkGet(keysToFetch);
+    if (result) {
+      bulkDataCache = result;
+    }
+    // else: leave bulkDataCache null so the next renderMonths() call retries
   }
-  const bulkData = bulkDataCache;
+  const bulkData = bulkDataCache || {};
 
   // 2. Compute the breakdown entirely from memory
   const breakdown = computeMonthlyBreakdownFromBulk(keysAsc, bulkData);
@@ -8106,7 +8308,7 @@ async function renderMonths() {
           <div class="mr-sub">${data.entries.length} ${data.entries.length === 1 ? 'entry' : 'entries'} logged</div>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
-          <div class="mr-val num" style="color:${b.ending >= 0 ? 'var(--credit)' : 'var(--debit)'}">${fmtINR(b.ending)}</div>
+          <div class="mr-val num" style="color:${b.ending >= 0 ? 'var(--navy)' : 'var(--debit)'}">${fmtINR(b.ending)}</div>
           <button class="icon-btn" data-popover-trigger data-del-month="${k}" title="Delete month" type="button">✕</button>
         </div>
       </a>`;
@@ -8249,12 +8451,11 @@ authReady.then(renderMonths);
 import { Store } from '../core/store.js';
 import { $, uid, escapeHtml } from '../core/dom.js';
 import { fmtINR } from '../core/format.js';
-import { currentUser, authReady } from '../core/auth.js';
+import { authReady } from '../core/auth.js';
 import { allSpendTags } from '../core/domain.js';
 import { priceLineChart, wireChartTooltips } from '../components/charts/line-chart.js';
 import { scrollWrapper, setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
-import { mountLoginHero } from '../components/login-hero.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
@@ -8429,11 +8630,6 @@ function renderPriceDetailsPanel(item) {
 }
 
 async function renderPriceTrack() {
-  if (!currentUser) {
-    markRendered(root);
-    mountLoginHero(root);
-    return;
-  }
   await loadDomain();
 
   const items = [...priceItems].sort((a, b) => a.name.localeCompare(b.name));
@@ -8672,6 +8868,11 @@ function initPublicThemeSelector() {
       const theme = themeBtn.dataset.themeBtn;
       localStorage.setItem('ledger-theme', theme);
       document.documentElement.setAttribute('data-theme', theme);
+
+      const themeColors = { 'default': '#FCFDFF', 'dark': '#0F111E', 'hi-contrast': '#FFFFFF' };
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.content = themeColors[theme] || '#FCFDFF';
+
       syncActiveStates();
       
       const profileMenu = document.getElementById('profile-menu');
@@ -9133,8 +9334,7 @@ renderSharedSplitPage();
 import { Store } from '../core/store.js';
 import { $, uid, escapeHtml } from '../core/dom.js';
 import { fmtINR, monthKeyLabel, currentMonthKey } from '../core/format.js';
-import { currentUser, authReady } from '../core/auth.js';
-import { mountLoginHero } from '../components/login-hero.js';
+import { authReady } from '../core/auth.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
 import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
@@ -9146,12 +9346,6 @@ let existingInvestments = 0;
 let domainLoaded = false;
 
 async function renderSips() {
-  if (!currentUser) {
-    markRendered(root);
-    mountLoginHero(root);
-    return;
-  }
-
   if (!domainLoaded) {
     [sipSeries, existingInvestments] = await Promise.all([
       Store.get('sipseries', []),
@@ -9269,7 +9463,6 @@ import { sharedStackedDebtChart, sharedSharesBarChart, SPLIT_PALETTE } from '../
 import { scrollWrapper, setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
 import { showSplitCallout, hideSplitCallout, wireSplitCallouts } from '../components/split-callout.js';
-import { mountLoginHero } from '../components/login-hero.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
@@ -9532,11 +9725,6 @@ function distributeSplitShares(amount) {
 }
 
 async function renderSplit() {
-  if (!currentUser) {
-    markRendered(root);
-    mountLoginHero(root);
-    return;
-  }
   await loadDomain();
 
   const { groups, owedByYou, owedToYou } = await computeSplitPageData(false, null, splitsIndex);
@@ -9725,6 +9913,13 @@ root.addEventListener('click', async (ev) => {
 
   const shareBtn = ev.target.closest('[data-share-split]');
   if (shareBtn) {
+    // Public share links are a backend/database concept — a guest's group
+    // only exists in this browser's localStorage, so there's nothing to
+    // link to yet. Prompt sign-in instead of hitting the API.
+    if (!currentUser) {
+      showToast('Sign in with Google to generate a shareable link — guest data lives only on this device.');
+      return;
+    }
     const id = shareBtn.dataset.shareSplit;
     shareBtn.disabled = true;
     try {
@@ -9937,6 +10132,13 @@ authReady.then(renderSplit);
   <script>
     const savedTheme = localStorage.getItem('ledger-theme') || 'default';
     document.documentElement.setAttribute('data-theme', savedTheme);
+    
+    // Set the OS-level status/nav bar color dynamically based on the saved theme
+    const themeColors = { 'default': '#FCFDFF', 'dark': '#0F111E', 'hi-contrast': '#FFFFFF' };
+    const meta = document.createElement('meta');
+    meta.name = 'theme-color';
+    meta.content = themeColors[savedTheme] || '#FCFDFF';
+    document.head.appendChild(meta);
   </script>
   
   <style>

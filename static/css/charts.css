@@ -292,6 +292,61 @@ svg.linechart {
   overflow: visible;
 }
 
+.stacked-segment {
+  transition: opacity 0.15s ease;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, rgba(0, 0, 0, 0.05) 100%) !important;
+}
+.stacked-segment:hover {
+  opacity: 0.85;
+  cursor: pointer;
+}
+
+.chart-tag-pill {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 10px !important;
+  text-transform: none !important;
+  letter-spacing: 0.05rem !important;
+  cursor: default !important;
+  font-size: 0.68rem !important;
+  background: linear-gradient(135deg, var(--royal) 0%, var(--blue) 100%) !important;
+  color: #fff !important;
+  border: none !important;
+}
+
+.chart-tag-remove {
+  color: var(--ice) !important;
+  font-size: 0.6rem !important;
+  padding: 2px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  transition: background 0.3s ease !important;
+  cursor: pointer;
+}
+
+:root[data-theme="dark"] .chart-tag-pill {
+  background: var(--sky) !important;
+  color: var(--navy) !important;
+  border: 1px solid var(--blue-soft) !important;
+}
+:root[data-theme="dark"] .chart-tag-remove {
+  color: var(--navy) !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chart-tag-remove:hover {
+    background: var(--navy) !important;
+  }
+  :root[data-theme="dark"] .chart-tag-remove:hover {
+    background: var(--hair) !important;
+  }
+}
+
 .empty-chart {
   color: var(--muted);
   font-style: italic;

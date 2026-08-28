@@ -84,13 +84,22 @@
 :root[data-theme="hi-contrast"] .bar,
 :root[data-theme="hi-contrast"] .shared-share-bar {
   background-image: none !important;
-  border: solid 1.2px #000000;
+  border: solid 1px #000000;
   border-bottom: none;
 }
 :root[data-theme="hi-contrast"] .shared-debt-segment {
   background-image: none !important;
-  border: solid 1.2px #000000;
+  border: solid 1px #000000;
   border-left: none;
+}
+
+:root[data-theme="hi-contrast"] .stacked-segment {
+  background-image: none !important;
+  border-bottom: solid 1px #000000;
+}
+
+:root[data-theme="hi-contrast"] .chart-tag-pill {
+  background: var(--blue) !important;
 }
 
 :root[data-theme="hi-contrast"] {
@@ -266,7 +275,7 @@
   border-width: 1px;
   border-color: var(--blue-soft);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-}
+} 
 
 :root[data-theme="dark"] .chart-tooltip {
   background: linear-gradient(135deg, var(--blue) 0%, var(--text-sky) 100%);

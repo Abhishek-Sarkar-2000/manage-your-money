@@ -317,6 +317,13 @@
   animation: fadeInUp 0.4s ease forwards;
 }
 
+/* Force the Google SDK's injected wrapper to be transparent */
+.hero-google-signin-btn > div,
+#hero-google-signin-slot > div,
+.google-signin-btn > div {
+  background-color: transparent !important;
+}
+
 .login-hero-note {
   margin-top: 14px;
   font-size: 0.82rem;
