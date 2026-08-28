@@ -159,6 +159,7 @@
 
 /* ---------- Dark Theme ---------- */
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --navy: #EAEBFB;
   --royal: #c2c3f3;
   --blue: #6f9ff7;
@@ -176,7 +177,7 @@
   
   --credit: #5CE0B8;
   --credit-bg: rgba(92, 224, 184, 0.15);
-  --debit: #FF7B93;
+  --debit: #e93354;
   --debit-bd: #FF7B93;
   --debit-bg: rgba(255, 123, 147, 0.15);
   --amber: #FCD277;

@@ -2,8 +2,7 @@
 import { Store } from '../core/store.js';
 import { $, uid, escapeHtml } from '../core/dom.js';
 import { ordinalSuffix } from '../core/format.js';
-import { currentUser, authReady } from '../core/auth.js';
-import { mountLoginHero } from '../components/login-hero.js';
+import { authReady } from '../core/auth.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
@@ -13,12 +12,6 @@ let cards = [];
 let domainLoaded = false;
 
 async function renderCards() {
-  if (!currentUser) {
-    markRendered(root);
-    mountLoginHero(root);
-    return;
-  }
-
   // Fetched once; add/delete mutate `cards` in memory and persist it, so
   // later re-renders reuse the in-memory array instead of refetching.
   if (!domainLoaded) {

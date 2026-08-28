@@ -6,13 +6,12 @@
    it never re-hits the network. */
 import { Store } from '../core/store.js';
 import { fmtINR, currentMonthKey, monthKeyLabel } from '../core/format.js';
-import { currentUser, authReady } from '../core/auth.js';
+import { authReady } from '../core/auth.js';
 import { computeGlobalStats, computeMonthTotals, emiRowsForMonth, sipRowsForMonth, loadMonth, computeDailyBalanceSeries, windowSeries } from '../core/domain.js';
 import { computeGlobalSplitOwedByYou } from '../core/split-domain.js';
 import { renderStatCards, wireStatCardFlip } from '../components/stat-cards.js';
 import { dailyBalanceChart, wireChartTooltips } from '../components/charts/line-chart.js';
 import { setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
-import { mountLoginHero } from '../components/login-hero.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { markRendered } from '../components/render-guard.js';
 
@@ -171,21 +170,7 @@ function renderFromCache() {
   setupTableScrollIndicators(root);
 }
 
-// Add a guard variable at the top level of home.js
-let heroMounted = false;
-
 async function renderHome() {
-  if (!currentUser) {
-    // PREVENT DOUBLE-RENDER: If the hero is already mounted, do not wipe the DOM again!
-    if (heroMounted) return; 
-    
-    markRendered(root);
-    mountLoginHero(root);
-    heroMounted = true;
-    return;
-  }
-  
-  heroMounted = false; // Reset if user signs in
   if (!cache) cache = await buildCache();
   renderFromCache();
 }

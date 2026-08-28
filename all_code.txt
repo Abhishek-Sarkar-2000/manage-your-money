@@ -2744,20 +2744,11 @@ transform: translateY(0);
     box-shadow: 0 8px 18px rgba(11, 37, 69, 0.22), 0 1px 0 rgba(255, 255, 255, 0.4);
   }
 
-  .stat-back {
-    display: flex;
-    flex-direction: column;
-    position: absolute;
-    inset: 0;
-    z-index: 1;
+  .stat-card {
     background: var(--hair);
-    border-radius: var(--radius-sm);
-    box-shadow: inset 5px 5px 10px rgba(11, 37, 69, 0.14), inset -5px -5px 10px rgba(255, 255, 255, 0.75);
-    padding: 14px 16px;
-    overflow-y: auto;
   }
 
-  .stat-back::after {
+  .stat-card::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -2765,12 +2756,39 @@ transform: translateY(0);
     background: linear-gradient(0deg, var(--ice), var(--ice-2));
     opacity: 0;
     transition: opacity 0.3s ease;
-    z-index: -1;
+    z-index: 0;
     pointer-events: none;
   }
 
-  .stat-card.open .stat-back::after {
+  :root[data-theme="hi-contrast"] .stat-card {
+    background: #000000;
+  }
+
+  /* Fade the background to white when opened */
+  :root[data-theme="hi-contrast"] .stat-card::before {
+    background: #ffffff;
+  }
+
+  /* Camouflage the text against the black base when closed */
+  :root[data-theme="hi-contrast"] .stat-card:not(.open) .stat-back * {
+    color: #000000 !important;
+  }
+  
+  .stat-card.open::before {
     opacity: 1;
+  }
+
+  .stat-back {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: transparent !important;
+    border-radius: var(--radius-sm);
+    box-shadow: inset 5px 5px 10px rgba(11, 37, 69, 0.14), inset -5px -5px 10px rgba(255, 255, 255, 0.75);
+    padding: 14px 16px;
+    overflow-y: auto;
   }
   .stat-card:not(.open) .stat-back * {
     color: var(--ice) !important;
@@ -2958,10 +2976,6 @@ transform: translateY(0);
 :root[data-theme="hi-contrast"] .donut::after {
   border: 1px solid #000000;
   box-shadow: none; 
-}
-
-:root[data-theme="hi-contrast"] .stat-back {
-  background: #fff !important;
 }
 
 :root[data-theme="hi-contrast"] .chart-tooltip {
@@ -5654,11 +5668,11 @@ export function initGoogleSignIn() {
       const isMobile = window.matchMedia('(max-width: 639px)').matches;
       if (isMobile) {
         cornerEl.style.display = 'none';
-        if (mobileLoginBtn && !currentUser) {
-          mobileLoginBtn.style.display = 'flex';
+        if (mobileLoginBtn) {
+          mobileLoginBtn.style.display = currentUser ? 'none' : 'flex';
         }
       } else {
-        cornerEl.style.display = 'inline-block';
+        cornerEl.style.display = currentUser ? 'none' : 'inline-block';
         if (mobileLoginBtn) mobileLoginBtn.style.display = 'none';
         renderGoogleButton(cornerEl, {
           type: 'standard',
@@ -5721,20 +5735,20 @@ function updateProfileBadge() {
       }
     }
     const isMobile = window.matchMedia('(max-width: 639px)').matches;
+    const mobileLoginBtn = document.getElementById('mobile-login-btn');
     if (isMobile) {
       signinEl.style.display = 'none';
-      const mobileLoginBtn = document.getElementById('mobile-login-btn');
-      if (mobileLoginBtn) mobileLoginBtn.style.display = 'flex';
+      if (mobileLoginBtn) mobileLoginBtn.style.display = 'none';
     } else {
-      signinEl.hidden = false;
-      signinEl.style.display = 'inline-block';
+      signinEl.hidden = true;
+      signinEl.style.display = 'none';
     }
-    badgeEl.hidden = true;
+    badgeEl.hidden = false;
     if (burgerBtn) burgerBtn.hidden = false;
-    if (emailEl) emailEl.style.display = 'none';
-    if (signoutBtn) signoutBtn.style.display = 'none';
+    if (emailEl) emailEl.style.display = 'block';
+    if (signoutBtn) signoutBtn.style.display = 'block';
     const signinBtn = document.getElementById('profile-signin-btn');
-    if (signinBtn) signinBtn.style.display = 'block';
+    if (signinBtn) signinBtn.style.display = 'none';
     if (themeDivider) themeDivider.style.display = 'block';
     const avatar = document.getElementById('profile-avatar');
     if (avatar) {
@@ -5753,11 +5767,22 @@ function updateProfileBadge() {
     if (brandNameEl) {
       brandNameEl.textContent = 'LedgerNote';
     }
-    signinEl.hidden = false;
+    const isMobile = window.matchMedia('(max-width: 639px)').matches;
+    const mobileLoginBtn = document.getElementById('mobile-login-btn');
+    if (isMobile) {
+      signinEl.style.display = 'none';
+      if (mobileLoginBtn) mobileLoginBtn.style.display = 'flex';
+    } else {
+      signinEl.hidden = false;
+      signinEl.style.display = 'inline-block';
+      if (mobileLoginBtn) mobileLoginBtn.style.display = 'none';
+    }
     badgeEl.hidden = true;
     if (burgerBtn) burgerBtn.hidden = false;
     if (emailEl) emailEl.style.display = 'none';
     if (signoutBtn) signoutBtn.style.display = 'none';
+    const signinBtn = document.getElementById('profile-signin-btn');
+    if (signinBtn) signinBtn.style.display = 'block';
     if (themeDivider) themeDivider.style.display = 'none';
     if (menuEl) menuEl.classList.remove('show');
   }
@@ -10173,15 +10198,6 @@ authReady.then(renderSplit);
           </button>
 
           <div id="google-signin-btn" class="google-signin-btn"></div>
-          <div id="profile-badge" class="profile-badge" hidden>
-            <button id="profile-badge-btn" class="profile-badge-btn" type="button" aria-haspopup="true" aria-expanded="false">
-              <img id="profile-avatar" class="profile-avatar" alt="" referrerpolicy="no-referrer"/>
-              <span id="profile-name" class="profile-name"></span>
-            </button>
-          </div>
-
-          <div id="google-signin-btn" class="google-signin-btn"></div>
-              
               <button id="mobile-login-btn" class="profile-badge-btn" style="display: none; padding: 4px 6px 4px 4px;" type="button" aria-label="Sign in" title="Sign in">
                 <div class="profile-avatar" style="display: flex; align-items: center; justify-content: center; color: var(--muted); background: var(--ice-2);">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>

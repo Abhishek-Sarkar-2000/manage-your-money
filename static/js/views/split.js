@@ -14,7 +14,6 @@ import { sharedStackedDebtChart, sharedSharesBarChart, SPLIT_PALETTE } from '../
 import { scrollWrapper, setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
 import { showSplitCallout, hideSplitCallout, wireSplitCallouts } from '../components/split-callout.js';
-import { mountLoginHero } from '../components/login-hero.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
@@ -277,11 +276,6 @@ function distributeSplitShares(amount) {
 }
 
 async function renderSplit() {
-  if (!currentUser) {
-    markRendered(root);
-    mountLoginHero(root);
-    return;
-  }
   await loadDomain();
 
   const { groups, owedByYou, owedToYou } = await computeSplitPageData(false, null, splitsIndex);
@@ -470,6 +464,13 @@ root.addEventListener('click', async (ev) => {
 
   const shareBtn = ev.target.closest('[data-share-split]');
   if (shareBtn) {
+    // Public share links are a backend/database concept — a guest's group
+    // only exists in this browser's localStorage, so there's nothing to
+    // link to yet. Prompt sign-in instead of hitting the API.
+    if (!currentUser) {
+      showToast('Sign in with Google to generate a shareable link — guest data lives only on this device.');
+      return;
+    }
     const id = shareBtn.dataset.shareSplit;
     shareBtn.disabled = true;
     try {

@@ -24,6 +24,13 @@
   <script>
     const savedTheme = localStorage.getItem('ledger-theme') || 'default';
     document.documentElement.setAttribute('data-theme', savedTheme);
+    
+    // Set the OS-level status/nav bar color dynamically based on the saved theme
+    const themeColors = { 'default': '#FCFDFF', 'dark': '#0F111E', 'hi-contrast': '#FFFFFF' };
+    const meta = document.createElement('meta');
+    meta.name = 'theme-color';
+    meta.content = themeColors[savedTheme] || '#FCFDFF';
+    document.head.appendChild(meta);
   </script>
   
   <style>

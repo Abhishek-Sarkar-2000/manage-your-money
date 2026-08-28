@@ -1,36 +1,34 @@
-/* ---------- Signed-out landing ----------
-   Any authenticated view calls this instead of its normal render when
-   core/auth.js reports no signed-in user. */
-import { mountHeroGoogleButton } from '../core/auth.js';
+/* ---------- Guest-mode banner ----------
+   Guests can use every view against localStorage now, so this is no longer
+   a full-screen gate — it's a small "back up your data" strip that
+   page-chrome.js mounts into every non-shared page when there's no
+   signed-in user. */
+import { renderGoogleButton } from '../core/auth.js';
 
-export function loginHeroHtml() {
+export function guestBannerHtml() {
   return `
-  <div class="topbar-login">
-    <div class="brand-line">
-      <div class="brand-login">
-        <span class="mark">₹</span>
-        <div class="brand-login-text">
-          <span class="brand-login-name">LedgerNote</span>
-          <div class="eyebrow">Personal finance, kept plainly</div>
-        </div>
-      </div>
+  <div class="guest-banner" role="note">
+    <div class="guest-banner-text">
+      <strong>You're using LedgerNote as a guest.</strong>
+      Everything you enter here is stored only in this browser. Clearing your
+      browser data, switching devices, or reinstalling will permanently erase
+      it. Sign in to back it up safely.
     </div>
-    <div class="hero login-hero">
-      <div class="hero-signin-text">
-        <h1>Manage your money <em>(made easy)</em></h1>
-        <p>Log what comes in and what goes out, track what's lent, owed and invested, split group spends with friends — all synced privately to your Google account.</p>
-      </div>
-      <div id="hero-google-signin-slot" class="hero-google-signin-btn"></div>
-      <div class="login-hero-note">Your Google account is used only to keep your data yours — sign in to continue.</div>
-    </div>
+    <div id="guest-banner-signin-slot" class="guest-banner-signin"></div>
   </div>
   `;
 }
 
-export function mountLoginHero(root) {
-  const tb = document.getElementById('global-topbar');
-  if (tb) tb.style.display = 'none';
-
-  root.innerHTML = loginHeroHtml();
-  mountHeroGoogleButton(document.getElementById('hero-google-signin-slot'));
+export function mountGuestBanner(container) {
+  if (!container) return;
+  container.innerHTML = guestBannerHtml();
+  renderGoogleButton(document.getElementById('guest-banner-signin-slot'), {
+    type: 'standard',
+    theme: 'filled_blue',
+    size: 'medium',
+    shape: 'pill',
+    text: 'signin_with',
+    logo_alignment: 'left',
+    width: '220',
+  });
 }

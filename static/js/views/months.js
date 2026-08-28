@@ -2,11 +2,10 @@
 import { Store } from '../core/store.js';
 import { escapeHtml } from '../core/dom.js';
 import { fmtINR, fmtINRShort, monthKeyLabel, monthKeyShort } from '../core/format.js';
-import { currentUser, authReady } from '../core/auth.js';
+import { authReady } from '../core/auth.js';
 import { emiRowsForMonth, sipRowsForMonth, computeMonthTotals, allSpendTags } from '../core/domain.js';
 import { setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
-import { mountLoginHero } from '../components/login-hero.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
@@ -175,12 +174,6 @@ function refreshChartSection() {
 }
 
 async function renderMonths() {
-  if (!currentUser) {
-    markRendered(root);
-    mountLoginHero(root);
-    return;
-  }
-
   await loadDomain();
   
   const keysDesc = [...monthsIndex].sort().reverse();
@@ -189,9 +182,13 @@ async function renderMonths() {
   // 1. Perform ONE bulk fetch for every month in the index and cache it
   if (!bulkDataCache) {
     const keysToFetch = keysDesc.map(k => 'month:' + k);
-    bulkDataCache = await Store.bulkGet(keysToFetch);
+    const result = await Store.bulkGet(keysToFetch);
+    if (result) {
+      bulkDataCache = result;
+    }
+    // else: leave bulkDataCache null so the next renderMonths() call retries
   }
-  const bulkData = bulkDataCache;
+  const bulkData = bulkDataCache || {};
 
   // 2. Compute the breakdown entirely from memory
   const breakdown = computeMonthlyBreakdownFromBulk(keysAsc, bulkData);
@@ -210,7 +207,7 @@ async function renderMonths() {
           <div class="mr-sub">${data.entries.length} ${data.entries.length === 1 ? 'entry' : 'entries'} logged</div>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
-          <div class="mr-val num" style="color:${b.ending >= 0 ? 'var(--credit)' : 'var(--debit)'}">${fmtINR(b.ending)}</div>
+          <div class="mr-val num" style="color:${b.ending >= 0 ? 'var(--navy)' : 'var(--debit)'}">${fmtINR(b.ending)}</div>
           <button class="icon-btn" data-popover-trigger data-del-month="${k}" title="Delete month" type="button">✕</button>
         </div>
       </a>`;

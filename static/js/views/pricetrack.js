@@ -2,12 +2,11 @@
 import { Store } from '../core/store.js';
 import { $, uid, escapeHtml } from '../core/dom.js';
 import { fmtINR } from '../core/format.js';
-import { currentUser, authReady } from '../core/auth.js';
+import { authReady } from '../core/auth.js';
 import { allSpendTags } from '../core/domain.js';
 import { priceLineChart, wireChartTooltips } from '../components/charts/line-chart.js';
 import { scrollWrapper, setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
-import { mountLoginHero } from '../components/login-hero.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
@@ -182,11 +181,6 @@ function renderPriceDetailsPanel(item) {
 }
 
 async function renderPriceTrack() {
-  if (!currentUser) {
-    markRendered(root);
-    mountLoginHero(root);
-    return;
-  }
   await loadDomain();
 
   const items = [...priceItems].sort((a, b) => a.name.localeCompare(b.name));

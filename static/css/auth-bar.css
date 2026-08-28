@@ -74,7 +74,7 @@
   .auth-controls {
     border: 1px solid var(--hair);
     border-radius: 999px;
-    background: #fff;
+    background: var(--paper);
   }
 }
 
@@ -133,7 +133,7 @@
   top: calc(100% + 8px);
   right: 0;
   min-width: 200px;
-  background: #fff;
+  background: var(--paper);
   border: 1px solid var(--hair);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow);
@@ -324,6 +324,43 @@
   color: var(--muted);
 }
 
+
+/* ---------- Guest-mode banner ---------- */
+.guest-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 18px 0 0;
+  padding: 12px 18px;
+  border: 1px solid var(--sky);
+  background: var(--ice);
+  border-radius: 12px;
+}
+
+.guest-banner-text {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--ink, #333);
+  max-width: 68ch;
+}
+
+.guest-banner-text strong {
+  color: var(--blue);
+}
+
+.guest-banner-signin {
+  flex-shrink: 0;
+}
+
+@media (max-width: 639px) {
+  .guest-banner {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: left;
+  }
+}
 
 /* ---------- Public shared-split banner ---------- */
 .shared-page-header {

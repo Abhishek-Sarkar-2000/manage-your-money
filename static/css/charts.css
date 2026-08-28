@@ -204,6 +204,14 @@
   background-repeat: no-repeat;
 }
 
+:root[data-theme="dark"] .bars {
+  border-bottom-color: var(--sky);
+  background-image: 
+    linear-gradient(to bottom, var(--sky) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--sky) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--sky) 1px, transparent 1px);
+}
+
 .bar-col {
   position: relative;
   display: flex;

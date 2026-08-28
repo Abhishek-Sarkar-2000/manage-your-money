@@ -2,7 +2,7 @@
 import { Store } from '../core/store.js';
 import { $, $$, uid, escapeHtml } from '../core/dom.js';
 import { fmtINR, todayStr, currentMonthKey, monthKeyLabel, addMonths, diffMonths } from '../core/format.js';
-import { currentUser, authReady } from '../core/auth.js';
+import { authReady } from '../core/auth.js';
 import {
   loadMonth, saveMonth, ensureMonthIndexed, emiRowsForMonth, sipRowsForMonth,
   computeMonthTotals, computeGlobalStats, cardById, allSpendTags,
@@ -12,7 +12,6 @@ import { donutChart } from '../components/charts/donut.js';
 import { barChart, tagsBarChart } from '../components/charts/bar-chart.js';
 import { lineChart, wireChartTooltips } from '../components/charts/line-chart.js';
 import { setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
-import { mountLoginHero } from '../components/login-hero.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
@@ -380,12 +379,6 @@ function renderForm(kind) {
 
 /* ---------- Main render ---------- */
 async function renderMonth() {
-  if (!currentUser) {
-    markRendered(root);
-    mountLoginHero(root);
-    return;
-  }
-
   await loadDomain();
 
   // First-touch: mirrors the old openMonth()'s one-time carry/manual decision.

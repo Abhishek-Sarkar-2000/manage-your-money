@@ -8,6 +8,54 @@
    calling into per-page render logic directly. */
 import { AppConfig } from './config.js';
 import { showToast } from '../components/toast.js';
+import { Store } from './store.js';
+
+// App-specific localStorage keys guest mode writes to (kept in sync with
+// every Store.get/set key used across static/js/views/*.js).
+const GUEST_STATIC_KEYS = [
+  'creditcards', 'months-index', 'emiseries', 'sipseries', 'splits-index',
+  'custom-spend-tags', 'existinginvestments',
+];
+
+function isGuestDataKey(key) {
+  return GUEST_STATIC_KEYS.includes(key) || key.startsWith('month:') || key.startsWith('split:');
+}
+
+/* Runs once, immediately after a brand-new signup (never for a returning
+   user). Walks localStorage for the app's own guest-mode keys, pushes each
+   one to the now-authenticated backend via Store.set — which, now that
+   currentUser is populated, talks to /api/storage/* instead of
+   localStorage — and only clears a key locally once that write succeeds.
+   If anything fails partway through, the untouched keys simply stay in
+   localStorage and nothing is lost. */
+async function migrateGuestDataToCloud() {
+  const keysToMigrate = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && isGuestDataKey(key)) keysToMigrate.push(key);
+  }
+  if (keysToMigrate.length === 0) return;
+
+  let migratedCount = 0;
+  for (const key of keysToMigrate) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw === null) continue;
+      const value = JSON.parse(raw);
+      const ok = await Store.set(key, value);
+      if (ok) {
+        localStorage.removeItem(key);
+        migratedCount++;
+      }
+    } catch (e) {
+      console.error('Failed to migrate guest key to cloud', key, e);
+    }
+  }
+
+  if (migratedCount > 0) {
+    showToast(`Backed up ${migratedCount} local item${migratedCount === 1 ? '' : 's'} from this device to your account.`);
+  }
+}
 
 export let currentUser = null;
 
@@ -57,6 +105,15 @@ async function handleGoogleCredential(response) {
     currentUser = body.user;
     updateProfileBadge();
     showToast(`Welcome, ${(body.user.name || '').split(' ')[0] || 'there'}!`);
+
+    // New signup: the guest's local data is the only copy that exists
+    // anywhere, so migrate it up and clear it locally once confirmed saved.
+    // Returning user: their cloud data is authoritative — leave
+    // localStorage exactly as it is, so it's still there if they sign out.
+    if (body.isNewUser) {
+      await migrateGuestDataToCloud();
+    }
+
     window.dispatchEvent(new CustomEvent('auth:signed-in', { detail: currentUser }));
   } catch (e) {
     console.error('Google sign-in failed', e);
@@ -284,6 +341,11 @@ function initThemeSelector() {
       const theme = themeBtn.dataset.themeBtn;
       localStorage.setItem('ledger-theme', theme);
       document.documentElement.setAttribute('data-theme', theme);
+      
+      const themeColors = { 'default': '#FCFDFF', 'dark': '#0F111E', 'hi-contrast': '#FFFFFF' };
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.content = themeColors[theme] || '#FCFDFF';
+
       syncActiveStates();
       
       const profileMenu = document.getElementById('profile-menu');

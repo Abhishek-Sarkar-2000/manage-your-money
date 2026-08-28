@@ -71,32 +71,6 @@ def close_db(conn):
     if conn is not None and conn is not _shared_remote_conn:
         conn.close()
 
-def _table_exists(conn, name):
-    try:
-        cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name = ?", (name,))
-        return cur.fetchone() is not None
-    except Exception:
-        return False
-
-def migrate_legacy_data(conn, user_id):
-    if not _table_exists(conn, "storage"):
-        return
-    try:
-        cur = conn.execute("SELECT key, value FROM storage")
-        rows = cur.fetchall()
-        for key, value in rows:
-            conn.execute(
-                """
-                INSERT INTO user_storage (user_id, key, value, updated_at)
-                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(user_id, key) DO NOTHING
-                """,
-                (user_id, key, value),
-            )
-        conn.commit()
-    except Exception as e:
-        print(f"Legacy migration skipped/failed: {e}")
-
 def init_db():
     conn = get_db()
     try:
@@ -266,8 +240,16 @@ def auth_google():
     conn = None
     try:
         conn = get_db()
-        cur = conn.execute("SELECT COUNT(*) FROM users")
-        is_first_user_ever = bool(cur.fetchone()[0] == 0)
+
+        # Was this specific user_id already in `users` before this request?
+        # This is what tells the frontend whether it's safe to migrate the
+        # guest's localStorage data up (brand-new signup) or whether doing
+        # so would risk clobbering/duplicating an existing cloud account's
+        # data (returning user, signing in on a new/cleared browser).
+        existing_user_row = conn.execute(
+            "SELECT 1 FROM users WHERE user_id = ?", (user_id,)
+        ).fetchone()
+        is_new_user = existing_user_row is None
 
         conn.execute(
             """
@@ -278,9 +260,6 @@ def auth_google():
             (user_id, email, name, picture),
         )
         conn.commit()
-
-        if is_first_user_ever:
-            migrate_legacy_data(conn, user_id)
     except Exception:
         traceback.print_exc()
         return jsonify({"error": "Could not complete sign-in"}), 500
@@ -293,7 +272,10 @@ def auth_google():
     session["email"] = email
     session.permanent = True
 
-    return jsonify({"user": {"user_id": user_id, "email": email, "name": name, "picture": picture}})
+    return jsonify({
+        "user": {"user_id": user_id, "email": email, "name": name, "picture": picture},
+        "isNewUser": is_new_user,
+    })
 
 @app.route("/api/auth/logout", methods=["POST"])
 def auth_logout():

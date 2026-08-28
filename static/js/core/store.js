@@ -6,6 +6,7 @@
    is broadcast as a DOM event — each page decides what "session expired"
    means for itself instead of this module owning a global render(). */
 import { showToast } from '../components/toast.js';
+import { currentUser } from './auth.js';
 
 function onAuthRequired() {
   if (document.body.dataset.isShared === 'true') return; // public pages never need a session
@@ -22,8 +23,40 @@ window.addEventListener('beforeunload', (e) => {
   }
 });
 
+// Small helper: retry a request a couple of times with a short delay before
+// giving up on it. Most bulk-fetch failures are a single transient blip (a
+// dev server mid-restart, one dropped packet) — retrying quietly clears
+// those without ever bothering the user. 401/404 are real answers, not
+// failures, so they return immediately without retrying.
+async function fetchWithRetry(url, options, attempts = 2, delayMs = 300) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok || res.status === 401 || res.status === 404) return res;
+      lastErr = new Error('Request failed: ' + res.status);
+    } catch (e) {
+      lastErr = e;
+    }
+    if (i < attempts - 1) await new Promise(r => setTimeout(r, delayMs));
+  }
+  throw lastErr;
+}
+
 export const Store = {
   async get(key, fallback) {
+    // Guest mode: localStorage is the only source of truth, never hit the network.
+    if (!currentUser) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw === null) return fallback;
+        return JSON.parse(raw);
+      } catch (e) {
+        console.error('local storage get failed', key, e);
+        return fallback;
+      }
+    }
+
     try {
       // 1. Check local session cache first to bypass network completely
       const cached = sessionStorage.getItem(key);
@@ -50,6 +83,20 @@ export const Store = {
 
   // NEW: Fetch multiple keys in a single HTTP request to prevent N+1 queries
   async bulkGet(keys, fallback = {}) {
+    // Guest mode: pull every key straight out of localStorage, no network call.
+    if (!currentUser) {
+      const result = {};
+      try {
+        keys.forEach(k => {
+          const raw = localStorage.getItem(k);
+          if (raw !== null) result[k] = JSON.parse(raw);
+        });
+      } catch (e) {
+        console.error('local storage bulk get failed', e);
+      }
+      return result;
+    }
+
     try {
       const missingKeys = [];
       const result = {};
@@ -67,31 +114,87 @@ export const Store = {
       // If everything was cached, no network call needed!
       if (missingKeys.length === 0) return result;
 
-      // Fetch only the missing keys
-      const res = await fetch('/api/storage/bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keys: missingKeys })
+      // 1. Try the bulk endpoint, with a couple of quiet retries for transient blips.
+      try {
+        const res = await fetchWithRetry('/api/storage/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keys: missingKeys })
+        });
+
+        if (res.status === 401) { onAuthRequired(); return fallback; }
+        if (!res.ok) throw new Error('Bulk GET failed: ' + res.status);
+
+        const body = await res.json();
+        for (const [k, v] of Object.entries(body)) {
+          sessionStorage.setItem(k, JSON.stringify(v));
+          result[k] = v;
+        }
+        return result;
+      } catch (e) {
+        console.warn('bulk fetch failed after retries, falling back to per-key fetches', e);
+      }
+
+      // 2. Bulk endpoint is still down — recover by fetching each missing
+      // key individually instead of giving up on all of them. This is the
+      // same per-key route Store.get() already uses, so it works as long as
+      // the server itself is reachable, even if /api/storage/bulk isn't.
+      const settled = await Promise.allSettled(
+        missingKeys.map(async (k) => {
+          const r = await fetch('/api/storage/' + encodeURIComponent(k));
+          if (r.status === 401) throw new Error('auth-required');
+          if (r.status === 404) return { k, value: undefined };
+          if (!r.ok) throw new Error('GET failed: ' + r.status);
+          const body = await r.json();
+          return { k, value: JSON.parse(body.value) };
+        })
+      );
+
+      let anySucceeded = false;
+      let authRequired = false;
+      settled.forEach((s) => {
+        if (s.status === 'fulfilled') {
+          anySucceeded = true;
+          const { k, value } = s.value;
+          if (value !== undefined) {
+            sessionStorage.setItem(k, JSON.stringify(value));
+            result[k] = value;
+          }
+        } else if (s.reason && s.reason.message === 'auth-required') {
+          authRequired = true;
+        }
       });
 
-      if (res.status === 401) { onAuthRequired(); return fallback; }
-      if (!res.ok) throw new Error('Bulk GET failed: ' + res.status);
-
-      const body = await res.json();
-      for (const [k, v] of Object.entries(body)) {
-        sessionStorage.setItem(k, JSON.stringify(v));
-        result[k] = v;
+      if (authRequired) { onAuthRequired(); return fallback; }
+      if (!anySucceeded) {
+        // Only reached if the bulk endpoint AND every individual per-key
+        // request failed — a genuine outage, not a one-off blip.
+        console.error('storage bulk get failed for all keys');
+        showToast('Could not load your data — check your connection and try again.');
+        return fallback;
       }
       return result;
     } catch (e) {
       console.error('storage bulk get failed', e);
-      showToast('Could not fetch bulk data.');
+      showToast('Could not load your data — check your connection and try again.');
       return fallback;
     }
   },
 
   // inside set(key, value):
-  async set(key, value) {
+ async set(key, value) {
+    // Guest mode: persist to localStorage only, no server round trip.
+    if (!currentUser) {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+        return true;
+      } catch (e) {
+        console.error('local storage set failed', key, e);
+        showToast('Could not save locally — your browser storage may be full.');
+        return false;
+      }
+    }
+
     sessionStorage.setItem(key, JSON.stringify(value));
 
     pendingWrites++;
@@ -115,6 +218,17 @@ export const Store = {
   },
 
   async remove(key) {
+    // Guest mode: delete straight from localStorage, no server round trip.
+    if (!currentUser) {
+      try {
+        localStorage.removeItem(key);
+        return true;
+      } catch (e) {
+        console.error('local storage remove failed', key, e);
+        return false;
+      }
+    }
+
     try {
       const res = await fetch('/api/storage/' + encodeURIComponent(key), { method: 'DELETE' });
       if (res.status === 401) { onAuthRequired(); return false; }

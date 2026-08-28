@@ -31,6 +31,11 @@ function initPublicThemeSelector() {
       const theme = themeBtn.dataset.themeBtn;
       localStorage.setItem('ledger-theme', theme);
       document.documentElement.setAttribute('data-theme', theme);
+
+      const themeColors = { 'default': '#FCFDFF', 'dark': '#0F111E', 'hi-contrast': '#FFFFFF' };
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.content = themeColors[theme] || '#FCFDFF';
+
       syncActiveStates();
       
       const profileMenu = document.getElementById('profile-menu');
