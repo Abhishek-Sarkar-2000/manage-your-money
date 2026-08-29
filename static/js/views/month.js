@@ -8,6 +8,7 @@ import {
   computeMonthTotals, computeGlobalStats, cardById, allSpendTags,
 } from '../core/domain.js';
 import { renderStatCards, wireStatCardFlip } from '../components/stat-cards.js';
+import { computeSplitPageData } from '../core/split-domain.js';
 import { donutChart } from '../components/charts/donut.js';
 import { barChart, tagsBarChart } from '../components/charts/bar-chart.js';
 import { lineChart, wireChartTooltips } from '../components/charts/line-chart.js';
@@ -19,7 +20,7 @@ import { markRendered } from '../components/render-guard.js';
 const root = document.getElementById('month-root');
 const monthKey = root.dataset.monthKey;
 
-const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Subscription', 'Rent', 'Utility', 'Recharge', 'Transport', 'Gift'];
+const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Transport', 'Subscription', 'Rent', 'Utility', 'Recharge', 'Medicine', 'Gift'];
 
 let cards = [];
 let emiSeries = [];
@@ -455,15 +456,36 @@ async function renderMonth() {
     </div>`
   ).join('') + `</div>` : '';
 
-  let unsettledMonthLent = 0, unsettledConsumptionLent = 0;
+  let unsettledConsumptionLent = 0, settledConsumptionLent = 0;
   for (const e of data.entries) {
-    if (Array.isArray(e.lent)) {
-      const sumUnsettled = e.lent.reduce((s, l) => !l.settled ? s + (Number(l.amount) || 0) : s, 0);
-      unsettledMonthLent += sumUnsettled;
-      if (e.type === 'spend' || e.type === 'cardcharge' || e.type === 'cashpayment') unsettledConsumptionLent += sumUnsettled;
+    if (!Array.isArray(e.lent)) continue;
+    if (e.type === 'spend' || e.type === 'cardcharge' || e.type === 'cashpayment') {
+      unsettledConsumptionLent += e.lent.reduce((s, l) => !l.settled ? s + (Number(l.amount) || 0) : s, 0);
+      // Settled lent has been paid back — deduct it entirely, it's no
+      // longer part of this month's spend at all (personal or lent).
+      settledConsumptionLent += e.lent.reduce((s, l) => l.settled ? s + (Number(l.amount) || 0) : s, 0);
     }
   }
-  const pureExpense = Math.max(0, monthTotals.totalConsumption - unsettledConsumptionLent);
+  const emiTotal = monthTotals.emi || 0;
+  // Personal spend = total consumption, minus whatever's been lent out
+  // (settled or still outstanding), minus EMI (which gets its own bar).
+  const rawPersonalExpense = Math.max(0, monthTotals.totalConsumption - unsettledConsumptionLent - settledConsumptionLent - emiTotal);
+
+  // Split-page balances aren't tied to any one month's entries — they're a
+  // live, running "who owes who" ledger — so we only fold them into the
+  // month that's actually current. Viewing a past month shouldn't have
+  // today's split debts injected into its historical chart.
+  let splitOwedToYou = 0;
+  if (monthKey === currentMonthKey()) {
+    const { owedToYou } = await computeSplitPageData(false, null, splitsIndex);
+    splitOwedToYou = Object.values(owedToYou).reduce((s, v) => s + (Number(v) || 0), 0);
+  }
+  // The owed amount is money already inside this month's spend, not new
+  // spend on top of it — carve it out of personal (never past zero) and
+  // move it into the lent segment so the overall Expense total is unchanged.
+  const splitCarve = Math.min(splitOwedToYou, rawPersonalExpense);
+  const personalExpense = rawPersonalExpense - splitCarve;
+  const lentSegmentValue = unsettledConsumptionLent + splitOwedToYou;
 
   const tb = document.getElementById('global-topbar');
   if (tb) tb.style.display = '';
@@ -522,12 +544,18 @@ async function renderMonth() {
       </div>
 
       <div class="chart-card" style="min-width: 0; overflow-x: auto;">
-        <h4>Income vs expense</h4>
+        <h4>Cashflow Overview</h4>
         ${barChart([
           { label: 'Income', value: monthTotals.income, color: 'var(--credit)' },
-          { label: 'Expense', value: pureExpense, color: 'var(--debit)' },
+          {
+            label: 'Expense',
+            segments: [
+              { label: 'Personal', value: personalExpense, color: 'var(--debit)' },
+              { label: 'Lent (unsettled)', value: lentSegmentValue, color: '#E03131' },
+            ],
+          },
+          ...(emiTotal > 0 ? [{ label: 'EMI', value: emiTotal, color: '#5B4B9E' }] : []),
           { label: 'Invested', value: monthTotals.invest + monthTotals.sip, color: 'var(--blue)' },
-          { label: 'Lent', value: unsettledMonthLent, color: 'var(--amber)' },
         ])}
       </div>
       <div class="chart-card" style="grid-column:1/-1;">
@@ -539,7 +567,7 @@ async function renderMonth() {
         ${(() => {
           const TAG_WIDE_THRESHOLD = 5;
           const tagCharts = [
-            { title: 'Debit by tag', data: tagsBarChart(data.entries, 'spend') },
+            { title: 'Debit by tag', data: tagsBarChart(data.entries, 'spend', { splitAdjustment: splitOwedToYou, splitTagName: 'Split' }) },
             { title: 'Credit card spends by tag', data: tagsBarChart(data.entries, 'cardcharge') },
             { title: 'Cash spends by tag', data: tagsBarChart(data.entries, 'cashpayment') },
           ];

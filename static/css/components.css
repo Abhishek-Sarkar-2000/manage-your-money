@@ -376,6 +376,14 @@
   background-repeat: no-repeat;
 }
 
+:root[data-theme="dark"] .tag-bars {
+  border-bottom-color: var(--sky);
+  background-image: 
+    linear-gradient(to bottom, var(--sky) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--sky) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--sky) 1px, transparent 1px);
+}
+
 .tag-bar-col {
   display: flex;
   flex-direction: column;
@@ -401,6 +409,7 @@
   font-size: clamp(0.58rem, 1.6vw, 0.72rem);
   margin-bottom: 6px;
   color: var(--ink);
+  padding: 0px 4px;
   white-space: nowrap;
 }
 

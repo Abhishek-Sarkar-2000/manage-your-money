@@ -123,7 +123,12 @@ function renderMonthlyChartsSection(bulkData, allMonthKeys) {
                   const t = (e.tag || 'Untagged').trim();
                   const matchedTag = selectedTags.find(st => st.toLowerCase() === t.toLowerCase());
                   if (matchedTag) {
-                      const amt = Number(e.amount) || 0;
+                      // Personal spend + still-unsettled lent both count toward
+                      // this tag's outflow. A lent amount that's since been
+                      // settled is paid back, so it comes off the total entirely.
+                      const lentArr = Array.isArray(e.lent) ? e.lent : [];
+                      const settledLent = lentArr.reduce((s, l) => l.settled ? s + (Number(l.amount) || 0) : s, 0);
+                      const amt = Math.max(0, (Number(e.amount) || 0) - settledLent);
                       tagSums[matchedTag] += amt;
                       monthTotal += amt;
                   }
@@ -164,7 +169,7 @@ function renderMonthlyChartsSection(bulkData, allMonthKeys) {
 
           chartContent = `
             <div class="bars">${cols}</div>
-            <div class="shared-chart-legend" style="border-top: none; margin-top: 10px; padding-top: 0;">${legendHtml}</div>
+            <div class="shared-chart-legend" style="border-top: none; margin-top: 40px; padding-top: 0;">${legendHtml}</div>
           `;
       }
   }

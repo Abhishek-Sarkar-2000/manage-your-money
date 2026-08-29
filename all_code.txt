@@ -1962,6 +1962,79 @@ svg.linechart {
   overflow: visible;
 }
 
+.stacked-segment {
+  transition: opacity 0.15s ease;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, rgba(0, 0, 0, 0.05) 100%) !important;
+}
+.stacked-segment:hover {
+  cursor: pointer;
+}
+
+/* Personal-vs-lent (and multi-tag) stacked bars: segments render
+   bottom-up in DOM order via column-reverse, so the first segment
+   (personal spend) sits flush on the axis and the last segment
+   (unsettled lent) is the exposed top edge that gets the rounded cap. */
+.stacked-bar {
+  display: flex;
+  flex-direction: column-reverse;
+  overflow: hidden;
+  background: transparent !important;
+}
+
+.stacked-bar .stacked-segment:last-child {
+  border-radius: 6px 6px 0 0;
+}
+
+.stacked-bar .stacked-segment:only-child {
+  border-radius: 6px 6px 0 0;
+}
+
+.chart-tag-pill {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 10px !important;
+  text-transform: none !important;
+  letter-spacing: 0.05rem !important;
+  cursor: default !important;
+  font-size: 0.68rem !important;
+  background: linear-gradient(135deg, var(--royal) 0%, var(--blue) 100%) !important;
+  color: #fff !important;
+  border: none !important;
+}
+
+.chart-tag-remove {
+  color: var(--ice) !important;
+  font-size: 0.6rem !important;
+  padding: 2px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  transition: background 0.3s ease !important;
+  cursor: pointer;
+}
+
+:root[data-theme="dark"] .chart-tag-pill {
+  background: var(--sky) !important;
+  color: var(--navy) !important;
+  border: 1px solid var(--blue-soft) !important;
+}
+:root[data-theme="dark"] .chart-tag-remove {
+  color: var(--navy) !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chart-tag-remove:hover {
+    background: var(--navy) !important;
+  }
+  :root[data-theme="dark"] .chart-tag-remove:hover {
+    background: var(--hair) !important;
+  }
+}
+
 .empty-chart {
   color: var(--muted);
   font-style: italic;
@@ -2473,6 +2546,14 @@ svg.linechart text {
   background-repeat: no-repeat;
 }
 
+:root[data-theme="dark"] .tag-bars {
+  border-bottom-color: var(--sky);
+  background-image: 
+    linear-gradient(to bottom, var(--sky) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--sky) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--sky) 1px, transparent 1px);
+}
+
 .tag-bar-col {
   display: flex;
   flex-direction: column;
@@ -2498,6 +2579,7 @@ svg.linechart text {
   font-size: clamp(0.58rem, 1.6vw, 0.72rem);
   margin-bottom: 6px;
   color: var(--ink);
+  padding: 0px 4px;
   white-space: nowrap;
 }
 
@@ -2962,6 +3044,10 @@ transform: translateY(0);
   background: #FFFFFF;
 }
 
+:root[data-theme="hi-contrast"] .tag-bar-col .bval {
+  background: #FFFFFF;
+}
+
 :root[data-theme="hi-contrast"] .card,
 :root[data-theme="hi-contrast"] .action-card,
 :root[data-theme="hi-contrast"] .chart-card,
@@ -2989,13 +3075,22 @@ transform: translateY(0);
 :root[data-theme="hi-contrast"] .bar,
 :root[data-theme="hi-contrast"] .shared-share-bar {
   background-image: none !important;
-  border: solid 1.2px #000000;
+  border: solid 1px #000000;
   border-bottom: none;
 }
 :root[data-theme="hi-contrast"] .shared-debt-segment {
   background-image: none !important;
-  border: solid 1.2px #000000;
+  border: solid 1px #000000;
   border-left: none;
+}
+
+:root[data-theme="hi-contrast"] .stacked-segment {
+  background-image: none !important;
+  border-bottom: solid 1px #000000;
+}
+
+:root[data-theme="hi-contrast"] .chart-tag-pill {
+  background: var(--blue) !important;
 }
 
 :root[data-theme="hi-contrast"] {
@@ -3171,7 +3266,7 @@ transform: translateY(0);
   border-width: 1px;
   border-color: var(--blue-soft);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-}
+} 
 
 :root[data-theme="dark"] .chart-tooltip {
   background: linear-gradient(135deg, var(--blue) 0%, var(--text-sky) 100%);
@@ -4717,35 +4812,97 @@ import { escapeHtml } from '../../core/dom.js';
 import { fmtINR, fmtINRShort } from '../../core/format.js';
 
 export function barChart(pairs) {
-  const max = Math.max(1, ...pairs.map(p => p.value));
-  const cols = pairs.map(p => `
+  // A pair can either be a flat { label, value, color } bar, or a stacked
+  // one via { label, segments: [{ label, value, color }, ...] } — segments
+  // render bottom-up in array order and carry data-val/data-label so the
+  // shared tooltip (wireChartTooltips) picks them up automatically.
+  const totalOf = (p) => (p.segments ? p.segments.reduce((s, seg) => s + (seg.value || 0), 0) : (p.value || 0));
+  const max = Math.max(1, ...pairs.map(totalOf));
+  const cols = pairs.map(p => {
+    const total = totalOf(p);
+    if (p.segments) {
+      const segmentsHtml = p.segments.filter(seg => seg.value > 0).map(seg => `
+        <div class="stacked-segment" data-val="${fmtINR(seg.value)}" data-label="${escapeHtml(seg.label)}" style="height:${total > 0 ? (seg.value / total * 100) : 0}%; background:${seg.color};"></div>`).join('');
+      return `
+      <div class="bar-col">
+        <div class="bval num">${fmtINR(total)}</div>
+        <div class="bar stacked-bar" style="height:${Math.max(4, (total / max * 130))}px;">
+          ${segmentsHtml}
+        </div>
+        <div class="blabel">${p.label}</div>
+      </div>`;
+    }
+    return `
     <div class="bar-col">
       <div class="bval num">${fmtINR(p.value)}</div>
       <div class="bar" style="height:${Math.max(4, (p.value / max * 130))}px; background:${p.color};"></div>
       <div class="blabel">${p.label}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   return `<div class="bars">${cols}</div>`;
 }
 
-export function tagsBarChart(entries, targetType) {
-  const totals = {};
+export function tagsBarChart(entries, targetType, options = {}) {
+  const { splitAdjustment = 0, splitTagName = 'Split' } = options;
+  const personalTotals = {};
+  const lentTotals = {};
+  const displayLabels = {};
   for (const e of entries) {
-    if (e.type === targetType) {
-      const tag = (e.tag && String(e.tag).trim()) ? e.tag : 'Untagged';
-      totals[tag] = (totals[tag] || 0) + (Number(e.amount) || 0);
-    }
+    if (e.type !== targetType) continue;
+    const rawTag = (e.tag && String(e.tag).trim()) ? e.tag : 'Untagged';
+    // Group case-insensitively — "split" and "Split" (e.g. a manually
+    // tagged spend vs. the Split page's tag) should land in the same
+    // bar, not fork into two differently-colored ones.
+    const key = rawTag.toLowerCase();
+    if (!displayLabels[key]) displayLabels[key] = rawTag;
+    const amount = Number(e.amount) || 0;
+    const lentArr = Array.isArray(e.lent) ? e.lent : [];
+    // Settled lent is paid back — it's fully deducted and never appears
+    // here again. Unsettled lent is kept as its own segment so the bar
+    // shows exactly how much of this tag's spend is still outstanding.
+    const settledLent = lentArr.reduce((s, l) => l.settled ? s + (Number(l.amount) || 0) : s, 0);
+    const unsettledLent = lentArr.reduce((s, l) => !l.settled ? s + (Number(l.amount) || 0) : s, 0);
+    const personal = Math.max(0, amount - settledLent - unsettledLent);
+    personalTotals[key] = (personalTotals[key] || 0) + personal;
+    lentTotals[key] = (lentTotals[key] || 0) + unsettledLent;
   }
 
-  const pairs = Object.entries(totals).map(([label, value]) => ({ label, value })).filter(p => p.value > 0).sort((a, b) => b.value - a.value);
+  // The Split page's "owed to you" balance is money already counted inside
+  // this tag's spend, not a fresh spend on top of it — so it's carved OUT
+  // of that tag's personal total (capped so it can't go negative / inflate
+  // the tag's total) and moved into its lent segment instead.
+  if (splitAdjustment > 0) {
+    const key = splitTagName.toLowerCase();
+    if (!displayLabels[key]) displayLabels[key] = splitTagName;
+    const existingPersonal = personalTotals[key] || 0;
+    const carve = Math.min(splitAdjustment, existingPersonal);
+    personalTotals[key] = existingPersonal - carve;
+    lentTotals[key] = (lentTotals[key] || 0) + splitAdjustment;
+  }
+
+  const keys = Object.keys(personalTotals).filter(k => (personalTotals[k] || 0) + (lentTotals[k] || 0) > 0);
+  const pairs = keys
+    .map(key => ({ label: displayLabels[key], personal: personalTotals[key] || 0, lent: lentTotals[key] || 0, value: (personalTotals[key] || 0) + (lentTotals[key] || 0) }))
+    .sort((a, b) => b.value - a.value);
   if (!pairs.length) return { html: `<div class="empty-chart">No tagged spends yet.</div>`, count: 0 };
 
   const max = Math.max(1, ...pairs.map(p => p.value));
   const colors = ['var(--blue)', '#C98A3C', '#8E6FB0', 'var(--debit)', 'var(--credit)', '#5B4B9E', 'var(--amber)', 'var(--blue-soft)', '#2E7D6B', '#AD4358'];
-  const cols = pairs.map((p, i) => `
+  const cols = pairs.map((p, i) => {
+    const color = colors[i % colors.length];
+    const segments = [];
+    // Bottom segment: personal spend for this tag.
+    if (p.personal > 0) segments.push(`<div class="stacked-segment" data-val="${fmtINR(p.personal)}" data-label="${escapeHtml(p.label)} · Personal" style="height:${(p.personal / p.value * 100)}%; background:${color};"></div>`);
+    // Top segment: still-unsettled lent for this tag.
+    if (p.lent > 0) segments.push(`<div class="stacked-segment" data-val="${fmtINR(p.lent)}" data-label="${escapeHtml(p.label)} · Lent" style="height:${(p.lent / p.value * 100)}%; background:#E03131;"></div>`);
+    return `
     <div class="tag-bar-col">
       <div class="bval num">${fmtINRShort(p.value)}</div>
-      <div class="tag-bar" style="height:${Math.max(4, (p.value / max * 140))}px; background:${colors[i % colors.length]};" title="${escapeHtml(p.label)}"></div>
-    </div>`).join('');
+      <div class="tag-bar stacked-bar" style="height:${Math.max(4, (p.value / max * 140))}px;" title="${escapeHtml(p.label)}">
+        ${segments.join('')}
+      </div>
+    </div>`;
+  }).join('');
 
   const legend = pairs.map((p, i) => `
     <div class="shared-chart-legend-item">
@@ -4976,7 +5133,7 @@ export function wireChartTooltips(root = document) {
   }
 
   const showTooltip = (ev) => {
-    const dot = ev.target.closest('.linechart-dot');
+    const dot = ev.target.closest('.linechart-dot, .stacked-segment');
     if (!dot) return;
     
     const val = dot.dataset.val;
@@ -5009,12 +5166,12 @@ export function wireChartTooltips(root = document) {
 
   root.addEventListener('mouseover', showTooltip);
   root.addEventListener('mouseout', (ev) => {
-    if (ev.target.closest('.linechart-dot')) hideTooltip();
+    if (ev.target.closest('.linechart-dot, .stacked-segment')) hideTooltip();
   });
   
   // Touch support for mobile
   root.addEventListener('touchstart', (ev) => {
-    const dot = ev.target.closest('.linechart-dot');
+    const dot = ev.target.closest('.linechart-dot, .stacked-segment');
     if (dot) {
       showTooltip(ev);
     }
@@ -7170,6 +7327,7 @@ import {
   computeMonthTotals, computeGlobalStats, cardById, allSpendTags,
 } from '../core/domain.js';
 import { renderStatCards, wireStatCardFlip } from '../components/stat-cards.js';
+import { computeSplitPageData } from '../core/split-domain.js';
 import { donutChart } from '../components/charts/donut.js';
 import { barChart, tagsBarChart } from '../components/charts/bar-chart.js';
 import { lineChart, wireChartTooltips } from '../components/charts/line-chart.js';
@@ -7181,7 +7339,7 @@ import { markRendered } from '../components/render-guard.js';
 const root = document.getElementById('month-root');
 const monthKey = root.dataset.monthKey;
 
-const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Subscription', 'Rent', 'Utility', 'Recharge', 'Transport', 'Gift'];
+const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Transport', 'Subscription', 'Rent', 'Utility', 'Recharge', 'Medicine', 'Gift'];
 
 let cards = [];
 let emiSeries = [];
@@ -7267,7 +7425,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       <td><span class="tag spend">Spend</span></td>
       <td>
         <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
-        <div class="subnote">${card ? 'Paid via ' + escapeHtml(card.name) + ' — reduces card dues' : 'Cash / debit'}</div>
+        <div class="subnote">${card ? 'Paid for ' + escapeHtml(card.name) + ' — reduces card dues' : 'Cash / debit'}</div>
         ${lentChips ? `<div>${lentChips}</div>` : ''}
       </td>
       <td class="num amt-debit">-${fmtINR(e.amount)}</td>
@@ -7617,15 +7775,36 @@ async function renderMonth() {
     </div>`
   ).join('') + `</div>` : '';
 
-  let unsettledMonthLent = 0, unsettledConsumptionLent = 0;
+  let unsettledConsumptionLent = 0, settledConsumptionLent = 0;
   for (const e of data.entries) {
-    if (Array.isArray(e.lent)) {
-      const sumUnsettled = e.lent.reduce((s, l) => !l.settled ? s + (Number(l.amount) || 0) : s, 0);
-      unsettledMonthLent += sumUnsettled;
-      if (e.type === 'spend' || e.type === 'cardcharge' || e.type === 'cashpayment') unsettledConsumptionLent += sumUnsettled;
+    if (!Array.isArray(e.lent)) continue;
+    if (e.type === 'spend' || e.type === 'cardcharge' || e.type === 'cashpayment') {
+      unsettledConsumptionLent += e.lent.reduce((s, l) => !l.settled ? s + (Number(l.amount) || 0) : s, 0);
+      // Settled lent has been paid back — deduct it entirely, it's no
+      // longer part of this month's spend at all (personal or lent).
+      settledConsumptionLent += e.lent.reduce((s, l) => l.settled ? s + (Number(l.amount) || 0) : s, 0);
     }
   }
-  const pureExpense = Math.max(0, monthTotals.totalConsumption - unsettledConsumptionLent);
+  const emiTotal = monthTotals.emi || 0;
+  // Personal spend = total consumption, minus whatever's been lent out
+  // (settled or still outstanding), minus EMI (which gets its own bar).
+  const rawPersonalExpense = Math.max(0, monthTotals.totalConsumption - unsettledConsumptionLent - settledConsumptionLent - emiTotal);
+
+  // Split-page balances aren't tied to any one month's entries — they're a
+  // live, running "who owes who" ledger — so we only fold them into the
+  // month that's actually current. Viewing a past month shouldn't have
+  // today's split debts injected into its historical chart.
+  let splitOwedToYou = 0;
+  if (monthKey === currentMonthKey()) {
+    const { owedToYou } = await computeSplitPageData(false, null, splitsIndex);
+    splitOwedToYou = Object.values(owedToYou).reduce((s, v) => s + (Number(v) || 0), 0);
+  }
+  // The owed amount is money already inside this month's spend, not new
+  // spend on top of it — carve it out of personal (never past zero) and
+  // move it into the lent segment so the overall Expense total is unchanged.
+  const splitCarve = Math.min(splitOwedToYou, rawPersonalExpense);
+  const personalExpense = rawPersonalExpense - splitCarve;
+  const lentSegmentValue = unsettledConsumptionLent + splitOwedToYou;
 
   const tb = document.getElementById('global-topbar');
   if (tb) tb.style.display = '';
@@ -7684,12 +7863,18 @@ async function renderMonth() {
       </div>
 
       <div class="chart-card" style="min-width: 0; overflow-x: auto;">
-        <h4>Income vs expense</h4>
+        <h4>Cashflow Overview</h4>
         ${barChart([
           { label: 'Income', value: monthTotals.income, color: 'var(--credit)' },
-          { label: 'Expense', value: pureExpense, color: 'var(--debit)' },
+          {
+            label: 'Expense',
+            segments: [
+              { label: 'Personal', value: personalExpense, color: 'var(--debit)' },
+              { label: 'Lent (unsettled)', value: lentSegmentValue, color: '#E03131' },
+            ],
+          },
+          ...(emiTotal > 0 ? [{ label: 'EMI', value: emiTotal, color: '#5B4B9E' }] : []),
           { label: 'Invested', value: monthTotals.invest + monthTotals.sip, color: 'var(--blue)' },
-          { label: 'Lent', value: unsettledMonthLent, color: 'var(--amber)' },
         ])}
       </div>
       <div class="chart-card" style="grid-column:1/-1;">
@@ -7701,7 +7886,7 @@ async function renderMonth() {
         ${(() => {
           const TAG_WIDE_THRESHOLD = 5;
           const tagCharts = [
-            { title: 'Debit by tag', data: tagsBarChart(data.entries, 'spend') },
+            { title: 'Debit by tag', data: tagsBarChart(data.entries, 'spend', { splitAdjustment: splitOwedToYou, splitTagName: 'Split' }) },
             { title: 'Credit card spends by tag', data: tagsBarChart(data.entries, 'cardcharge') },
             { title: 'Cash spends by tag', data: tagsBarChart(data.entries, 'cashpayment') },
           ];
@@ -8102,9 +8287,11 @@ wireChartTooltips(root);
 /* ---------- /months ---------- */
 import { Store } from '../core/store.js';
 import { escapeHtml } from '../core/dom.js';
-import { fmtINR, fmtINRShort, monthKeyLabel, monthKeyShort } from '../core/format.js';
+import { fmtINR, fmtINRShort, monthKeyLabel, monthKeyShort, currentMonthKey, addMonths } from '../core/format.js';
 import { authReady } from '../core/auth.js';
 import { emiRowsForMonth, sipRowsForMonth, computeMonthTotals, allSpendTags } from '../core/domain.js';
+import { SPLIT_PALETTE } from '../components/charts/split-charts.js';
+import { wireChartTooltips } from '../components/charts/line-chart.js';
 import { setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
 import { appendPageChrome } from '../components/page-chrome.js';
@@ -8121,7 +8308,8 @@ let customTags = [];
 let domainLoaded = false;
 let bulkDataCache = null;
 let chartRangeMonths = 6;
-let selectedTag = '';
+let selectedTags = [];
+let currentKeysAsc = [];
 
 // Fetched once per page load; deleteMonth() mutates monthsIndex in memory
 // and persists it, so later re-renders never need to refetch it.
@@ -8191,78 +8379,111 @@ function monthKeysForChartRange(n) {
   return keys;
 }
 
-// Union of every tag actually used across all loaded months, merged with
-// DEFAULT_TAGS + customTags — same dedupe rule used elsewhere in the app.
 function collectTagOptions(bulkData, keys) {
   const found = [];
   for (const k of keys) {
     const data = bulkData['month:' + k];
     if (!data || !data.entries) continue;
     for (const e of data.entries) {
-      if (CHART_SPEND_TYPES.includes(e.type) && e.tag) found.push(e.tag);
+      if (['spend', 'cardcharge', 'cashpayment'].includes(e.type) && e.tag) found.push(e.tag);
     }
   }
   return allSpendTags([...DEFAULT_TAGS, ...found], customTags);
 }
 
-function computeTagSeries(bulkData, keys, tag) {
-  return keys.map(k => {
-    const data = bulkData['month:' + k];
-    let total = 0;
-    if (data && data.entries) {
-      for (const e of data.entries) {
-        if (CHART_SPEND_TYPES.includes(e.type) && e.tag === tag) total += Number(e.amount) || 0;
-      }
-    }
-    return { key: k, value: total };
-  });
-}
-
-function renderTagBarChart(series, tag) {
-  const totalSum = series.reduce((s, p) => s + p.value, 0);
-  if (totalSum === 0) {
-    return `<div class="empty-chart">No spends tagged under "${escapeHtml(tag)}" in this period.</div>`;
-  }
-  const max = Math.max(1, ...series.map(p => p.value));
-  const cols = series.map(p => `
-    <div class="bar-col">
-      <div class="bval num">${fmtINRShort(p.value)}</div>
-      <div class="bar" style="height:${Math.max(4, (p.value / max * 140))}px; background: var(--blue);"></div>
-      <div class="blabel">${monthKeyShort(p.key)}</div>
-    </div>`).join('');
-  return `<div class="bars">${cols}</div>`;
-}
-
 function renderMonthlyChartsSection(bulkData, allMonthKeys) {
   const tagOptions = collectTagOptions(bulkData, allMonthKeys);
-  if (!selectedTag || !tagOptions.includes(selectedTag)) selectedTag = tagOptions[0] || '';
-
   const rangeKeys = monthKeysForChartRange(chartRangeMonths);
-  const series = selectedTag ? computeTagSeries(bulkData, rangeKeys, selectedTag) : [];
-  const chartHtml = selectedTag
-    ? renderTagBarChart(series, selectedTag)
-    : `<div class="empty-chart">Add a tagged spend to see this chart.</div>`;
+  
+  let chartContent = `<div class="empty-chart">Select a tag to view the chart.</div>`;
+  if (selectedTags.length > 0) {
+      let maxVal = 0;
+      const monthDataList = rangeKeys.map(k => {
+          const data = bulkData['month:' + k] || { entries: [] };
+          let monthTotal = 0;
+          const tagSums = {};
+          selectedTags.forEach(t => tagSums[t] = 0);
+
+          for (const e of data.entries) {
+              if (['spend', 'cardcharge', 'cashpayment'].includes(e.type)) {
+                  const t = (e.tag || 'Untagged').trim();
+                  const matchedTag = selectedTags.find(st => st.toLowerCase() === t.toLowerCase());
+                  if (matchedTag) {
+                      // Personal spend + still-unsettled lent both count toward
+                      // this tag's outflow. A lent amount that's since been
+                      // settled is paid back, so it comes off the total entirely.
+                      const lentArr = Array.isArray(e.lent) ? e.lent : [];
+                      const settledLent = lentArr.reduce((s, l) => l.settled ? s + (Number(l.amount) || 0) : s, 0);
+                      const amt = Math.max(0, (Number(e.amount) || 0) - settledLent);
+                      tagSums[matchedTag] += amt;
+                      monthTotal += amt;
+                  }
+              }
+          }
+          if (monthTotal > maxVal) maxVal = monthTotal;
+          return { label: monthKeyShort(k), monthTotal, tagSums };
+      });
+
+      if (maxVal === 0) {
+          chartContent = `<div class="empty-chart">No spends found for the selected tags in this period.</div>`;
+      } else {
+          const cols = monthDataList.map(md => {
+              const colHeightRatio = maxVal > 0 ? (md.monthTotal / maxVal) : 0;
+              
+              const segmentsHtml = selectedTags.map((tag, i) => {
+                  const val = md.tagSums[tag];
+                  if (val <= 0) return '';
+                  const color = SPLIT_PALETTE[i % SPLIT_PALETTE.length];
+                  const segmentHeightPct = (val / md.monthTotal) * 100;
+                  return `<div class="stacked-segment" data-val="${fmtINR(val)}" data-label="${escapeHtml(tag)}" style="height: ${segmentHeightPct}%; background: ${color}; width: 100%; transition: opacity 0.15s ease;"></div>`;
+              }).join('');
+
+              return `
+              <div class="bar-col">
+                <div class="bval num" style="font-size: 0.68rem;">${fmtINRShort(md.monthTotal)}</div>
+                <div class="bar stacked-bar" style="height:${Math.max(4, colHeightRatio * 130)}px; background: transparent; display: flex; flex-direction: column-reverse; justify-content: flex-start; overflow: hidden; border-radius: 6px 6px 0 0;">
+                  ${segmentsHtml}
+                </div>
+                <div class="blabel">${md.label}</div>
+              </div>`;
+          }).join('');
+
+          const legendHtml = selectedTags.map((tag, i) => {
+            const color = SPLIT_PALETTE[i % SPLIT_PALETTE.length];
+            return `<div class="shared-chart-legend-item"><span class="shared-chart-legend-dot" style="background:${color};"></span><span>${escapeHtml(tag)}</span></div>`;
+          }).join('');
+
+          chartContent = `
+            <div class="bars">${cols}</div>
+            <div class="shared-chart-legend" style="border-top: none; margin-top: 40px; padding-top: 0;">${legendHtml}</div>
+          `;
+      }
+  }
 
   const optionsHtml = tagOptions
-    .map(t => `<option value="${escapeHtml(t)}" ${t === selectedTag ? 'selected' : ''}>${escapeHtml(t)}</option>`)
+    .map(t => `<option value="${escapeHtml(t)}" ${selectedTags.includes(t) ? 'disabled' : ''}>${escapeHtml(t)}</option>`)
     .join('');
+    
+  const pillsHtml = selectedTags.length ? `<div class="pill-grid" style="margin-top: 12px; margin-bottom: 4px;">${selectedTags.map(t => `<div class="pill-btn sub-pill active chart-tag-pill">${escapeHtml(t)} <button class="icon-btn chart-tag-remove" data-remove-tag="${escapeHtml(t)}" aria-label="Remove tag">✕</button></div>`).join('')}</div>` : '';
 
   return `
-  <div class="section">
-    <div class="section-title"><h2>Monthly Charts</h2><span class="hint">Tag spend over time</span></div>
-    <div class="chart-card">
-      <div class="chart-toolbar chart-toolbar--split">
-        <div style="display:flex; flex-wrap: wrap; gap: 8px; justify-content: space-between;">
-          <select id="tag-chart-select" class="tag-select" ${tagOptions.length ? '' : 'disabled'}>${optionsHtml}</select>
-          <div class="range-toggle">
-            <button class="range-btn ${chartRangeMonths === 6 ? 'active' : ''}" data-chart-range="6" type="button">6M</button>
-            <button class="range-btn ${chartRangeMonths === 9 ? 'active' : ''}" data-chart-range="9" type="button">9M</button>
-            <button class="range-btn ${chartRangeMonths === 12 ? 'active' : ''}" data-chart-range="12" type="button">1Y</button>
-          </div>
+  <div class="section-title"><h2>Monthly Charts</h2><span class="hint">Tag spend over time</span></div>
+  <div class="chart-card">
+    <div class="chart-toolbar chart-toolbar--split">
+      <div style="display:flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; width: 100%;">
+        <select id="tag-chart-select" class="tag-select" style="min-width: 180px;" ${tagOptions.length ? '' : 'disabled'}>
+          <option value="" disabled selected>Add a tag...</option>
+          ${optionsHtml}
+        </select>
+        <div class="range-toggle">
+          <button class="range-btn ${chartRangeMonths === 6 ? 'active' : ''}" data-chart-range="6" type="button">6M</button>
+          <button class="range-btn ${chartRangeMonths === 9 ? 'active' : ''}" data-chart-range="9" type="button">9M</button>
+          <button class="range-btn ${chartRangeMonths === 12 ? 'active' : ''}" data-chart-range="12" type="button">1Y</button>
         </div>
       </div>
-      ${chartHtml}
     </div>
+    ${pillsHtml}
+    ${chartContent}
   </div>`;
 }
 
@@ -8270,8 +8491,8 @@ function renderMonthlyChartsSection(bulkData, allMonthKeys) {
 // no Store.get/bulkGet call, so range/tag switches never hit the network.
 function refreshChartSection() {
   const container = document.getElementById('monthly-charts-section');
-  if (!container || !lastBulkData) return;
-  container.innerHTML = renderMonthlyChartsSection(lastBulkData, allMonthKeysAsc);
+  if (!container || !bulkDataCache) return;
+  container.innerHTML = renderMonthlyChartsSection(bulkDataCache, currentKeysAsc);
 }
 
 async function renderMonths() {
@@ -8292,6 +8513,7 @@ async function renderMonths() {
   const bulkData = bulkDataCache || {};
 
   // 2. Compute the breakdown entirely from memory
+  currentKeysAsc = keysAsc;
   const breakdown = computeMonthlyBreakdownFromBulk(keysAsc, bulkData);
   const byKey = Object.fromEntries(breakdown.map(b => [b.monthKey, b]));
 
@@ -8318,60 +8540,9 @@ async function renderMonths() {
 
   let chartHtml = '';
   if (keysAsc.length > 0) {
-      const tags = allSpendTags(DEFAULT_TAGS, customTags);
-      if (!selectedTag && tags.length) selectedTag = tags[0];
-
-      const latestMonth = keysAsc[keysAsc.length - 1];
-      const [ly, lm] = latestMonth.split('-').map(Number);
-      const rangeKeys = [];
-      for (let i = chartRangeMonths - 1; i >= 0; i--) {
-          let y = ly, m = lm - i;
-          while (m <= 0) { m += 12; y -= 1; }
-          rangeKeys.push(`${y}-${String(m).padStart(2, '0')}`);
-      }
-
-      let totalRangeSpend = 0;
-      const pairs = rangeKeys.map(k => {
-          const data = bulkData['month:' + k] || { entries: [] };
-          let sum = 0;
-          for (const e of data.entries) {
-              if (['spend', 'cardcharge', 'cashpayment'].includes(e.type)) {
-                  const t = (e.tag || 'Untagged').trim().toLowerCase();
-                  if (t === selectedTag.toLowerCase()) sum += (Number(e.amount) || 0);
-              }
-          }
-          totalRangeSpend += sum;
-          return { label: monthKeyShort(k), value: sum, color: 'var(--blue)' };
-      });
-
-      const tagOptions = tags.map(t => `<option value="${escapeHtml(t)}" ${t.toLowerCase() === selectedTag.toLowerCase() ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('');
-
-      let chartContent = `<div class="empty-chart">No spends tagged under "${escapeHtml(selectedTag)}" in this period.</div>`;
-      if (totalRangeSpend > 0) {
-          const maxVal = Math.max(1, ...pairs.map(p => p.value));
-          const cols = pairs.map(p => `
-            <div class="bar-col">
-              <div class="bval num" style="font-size: 0.68rem;">${fmtINRShort(p.value)}</div>
-              <div class="bar" style="height:${Math.max(4, (p.value / maxVal * 130))}px; background:${p.color};"></div>
-              <div class="blabel">${p.label}</div>
-            </div>`).join('');
-          chartContent = `<div class="bars">${cols}</div>`;
-      }
-
       chartHtml = `
-      <div class="section-title"><h2>Monthly Charts</h2><span class="hint">Tag spending over time</span></div>
-      <div class="chart-card">
-        <div class="chart-toolbar" style="gap: 8px; flex-wrap: nowrap; align-items: stretch;">
-          <select id="tag-chart-select" style="padding: 4px 12px; border: 1px solid var(--hair); border-radius: 999px; background: var(--ice-2); font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--muted); cursor: pointer; outline: none; flex: 1 1 0%; min-width: 0; max-width: 200px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">
-            ${tagOptions}
-          </select>
-          <div class="range-toggle" style="flex-shrink: 0; margin: 0;">
-            <button class="range-btn ${chartRangeMonths === 6 ? 'active' : ''}" data-tag-range="6" type="button">6M</button>
-            <button class="range-btn ${chartRangeMonths === 9 ? 'active' : ''}" data-tag-range="9" type="button">9M</button>
-            <button class="range-btn ${chartRangeMonths === 12 ? 'active' : ''}" data-tag-range="12" type="button">1Y</button>
-          </div>
-        </div>
-        ${chartContent}
+      <div id="monthly-charts-section" class="section">
+        ${renderMonthlyChartsSection(bulkData, keysAsc)}
       </div>`;
   }
 
@@ -8384,9 +8555,7 @@ async function renderMonths() {
     <div class="section-title"><h2>Previous months</h2><span class="hint">Tap a month to open it</span></div>
     <div class="months-list">${rows}</div>
   </div>
-  <div class="section">
-    ${chartHtml}
-  </div>
+  ${chartHtml}
   `;
 
   appendPageChrome(root);
@@ -8394,18 +8563,19 @@ async function renderMonths() {
   setupTableScrollIndicators(root);
 }
 
-root.addEventListener('change', async (ev) => {
-  if (ev.target.id === 'tag-chart-select') {
-    selectedTag = ev.target.value;
-    await renderMonths();
-  }
-});
-
 root.addEventListener('click', async (ev) => {
-  const rangeBtn = ev.target.closest('[data-tag-range]');
+  const rangeBtn = ev.target.closest('[data-chart-range]');
   if (rangeBtn) {
-    chartRangeMonths = Number(rangeBtn.dataset.tagRange);
-    await renderMonths();
+    chartRangeMonths = Number(rangeBtn.dataset.chartRange);
+    refreshChartSection();
+    return;
+  }
+  
+  const removeTagBtn = ev.target.closest('[data-remove-tag]');
+  if (removeTagBtn) {
+    const tag = removeTagBtn.dataset.removeTag;
+    selectedTags = selectedTags.filter(t => t !== tag);
+    refreshChartSection();
     return;
   }
 
@@ -8435,8 +8605,12 @@ wireDeletePopoverDismiss(root);
 root.addEventListener('change', (ev) => {
   const tagSelect = ev.target.closest('#tag-chart-select');
   if (tagSelect) {
-    selectedTag = tagSelect.value;
-    refreshChartSection();
+    const val = tagSelect.value;
+    if (val && !selectedTags.includes(val)) {
+        selectedTags.push(val);
+        refreshChartSection();
+    }
+    tagSelect.value = '';
   }
 });
 
@@ -8446,6 +8620,7 @@ window.addEventListener('auth:checked', renderMonths);
 // Wait for the first /api/auth/me round trip so we never flash the
 // signed-out login hero for an already-authenticated visitor.
 authReady.then(renderMonths);
+wireChartTooltips(root);
 === ./static/js/views/pricetrack.js ===
 /* ---------- /pricetrack ---------- */
 import { Store } from '../core/store.js';

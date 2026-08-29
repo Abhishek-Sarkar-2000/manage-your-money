@@ -57,6 +57,10 @@
   background: #FFFFFF;
 }
 
+:root[data-theme="hi-contrast"] .tag-bar-col .bval {
+  background: #FFFFFF;
+}
+
 :root[data-theme="hi-contrast"] .card,
 :root[data-theme="hi-contrast"] .action-card,
 :root[data-theme="hi-contrast"] .chart-card,

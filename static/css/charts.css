@@ -297,8 +297,26 @@ svg.linechart {
   background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, rgba(0, 0, 0, 0.05) 100%) !important;
 }
 .stacked-segment:hover {
-  opacity: 0.85;
   cursor: pointer;
+}
+
+/* Personal-vs-lent (and multi-tag) stacked bars: segments render
+   bottom-up in DOM order via column-reverse, so the first segment
+   (personal spend) sits flush on the axis and the last segment
+   (unsettled lent) is the exposed top edge that gets the rounded cap. */
+.stacked-bar {
+  display: flex;
+  flex-direction: column-reverse;
+  overflow: hidden;
+  background: transparent !important;
+}
+
+.stacked-bar .stacked-segment:last-child {
+  border-radius: 6px 6px 0 0;
+}
+
+.stacked-bar .stacked-segment:only-child {
+  border-radius: 6px 6px 0 0;
 }
 
 .chart-tag-pill {
