@@ -63,7 +63,7 @@ export function sharedStackedDebtChart(group, getYouLabel) {
       const color = SPLIT_PALETTE[allCreditors.indexOf(creditor) % SPLIT_PALETTE.length];
       const segmentWidth = total > 0 ? (amount / total) * 100 : 0;
       const creditorLabel = creditor === SPLIT_YOU ? getYouLabel() : escapeHtml(String(creditor).toUpperCase());
-      return `<div class="shared-debt-segment" style="width:${segmentWidth}%; background:${color};" title="${creditorLabel}: ${fmtINR(amount)}"></div>`;
+      return `<div class="shared-debt-segment" style="width:${segmentWidth}%; background:${color};" data-val="${fmtINR(amount)}" data-label="${creditorLabel}"></div>`;
     }).join('');
 
     const debtorLabel = debtor === SPLIT_YOU ? getYouLabel() : escapeHtml(String(debtor).toUpperCase());

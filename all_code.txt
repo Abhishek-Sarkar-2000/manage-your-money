@@ -3048,6 +3048,10 @@ transform: translateY(0);
   background: #FFFFFF;
 }
 
+:root[data-theme="hi-contrast"] .bar-col .bval {
+  background: #FFFFFF;
+}
+
 :root[data-theme="hi-contrast"] .card,
 :root[data-theme="hi-contrast"] .action-card,
 :root[data-theme="hi-contrast"] .chart-card,
@@ -3091,6 +3095,10 @@ transform: translateY(0);
 
 :root[data-theme="hi-contrast"] .chart-tag-pill {
   background: var(--blue) !important;
+}
+
+:root[data-theme="hi-contrast"] .chip {
+  background: var(--yellow) !important;
 }
 
 :root[data-theme="hi-contrast"] {
@@ -4904,11 +4912,19 @@ export function tagsBarChart(entries, targetType, options = {}) {
     </div>`;
   }).join('');
 
-  const legend = pairs.map((p, i) => `
+  let legend = pairs.map((p, i) => `
     <div class="shared-chart-legend-item">
       <span class="shared-chart-legend-dot" style="background:${colors[i % colors.length]};"></span>
       <span>${escapeHtml(p.label)}</span>
     </div>`).join('');
+
+  if (pairs.some(p => p.lent > 0)) {
+    legend += `
+    <div class="shared-chart-legend-item">
+      <span class="shared-chart-legend-dot" style="background:#E03131;"></span>
+      <span>Lent (unsettled)</span>
+    </div>`;
+  }
 
   return {
     html: `
@@ -6764,9 +6780,9 @@ export async function toggleSplitSettlement(groupId, transferId, from, to, amoun
       const monthData = await loadMonth(mk);
       let entry;
       if (from === SPLIT_YOU) {
-        entry = { id: uid(), type: 'spend', description: `Settled to ${to} - ${groupDesc}`, amount: Number(amount), date: todayStr(), paymentMode: 'cash', cardId: null, tag: '', lent: [] };
+        entry = { id: uid(), type: 'spend', description: `Settled to ${to} - ${groupDesc}`, amount: Number(amount), date: todayStr(), paymentMode: 'cash', cardId: null, tag: 'split', lent: [] };
       } else {
-        entry = { id: uid(), type: 'income', description: `Received settlement from ${from} - ${groupDesc}`, amount: Number(amount), date: todayStr(), category: 'Friends' };
+        entry = { id: uid(), type: 'spend', description: `Received settlement from ${from} - ${groupDesc}`, amount: -Number(amount), date: todayStr(), paymentMode: 'cash', cardId: null, tag: 'split', lent: [] };
       }
       monthData.entries.push(entry);
       await saveMonth(mk);
@@ -7443,7 +7459,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       <td><span class="tag cardcharge">Card spend</span></td>
       <td>
         <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
-        <div class="subnote">On ${card ? escapeHtml(card.name) : 'a removed card'} — adds to card dues, not deducted from balance</div>
+        <div class="subnote">On ${card ? escapeHtml(card.name) : 'a removed card'} — adds to card dues</div>
         ${lentChips ? `<div>${lentChips}</div>` : ''}
       </td>
       <td class="num amt-neutral">${fmtINR(e.amount)}</td>
@@ -7877,6 +7893,11 @@ async function renderMonth() {
           ...(emiTotal > 0 ? [{ label: 'EMI', value: emiTotal, color: '#5B4B9E' }] : []),
           { label: 'Invested', value: monthTotals.invest + monthTotals.sip, color: 'var(--blue)' },
         ])}
+        ${lentSegmentValue > 0 ? `
+        <div class="shared-chart-legend" style="border-top: none; padding-top: 0; margin-top: 0;">
+          <div class="shared-chart-legend-item"><span class="shared-chart-legend-dot" style="background:var(--debit);"></span><span>Personal Expense</span></div>
+          <div class="shared-chart-legend-item"><span class="shared-chart-legend-dot" style="background:#E03131;"></span><span>Lent (unsettled)</span></div>
+        </div>` : ''}
       </div>
       <div class="chart-card" style="grid-column:1/-1;">
         <h4>Running balance through the month</h4>
@@ -8415,12 +8436,16 @@ function renderMonthlyChartsSection(bulkData, allMonthKeys) {
                       // Personal spend + still-unsettled lent both count toward
                       // this tag's outflow. A lent amount that's since been
                       // settled is paid back, so it comes off the total entirely.
-                      const amt = Math.max(0, Number(e.amount) || 0);
+                      const amt = Number(e.amount) || 0;
                       tagSums[matchedTag] += amt;
                       monthTotal += amt;
                   }
               }
           }
+          
+          monthTotal = Math.max(0, monthTotal);
+          selectedTags.forEach(t => tagSums[t] = Math.max(0, tagSums[t]));
+
           if (monthTotal > maxVal) maxVal = monthTotal;
           return { label: monthKeyShort(k), monthTotal, tagSums };
       });

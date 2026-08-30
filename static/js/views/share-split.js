@@ -9,6 +9,7 @@ import { escapeHtml, uid } from '../core/dom.js';
 import { fmtINR } from '../core/format.js';
 import { loadSharedSplit, getYouLabel, computeGroupPaid, computeGroupSettlementView, SPLIT_YOU } from '../core/split-domain.js';
 import { sharedStackedDebtChart, sharedSharesBarChart } from '../components/charts/split-charts.js';
+import { wireChartTooltips } from '../components/charts/line-chart.js';
 import { scrollWrapper, setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { wireSplitCallouts } from '../components/split-callout.js';
@@ -143,7 +144,7 @@ function renderSplitDetailsPanelReadOnly(group, youLabel) {
     let dateCell = '';
     if (!seenDates.has(s.date)) { seenDates.add(s.date); dateCell = `<td class="dv-date" rowspan="${dateCounts[s.date]}">${dateLabel}</td>`; }
     const payeeLabel = s.payee === SPLIT_YOU ? youLabel() : escapeHtml(String(s.payee).toUpperCase());
-    return `<tr>${dateCell}<td>${renderSplitShareCallout(group, s, youLabel)}<span class="src-badge">${payeeLabel}</span></td><td class="num">${fmtINR(s.amount)}</td></tr>`;
+    return `<tr>${dateCell}<td class="desc-cell">${renderSplitShareCallout(group, s, youLabel)}<span class="src-badge">${payeeLabel}</span></td><td class="num">${fmtINR(s.amount)}</td></tr>`;
   }).join('');
 
   return `
@@ -212,9 +213,13 @@ function renderImportSection(group, youLabel) {
   return `
   <div class="section shared-import-section" data-import-section>
     <div class="section-title"><h2>Import this group</h2><span class="hint">Copy it into your own Split Money dashboard</span></div>
-    <div class="form-row" style="align-items: end;">
+    <div class="form-row" style="margin-bottom: 8px;">
       <div class="field">
         <label>Who are you in this group?</label>
+      </div>
+    </div>
+    <div class="form-row" style="align-items: end;">
+      <div class="field">
         <select id="import-who-am-i">
           ${renderImportMemberOptions(group, youLabel)}
         </select>
@@ -488,6 +493,7 @@ root.addEventListener('click', async (ev) => {
 });
 
 wireSplitCallouts(root);
+wireChartTooltips(root);
 window.addEventListener('auth:signed-in', renderSharedSplitPage);
 window.addEventListener('auth:checked', renderSharedSplitPage);
 initGoogleSignIn();

@@ -499,6 +499,10 @@ tbody tr:hover td {
   }
 }
 
+.type-cell {
+  text-align: center;
+}
+
 .tag {
   display: inline-block;
   padding: 3px 9px;
@@ -540,7 +544,6 @@ color: #C07A2E;
   font-family: 'IBM Plex Mono', monospace;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  margin-left: 2px;
   background: var(--ice);
   color: var(--blue);
   vertical-align: middle;
@@ -613,6 +616,45 @@ color: #C07A2E;
   font-size: 0.85rem;
   padding: 0;
   line-height: 1;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+  contain: inline-size;
+}
+
+.chip-row .chip {
+  margin: 0;
+}
+
+.subnote {
+  contain: inline-size;
+}
+
+.desc-cell strong {
+  margin-right: 2px;
+}
+
+@media (min-width: 961px) {
+  .desc-cell {
+    width: 100%;
+    max-width: 0;
+  }
+
+  .desc-cell strong,
+  .desc-cell .split-spend-cell {
+    overflow-wrap: break-word;
+  }
+}
+
+@media (max-width: 960px) {
+  .desc-cell {
+    max-width: 30ch;
+    overflow-wrap: break-word;
+  }
 }
 
 .row-actions {

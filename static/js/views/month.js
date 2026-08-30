@@ -103,11 +103,11 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       </span>`).join('');
     return `<tr>
       ${dateCell}
-      <td><span class="tag spend">Spend</span></td>
-      <td>
+      <td class="type-cell"><span class="tag spend">Spend</span></td>
+      <td class="desc-cell">
         <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
         <div class="subnote">${card ? 'Paid for ' + escapeHtml(card.name) + ' — reduces card dues' : 'Cash / debit'}</div>
-        ${lentChips ? `<div>${lentChips}</div>` : ''}
+        ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
       <td class="num amt-debit">-${fmtINR(e.amount)}</td>
       <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
@@ -121,11 +121,11 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       </span>`).join('');
     return `<tr>
       ${dateCell}
-      <td><span class="tag cardcharge">Card spend</span></td>
-      <td>
+      <td class="type-cell"><span class="tag cardcharge">Card spend</span></td>
+      <td class="desc-cell">
         <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
         <div class="subnote">On ${card ? escapeHtml(card.name) : 'a removed card'} — adds to card dues</div>
-        ${lentChips ? `<div>${lentChips}</div>` : ''}
+        ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
       <td class="num amt-neutral">${fmtINR(e.amount)}</td>
       <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
@@ -134,8 +134,8 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   if (e.type === 'cashpayment') {
     return `<tr>
       ${dateCell}
-      <td><span class="tag cashpayment">Cash spend</span></td>
-      <td>
+      <td class="type-cell"><span class="tag cashpayment">Cash spend</span></td>
+      <td class="desc-cell">
         <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
         <div class="subnote">Physical cash spent — already accounted for via withdrawal</div>
       </td>
@@ -146,8 +146,8 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   if (e.type === 'income') {
     return `<tr>
       ${dateCell}
-      <td><span class="tag income">Income</span></td>
-      <td><strong>${escapeHtml(e.description)}</strong>${e.category ? ` <span class="src-badge">${escapeHtml(e.category)}</span>` : ''}</td>
+      <td class="type-cell"><span class="tag income">Income</span></td>
+      <td class="desc-cell"><strong>${escapeHtml(e.description)}</strong>${e.category ? ` <span class="src-badge">${escapeHtml(e.category)}</span>` : ''}</td>
       <td class="num amt-credit">+${fmtINR(e.amount)}</td>
       <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
@@ -155,8 +155,8 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   if (e.type === 'owed') {
     return `<tr>
       ${dateCell}
-      <td><span class="tag owed">Owed to you</span></td>
-      <td>
+      <td class="type-cell"><span class="tag owed">Owed to you</span></td>
+      <td class="desc-cell">
         <strong>${escapeHtml(e.description)}</strong>
         ${e.settled ? `<div class="subnote">Settled</div>` : `<div class="subnote">Carries forward until settled</div>`}
       </td>
@@ -172,8 +172,8 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   if (e.type === 'investment') {
     return `<tr>
       ${dateCell}
-      <td><span class="tag invest">Investment</span></td>
-      <td><strong>${escapeHtml(e.description)}</strong></td>
+      <td class="type-cell"><span class="tag invest">Investment</span></td>
+      <td class="desc-cell"><strong>${escapeHtml(e.description)}</strong></td>
       <td class="num amt-debit">-${fmtINR(e.amount)}</td>
       <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
@@ -593,7 +593,7 @@ async function renderMonth() {
     ${emiCardsHtml}
     <div class="table-wrap">
       <table ${allRows.length ? '' : 'style="width: 100%;"'}>
-        <thead><tr><th>Date</th><th>Type</th><th>Details</th><th class="table-numeric">Amount</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th class="type-cell">Type</th><th>Details</th><th class="table-numeric">Amount</th><th></th></tr></thead>
         <tbody>
           ${allRows.length ? rowsHtml : `<tr class="empty-row"><td colspan="5">No entries yet — add your first spend or income above.</td></tr>`}
         </tbody>

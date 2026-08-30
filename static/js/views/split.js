@@ -14,6 +14,7 @@ import { sharedStackedDebtChart, sharedSharesBarChart, SPLIT_PALETTE } from '../
 import { scrollWrapper, setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
 import { showSplitCallout, hideSplitCallout, wireSplitCallouts } from '../components/split-callout.js';
+import { wireChartTooltips } from '../components/charts/line-chart.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
@@ -184,7 +185,7 @@ function renderSplitDetailsPanel(group) {
     if (!seenDates.has(s.date)) { seenDates.add(s.date); dateCell = `<td class="dv-date" rowspan="${dateCounts[s.date]}">${dateLabel}</td>`; }
     return `
     <tr>${dateCell}
-      <td>
+      <td class="desc-cell">
         ${renderSplitShareCallout(group, s)}
         <span class="src-badge">${escapeHtml(s.payee)}</span>
       </td>
@@ -650,6 +651,7 @@ root.addEventListener('input', (ev) => {
 
 wireDeletePopoverDismiss(root);
 wireSplitCallouts(root);
+wireChartTooltips(root);
 window.addEventListener('auth:signed-in', renderSplit);
 window.addEventListener('auth:checked', renderSplit);
 // Wait for the first /api/auth/me round trip so we never flash the

@@ -163,7 +163,7 @@ export function wireChartTooltips(root = document) {
   }
 
   const showTooltip = (ev) => {
-    const dot = ev.target.closest('.linechart-dot, .stacked-segment');
+    const dot = ev.target.closest('.linechart-dot, .stacked-segment, .shared-debt-segment');
     if (!dot) return;
     
     const val = dot.dataset.val;
@@ -196,12 +196,12 @@ export function wireChartTooltips(root = document) {
 
   root.addEventListener('mouseover', showTooltip);
   root.addEventListener('mouseout', (ev) => {
-    if (ev.target.closest('.linechart-dot, .stacked-segment')) hideTooltip();
+    if (ev.target.closest('.linechart-dot, .stacked-segment, .shared-debt-segment')) hideTooltip();
   });
   
   // Touch support for mobile
   root.addEventListener('touchstart', (ev) => {
-    const dot = ev.target.closest('.linechart-dot, .stacked-segment');
+    const dot = ev.target.closest('.linechart-dot, .stacked-segment, .shared-debt-segment');
     if (dot) {
       showTooltip(ev);
     }
