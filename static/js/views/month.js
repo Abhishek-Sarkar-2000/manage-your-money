@@ -124,7 +124,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       <td><span class="tag cardcharge">Card spend</span></td>
       <td>
         <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
-        <div class="subnote">On ${card ? escapeHtml(card.name) : 'a removed card'} — adds to card dues, not deducted from balance</div>
+        <div class="subnote">On ${card ? escapeHtml(card.name) : 'a removed card'} — adds to card dues</div>
         ${lentChips ? `<div>${lentChips}</div>` : ''}
       </td>
       <td class="num amt-neutral">${fmtINR(e.amount)}</td>
@@ -467,9 +467,10 @@ async function renderMonth() {
     }
   }
   const emiTotal = monthTotals.emi || 0;
-  // Personal spend = total consumption, minus whatever's been lent out
-  // (settled or still outstanding), minus EMI (which gets its own bar).
-  const rawPersonalExpense = Math.max(0, monthTotals.totalConsumption - unsettledConsumptionLent - settledConsumptionLent - emiTotal);
+  // Personal spend = total consumption minus unsettled lent minus EMI.
+  // Settled lent is explicitly deducted from the spend's amount when checked,
+  // so totalConsumption only contains Personal + Unsettled.
+  const rawPersonalExpense = Math.max(0, monthTotals.totalConsumption - unsettledConsumptionLent - emiTotal);
 
   // Split-page balances aren't tied to any one month's entries — they're a
   // live, running "who owes who" ledger — so we only fold them into the
@@ -557,6 +558,11 @@ async function renderMonth() {
           ...(emiTotal > 0 ? [{ label: 'EMI', value: emiTotal, color: '#5B4B9E' }] : []),
           { label: 'Invested', value: monthTotals.invest + monthTotals.sip, color: 'var(--blue)' },
         ])}
+        ${lentSegmentValue > 0 ? `
+        <div class="shared-chart-legend" style="border-top: none; padding-top: 0; margin-top: 0;">
+          <div class="shared-chart-legend-item"><span class="shared-chart-legend-dot" style="background:var(--debit);"></span><span>Personal Expense</span></div>
+          <div class="shared-chart-legend-item"><span class="shared-chart-legend-dot" style="background:#E03131;"></span><span>Lent (unsettled)</span></div>
+        </div>` : ''}
       </div>
       <div class="chart-card" style="grid-column:1/-1;">
         <h4>Running balance through the month</h4>
@@ -903,20 +909,22 @@ root.addEventListener('click', async (ev) => {
     const [entryId, lentId] = settleLent.dataset.settleLent.split('|');
     const data = await loadMonth(monthKey);
     const entry = data.entries.find(e => e.id === entryId);
+    let wasSettled = false;
     if (entry) {
       const l = (entry.lent || []).find(x => x.id === lentId);
-      if (l && !l.settled) {
-        l.settled = true;
-        data.entries.push({
-          id: uid(), type: 'income', description: `Payback @${l.person} - ${entry.description}`,
-          amount: l.amount, date: todayStr(), category: 'Friends',
-          linkedLent: { spendId: entry.id, lentId: l.id },
-        });
+      if (l) {
+        l.settled = !l.settled;
+        wasSettled = l.settled;
+        if (wasSettled) {
+          entry.amount = (Number(entry.amount) || 0) - (Number(l.amount) || 0);
+        } else {
+          entry.amount = (Number(entry.amount) || 0) + (Number(l.amount) || 0);
+        }
       }
     }
     await saveMonth(monthKey);
     await renderMonth();
-    showToast('Marked as paid back — added as income');
+    showToast(wasSettled ? 'Marked as paid back' : 'Marked as unpaid');
   }
 });
 

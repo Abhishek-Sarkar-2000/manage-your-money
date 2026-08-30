@@ -218,9 +218,9 @@ export async function toggleSplitSettlement(groupId, transferId, from, to, amoun
       const monthData = await loadMonth(mk);
       let entry;
       if (from === SPLIT_YOU) {
-        entry = { id: uid(), type: 'spend', description: `Settled to ${to} - ${groupDesc}`, amount: Number(amount), date: todayStr(), paymentMode: 'cash', cardId: null, tag: '', lent: [] };
+        entry = { id: uid(), type: 'spend', description: `Settled to ${to} - ${groupDesc}`, amount: Number(amount), date: todayStr(), paymentMode: 'cash', cardId: null, tag: 'split', lent: [] };
       } else {
-        entry = { id: uid(), type: 'income', description: `Received settlement from ${from} - ${groupDesc}`, amount: Number(amount), date: todayStr(), category: 'Friends' };
+        entry = { id: uid(), type: 'spend', description: `Received settlement from ${from} - ${groupDesc}`, amount: -Number(amount), date: todayStr(), paymentMode: 'cash', cardId: null, tag: 'split', lent: [] };
       }
       monthData.entries.push(entry);
       await saveMonth(mk);

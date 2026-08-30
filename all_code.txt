@@ -4862,7 +4862,7 @@ export function tagsBarChart(entries, targetType, options = {}) {
     // shows exactly how much of this tag's spend is still outstanding.
     const settledLent = lentArr.reduce((s, l) => l.settled ? s + (Number(l.amount) || 0) : s, 0);
     const unsettledLent = lentArr.reduce((s, l) => !l.settled ? s + (Number(l.amount) || 0) : s, 0);
-    const personal = Math.max(0, amount - settledLent - unsettledLent);
+    const personal = amount - unsettledLent;
     personalTotals[key] = (personalTotals[key] || 0) + personal;
     lentTotals[key] = (lentTotals[key] || 0) + unsettledLent;
   }
@@ -7786,9 +7786,10 @@ async function renderMonth() {
     }
   }
   const emiTotal = monthTotals.emi || 0;
-  // Personal spend = total consumption, minus whatever's been lent out
-  // (settled or still outstanding), minus EMI (which gets its own bar).
-  const rawPersonalExpense = Math.max(0, monthTotals.totalConsumption - unsettledConsumptionLent - settledConsumptionLent - emiTotal);
+  // Personal spend = total consumption minus unsettled lent minus EMI.
+  // Settled lent is explicitly deducted from the spend's amount when checked,
+  // so totalConsumption only contains Personal + Unsettled.
+  const rawPersonalExpense = Math.max(0, monthTotals.totalConsumption - unsettledConsumptionLent - emiTotal);
 
   // Split-page balances aren't tied to any one month's entries — they're a
   // live, running "who owes who" ledger — so we only fold them into the
@@ -8222,20 +8223,22 @@ root.addEventListener('click', async (ev) => {
     const [entryId, lentId] = settleLent.dataset.settleLent.split('|');
     const data = await loadMonth(monthKey);
     const entry = data.entries.find(e => e.id === entryId);
+    let wasSettled = false;
     if (entry) {
       const l = (entry.lent || []).find(x => x.id === lentId);
-      if (l && !l.settled) {
-        l.settled = true;
-        data.entries.push({
-          id: uid(), type: 'income', description: `Payback @${l.person} - ${entry.description}`,
-          amount: l.amount, date: todayStr(), category: 'Friends',
-          linkedLent: { spendId: entry.id, lentId: l.id },
-        });
+      if (l) {
+        l.settled = !l.settled;
+        wasSettled = l.settled;
+        if (wasSettled) {
+          entry.amount = (Number(entry.amount) || 0) - (Number(l.amount) || 0);
+        } else {
+          entry.amount = (Number(entry.amount) || 0) + (Number(l.amount) || 0);
+        }
       }
     }
     await saveMonth(monthKey);
     await renderMonth();
-    showToast('Marked as paid back — added as income');
+    showToast(wasSettled ? 'Marked as paid back' : 'Marked as unpaid');
   }
 });
 
@@ -8412,9 +8415,7 @@ function renderMonthlyChartsSection(bulkData, allMonthKeys) {
                       // Personal spend + still-unsettled lent both count toward
                       // this tag's outflow. A lent amount that's since been
                       // settled is paid back, so it comes off the total entirely.
-                      const lentArr = Array.isArray(e.lent) ? e.lent : [];
-                      const settledLent = lentArr.reduce((s, l) => l.settled ? s + (Number(l.amount) || 0) : s, 0);
-                      const amt = Math.max(0, (Number(e.amount) || 0) - settledLent);
+                      const amt = Math.max(0, Number(e.amount) || 0);
                       tagSums[matchedTag] += amt;
                       monthTotal += amt;
                   }

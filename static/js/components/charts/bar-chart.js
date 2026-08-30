@@ -53,7 +53,7 @@ export function tagsBarChart(entries, targetType, options = {}) {
     // shows exactly how much of this tag's spend is still outstanding.
     const settledLent = lentArr.reduce((s, l) => l.settled ? s + (Number(l.amount) || 0) : s, 0);
     const unsettledLent = lentArr.reduce((s, l) => !l.settled ? s + (Number(l.amount) || 0) : s, 0);
-    const personal = Math.max(0, amount - settledLent - unsettledLent);
+    const personal = amount - unsettledLent;
     personalTotals[key] = (personalTotals[key] || 0) + personal;
     lentTotals[key] = (lentTotals[key] || 0) + unsettledLent;
   }
@@ -95,11 +95,19 @@ export function tagsBarChart(entries, targetType, options = {}) {
     </div>`;
   }).join('');
 
-  const legend = pairs.map((p, i) => `
+  let legend = pairs.map((p, i) => `
     <div class="shared-chart-legend-item">
       <span class="shared-chart-legend-dot" style="background:${colors[i % colors.length]};"></span>
       <span>${escapeHtml(p.label)}</span>
     </div>`).join('');
+
+  if (pairs.some(p => p.lent > 0)) {
+    legend += `
+    <div class="shared-chart-legend-item">
+      <span class="shared-chart-legend-dot" style="background:#E03131;"></span>
+      <span>Lent (unsettled)</span>
+    </div>`;
+  }
 
   return {
     html: `

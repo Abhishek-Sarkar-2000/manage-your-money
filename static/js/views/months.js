@@ -126,14 +126,16 @@ function renderMonthlyChartsSection(bulkData, allMonthKeys) {
                       // Personal spend + still-unsettled lent both count toward
                       // this tag's outflow. A lent amount that's since been
                       // settled is paid back, so it comes off the total entirely.
-                      const lentArr = Array.isArray(e.lent) ? e.lent : [];
-                      const settledLent = lentArr.reduce((s, l) => l.settled ? s + (Number(l.amount) || 0) : s, 0);
-                      const amt = Math.max(0, (Number(e.amount) || 0) - settledLent);
+                      const amt = Number(e.amount) || 0;
                       tagSums[matchedTag] += amt;
                       monthTotal += amt;
                   }
               }
           }
+          
+          monthTotal = Math.max(0, monthTotal);
+          selectedTags.forEach(t => tagSums[t] = Math.max(0, tagSums[t]));
+
           if (monthTotal > maxVal) maxVal = monthTotal;
           return { label: monthKeyShort(k), monthTotal, tagSums };
       });
