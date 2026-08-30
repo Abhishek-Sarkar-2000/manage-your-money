@@ -1405,6 +1405,10 @@ tbody tr:hover td {
   }
 }
 
+.type-cell {
+  text-align: center;
+}
+
 .tag {
   display: inline-block;
   padding: 3px 9px;
@@ -1446,7 +1450,6 @@ color: #C07A2E;
   font-family: 'IBM Plex Mono', monospace;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  margin-left: 2px;
   background: var(--ice);
   color: var(--blue);
   vertical-align: middle;
@@ -1519,6 +1522,45 @@ color: #C07A2E;
   font-size: 0.85rem;
   padding: 0;
   line-height: 1;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+  contain: inline-size;
+}
+
+.chip-row .chip {
+  margin: 0;
+}
+
+.subnote {
+  contain: inline-size;
+}
+
+.desc-cell strong {
+  margin-right: 2px;
+}
+
+@media (min-width: 961px) {
+  .desc-cell {
+    width: 100%;
+    max-width: 0;
+  }
+
+  .desc-cell strong,
+  .desc-cell .split-spend-cell {
+    overflow-wrap: break-word;
+  }
+}
+
+@media (max-width: 960px) {
+  .desc-cell {
+    max-width: 30ch;
+    overflow-wrap: break-word;
+  }
 }
 
 .row-actions {
@@ -5149,7 +5191,7 @@ export function wireChartTooltips(root = document) {
   }
 
   const showTooltip = (ev) => {
-    const dot = ev.target.closest('.linechart-dot, .stacked-segment');
+    const dot = ev.target.closest('.linechart-dot, .stacked-segment, .shared-debt-segment');
     if (!dot) return;
     
     const val = dot.dataset.val;
@@ -5182,12 +5224,12 @@ export function wireChartTooltips(root = document) {
 
   root.addEventListener('mouseover', showTooltip);
   root.addEventListener('mouseout', (ev) => {
-    if (ev.target.closest('.linechart-dot, .stacked-segment')) hideTooltip();
+    if (ev.target.closest('.linechart-dot, .stacked-segment, .shared-debt-segment')) hideTooltip();
   });
   
   // Touch support for mobile
   root.addEventListener('touchstart', (ev) => {
-    const dot = ev.target.closest('.linechart-dot, .stacked-segment');
+    const dot = ev.target.closest('.linechart-dot, .stacked-segment, .shared-debt-segment');
     if (dot) {
       showTooltip(ev);
     }
@@ -5264,7 +5306,7 @@ export function sharedStackedDebtChart(group, getYouLabel) {
       const color = SPLIT_PALETTE[allCreditors.indexOf(creditor) % SPLIT_PALETTE.length];
       const segmentWidth = total > 0 ? (amount / total) * 100 : 0;
       const creditorLabel = creditor === SPLIT_YOU ? getYouLabel() : escapeHtml(String(creditor).toUpperCase());
-      return `<div class="shared-debt-segment" style="width:${segmentWidth}%; background:${color};" title="${creditorLabel}: ${fmtINR(amount)}"></div>`;
+      return `<div class="shared-debt-segment" style="width:${segmentWidth}%; background:${color};" data-val="${fmtINR(amount)}" data-label="${creditorLabel}"></div>`;
     }).join('');
 
     const debtorLabel = debtor === SPLIT_YOU ? getYouLabel() : escapeHtml(String(debtor).toUpperCase());
@@ -7438,11 +7480,11 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       </span>`).join('');
     return `<tr>
       ${dateCell}
-      <td><span class="tag spend">Spend</span></td>
-      <td>
+      <td class="type-cell"><span class="tag spend">Spend</span></td>
+      <td class="desc-cell">
         <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
         <div class="subnote">${card ? 'Paid for ' + escapeHtml(card.name) + ' — reduces card dues' : 'Cash / debit'}</div>
-        ${lentChips ? `<div>${lentChips}</div>` : ''}
+        ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
       <td class="num amt-debit">-${fmtINR(e.amount)}</td>
       <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
@@ -7456,11 +7498,11 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       </span>`).join('');
     return `<tr>
       ${dateCell}
-      <td><span class="tag cardcharge">Card spend</span></td>
-      <td>
+      <td class="type-cell"><span class="tag cardcharge">Card spend</span></td>
+      <td class="desc-cell">
         <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
         <div class="subnote">On ${card ? escapeHtml(card.name) : 'a removed card'} — adds to card dues</div>
-        ${lentChips ? `<div>${lentChips}</div>` : ''}
+        ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
       <td class="num amt-neutral">${fmtINR(e.amount)}</td>
       <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
@@ -7469,8 +7511,8 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   if (e.type === 'cashpayment') {
     return `<tr>
       ${dateCell}
-      <td><span class="tag cashpayment">Cash spend</span></td>
-      <td>
+      <td class="type-cell"><span class="tag cashpayment">Cash spend</span></td>
+      <td class="desc-cell">
         <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
         <div class="subnote">Physical cash spent — already accounted for via withdrawal</div>
       </td>
@@ -7481,8 +7523,8 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   if (e.type === 'income') {
     return `<tr>
       ${dateCell}
-      <td><span class="tag income">Income</span></td>
-      <td><strong>${escapeHtml(e.description)}</strong>${e.category ? ` <span class="src-badge">${escapeHtml(e.category)}</span>` : ''}</td>
+      <td class="type-cell"><span class="tag income">Income</span></td>
+      <td class="desc-cell"><strong>${escapeHtml(e.description)}</strong>${e.category ? ` <span class="src-badge">${escapeHtml(e.category)}</span>` : ''}</td>
       <td class="num amt-credit">+${fmtINR(e.amount)}</td>
       <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
@@ -7490,8 +7532,8 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   if (e.type === 'owed') {
     return `<tr>
       ${dateCell}
-      <td><span class="tag owed">Owed to you</span></td>
-      <td>
+      <td class="type-cell"><span class="tag owed">Owed to you</span></td>
+      <td class="desc-cell">
         <strong>${escapeHtml(e.description)}</strong>
         ${e.settled ? `<div class="subnote">Settled</div>` : `<div class="subnote">Carries forward until settled</div>`}
       </td>
@@ -7507,8 +7549,8 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   if (e.type === 'investment') {
     return `<tr>
       ${dateCell}
-      <td><span class="tag invest">Investment</span></td>
-      <td><strong>${escapeHtml(e.description)}</strong></td>
+      <td class="type-cell"><span class="tag invest">Investment</span></td>
+      <td class="desc-cell"><strong>${escapeHtml(e.description)}</strong></td>
       <td class="num amt-debit">-${fmtINR(e.amount)}</td>
       <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
@@ -7928,7 +7970,7 @@ async function renderMonth() {
     ${emiCardsHtml}
     <div class="table-wrap">
       <table ${allRows.length ? '' : 'style="width: 100%;"'}>
-        <thead><tr><th>Date</th><th>Type</th><th>Details</th><th class="table-numeric">Amount</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th class="type-cell">Type</th><th>Details</th><th class="table-numeric">Amount</th><th></th></tr></thead>
         <tbody>
           ${allRows.length ? rowsHtml : `<tr class="empty-row"><td colspan="5">No entries yet — add your first spend or income above.</td></tr>`}
         </tbody>
@@ -9047,6 +9089,7 @@ import { escapeHtml, uid } from '../core/dom.js';
 import { fmtINR } from '../core/format.js';
 import { loadSharedSplit, getYouLabel, computeGroupPaid, computeGroupSettlementView, SPLIT_YOU } from '../core/split-domain.js';
 import { sharedStackedDebtChart, sharedSharesBarChart } from '../components/charts/split-charts.js';
+import { wireChartTooltips } from '../components/charts/line-chart.js';
 import { scrollWrapper, setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { wireSplitCallouts } from '../components/split-callout.js';
@@ -9181,7 +9224,7 @@ function renderSplitDetailsPanelReadOnly(group, youLabel) {
     let dateCell = '';
     if (!seenDates.has(s.date)) { seenDates.add(s.date); dateCell = `<td class="dv-date" rowspan="${dateCounts[s.date]}">${dateLabel}</td>`; }
     const payeeLabel = s.payee === SPLIT_YOU ? youLabel() : escapeHtml(String(s.payee).toUpperCase());
-    return `<tr>${dateCell}<td>${renderSplitShareCallout(group, s, youLabel)}<span class="src-badge">${payeeLabel}</span></td><td class="num">${fmtINR(s.amount)}</td></tr>`;
+    return `<tr>${dateCell}<td class="desc-cell">${renderSplitShareCallout(group, s, youLabel)}<span class="src-badge">${payeeLabel}</span></td><td class="num">${fmtINR(s.amount)}</td></tr>`;
   }).join('');
 
   return `
@@ -9250,9 +9293,13 @@ function renderImportSection(group, youLabel) {
   return `
   <div class="section shared-import-section" data-import-section>
     <div class="section-title"><h2>Import this group</h2><span class="hint">Copy it into your own Split Money dashboard</span></div>
-    <div class="form-row" style="align-items: end;">
+    <div class="form-row" style="margin-bottom: 8px;">
       <div class="field">
         <label>Who are you in this group?</label>
+      </div>
+    </div>
+    <div class="form-row" style="align-items: end;">
+      <div class="field">
         <select id="import-who-am-i">
           ${renderImportMemberOptions(group, youLabel)}
         </select>
@@ -9526,6 +9573,7 @@ root.addEventListener('click', async (ev) => {
 });
 
 wireSplitCallouts(root);
+wireChartTooltips(root);
 window.addEventListener('auth:signed-in', renderSharedSplitPage);
 window.addEventListener('auth:checked', renderSharedSplitPage);
 initGoogleSignIn();
@@ -9664,6 +9712,7 @@ import { sharedStackedDebtChart, sharedSharesBarChart, SPLIT_PALETTE } from '../
 import { scrollWrapper, setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
 import { showSplitCallout, hideSplitCallout, wireSplitCallouts } from '../components/split-callout.js';
+import { wireChartTooltips } from '../components/charts/line-chart.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
@@ -9834,7 +9883,7 @@ function renderSplitDetailsPanel(group) {
     if (!seenDates.has(s.date)) { seenDates.add(s.date); dateCell = `<td class="dv-date" rowspan="${dateCounts[s.date]}">${dateLabel}</td>`; }
     return `
     <tr>${dateCell}
-      <td>
+      <td class="desc-cell">
         ${renderSplitShareCallout(group, s)}
         <span class="src-badge">${escapeHtml(s.payee)}</span>
       </td>
@@ -10300,6 +10349,7 @@ root.addEventListener('input', (ev) => {
 
 wireDeletePopoverDismiss(root);
 wireSplitCallouts(root);
+wireChartTooltips(root);
 window.addEventListener('auth:signed-in', renderSplit);
 window.addEventListener('auth:checked', renderSplit);
 // Wait for the first /api/auth/me round trip so we never flash the

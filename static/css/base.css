@@ -506,7 +506,7 @@ tbody tr:hover td {
 .tag {
   display: inline-block;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: 10px;
   font-size: 0.72rem;
   font-weight: 600;
   font-family: 'IBM Plex Mono', monospace;
@@ -533,6 +533,28 @@ color: #C07A2E;
 .tag.income {
   background: var(--credit-bg);
   color: var(--credit);
+}
+
+.tag.payback {
+  background: #E4EEF9;
+  color: var(--blue);
+}
+
+.lent-toggle {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  background: transparent;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 4px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.lent-toggle.checked {
+  background: currentColor;
 }
 
 .src-badge {
@@ -592,7 +614,7 @@ color: #C07A2E;
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   font-size: 0.76rem;
   background: var(--ice);
   color: var(--royal);
@@ -609,12 +631,12 @@ color: #C07A2E;
 }
 
 .chip button {
-  border: none;
   background: none;
   cursor: pointer;
   color: inherit;
   font-size: 0.85rem;
   padding: 0;
+  margin-top: 1px;
   line-height: 1;
 }
 

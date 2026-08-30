@@ -98,8 +98,9 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   if (e.type === 'spend') {
     const card = e.paymentMode === 'card' ? cardById(cards, e.cardId) : null;
     const lentChips = (e.lent || []).map(l => `
-      <span class="chip ${l.settled ? 'settled' : ''}">${escapeHtml(l.person)} · ${fmtINR(l.amount)}
-        ${!l.settled ? `<button data-settle-lent="${e.id}|${l.id}" title="Mark as paid back">✓</button>` : ''}
+      <span class="chip ${l.settled ? 'settled' : ''}">
+        <button class="lent-toggle ${l.settled ? 'checked' : ''}" data-toggle-lent="${e.id}|${l.id}" type="button" role="checkbox" aria-checked="${l.settled}" title="${l.settled ? 'Undo payback' : 'Mark as paid back'}"></button>
+        ${l.settled ? `<s>${escapeHtml(l.person)}</s>` : escapeHtml(l.person)} · ${fmtINR(l.amount)}
       </span>`).join('');
     return `<tr>
       ${dateCell}
@@ -116,8 +117,9 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   if (e.type === 'cardcharge') {
     const card = cardById(cards, e.cardId);
     const lentChips = (e.lent || []).map(l => `
-      <span class="chip ${l.settled ? 'settled' : ''}">${escapeHtml(l.person)} · ${fmtINR(l.amount)}
-        ${!l.settled ? `<button data-settle-lent="${e.id}|${l.id}" title="Mark as paid back">✓</button>` : ''}
+      <span class="chip ${l.settled ? 'settled' : ''}">
+        <button class="lent-toggle ${l.settled ? 'checked' : ''}" data-toggle-lent="${e.id}|${l.id}" type="button" role="checkbox" aria-checked="${l.settled}" title="${l.settled ? 'Undo payback' : 'Mark as paid back'}"></button>
+        ${l.settled ? `<s>${escapeHtml(l.person)}</s>` : escapeHtml(l.person)} · ${fmtINR(l.amount)}
       </span>`).join('');
     return `<tr>
       ${dateCell}
@@ -132,12 +134,18 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
     </tr>`;
   }
   if (e.type === 'cashpayment') {
+    const lentChips = (e.lent || []).map(l => `
+      <span class="chip ${l.settled ? 'settled' : ''}">
+        <button class="lent-toggle ${l.settled ? 'checked' : ''}" data-toggle-lent="${e.id}|${l.id}" type="button" role="checkbox" aria-checked="${l.settled}" title="${l.settled ? 'Undo payback' : 'Mark as paid back'}"></button>
+        ${l.settled ? `<s>${escapeHtml(l.person)}</s>` : escapeHtml(l.person)} · ${fmtINR(l.amount)}
+      </span>`).join('');
     return `<tr>
       ${dateCell}
       <td class="type-cell"><span class="tag cashpayment">Cash spend</span></td>
       <td class="desc-cell">
         <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
         <div class="subnote">Physical cash spent — already accounted for via withdrawal</div>
+        ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
       <td class="num amt-neutral">${fmtINR(e.amount)}</td>
       <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
@@ -148,6 +156,18 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       ${dateCell}
       <td class="type-cell"><span class="tag income">Income</span></td>
       <td class="desc-cell"><strong>${escapeHtml(e.description)}</strong>${e.category ? ` <span class="src-badge">${escapeHtml(e.category)}</span>` : ''}</td>
+      <td class="num amt-credit">+${fmtINR(e.amount)}</td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+    </tr>`;
+  }
+  if (e.type === 'payback') {
+    return `<tr>
+      ${dateCell}
+      <td class="type-cell"><span class="tag payback">Payback</span></td>
+      <td class="desc-cell">
+        <strong>${escapeHtml(e.description)}</strong>
+        <div class="subnote">Settlement of lent amount</div>
+      </td>
       <td class="num amt-credit">+${fmtINR(e.amount)}</td>
       <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
@@ -292,6 +312,16 @@ function renderForm(kind) {
       <div class="form-row">
         <div id="f-tag-row" style="display:contents;">
           ${renderTagField()}
+        </div>
+      </div>
+      <label class="checkline"><input type="checkbox" id="f-lent-toggle" /> Lent — someone owes me part of this</label>
+      <div id="f-lent-wrap" style="display:none;">
+        <div class="lent-rows" id="lent-rows">
+          <div class="lent-row">
+            <div class="field"><label>Person</label><input class="lent-person" type="text" placeholder="Name" /></div>
+            <div class="field"><label>Amount (₹)</label><input class="lent-amount" type="number" step="0.01" placeholder="0.00" /></div>
+            <button class="btn small ghost" data-add-lent-row type="button">+ Person</button>
+          </div>
         </div>
       </div>
       <div class="form-actions">
@@ -693,7 +723,7 @@ async function handleSubmit(kind) {
   } else if (kind === 'cashpayment') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a spend description and amount'); return; }
     const tag = await resolveTagFromForm();
-    data.entries.push({ id: uid(), type: 'cashpayment', description: desc, amount, date, tag });
+    data.entries.push({ id: uid(), type: 'cashpayment', description: desc, amount, date, tag, lent: collectLent() });
   } else if (kind === 'income') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a source and amount'); return; }
     const category = $('#f-income-category')?.value || '';
@@ -718,6 +748,25 @@ async function handleSubmit(kind) {
   openForm = null;
   await renderMonth();
   showToast('Added');
+}
+
+/* Auto-distribute the "Lent" shares equally across everyone added plus
+   the user themself — same split-then-manually-override pattern as
+   distributeSplitShares() on the Split page. Only called on structural
+   changes (amount typed, a person added/removed, the section toggled on)
+   so a manual edit to one .lent-amount input isn't clobbered until the
+   next structural change. */
+function distributeLentShares(amount) {
+  const shareInputs = $$('.lent-amount');
+  if (!shareInputs.length) return;
+  const n = shareInputs.length + 1; // +1 for the user's own share
+  const baseCents = Math.floor((amount * 100) / n);
+  let remainderCents = Math.round(amount * 100) - baseCents * n;
+  shareInputs.forEach((inp) => {
+    let cents = baseCents;
+    if (remainderCents > 0) { cents += 1; remainderCents -= 1; }
+    inp.value = (cents / 100).toFixed(2);
+  });
 }
 
 /* ---------- Event wiring ---------- */
@@ -819,10 +868,15 @@ root.addEventListener('click', async (ev) => {
       <div class="field"><label>Amount (₹)</label><input class="lent-amount" type="number" step="0.01" placeholder="0.00" /></div>
       <button class="btn small ghost" data-remove-lent-row type="button">Remove</button>`;
     wrap.appendChild(row);
+    distributeLentShares(Number($('#f-amount')?.value) || 0);
     return;
   }
   const removeLentRow = ev.target.closest('[data-remove-lent-row]');
-  if (removeLentRow) { removeLentRow.closest('.lent-row').remove(); return; }
+  if (removeLentRow) {
+    removeLentRow.closest('.lent-row').remove();
+    distributeLentShares(Number($('#f-amount')?.value) || 0);
+    return;
+  }
 
   const submitBtn = ev.target.closest('[data-submit]');
   if (submitBtn) { await handleSubmit(submitBtn.dataset.submit); return; }
@@ -833,11 +887,38 @@ root.addEventListener('click', async (ev) => {
     const data = await loadMonth(mk);
     const entryToDel = data.entries.find(e => e.id === id);
     if (entryToDel && entryToDel.linkedLent) {
-      const { spendId, lentId } = entryToDel.linkedLent;
-      const originalSpend = data.entries.find(e => e.id === spendId);
-      if (originalSpend && originalSpend.lent) {
-        const lentChip = originalSpend.lent.find(x => x.id === lentId);
-        if (lentChip) lentChip.settled = false;
+      const { spendMonthKey, spendId, lentId } = entryToDel.linkedLent;
+      // Deleting a Payback un-settles its original "Lent" chip, even if
+      // that spend lives in a different (earlier) month than this Payback
+      // entry. Prefer the stored month reference; fall back to scanning
+      // every indexed month for older data that predates it.
+      const candidateKeys = spendMonthKey ? [spendMonthKey] : monthsIndex;
+      for (const sk of candidateKeys) {
+        const spendMonthData = sk === mk ? data : await loadMonth(sk);
+        const originalSpend = spendMonthData.entries.find(e => e.id === spendId);
+        if (originalSpend) {
+          if (originalSpend.lent) {
+            const lentChip = originalSpend.lent.find(x => x.id === lentId);
+            if (lentChip) lentChip.settled = false;
+          }
+          if (sk !== mk) await saveMonth(sk);
+          break;
+        }
+      }
+    }
+    if (entryToDel && entryToDel.linkedOwed) {
+      const { entryMonthKey, entryId } = entryToDel.linkedOwed;
+      // Same idea for a standalone "Owed to you" entry: it has no lent
+      // chips of its own, just a top-level `settled` flag to flip back.
+      const candidateKeys = entryMonthKey ? [entryMonthKey] : monthsIndex;
+      for (const sk of candidateKeys) {
+        const owedMonthData = sk === mk ? data : await loadMonth(sk);
+        const originalOwed = owedMonthData.entries.find(e => e.id === entryId);
+        if (originalOwed) {
+          originalOwed.settled = false;
+          if (sk !== mk) await saveMonth(sk);
+          break;
+        }
       }
     }
     data.entries = data.entries.filter(e => e.id !== id);
@@ -895,36 +976,129 @@ root.addEventListener('click', async (ev) => {
     const data = await loadMonth(mk);
     const entry = data.entries.find(e => e.id === id);
     if (entry && !entry.settled) {
+      // Same treatment as a Lent chip: the owed entry itself is left
+      // alone (still `settled: true`) and the money-back is recorded as
+      // its own Payback transaction in the real current month, so it
+      // restores balance without inflating the Income stat.
       entry.settled = true;
-      data.entries.push({ id: uid(), type: 'income', description: `Payback @${entry.description}`, amount: entry.amount, date: todayStr(), category: 'Friends' });
+      await saveMonth(mk);
+
+      const paybackKey = currentMonthKey();
+      await ensureMonthIndexed(paybackKey, monthsIndex);
+      const paybackData = await loadMonth(paybackKey);
+      paybackData.entries.push({
+        id: uid(),
+        type: 'payback',
+        description: `Payback @${entry.description}`,
+        amount: Number(entry.amount) || 0,
+        date: todayStr(),
+        linkedOwed: { entryMonthKey: mk, entryId: entry.id },
+      });
+      await saveMonth(paybackKey);
+
+      await renderMonth();
+      showToast('Marked as paid back');
+      return;
     }
     await saveMonth(mk);
     await renderMonth();
-    showToast('Marked as paid back — added as income');
     return;
   }
 
-  const settleLent = ev.target.closest('[data-settle-lent]');
-  if (settleLent) {
-    const [entryId, lentId] = settleLent.dataset.settleLent.split('|');
-    const data = await loadMonth(monthKey);
+  const toggleLent = ev.target.closest('[data-toggle-lent]');
+  if (toggleLent) {
+    const [entryId, lentId] = toggleLent.dataset.toggleLent.split('|');
+    const data = await loadMonth(monthKey); // already in monthCache — resolves instantly, no network
     const entry = data.entries.find(e => e.id === entryId);
-    let wasSettled = false;
-    if (entry) {
-      const l = (entry.lent || []).find(x => x.id === lentId);
-      if (l) {
-        l.settled = !l.settled;
-        wasSettled = l.settled;
-        if (wasSettled) {
-          entry.amount = (Number(entry.amount) || 0) - (Number(l.amount) || 0);
-        } else {
-          entry.amount = (Number(entry.amount) || 0) + (Number(l.amount) || 0);
+    const l = entry && (entry.lent || []).find(x => x.id === lentId);
+    if (!l) return;
+
+    if (!l.settled) {
+      // Settle, optimistically: flip the in-memory state, push the new
+      // Payback entry into the already-loaded month data if it lands on
+      // the page we're viewing, then re-render immediately. The actual
+      // PUT(s) to the backend happen afterwards, in the background, so
+      // the click never waits on a network round trip.
+      const paybackId = uid();
+      const paybackKey = currentMonthKey();
+      const paybackEntry = {
+        id: paybackId,
+        type: 'payback',
+        description: `Payback @${entry.description} (${l.person})`,
+        amount: Number(l.amount) || 0,
+        date: todayStr(),
+        linkedLent: { spendMonthKey: monthKey, spendId: entry.id, lentId: l.id },
+      };
+      l.settled = true;
+      l.paybackRef = { monthKey: paybackKey, id: paybackId };
+      if (paybackKey === monthKey) data.entries.push(paybackEntry);
+
+      await renderMonth();
+      showToast('Marked as paid back');
+
+      (async () => {
+        try {
+          if (!monthsIndex.includes(paybackKey)) {
+            monthsIndex.push(paybackKey);
+            monthsIndex.sort();
+            await Store.set('months-index', monthsIndex);
+          }
+          if (paybackKey === monthKey) {
+            await saveMonth(monthKey);
+          } else {
+            const paybackData = await loadMonth(paybackKey);
+            paybackData.entries.push(paybackEntry);
+            await Promise.all([saveMonth(monthKey), saveMonth(paybackKey)]);
+          }
+        } catch (err) {
+          console.error('Failed to persist payback', err);
+          showToast('Saved locally but failed to sync — check your connection');
         }
+      })();
+    } else {
+      // Undo, optimistically: flip the chip back and strip the Payback
+      // from the in-memory data we already have on hand, re-render right
+      // away, then reconcile the backend in the background. Prefer the
+      // stored reference; fall back to a full scan for chips settled
+      // before that field existed.
+      const ref = l.paybackRef;
+      l.settled = false;
+      delete l.paybackRef;
+      if (ref && ref.monthKey === monthKey) {
+        data.entries = data.entries.filter(pe => pe.id !== ref.id);
+      } else if (!ref) {
+        data.entries = data.entries.filter(pe => !(
+          pe.type === 'payback' && pe.linkedLent &&
+          pe.linkedLent.spendId === entry.id && pe.linkedLent.lentId === l.id
+        ));
       }
+
+      await renderMonth();
+      showToast('Marked as unpaid');
+
+      (async () => {
+        try {
+          await saveMonth(monthKey);
+          if (!(ref && ref.monthKey === monthKey)) {
+            const candidateKeys = ref ? [ref.monthKey] : monthsIndex;
+            for (const sk of candidateKeys) {
+              if (sk === monthKey) continue;
+              const pbData = await loadMonth(sk);
+              const before = pbData.entries.length;
+              pbData.entries = pbData.entries.filter(pe => !(
+                pe.type === 'payback' && pe.linkedLent &&
+                pe.linkedLent.spendId === entry.id && pe.linkedLent.lentId === l.id
+              ));
+              if (pbData.entries.length !== before) { await saveMonth(sk); break; }
+            }
+          }
+        } catch (err) {
+          console.error('Failed to persist undo', err);
+          showToast('Saved locally but failed to sync — check your connection');
+        }
+      })();
     }
-    await saveMonth(monthKey);
-    await renderMonth();
-    showToast(wasSettled ? 'Marked as paid back' : 'Marked as unpaid');
+    return;
   }
 });
 
@@ -955,12 +1129,20 @@ root.addEventListener('change', async (ev) => {
   if (ev.target.id === 'f-lent-toggle') {
     const lentWrap = $('#f-lent-wrap');
     if (lentWrap) lentWrap.style.display = ev.target.checked ? 'block' : 'none';
+    if (ev.target.checked) distributeLentShares(Number($('#f-amount')?.value) || 0);
   }
   if (ev.target.id === 'starting-balance-manual') {
     const data = await loadMonth(monthKey);
     data.startingBalance = Number(ev.target.value) || 0;
     await saveMonth(monthKey);
     await renderMonth();
+  }
+});
+
+root.addEventListener('input', (ev) => {
+  if (ev.target.id === 'f-amount') {
+    const lentToggle = $('#f-lent-toggle');
+    if (lentToggle && lentToggle.checked) distributeLentShares(Number(ev.target.value) || 0);
   }
 });
 

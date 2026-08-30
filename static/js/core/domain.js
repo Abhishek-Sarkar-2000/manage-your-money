@@ -67,7 +67,7 @@ export function sipRowsForMonth(sipSeries, monthKey, deletedSip) {
 }
 
 export function computeMonthTotals(entries) {
-  let income = 0, cashSpend = 0, cardPaymentSpend = 0, cardCharge = 0, invest = 0, emi = 0, sip = 0;
+  let income = 0, cashSpend = 0, cardPaymentSpend = 0, cardCharge = 0, invest = 0, emi = 0, sip = 0, payback = 0;
   let regularDebit = 0, cashPayments = 0, ccSpends = 0, others = 0;
 
   for (const e of entries) {
@@ -95,13 +95,21 @@ export function computeMonthTotals(entries) {
     } else if (e.type === 'sip') {
       sip += amt;
       others += amt;
+    } else if (e.type === 'payback') {
+      // Settlement of a "Lent" chip. Restores the running balance (it's
+      // modelled as a negative regular cash outflow, same lever as a
+      // spend) without ever touching `income`, so the Cashflow Overview's
+      // Total Income stat isn't inflated by getting your own money back.
+      cashSpend -= amt;
+      regularDebit -= amt;
+      payback += amt;
     }
   }
 
   const totalConsumption = regularDebit + cashPayments + ccSpends + emi;
 
   return {
-    income, cashSpend, cardPaymentSpend, cardCharge, invest, emi, sip,
+    income, cashSpend, cardPaymentSpend, cardCharge, invest, emi, sip, payback,
     regularDebit, cashPayments, ccSpends, others, totalConsumption,
   };
 }
@@ -147,13 +155,13 @@ export async function computeDailyBalanceSeries(monthsIndex, emiSeries, sipSerie
     const emiRows = emiRowsForMonth(emiSeries, b.monthKey, data.deletedEmi);
     const sipRows = sipRowsForMonth(sipSeries, b.monthKey, data.deletedSip);
     const relevant = [...data.entries, ...emiRows, ...sipRows].filter(e =>
-      e.type === 'income' || e.type === 'investment' || e.type === 'emi' || e.type === 'sip' || e.type === 'spend'
+      e.type === 'income' || e.type === 'investment' || e.type === 'emi' || e.type === 'sip' || e.type === 'spend' || e.type === 'payback'
     );
     const deltaByDay = {};
     for (const e of relevant) {
       if (!e.date) continue;
       const amt = Number(e.amount) || 0;
-      const signed = e.type === 'income' ? amt : -amt;
+      const signed = (e.type === 'income' || e.type === 'payback') ? amt : -amt;
       deltaByDay[e.date] = (deltaByDay[e.date] || 0) + signed;
     }
     const [y, m] = b.monthKey.split('-').map(Number);
@@ -198,7 +206,7 @@ export async function computeGlobalOwed(monthsIndex, isShared, sharedSplitId, sp
         byPerson[name].amount += Number(e.amount) || 0;
         byPerson[name].items.push({ amount: e.amount, monthKey: k, source: 'Owed' });
       }
-      if (e.type === 'spend' && Array.isArray(e.lent)) {
+      if ((e.type === 'spend' || e.type === 'cardcharge' || e.type === 'cashpayment') && Array.isArray(e.lent)) {
         for (const l of e.lent) {
           if (l.settled) continue;
           const name = l.person || 'Unknown';
