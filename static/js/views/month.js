@@ -93,6 +93,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
     else if (meta.quantity && meta.location) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.quantity)} @ ${escapeHtml(meta.location)}</span>`;
     else if (meta.quantity) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.quantity)}</span>`;
     else if (meta.location) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.location)}</span>`;
+    else if (meta.purpose) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.purpose)}</span>`;
   }
 
   if (e.type === 'spend') {
@@ -177,7 +178,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       ${dateCell}
       <td class="type-cell"><span class="tag owed">Owed to you</span></td>
       <td class="desc-cell">
-        <strong>${escapeHtml(e.description)}</strong>
+        <strong>${escapeHtml(e.description)}</strong>${metaHtml}
         ${e.settled ? `<div class="subnote">Settled</div>` : `<div class="subnote">Carries forward until settled</div>`}
       </td>
       <td class="num" style="color:var(--amber)">${fmtINR(e.amount)}</td>
@@ -284,6 +285,10 @@ function renderForm(kind) {
           ${renderTagField()}
         </div>
       </div>
+      <div id="f-price-track-wrap" style="margin-bottom: 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <button class="pill-btn sub-pill" id="f-price-track-btn" type="button">+ Add to Price Tracker</button>
+        <a class="pill-btn sub-pill hyperlink" href="/cards">Manage Credit Cards</a>
+      </div>
       <label class="checkline"><input type="checkbox" id="f-lent-toggle" /> Lent — someone owes me part of this</label>
       <div id="f-lent-wrap" style="display:none;">
         <div class="lent-rows" id="lent-rows">
@@ -313,6 +318,9 @@ function renderForm(kind) {
         <div id="f-tag-row" style="display:contents;">
           ${renderTagField()}
         </div>
+      </div>
+      <div id="f-price-track-wrap" style="margin-bottom: 14px;">
+        <button class="pill-btn sub-pill" id="f-price-track-btn" type="button">+ Add to Price Tracker</button>
       </div>
       <label class="checkline"><input type="checkbox" id="f-lent-toggle" /> Lent — someone owes me part of this</label>
       <div id="f-lent-wrap" style="display:none;">
@@ -365,6 +373,9 @@ function renderForm(kind) {
         <div class="field"><label>Amount (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
         <div class="field"><label>Date</label><input id="f-date" type="date" value="${todayStr()}" /></div>
       </div>
+      <div class="form-row">
+        <div class="field"><label>Purpose</label><input id="f-owed-purpose" type="text" placeholder="e.g. Dinner split, movie tickets" /></div>
+      </div>
       <div class="form-actions">
         <button class="btn" data-submit="owed">Add</button>
         <button class="btn ghost" data-close-form>Cancel</button>
@@ -382,7 +393,7 @@ function renderForm(kind) {
         <div class="field"><label>Starting Month</label><input id="f-emi-start" type="month" max="${currentMonthKey()}" value="${monthKey}" /></div>
       </div>
       <div class="form-actions">
-        <button class="btn" data-submit="emi">Start EMI</button>
+        <button class="btn" data-submit="emi">Add EMI</button>
         <button class="btn ghost" data-close-form>Cancel</button>
       </div>
     </div>`;
@@ -642,6 +653,18 @@ async function renderMonth() {
   setupTableScrollIndicators(root);
 }
 
+async function syncToPriceTracker(name, amount, date, tag) {
+  const syncBtn = $('#f-price-track-btn');
+  if (!syncBtn || !syncBtn.classList.contains('active')) return;
+  let item = priceItems.find(i => i.name.toLowerCase() === name.toLowerCase() && !i.meta);
+  if (!item) {
+    item = { id: uid(), name, category: tag, history: [], meta: null };
+    priceItems.push(item);
+  }
+  item.history.push({ id: uid(), date, price: amount, note: 'Synced from Spends' });
+  await Store.set('price-items', priceItems);
+}
+
 /* ---------- Submit handler ---------- */
 async function handleSubmit(kind) {
   const data = await loadMonth(monthKey);
@@ -713,16 +736,18 @@ async function handleSubmit(kind) {
       }
     }
     data.entries.push({ id: uid(), type: 'spend', description: spendDesc, amount, date, paymentMode: mode, cardId, tag, lent: collectLent(), meta });
-  } else if (kind === 'cardcharge') {
+ } else if (kind === 'cardcharge') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a spend description and amount'); return; }
     const cardId = $('#f-card').value;
     const c = cardById(cards, cardId);
     if (!c) { showToast('Add a credit card first'); return; }
     const tag = await resolveTagFromForm();
+    await syncToPriceTracker(desc, amount, date, tag);
     data.entries.push({ id: uid(), type: 'cardcharge', description: desc, amount, date, cardId, tag, lent: collectLent() });
   } else if (kind === 'cashpayment') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a spend description and amount'); return; }
     const tag = await resolveTagFromForm();
+    await syncToPriceTracker(desc, amount, date, tag);
     data.entries.push({ id: uid(), type: 'cashpayment', description: desc, amount, date, tag, lent: collectLent() });
   } else if (kind === 'income') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a source and amount'); return; }
@@ -730,7 +755,8 @@ async function handleSubmit(kind) {
     data.entries.push({ id: uid(), type: 'income', description: desc, amount, date, category });
   } else if (kind === 'owed') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a person and amount'); return; }
-    data.entries.push({ id: uid(), type: 'owed', description: desc, amount, date, settled: false });
+    const owedPurpose = ($('#f-owed-purpose')?.value || '').trim();
+    data.entries.push({ id: uid(), type: 'owed', description: desc, amount, date, settled: false, meta: owedPurpose ? { purpose: owedPurpose } : null });
   } else if (kind === 'invest') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a description and amount'); return; }
     data.entries.push({ id: uid(), type: 'investment', description: desc, amount, date });
