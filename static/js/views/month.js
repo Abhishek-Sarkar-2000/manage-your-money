@@ -20,7 +20,7 @@ import { markRendered } from '../components/render-guard.js';
 const root = document.getElementById('month-root');
 const monthKey = root.dataset.monthKey;
 
-const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Transport', 'Subscription', 'Rent', 'Utility', 'Recharge', 'Medicine', 'Gift'];
+const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Transport', 'Rent', 'Utility', 'Shopping', 'Recharge', 'Medicine'];
 
 let cards = [];
 let emiSeries = [];
@@ -33,6 +33,8 @@ let priceItems = [];
 let existingInvestments = 0;
 let splitsIndex = [];
 let openForm = null;
+let isMenuOpen = false;
+let isMoreOpen = false;
 let formSlideDirection = '';
 let animTimeout = null;
 let domainLoaded = false;
@@ -99,12 +101,29 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   }
 
   if (e.type === 'spend') {
+    const isNegative = e.amount < 0;
+    const displayAmount = isNegative ? Math.abs(e.amount) : e.amount;
     const card = e.paymentMode === 'card' ? cardById(cards, e.cardId) : null;
     const lentChips = (e.lent || []).map(l => `
       <span class="chip ${l.settled ? 'settled' : ''}">
         <button class="lent-toggle ${l.settled ? 'checked' : ''}" data-toggle-lent="${e.id}|${l.id}" type="button" role="checkbox" aria-checked="${l.settled}" title="${l.settled ? 'Undo payback' : 'Mark as paid back'}"></button>
         ${l.settled ? `<s>${escapeHtml(l.person)}</s>` : escapeHtml(l.person)} · ${fmtINR(l.amount)}
       </span>`).join('');
+
+    if (isNegative) {
+      return `<tr>
+        ${dateCell}
+        <td class="type-cell"><span class="tag payback">Payback</span></td>
+        <td class="desc-cell">
+          <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
+          <div class="subnote">Cash / debit</div>
+          ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
+        </td>
+        <td class="num amt-credit">+${fmtINR(displayAmount)}</td>
+        <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+      </tr>`;
+    }
+
     return `<tr>
       ${dateCell}
       <td class="type-cell"><span class="tag spend">Spend</span></td>
@@ -113,8 +132,8 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
         <div class="subnote">${card ? 'Paid for ' + escapeHtml(card.name) + ' — reduces card dues' : 'Cash / debit'}</div>
         ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
-      <td class="num amt-debit">-${fmtINR(e.amount)}</td>
-      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+      <td class="num amt-debit">-${fmtINR(displayAmount)}</td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">✎</button><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
   }
   if (e.type === 'cardcharge') {
@@ -133,7 +152,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
         ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
       <td class="num amt-neutral">${fmtINR(e.amount)}</td>
-      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">✎</button><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
   }
   if (e.type === 'cashpayment') {
@@ -151,7 +170,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
         ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
       <td class="num amt-neutral">${fmtINR(e.amount)}</td>
-      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">✎</button><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
   }
   if (e.type === 'income') {
@@ -160,7 +179,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       <td class="type-cell"><span class="tag income">Income</span></td>
       <td class="desc-cell"><strong>${escapeHtml(e.description)}</strong>${e.category ? ` <span class="src-badge">${escapeHtml(e.category)}</span>` : ''}</td>
       <td class="num amt-credit">+${fmtINR(e.amount)}</td>
-      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">✎</button><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
   }
   if (e.type === 'payback') {
@@ -168,7 +187,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       ${dateCell}
       <td class="type-cell"><span class="tag payback">Payback</span></td>
       <td class="desc-cell">
-        <strong>${escapeHtml(e.description)}</strong>
+        <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}
         <div class="subnote">Settlement of lent amount</div>
       </td>
       <td class="num amt-credit">+${fmtINR(e.amount)}</td>
@@ -187,6 +206,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       <td class="actions-cell">
         <span class="row-actions">
           ${!e.settled ? `<button class="icon-btn" data-settle-owed="${key}|${e.id}" title="Mark as paid back">✓</button>` : ''}
+          <button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">✎</button>
           <button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button>
         </span>
       </td>
@@ -198,7 +218,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       <td class="type-cell"><span class="tag invest">Investment</span></td>
       <td class="desc-cell"><strong>${escapeHtml(e.description)}</strong></td>
       <td class="num amt-debit">-${fmtINR(e.amount)}</td>
-      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">✎</button><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
   }
   return '';
@@ -452,6 +472,113 @@ function renderForm(kind) {
 }
 
 
+const TXN_TYPES = {
+  spend:       { 
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>`, 
+    title: 'Spend', desc: 'Everyday expenses', tone: 'blue' 
+  },
+  income:      { 
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg>`, 
+    title: 'Income', desc: 'Salary, interest, etc.', tone: 'green' 
+  },
+  cardcharge:  { 
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>`, 
+    title: 'Card spend', desc: 'Online or offline', tone: 'amber' 
+  },
+  cashpayment: { 
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg>`, 
+    title: 'Cash payment', desc: 'Paid via cash', tone: 'green' 
+  },
+  recurring:   { 
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>`, 
+    title: 'Recurring Expense', desc: 'Subscriptions, bills', tone: 'amber' 
+  },
+  invest:      { 
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>`, 
+    title: 'Investment', desc: 'Investments, SIPs', tone: 'amber' 
+  },
+  owed:        { 
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`, 
+    title: 'Owed to you', desc: 'Someone owes you', tone: 'purple' 
+  },
+  emi:         { 
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 22 7 12 2"></polygon><line x1="2" y1="22" x2="22" y2="22"></line><line x1="6" y1="18" x2="6" y2="11"></line><line x1="10" y1="18" x2="10" y2="11"></line><line x1="14" y1="18" x2="14" y2="11"></line><line x1="18" y1="18" x2="18" y2="11"></line></svg>`, 
+    title: 'EMI', desc: 'Monthly deductable', tone: 'rose' 
+  },
+};
+
+const TXN_PRIMARY_ORDER = ['spend', 'income', 'cardcharge', 'cashpayment', 'recurring', 'invest'];
+const TXN_MORE_ORDER = ['owed', 'emi'];
+
+// On mobile, move cardcharge & cashpayment to the "More" section to reduce clutter
+const TXN_PRIMARY_MOBILE = ['spend', 'cardcharge', 'income'];
+const TXN_MORE_MOBILE = ['cashpayment', 'recurring', 'invest', 'owed', 'emi'];
+
+function isMobileViewport() {
+  return window.innerWidth < 640;
+}
+
+function getTxnPrimaryOrder() {
+  return isMobileViewport() ? TXN_PRIMARY_MOBILE : TXN_PRIMARY_ORDER;
+}
+
+function getTxnMoreOrder() {
+  return isMobileViewport() ? TXN_MORE_MOBILE : TXN_MORE_ORDER;
+}
+
+function renderTxnOptionCard(kind) {
+  const meta = TXN_TYPES[kind];
+  return `
+    <button class="txn-option-card ${openForm === kind ? 'active' : ''}" data-form="${kind}" type="button">
+      <span class="txn-option-icon txn-option-icon--${meta.tone}">${meta.icon}</span>
+      <span class="txn-option-text">
+        <span class="txn-option-title">${meta.title}</span>
+        <span class="txn-option-desc">${meta.desc}</span>
+      </span>
+    </button>`;
+}
+
+function renderAddEntryPanel() {
+  const primaryOrder = getTxnPrimaryOrder();
+  const moreOrder = getTxnMoreOrder();
+  const primaryHtml = primaryOrder.map(renderTxnOptionCard).join('');
+  const moreHtml = moreOrder.map(renderTxnOptionCard).join('');
+  const isMobile = isMobileViewport();
+  const moreToggleHtml = `
+    <button class="txn-option-card txn-option-more" data-toggle-more type="button">
+      <span class="txn-option-icon txn-option-icon--muted">⋯</span>
+      <span class="txn-option-text">
+        <span class="txn-option-title">${isMoreOpen ? 'Show less' : 'More…'}</span>
+        <span class="txn-option-desc">${isMoreOpen ? 'Hide extra options' : isMobile ? 'Cash, invest & more' : 'Owed, EMI & more'}</span>
+      </span>
+    </button>`;
+
+  return `
+  <div class="add-entry-panel">
+    <button class="add-entry-trigger ${isMenuOpen ? 'active' : ''}" id="add-entry-trigger" type="button" aria-expanded="${isMenuOpen}">
+      <span class="add-entry-trigger-icon">+</span>
+      <span class="add-entry-trigger-text">
+        <span class="add-entry-trigger-title">Add transaction</span>
+        <span class="add-entry-trigger-sub">Log any income, expense or payment</span>
+      </span>
+      <span class="add-entry-trigger-chevron">›</span>
+    </button>
+    ${isMenuOpen ? `
+    <div class="txn-menu">
+      <div class="txn-option-grid">
+        ${primaryHtml}
+        ${isMoreOpen ? moreHtml : ''}
+        ${moreToggleHtml}
+      </div>
+      ${openForm ? `
+      <div id="form-panel-anim-inner" class="${formSlideDirection || ''}">
+        ${renderForm(openForm)}
+      </div>` : ''}
+    </div>` : ''}
+  </div>`;
+}
+
+
 /* ---------- Main render ---------- */
 async function renderMonth() {
   await loadDomain();
@@ -608,20 +735,7 @@ async function renderMonth() {
 
   <div class="section">
     <div class="section-title"><h2>Add an entry</h2><span class="hint">Log every credit and debit</span></div>
-    ${scrollWrapper(`
-      <button class="pill-btn ${openForm === 'spend' ? 'active' : ''}" data-form="spend">+ Spend</button>
-      <button class="pill-btn alt ${openForm === 'cardcharge' ? 'active' : ''}" data-form="cardcharge">+ Credit card spend</button>
-      <button class="pill-btn alt ${openForm === 'cashpayment' ? 'active' : ''}" data-form="cashpayment">+ Cash Payments</button>
-      <button class="pill-btn ${openForm === 'recurring' ? 'active' : ''}" data-form="recurring">+ Recurring Expense</button>
-      <button class="pill-btn ${openForm === 'income' ? 'active' : ''}" data-form="income">+ Income</button>
-      <button class="pill-btn ${openForm === 'owed' ? 'active' : ''}" data-form="owed">+ Owed to you</button>
-      <button class="pill-btn ${openForm === 'emi' ? 'active' : ''}" data-form="emi">+ EMI</button>
-      <button class="pill-btn ${openForm === 'invest' ? 'active' : ''}" data-form="invest">+ Investment</button>
-    `, 'form-pill-track')}
-    ${openForm ? `
-    <div id="form-panel-anim-inner" class="${formSlideDirection || ''}">
-      ${renderForm(openForm)}
-    </div>` : ''}
+    ${renderAddEntryPanel()}
   </div>
   <div class="section">
     <div class="section-title"><h2>This month's finances, at a glance</h2><span class="hint">Hover a card for the breakdown</span></div>
@@ -847,6 +961,8 @@ async function handleSubmit(kind) {
     await Store.set('recurringseries', recurringSeries);
     await saveMonth(monthKey);
     openForm = null;
+    isMenuOpen = false;
+    isMoreOpen = false;
     await renderMonth();
     showToast(`Recurring spend will be deducted on the ${dayOfMonth}${ordinalSuffix(dayOfMonth)} of every month`);
     return;
@@ -854,6 +970,8 @@ async function handleSubmit(kind) {
 
   await saveMonth(monthKey);
   openForm = null;
+  isMenuOpen = false;
+  isMoreOpen = false;
   await renderMonth();
   showToast('Added');
 }
@@ -879,6 +997,23 @@ function distributeLentShares(amount) {
 
 /* ---------- Event wiring ---------- */
 root.addEventListener('click', async (ev) => {
+  const addEntryTrigger = ev.target.closest('#add-entry-trigger');
+  if (addEntryTrigger) {
+    if (animTimeout) clearTimeout(animTimeout);
+    isMenuOpen = !isMenuOpen;
+    if (!isMenuOpen) { openForm = null; isMoreOpen = false; }
+    formSlideDirection = '';
+    await renderMonth();
+    return;
+  }
+
+  const toggleMoreBtn = ev.target.closest('[data-toggle-more]');
+  if (toggleMoreBtn) {
+    isMoreOpen = !isMoreOpen;
+    await renderMonth();
+    return;
+  }
+
   const toggleManualBtn = ev.target.closest('#toggle-manual-balance-btn');
   if (toggleManualBtn) {
     const data = await loadMonth(monthKey);
@@ -960,8 +1095,12 @@ root.addEventListener('click', async (ev) => {
     if (animTimeout) clearTimeout(animTimeout);
     if (oldForm === newForm) { openForm = null; await renderMonth(); return; }
     if (oldForm) {
-      const oldIdx = PILL_ORDER.indexOf(oldForm);
-      const newIdx = PILL_ORDER.indexOf(newForm);
+      // Get indices from the visual menu order (primary + more), dynamically based on viewport
+      const primaryOrder = getTxnPrimaryOrder();
+      const moreOrder = getTxnMoreOrder();
+      const allTxnOrder = [...primaryOrder, ...moreOrder];
+      const oldIdx = allTxnOrder.indexOf(oldForm);
+      const newIdx = allTxnOrder.indexOf(newForm);
       const isRight = newIdx > oldIdx;
       const inner = $('#form-panel-anim-inner');
       if (inner) {
@@ -1005,6 +1144,60 @@ root.addEventListener('click', async (ev) => {
 
   const submitBtn = ev.target.closest('[data-submit]');
   if (submitBtn) { await handleSubmit(submitBtn.dataset.submit); return; }
+
+  const editEntry = ev.target.closest('[data-edit-entry]');
+  if (editEntry) {
+    const [mk, id] = editEntry.dataset.editEntry.split('|');
+    const data = await loadMonth(mk);
+    const entryToEdit = data.entries.find(e => e.id === id);
+    if (!entryToEdit) return;
+
+    const tr = editEntry.closest('tr');
+    const descStrong = tr.querySelector('.desc-cell strong');
+    const amountTd = tr.querySelector('td.num:not(.dv-date)');
+    const actionsSpan = tr.querySelector('.row-actions');
+
+    descStrong.innerHTML = `<input type="text" class="inline-edit-desc" value="${escapeHtml(entryToEdit.description)}" style="width: 100%; padding: 4px 6px; border: 1px solid var(--sky); border-radius: 4px; font-family: inherit; font-size: 0.9rem;" />`;
+    amountTd.innerHTML = `<input type="number" step="0.01" class="inline-edit-amount" value="${entryToEdit.amount}" style="width: 85px; padding: 4px 6px; border: 1px solid var(--sky); border-radius: 4px; font-family: inherit; font-size: 0.9rem;" />`;
+    
+    actionsSpan.innerHTML = `
+      <button class="icon-btn" data-save-entry="${mk}|${id}" title="Save" style="color: var(--credit);">✓</button>
+      <button class="icon-btn" data-cancel-edit title="Cancel" style="color: var(--debit);">✕</button>
+    `;
+    
+    tr.querySelector('.inline-edit-desc').focus();
+    return;
+  }
+
+  const saveEntry = ev.target.closest('[data-save-entry]');
+  if (saveEntry) {
+    const [mk, id] = saveEntry.dataset.saveEntry.split('|');
+    const tr = saveEntry.closest('tr');
+    const newDesc = tr.querySelector('.inline-edit-desc').value.trim();
+    const newAmt = Number(tr.querySelector('.inline-edit-amount').value);
+
+    if (!newDesc || isNaN(newAmt) || newAmt <= 0) {
+      showToast("Invalid description or amount.");
+      return;
+    }
+
+    const data = await loadMonth(mk);
+    const entryToEdit = data.entries.find(e => e.id === id);
+    if (entryToEdit) {
+      entryToEdit.description = newDesc;
+      entryToEdit.amount = newAmt;
+      await saveMonth(mk);
+      await renderMonth();
+      showToast("Entry updated");
+    }
+    return;
+  }
+
+  const cancelEdit = ev.target.closest('[data-cancel-edit]');
+  if (cancelEdit) {
+    await renderMonth();
+    return;
+  }
 
   const delEntry = ev.target.closest('[data-del-entry]');
   if (delEntry) {

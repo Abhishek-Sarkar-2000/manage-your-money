@@ -20,6 +20,8 @@
   --debit-bg: #FBEBEE;
   --amber: #8A6A2F;
   --amber-bg: #F7F0DF;
+  --blue-bg: #E3EEFB;
+  --royal-bg: #EAE9FA;
   --footer-bg: #DCE0E5;
   --footer-span: #B7BCC2;
   --radius: 12px;
@@ -49,6 +51,8 @@
   --debit: #8B0000;
   --debit-bd: #8B0000;
   --amber: #8B6508;
+  --blue-bg: #FFFFFF;
+  --royal-bg: #FFFFFF;
   --footer-bg: #FFFFFF;
   --footer-span: #b8b8b8;
 }
@@ -112,6 +116,17 @@
 
 :root[data-theme="hi-contrast"] .chip {
   background: var(--yellow) !important;
+}
+
+:root[data-theme="hi-contrast"] .txn-option-icon--blue,
+:root[data-theme="hi-contrast"] .txn-option-icon--green,
+:root[data-theme="hi-contrast"] .txn-option-icon--amber,
+:root[data-theme="hi-contrast"] .txn-option-icon--purple,
+:root[data-theme="hi-contrast"] .txn-option-icon--rose,
+:root[data-theme="hi-contrast"] .txn-option-icon--muted {
+  background: var(--yellow) !important;
+  color: var(--navy) !important;
+  border: 1px solid var(--navy) !important;
 }
 
 :root[data-theme="hi-contrast"] {
@@ -203,6 +218,8 @@
   --debit-bg: rgba(255, 123, 147, 0.15);
   --amber: #FCD277;
   --amber-bg: rgba(252, 210, 119, 0.15);
+  --blue-bg: rgba(111, 159, 247, 0.18);
+  --royal-bg: rgba(194, 195, 243, 0.16);
   --footer-bg: radial-gradient(ellipse 70% 80% at 50% 0%, var(--sky) 0%, var(--ice-2) 75%);
   --footer-span: #4a4d79;
 }
@@ -243,6 +260,7 @@
 :root[data-theme="dark"] .split-settle-card,
 :root[data-theme="dark"] .stat-front,
 :root[data-theme="dark"] .price-item-card,
+:root[data-theme="dark"] .add-entry-panel,
 :root[data-theme="dark"] .cc-item,
 :root[data-theme="dark"] .balance-box {
   background: linear-gradient(135deg, var(--hair) 0%, var(--ice-2) 100%) !important;
@@ -250,10 +268,25 @@
   border-color: var(--sky) !important;
 }
 
-:root[data-theme="dark"] .cc-item {
+:root[data-theme="dark"] .form-panel {
+  border-color: var(--sky) !important;
+}
+
+:root[data-theme="dark"] .cc-item,
+:root[data-theme="dark"] .txn-option-card {
   background: linear-gradient(135deg, var(--ice-2) 0%, var(--paper) 100%) !important;
   color: var(--navy);
   border-color: var(--sky) !important;
+}
+
+:root[data-theme="dark"] .add-entry-trigger:not(.active) {
+  background: var(--ice-2) !important;
+  color: var(--navy);
+  border-color: var(--sky) !important;
+}
+
+:root[data-theme="dark"] .add-entry-trigger.active {
+  border-color: var(--blue-soft);
 }
 
 :root[data-theme="dark"] .split-row-popover {

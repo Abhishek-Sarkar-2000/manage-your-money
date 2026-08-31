@@ -1505,6 +1505,7 @@ color: #C07A2E;
   background: #E4EEF9;
   color: var(--blue);
 }
+
 .amt-credit {
   color: var(--credit);
   font-weight: 600;
@@ -2565,7 +2566,7 @@ svg.linechart text {
 .scroll-arrow {
   position: absolute;
   right: -44px;
-  top: calc(50% - 22px);
+  top: 50%;
   transform: translateY(-50%);
   width: 38px;
   height: 38px;
@@ -7494,7 +7495,7 @@ import { computeSplitPageData } from '../core/split-domain.js';
 import { donutChart } from '../components/charts/donut.js';
 import { barChart, tagsBarChart } from '../components/charts/bar-chart.js';
 import { lineChart, wireChartTooltips } from '../components/charts/line-chart.js';
-import { setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
+import { scrollWrapper, setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
@@ -7596,7 +7597,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
         ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
       <td class="num amt-debit">-${fmtINR(e.amount)}</td>
-      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">✎</button><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
   }
   if (e.type === 'cardcharge') {
@@ -7615,7 +7616,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
         ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
       <td class="num amt-neutral">${fmtINR(e.amount)}</td>
-      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">✎</button><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
   }
   if (e.type === 'cashpayment') {
@@ -7633,7 +7634,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
         ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
       <td class="num amt-neutral">${fmtINR(e.amount)}</td>
-      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">✎</button><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
   }
   if (e.type === 'income') {
@@ -7642,7 +7643,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       <td class="type-cell"><span class="tag income">Income</span></td>
       <td class="desc-cell"><strong>${escapeHtml(e.description)}</strong>${e.category ? ` <span class="src-badge">${escapeHtml(e.category)}</span>` : ''}</td>
       <td class="num amt-credit">+${fmtINR(e.amount)}</td>
-      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">✎</button><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
   }
   if (e.type === 'payback') {
@@ -7650,7 +7651,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       ${dateCell}
       <td class="type-cell"><span class="tag payback">Payback</span></td>
       <td class="desc-cell">
-        <strong>${escapeHtml(e.description)}</strong>
+        <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}
         <div class="subnote">Settlement of lent amount</div>
       </td>
       <td class="num amt-credit">+${fmtINR(e.amount)}</td>
@@ -7669,6 +7670,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       <td class="actions-cell">
         <span class="row-actions">
           ${!e.settled ? `<button class="icon-btn" data-settle-owed="${key}|${e.id}" title="Mark as paid back">✓</button>` : ''}
+          <button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">✎</button>
           <button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button>
         </span>
       </td>
@@ -7680,7 +7682,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       <td class="type-cell"><span class="tag invest">Investment</span></td>
       <td class="desc-cell"><strong>${escapeHtml(e.description)}</strong></td>
       <td class="num amt-debit">-${fmtINR(e.amount)}</td>
-      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">✎</button><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
   }
   return '';
@@ -8487,6 +8489,60 @@ root.addEventListener('click', async (ev) => {
 
   const submitBtn = ev.target.closest('[data-submit]');
   if (submitBtn) { await handleSubmit(submitBtn.dataset.submit); return; }
+
+  const editEntry = ev.target.closest('[data-edit-entry]');
+  if (editEntry) {
+    const [mk, id] = editEntry.dataset.editEntry.split('|');
+    const data = await loadMonth(mk);
+    const entryToEdit = data.entries.find(e => e.id === id);
+    if (!entryToEdit) return;
+
+    const tr = editEntry.closest('tr');
+    const descStrong = tr.querySelector('.desc-cell strong');
+    const amountTd = tr.querySelector('td.num:not(.dv-date)');
+    const actionsSpan = tr.querySelector('.row-actions');
+
+    descStrong.innerHTML = `<input type="text" class="inline-edit-desc" value="${escapeHtml(entryToEdit.description)}" style="width: 100%; padding: 4px 6px; border: 1px solid var(--sky); border-radius: 4px; font-family: inherit; font-size: 0.9rem;" />`;
+    amountTd.innerHTML = `<input type="number" step="0.01" class="inline-edit-amount" value="${entryToEdit.amount}" style="width: 85px; padding: 4px 6px; border: 1px solid var(--sky); border-radius: 4px; font-family: inherit; font-size: 0.9rem;" />`;
+    
+    actionsSpan.innerHTML = `
+      <button class="icon-btn" data-save-entry="${mk}|${id}" title="Save" style="color: var(--credit);">✓</button>
+      <button class="icon-btn" data-cancel-edit title="Cancel" style="color: var(--debit);">✕</button>
+    `;
+    
+    tr.querySelector('.inline-edit-desc').focus();
+    return;
+  }
+
+  const saveEntry = ev.target.closest('[data-save-entry]');
+  if (saveEntry) {
+    const [mk, id] = saveEntry.dataset.saveEntry.split('|');
+    const tr = saveEntry.closest('tr');
+    const newDesc = tr.querySelector('.inline-edit-desc').value.trim();
+    const newAmt = Number(tr.querySelector('.inline-edit-amount').value);
+
+    if (!newDesc || isNaN(newAmt) || newAmt <= 0) {
+      showToast("Invalid description or amount.");
+      return;
+    }
+
+    const data = await loadMonth(mk);
+    const entryToEdit = data.entries.find(e => e.id === id);
+    if (entryToEdit) {
+      entryToEdit.description = newDesc;
+      entryToEdit.amount = newAmt;
+      await saveMonth(mk);
+      await renderMonth();
+      showToast("Entry updated");
+    }
+    return;
+  }
+
+  const cancelEdit = ev.target.closest('[data-cancel-edit]');
+  if (cancelEdit) {
+    await renderMonth();
+    return;
+  }
 
   const delEntry = ev.target.closest('[data-del-entry]');
   if (delEntry) {
@@ -10032,7 +10088,7 @@ renderSharedSplitPage();
 /* ---------- /sips ---------- */
 import { Store } from '../core/store.js';
 import { $, uid, escapeHtml } from '../core/dom.js';
-import { fmtINR, monthKeyLabel, currentMonthKey } from '../core/format.js';
+import { fmtINR, monthKeyLabel, currentMonthKey, ordinalSuffix } from '../core/format.js';
 import { authReady } from '../core/auth.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
