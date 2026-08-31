@@ -60,7 +60,18 @@ export function sipRowsForMonth(sipSeries, monthKey, deletedSip) {
   const daysInMonth = new Date(y, m, 0).getDate();
   for (const series of sipSeries) {
     if (series.startMonth > monthKey) continue;
+    
+    // 1. Permanently stopped
+    if (series.endMonth && monthKey > series.endMonth) continue;
+    
+    // 2. Skipped specific month
+    if (series.skipMonths && series.skipMonths.includes(monthKey)) continue;
+
+    // 3. Paused indefinitely (preserves history prior to the paused month)
+    if (series.status === 'paused' && (!series.pausedMonth || monthKey >= series.pausedMonth)) continue;
+    
     if ((deletedSip || []).includes(series.id)) continue;
+
     const targetDay = Math.min(Math.max(Number(series.dayOfMonth) || 1, 1), 31);
     const day = Math.min(targetDay, daysInMonth);
     const dateStr = monthKey + '-' + String(day).padStart(2, '0');

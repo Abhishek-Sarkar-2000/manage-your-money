@@ -3085,6 +3085,8 @@ transform: translateY(0);
   --debit-bg: #FBEBEE;
   --amber: #8A6A2F;
   --amber-bg: #F7F0DF;
+  --blue-bg: #E3EEFB;
+  --royal-bg: #EAE9FA;
   --footer-bg: #DCE0E5;
   --footer-span: #B7BCC2;
   --radius: 12px;
@@ -3114,6 +3116,8 @@ transform: translateY(0);
   --debit: #8B0000;
   --debit-bd: #8B0000;
   --amber: #8B6508;
+  --blue-bg: #FFFFFF;
+  --royal-bg: #FFFFFF;
   --footer-bg: #FFFFFF;
   --footer-span: #b8b8b8;
 }
@@ -3177,6 +3181,17 @@ transform: translateY(0);
 
 :root[data-theme="hi-contrast"] .chip {
   background: var(--yellow) !important;
+}
+
+:root[data-theme="hi-contrast"] .txn-option-icon--blue,
+:root[data-theme="hi-contrast"] .txn-option-icon--green,
+:root[data-theme="hi-contrast"] .txn-option-icon--amber,
+:root[data-theme="hi-contrast"] .txn-option-icon--purple,
+:root[data-theme="hi-contrast"] .txn-option-icon--rose,
+:root[data-theme="hi-contrast"] .txn-option-icon--muted {
+  background: var(--yellow) !important;
+  color: var(--navy) !important;
+  border: 1px solid var(--navy) !important;
 }
 
 :root[data-theme="hi-contrast"] {
@@ -3268,6 +3283,8 @@ transform: translateY(0);
   --debit-bg: rgba(255, 123, 147, 0.15);
   --amber: #FCD277;
   --amber-bg: rgba(252, 210, 119, 0.15);
+  --blue-bg: rgba(111, 159, 247, 0.18);
+  --royal-bg: rgba(194, 195, 243, 0.16);
   --footer-bg: radial-gradient(ellipse 70% 80% at 50% 0%, var(--sky) 0%, var(--ice-2) 75%);
   --footer-span: #4a4d79;
 }
@@ -3308,6 +3325,7 @@ transform: translateY(0);
 :root[data-theme="dark"] .split-settle-card,
 :root[data-theme="dark"] .stat-front,
 :root[data-theme="dark"] .price-item-card,
+:root[data-theme="dark"] .add-entry-panel,
 :root[data-theme="dark"] .cc-item,
 :root[data-theme="dark"] .balance-box {
   background: linear-gradient(135deg, var(--hair) 0%, var(--ice-2) 100%) !important;
@@ -3315,10 +3333,25 @@ transform: translateY(0);
   border-color: var(--sky) !important;
 }
 
-:root[data-theme="dark"] .cc-item {
+:root[data-theme="dark"] .form-panel {
+  border-color: var(--sky) !important;
+}
+
+:root[data-theme="dark"] .cc-item,
+:root[data-theme="dark"] .txn-option-card {
   background: linear-gradient(135deg, var(--ice-2) 0%, var(--paper) 100%) !important;
   color: var(--navy);
   border-color: var(--sky) !important;
+}
+
+:root[data-theme="dark"] .add-entry-trigger:not(.active) {
+  background: var(--ice-2) !important;
+  color: var(--navy);
+  border-color: var(--sky) !important;
+}
+
+:root[data-theme="dark"] .add-entry-trigger.active {
+  border-color: var(--blue-soft);
 }
 
 :root[data-theme="dark"] .split-row-popover {
@@ -3894,7 +3927,209 @@ footer {
   }
 }
 
+/* ---------- Add transaction panel ---------- */
+.add-entry-panel {
+  background: linear-gradient(155deg, #fff, var(--ice-2));
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  padding: 16px;
+}
 
+.add-entry-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+  background: #fff;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.add-entry-trigger:hover {
+  border-color: var(--blue);
+  box-shadow: var(--shadow-sm);
+}
+
+.add-entry-trigger.active {
+  border-color: var(--blue);
+  background: var(--ice);
+}
+
+.add-entry-trigger-icon {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--blue);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.add-entry-trigger-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.add-entry-trigger-title {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 1.02rem;
+  color: var(--navy);
+}
+
+.add-entry-trigger-sub {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.add-entry-trigger-chevron {
+  flex: 0 0 auto;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--muted);
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.add-entry-trigger.active .add-entry-trigger-chevron {
+  transform: rotate(90deg);
+  color: var(--blue);
+}
+
+.txn-menu {
+  margin-top: 14px;
+  animation: fadeInDown 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.txn-option-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+@media (min-width: 640px) {
+  .txn-option-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 960px) {
+  .txn-option-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.txn-option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+  background: #fff;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease, background 0.15s ease;
+  min-width: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .txn-option-card:hover {
+    border-color: var(--blue);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
+  }
+}
+
+.txn-option-card.active {
+  border-color: var(--blue);
+  background: var(--ice);
+}
+
+.txn-option-card.txn-option-more {
+  border-style: dashed;
+  border-color: var(--sky);
+  background: var(--ice-2);
+}
+
+.txn-option-icon {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.txn-option-icon--blue   { background: var(--blue-bg); }
+.txn-option-icon--green  { background: var(--credit-bg); }
+.txn-option-icon--amber  { background: var(--amber-bg); }
+.txn-option-icon--purple { background: var(--royal-bg); }
+.txn-option-icon--rose   { background: var(--debit-bg); }
+.txn-option-icon--muted  { background: var(--ice-2); color: var(--muted); }
+
+.txn-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.txn-option-title {
+  font-family: 'Source Serif 4', serif;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--navy);
+}
+
+.txn-option-desc {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 480px) {
+  .add-entry-trigger-sub,
+  .txn-option-desc {
+    white-space: normal;
+  }
+  .txn-option-desc {
+    font-size: 0.6rem;
+  }
+
+  .txn-option-card {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .txn-option-icon {
+    width: 30px;
+    height: 30px;
+    font-size: 0.9rem;
+  }
+
+  .txn-option-title {
+    font-size: 0.8rem;
+  }
+}
 === ./static/css/views/months.css ===
 /* ---------- Monthly Charts (tag spend bar chart) ---------- */
 .chart-toolbar--split {
@@ -7503,7 +7738,7 @@ import { markRendered } from '../components/render-guard.js';
 const root = document.getElementById('month-root');
 const monthKey = root.dataset.monthKey;
 
-const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Transport', 'Subscription', 'Rent', 'Utility', 'Recharge', 'Medicine', 'Gift'];
+const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Transport', 'Rent', 'Utility', 'Shopping', 'Recharge', 'Medicine'];
 
 let cards = [];
 let emiSeries = [];
@@ -7516,6 +7751,8 @@ let priceItems = [];
 let existingInvestments = 0;
 let splitsIndex = [];
 let openForm = null;
+let isMenuOpen = false;
+let isMoreOpen = false;
 let formSlideDirection = '';
 let animTimeout = null;
 let domainLoaded = false;
@@ -7582,12 +7819,29 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   }
 
   if (e.type === 'spend') {
+    const isNegative = e.amount < 0;
+    const displayAmount = isNegative ? Math.abs(e.amount) : e.amount;
     const card = e.paymentMode === 'card' ? cardById(cards, e.cardId) : null;
     const lentChips = (e.lent || []).map(l => `
       <span class="chip ${l.settled ? 'settled' : ''}">
         <button class="lent-toggle ${l.settled ? 'checked' : ''}" data-toggle-lent="${e.id}|${l.id}" type="button" role="checkbox" aria-checked="${l.settled}" title="${l.settled ? 'Undo payback' : 'Mark as paid back'}"></button>
         ${l.settled ? `<s>${escapeHtml(l.person)}</s>` : escapeHtml(l.person)} · ${fmtINR(l.amount)}
       </span>`).join('');
+
+    if (isNegative) {
+      return `<tr>
+        ${dateCell}
+        <td class="type-cell"><span class="tag payback">Payback</span></td>
+        <td class="desc-cell">
+          <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
+          <div class="subnote">Cash / debit</div>
+          ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
+        </td>
+        <td class="num amt-credit">+${fmtINR(displayAmount)}</td>
+        <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+      </tr>`;
+    }
+
     return `<tr>
       ${dateCell}
       <td class="type-cell"><span class="tag spend">Spend</span></td>
@@ -7596,7 +7850,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
         <div class="subnote">${card ? 'Paid for ' + escapeHtml(card.name) + ' — reduces card dues' : 'Cash / debit'}</div>
         ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
-      <td class="num amt-debit">-${fmtINR(e.amount)}</td>
+      <td class="num amt-debit">-${fmtINR(displayAmount)}</td>
       <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">✎</button><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
   }
@@ -7936,6 +8190,113 @@ function renderForm(kind) {
 }
 
 
+const TXN_TYPES = {
+  spend:       { 
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>`, 
+    title: 'Spend', desc: 'Everyday expenses', tone: 'blue' 
+  },
+  income:      { 
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg>`, 
+    title: 'Income', desc: 'Salary, interest, etc.', tone: 'green' 
+  },
+  cardcharge:  { 
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>`, 
+    title: 'Card spend', desc: 'Online or offline', tone: 'amber' 
+  },
+  cashpayment: { 
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg>`, 
+    title: 'Cash payment', desc: 'Paid via cash', tone: 'green' 
+  },
+  recurring:   { 
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>`, 
+    title: 'Recurring Expense', desc: 'Subscriptions, bills', tone: 'amber' 
+  },
+  invest:      { 
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>`, 
+    title: 'Investment', desc: 'Investments, SIPs', tone: 'amber' 
+  },
+  owed:        { 
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`, 
+    title: 'Owed to you', desc: 'Someone owes you', tone: 'purple' 
+  },
+  emi:         { 
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 22 7 12 2"></polygon><line x1="2" y1="22" x2="22" y2="22"></line><line x1="6" y1="18" x2="6" y2="11"></line><line x1="10" y1="18" x2="10" y2="11"></line><line x1="14" y1="18" x2="14" y2="11"></line><line x1="18" y1="18" x2="18" y2="11"></line></svg>`, 
+    title: 'EMI', desc: 'Monthly deductable', tone: 'rose' 
+  },
+};
+
+const TXN_PRIMARY_ORDER = ['spend', 'income', 'cardcharge', 'cashpayment', 'recurring', 'invest'];
+const TXN_MORE_ORDER = ['owed', 'emi'];
+
+// On mobile, move cardcharge & cashpayment to the "More" section to reduce clutter
+const TXN_PRIMARY_MOBILE = ['spend', 'cardcharge', 'income'];
+const TXN_MORE_MOBILE = ['cashpayment', 'recurring', 'invest', 'owed', 'emi'];
+
+function isMobileViewport() {
+  return window.innerWidth < 640;
+}
+
+function getTxnPrimaryOrder() {
+  return isMobileViewport() ? TXN_PRIMARY_MOBILE : TXN_PRIMARY_ORDER;
+}
+
+function getTxnMoreOrder() {
+  return isMobileViewport() ? TXN_MORE_MOBILE : TXN_MORE_ORDER;
+}
+
+function renderTxnOptionCard(kind) {
+  const meta = TXN_TYPES[kind];
+  return `
+    <button class="txn-option-card ${openForm === kind ? 'active' : ''}" data-form="${kind}" type="button">
+      <span class="txn-option-icon txn-option-icon--${meta.tone}">${meta.icon}</span>
+      <span class="txn-option-text">
+        <span class="txn-option-title">${meta.title}</span>
+        <span class="txn-option-desc">${meta.desc}</span>
+      </span>
+    </button>`;
+}
+
+function renderAddEntryPanel() {
+  const primaryOrder = getTxnPrimaryOrder();
+  const moreOrder = getTxnMoreOrder();
+  const primaryHtml = primaryOrder.map(renderTxnOptionCard).join('');
+  const moreHtml = moreOrder.map(renderTxnOptionCard).join('');
+  const isMobile = isMobileViewport();
+  const moreToggleHtml = `
+    <button class="txn-option-card txn-option-more" data-toggle-more type="button">
+      <span class="txn-option-icon txn-option-icon--muted">⋯</span>
+      <span class="txn-option-text">
+        <span class="txn-option-title">${isMoreOpen ? 'Show less' : 'More…'}</span>
+        <span class="txn-option-desc">${isMoreOpen ? 'Hide extra options' : isMobile ? 'Cash, invest & more' : 'Owed, EMI & more'}</span>
+      </span>
+    </button>`;
+
+  return `
+  <div class="add-entry-panel">
+    <button class="add-entry-trigger ${isMenuOpen ? 'active' : ''}" id="add-entry-trigger" type="button" aria-expanded="${isMenuOpen}">
+      <span class="add-entry-trigger-icon">+</span>
+      <span class="add-entry-trigger-text">
+        <span class="add-entry-trigger-title">Add transaction</span>
+        <span class="add-entry-trigger-sub">Log any income, expense or payment</span>
+      </span>
+      <span class="add-entry-trigger-chevron">›</span>
+    </button>
+    ${isMenuOpen ? `
+    <div class="txn-menu">
+      <div class="txn-option-grid">
+        ${primaryHtml}
+        ${isMoreOpen ? moreHtml : ''}
+        ${moreToggleHtml}
+      </div>
+      ${openForm ? `
+      <div id="form-panel-anim-inner" class="${formSlideDirection || ''}">
+        ${renderForm(openForm)}
+      </div>` : ''}
+    </div>` : ''}
+  </div>`;
+}
+
+
 /* ---------- Main render ---------- */
 async function renderMonth() {
   await loadDomain();
@@ -8092,20 +8453,7 @@ async function renderMonth() {
 
   <div class="section">
     <div class="section-title"><h2>Add an entry</h2><span class="hint">Log every credit and debit</span></div>
-    <div class="pill-grid">
-      <button class="pill-btn ${openForm === 'spend' ? 'active' : ''}" data-form="spend">+ Spend</button>
-      <button class="pill-btn alt ${openForm === 'cardcharge' ? 'active' : ''}" data-form="cardcharge">+ Credit card spend</button>
-      <button class="pill-btn alt ${openForm === 'cashpayment' ? 'active' : ''}" data-form="cashpayment">+ Cash Payments</button>
-      <button class="pill-btn ${openForm === 'recurring' ? 'active' : ''}" data-form="recurring">+ Recurring Expense</button>
-      <button class="pill-btn ${openForm === 'income' ? 'active' : ''}" data-form="income">+ Income</button>
-      <button class="pill-btn ${openForm === 'owed' ? 'active' : ''}" data-form="owed">+ Owed to you</button>
-      <button class="pill-btn ${openForm === 'emi' ? 'active' : ''}" data-form="emi">+ EMI</button>
-      <button class="pill-btn ${openForm === 'invest' ? 'active' : ''}" data-form="invest">+ Investment</button>
-    </div>
-    ${openForm ? `
-    <div id="form-panel-anim-inner" class="${formSlideDirection || ''}">
-      ${renderForm(openForm)}
-    </div>` : ''}
+    ${renderAddEntryPanel()}
   </div>
   <div class="section">
     <div class="section-title"><h2>This month's finances, at a glance</h2><span class="hint">Hover a card for the breakdown</span></div>
@@ -8331,6 +8679,8 @@ async function handleSubmit(kind) {
     await Store.set('recurringseries', recurringSeries);
     await saveMonth(monthKey);
     openForm = null;
+    isMenuOpen = false;
+    isMoreOpen = false;
     await renderMonth();
     showToast(`Recurring spend will be deducted on the ${dayOfMonth}${ordinalSuffix(dayOfMonth)} of every month`);
     return;
@@ -8338,6 +8688,8 @@ async function handleSubmit(kind) {
 
   await saveMonth(monthKey);
   openForm = null;
+  isMenuOpen = false;
+  isMoreOpen = false;
   await renderMonth();
   showToast('Added');
 }
@@ -8363,6 +8715,23 @@ function distributeLentShares(amount) {
 
 /* ---------- Event wiring ---------- */
 root.addEventListener('click', async (ev) => {
+  const addEntryTrigger = ev.target.closest('#add-entry-trigger');
+  if (addEntryTrigger) {
+    if (animTimeout) clearTimeout(animTimeout);
+    isMenuOpen = !isMenuOpen;
+    if (!isMenuOpen) { openForm = null; isMoreOpen = false; }
+    formSlideDirection = '';
+    await renderMonth();
+    return;
+  }
+
+  const toggleMoreBtn = ev.target.closest('[data-toggle-more]');
+  if (toggleMoreBtn) {
+    isMoreOpen = !isMoreOpen;
+    await renderMonth();
+    return;
+  }
+
   const toggleManualBtn = ev.target.closest('#toggle-manual-balance-btn');
   if (toggleManualBtn) {
     const data = await loadMonth(monthKey);
@@ -8444,8 +8813,12 @@ root.addEventListener('click', async (ev) => {
     if (animTimeout) clearTimeout(animTimeout);
     if (oldForm === newForm) { openForm = null; await renderMonth(); return; }
     if (oldForm) {
-      const oldIdx = PILL_ORDER.indexOf(oldForm);
-      const newIdx = PILL_ORDER.indexOf(newForm);
+      // Get indices from the visual menu order (primary + more), dynamically based on viewport
+      const primaryOrder = getTxnPrimaryOrder();
+      const moreOrder = getTxnMoreOrder();
+      const allTxnOrder = [...primaryOrder, ...moreOrder];
+      const oldIdx = allTxnOrder.indexOf(oldForm);
+      const newIdx = allTxnOrder.indexOf(newForm);
       const isRight = newIdx > oldIdx;
       const inner = $('#form-panel-anim-inner');
       if (inner) {
@@ -8855,7 +9228,7 @@ import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
 
 const root = document.getElementById('months-root');
-const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Subscription', 'Rent', 'Utility', 'Recharge', 'Transport', 'Gift', 'EMI', 'SIP', 'RECURRING'];
+const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Transport', 'Rent', 'Utility', 'Shopping', 'Recharge', 'Medicine', 'Gift', 'EMI', 'SIP', 'RECURRING'];
 
 let monthsIndex = [];
 let emiSeries = [];

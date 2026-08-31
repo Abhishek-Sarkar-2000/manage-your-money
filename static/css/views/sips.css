@@ -1,6 +1,366 @@
-/* SIPs reuses .cc-item / .cc-name / .cc-cycle from cards.css — cards.css is
-   also linked on this page. Nothing SIP-specific to add yet beyond that. */
+/* ---------- Premium SIP & Portfolio Redesign ---------- */
 
-#ext-invest-save {
-  padding: 7px 16px;
+/* 1. Investment Foundation Card */
+.invest-foundation-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--navy) 0%, var(--royal) 55%, var(--blue) 100%);
+  border-radius: 16px;
+  padding: 30px 32px;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  box-shadow: 0 12px 28px rgba(11, 37, 69, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+
+.ifc-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.ifc-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--sky);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+.ifc-value-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.ifc-val {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 2.8rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.ifc-sparkline {
+  width: 90px;
+  height: 28px;
+  --spark-stroke-start: var(--sky);
+  --spark-stroke-end: var(--blue-soft);
+  --spark-fill-color: var(--sky);
+  --spark-fill-opacity: 0.45;
+}
+
+:root[data-theme="dark"] .ifc-sparkline {
+  --spark-stroke-start: var(--text-sky);
+  --spark-stroke-end: var(--blue);
+  --spark-fill-color: var(--blue);
+  --spark-fill-opacity: 0.35;
+}
+
+:root[data-theme="hi-contrast"] .ifc-sparkline {
+  --spark-stroke-start: #FFFFFF;
+  --spark-stroke-end: #FFFFFF;
+  --spark-fill-color: #FFFFFF;
+  --spark-fill-opacity: 0.55;
+}
+
+.ifc-subtitle {
+  font-size: 0.85rem;
+  color: var(--hair);
+  flex: 1;
+  min-width: 200px;
+  line-height: 1.5;
+}
+
+.ifc-edit-mode {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ifc-edit-field {
+  flex: 1 1 180px;
+  min-width: 140px;
+}
+
+.ifc-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* 2. SIP Grid & Cards */
+.sip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+  margin-top: 16px;
+  width: 100%;
+  min-width: 0;
+}
+
+.sip-card {
+  background: #fff;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.sip-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(11, 37, 69, 0.08);
+  border-color: var(--sky);
+}
+
+.sip-card.paused {
+  background: var(--ice-2);
+  border-style: dashed;
+  opacity: 0.85;
+}
+
+.sip-card.paused:hover {
+  opacity: 1;
+}
+
+:root[data-theme="dark"] .sip-card {
+  background: var(--ice-2);
+  border-color: var(--sky);
+}
+
+.sip-card-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.sip-icon-wrap {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--ice);
+  color: var(--blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hair);
+}
+
+.sip-card.paused .sip-icon-wrap {
+  background: var(--hair);
+  color: var(--muted);
+  border-color: transparent;
+}
+
+.sip-icon-wrap svg {
+  width: 22px;
+  height: 22px;
+}
+
+:root[data-theme="dark"] .sip-icon-wrap {
+  background: var(--hair);
+  border-color: var(--blue-soft);
+  color: #fff;
+}
+
+.sip-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.sip-name {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--navy);
+  line-height: 1.3;
+}
+
+.sip-desc {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.sip-card-footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  border-top: 1px dashed var(--hair);
+  padding-top: 8px;
+}
+
+.sip-amount {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--navy);
+  line-height: 1;
+}
+
+.sip-mo {
+  font-family: 'Source Serif 4', serif;
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 4px;
+  text-wrap: nowrap;
+}
+
+.sip-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.sip-actions .icon-btn {
+  background: var(--ice-2);
+  border: 1px solid transparent;
+  color: var(--muted);
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.sip-actions .icon-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.sip-actions .icon-btn:hover {
+  background: var(--ice);
+  border-color: var(--hair);
+  color: var(--royal);
+}
+
+.sip-amount > strong {
+  color: var(--navy);
+}
+
+:root[data-theme="dark"] .sip-amount > strong {
+  color: var(--text-white);
+}
+
+/* Active Button States */
+.sip-actions .icon-btn.skipped-active {
+  background: var(--amber-bg);
+  border-color: rgba(138, 106, 47, 0.2);
+  color: var(--amber);
+}
+
+.sip-actions .icon-btn.restore-active {
+  background: var(--credit-bg);
+  border-color: rgba(46, 125, 107, 0.2);
+  color: var(--credit);
+}
+
+.sip-actions .danger-hover:hover {
+  background: var(--debit-bg);
+  border-color: rgba(173, 67, 88, 0.2);
+  color: var(--debit);
+}
+
+:root[data-theme="dark"] .sip-actions .icon-btn {
+  background: var(--paper);
+}
+
+/* 3. Sleek Add Form */
+.sip-form-panel {
+  border: 1px solid var(--blue);
+  background: linear-gradient(155deg, #fff, var(--ice-2));
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 8px 24px rgba(47, 111, 176, 0.12);
+}
+
+:root[data-theme="dark"] .sip-form-panel {
+  background: linear-gradient(155deg, var(--ice-2), var(--paper));
+}
+
+@media (max-width: 569px) {
+  .invest-foundation-card {
+    padding: 24px 20px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .ifc-edit-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .ifc-right {
+    width: 100%;
+  }
+  #manage-base-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .ifc-val {
+    font-size: 2.2rem;
+  }
+  .ifc-sparkline {
+    display: none;
+  }
+}
+
+@media (max-width: 960px) {
+  .sip-amount {
+    font-size: 1.3rem;
+  }
+  .sip-actions .icon-btn {
+    width: 24px;
+    height: 24px;
+  }
+  .sip-actions .icon-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+  .sip-desc {
+    font-size: 0.68rem;
+  }
+}
+
+:root[data-theme="hi-contrast"] .invest-foundation-card {
+  background: var(--blue);
+}
+:root[data-theme="hi-contrast"] .ifc-val{
+  color: var(--yellow);
+}
+:root[data-theme="hi-contrast"] .ifc-subtitle,
+:root[data-theme="hi-contrast"] .ifc-title {
+  color: var(--text-white);
+}
+
+:root[data-theme="dark"] .invest-foundation-card {
+  background: linear-gradient(135deg, #181938 0%, #252458 55%, #3C367E 100%) !important;
+  border: solid;
+  border-width: 1px;
+  border-color: var(--blue-soft);
+}
+:root[data-theme="dark"] .ifc-title {
+  color: #A8B1FF;
+}
+:root[data-theme="dark"] .ifc-subtitle {
+  color: #fff;
 }
