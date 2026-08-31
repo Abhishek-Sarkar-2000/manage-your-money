@@ -1,7 +1,7 @@
 /* ---------- /sips ---------- */
 import { Store } from '../core/store.js';
 import { $, uid, escapeHtml } from '../core/dom.js';
-import { fmtINR, monthKeyLabel, currentMonthKey } from '../core/format.js';
+import { fmtINR, monthKeyLabel, currentMonthKey, ordinalSuffix } from '../core/format.js';
 import { authReady } from '../core/auth.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
