@@ -581,6 +581,16 @@ color: #C07A2E;
   color: #5B4B9E;
 }
 
+.tag.recurring {
+  background: #FCE8E6;
+  color: #B0556F;
+}
+
+.tag.sip {
+  background: #E6F4EA;
+  color: #2E8B77;
+}
+
 .tag.invest {
   background: #E4EEF9;
   color: var(--blue);

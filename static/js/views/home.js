@@ -7,7 +7,7 @@
 import { Store } from '../core/store.js';
 import { fmtINR, currentMonthKey, monthKeyLabel } from '../core/format.js';
 import { authReady } from '../core/auth.js';
-import { computeGlobalStats, computeMonthTotals, emiRowsForMonth, sipRowsForMonth, loadMonth, computeDailyBalanceSeries, windowSeries } from '../core/domain.js';
+import { computeGlobalStats, computeMonthTotals, emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth, loadMonth, computeDailyBalanceSeries, windowSeries } from '../core/domain.js';
 import { computeGlobalSplitOwedByYou } from '../core/split-domain.js';
 import { renderStatCards, wireStatCardFlip } from '../components/stat-cards.js';
 import { dailyBalanceChart, wireChartTooltips } from '../components/charts/line-chart.js';
@@ -20,13 +20,14 @@ let balanceChartRange = 1;
 let cache = null; // { cards, emiSeries, sipSeries, monthsIndex, splitsIndex, existingInvestments, stats, splitOwed, dailySeries, currentMonthCardHtml }
 
 async function loadDomain() {
-  const [cards, emiSeries, sipSeries, monthsIndex, splitsIndex, existingInvestments] = await Promise.all([
+  const [cards, emiSeries, sipSeries, monthsIndex, splitsIndex, existingInvestments, recurringSeries] = await Promise.all([
     Store.get('creditcards', []),
     Store.get('emiseries', []),
     Store.get('sipseries', []),
     Store.get('months-index', []),
     Store.get('splits-index', []),
     Store.get('existinginvestments', 0),
+    Store.get('recurringseries', []),
   ]);
 
   // PRE-WARM CACHE: Perform a single bulk fetch to grab all historical months and splits.
@@ -42,7 +43,7 @@ async function loadDomain() {
     await Store.bulkGet(keysToBulkFetch);
   }
 
-  return { cards, emiSeries, sipSeries, monthsIndex, splitsIndex, existingInvestments };
+  return { cards, emiSeries, sipSeries, monthsIndex, splitsIndex, existingInvestments, recurringSeries };
 }
 
 async function renderCurrentMonthCard(domain) {
@@ -61,8 +62,9 @@ async function renderCurrentMonthCard(domain) {
   const data = await loadMonth(key);
   const emiRows = emiRowsForMonth(domain.emiSeries, key, data.deletedEmi);
   const sipRows = sipRowsForMonth(domain.sipSeries, key, data.deletedSip);
-  const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows));
-  computeMonthTotals(data.entries.concat(emiRows, sipRows)); // parity with original (unused in markup)
+  const recurringRows = recurringRowsForMonth(domain.recurringSeries, key);
+  const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows, recurringRows));
+  computeMonthTotals(data.entries.concat(emiRows, sipRows, recurringRows)); // parity with original (unused in markup)
   return `
   <a class="current-month-card" href="/month/${key}">
     <div class="cm-left">
@@ -83,12 +85,12 @@ async function renderCurrentMonthCard(domain) {
 async function buildCache() {
   const domain = await loadDomain();
   const stats = await computeGlobalStats({
-    cards: domain.cards, emiSeries: domain.emiSeries, sipSeries: domain.sipSeries,
+    cards: domain.cards, emiSeries: domain.emiSeries, sipSeries: domain.sipSeries, recurringSeries: domain.recurringSeries,
     monthsIndex: domain.monthsIndex, existingInvestments: domain.existingInvestments,
     isShared: false, sharedSplitId: null, splitsIndex: domain.splitsIndex,
   });
   const splitOwed = await computeGlobalSplitOwedByYou(domain.splitsIndex);
-  const dailySeries = await computeDailyBalanceSeries(domain.monthsIndex, domain.emiSeries, domain.sipSeries);
+  const dailySeries = await computeDailyBalanceSeries(domain.monthsIndex, domain.emiSeries, domain.sipSeries, domain.recurringSeries);
   const currentMonthCardHtml = await renderCurrentMonthCard(domain);
   return { ...domain, stats, splitOwed, dailySeries, currentMonthCardHtml };
 }
@@ -138,6 +140,11 @@ function renderFromCache() {
           <h3>Previous months</h3>
           <p>Browse every month you've logged so far.</p>
         </a>
+        <a class="action-card" href="/split">
+          <div class="ac-icon">⇄</div>
+          <h3>Split Money</h3>
+          <p>Track group spends with friends, settle debts, and sync it straight into your ledger.</p>
+        </a>
         <a class="action-card" href="/cards">
           <div class="ac-icon">▭</div>
           <h3>Credit cards</h3>
@@ -148,10 +155,10 @@ function renderFromCache() {
           <h3>Manage SIPs</h3>
           <p>Set up recurring investments so they're auto-tracked every month until you stop them.</p>
         </a>
-        <a class="action-card" href="/split">
-          <div class="ac-icon">⇄</div>
-          <h3>Split Money</h3>
-          <p>Track group spends with friends, settle debts, and sync it straight into your ledger.</p>
+        <a class="action-card" href="/subscriptions">
+          <div class="ac-icon">⟳</div>
+          <h3>Manage Subscriptions</h3>
+          <p>Track recurring bills and subscriptions so they're auto-deducted every month, on the date you pick.</p>
         </a>
         <a class="action-card" href="/pricetrack">
           <div class="ac-icon">↗</div>

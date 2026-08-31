@@ -318,7 +318,7 @@
 .scroll-arrow {
   position: absolute;
   right: -44px;
-  top: calc(50% - 22px);
+  top: 50%;
   transform: translateY(-50%);
   width: 38px;
   height: 38px;

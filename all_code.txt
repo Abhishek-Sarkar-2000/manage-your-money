@@ -193,6 +193,10 @@ def cards_view():
 def sips_view():
     return render_template("sips.html", **_shell_context("sips"))
 
+@app.route("/subscriptions")
+def subscriptions_view():
+    return render_template("subscriptions.html", **_shell_context("subscriptions"))
+
 @app.route("/split")
 def split_view():
     return render_template("split.html", **_shell_context("split"))
@@ -1487,11 +1491,20 @@ color: #C07A2E;
   color: #5B4B9E;
 }
 
+.tag.recurring {
+  background: #FCE8E6;
+  color: #B0556F;
+}
+
+.tag.sip {
+  background: #E6F4EA;
+  color: #2E8B77;
+}
+
 .tag.invest {
   background: #E4EEF9;
   color: var(--blue);
 }
-
 .amt-credit {
   color: var(--credit);
   font-weight: 600;
@@ -3242,7 +3255,7 @@ transform: translateY(0);
   --text-white: #FFFFFF;
   --ice: #0F111E;
   --ice-2: #171A2E; 
-  --paper: #0F111E;
+  --paper: #0f1016;
   --ink: #D8DAF5;
   --muted: #888EB8;
   --hair: #252458;
@@ -3274,7 +3287,6 @@ transform: translateY(0);
 :root[data-theme="dark"] .card,
 :root[data-theme="dark"] .current-month-card.empty,
 :root[data-theme="dark"] .stat-back,
-:root[data-theme="dark"] .cc-item,
 :root[data-theme="dark"] .emi-card,
 :root[data-theme="dark"] .month-row,
 :root[data-theme="dark"] .profile-menu,
@@ -3295,8 +3307,15 @@ transform: translateY(0);
 :root[data-theme="dark"] .split-settle-card,
 :root[data-theme="dark"] .stat-front,
 :root[data-theme="dark"] .price-item-card,
+:root[data-theme="dark"] .cc-item,
 :root[data-theme="dark"] .balance-box {
   background: linear-gradient(135deg, var(--hair) 0%, var(--ice-2) 100%) !important;
+  color: var(--navy);
+  border-color: var(--sky) !important;
+}
+
+:root[data-theme="dark"] .cc-item {
+  background: linear-gradient(135deg, var(--ice-2) 0%, var(--paper) 100%) !important;
   color: var(--navy);
   border-color: var(--sky) !important;
 }
@@ -3330,6 +3349,10 @@ transform: translateY(0);
 
 :root[data-theme="dark"] svg.linechart line {
   stroke: var(--sky) !important;
+}
+
+:root[data-theme="dark"] .table-wrap {
+  border-color: var(--sky) !important;
 }
 
 :root[data-theme="dark"] .current-month-card:not(.empty) {
@@ -3816,8 +3839,11 @@ footer {
 }
 
 .emi-card:hover {
-  transform: translateY(-2px);
   box-shadow: var(--shadow);
+}
+
+:root[data-theme="dark"] .emi-card:hover {
+  box-shadow: 0 4px 18px #000;
 }
 
 .emi-card h4 {
@@ -6266,10 +6292,11 @@ const monthCache = {};
 export async function loadMonth(key) {
   if (monthCache[key]) return monthCache[key];
   const data = await Store.get('month:' + key, {
-    startingBalanceMode: 'manual', startingBalance: 0, entries: [], deletedEmi: [], deletedSip: [],
+    startingBalanceMode: 'manual', startingBalance: 0, entries: [], deletedEmi: [], deletedSip: [], deletedRecurring: [],
   });
   if (!data.startingBalanceMode) data.startingBalanceMode = 'manual';
   if (!data.deletedSip) data.deletedSip = [];
+  if (!data.deletedRecurring) data.deletedRecurring = [];
   monthCache[key] = data;
   return data;
 }
@@ -6308,19 +6335,46 @@ export function emiRowsForMonth(emiSeries, monthKey, deletedEmi) {
 
 export function sipRowsForMonth(sipSeries, monthKey, deletedSip) {
   const rows = [];
+  const [y, m] = monthKey.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
   for (const series of sipSeries) {
     if (series.startMonth > monthKey) continue;
     if ((deletedSip || []).includes(series.id)) continue;
+    const targetDay = Math.min(Math.max(Number(series.dayOfMonth) || 1, 1), 31);
+    const day = Math.min(targetDay, daysInMonth);
+    const dateStr = monthKey + '-' + String(day).padStart(2, '0');
     rows.push({
-      id: 'sip-' + series.id + '-' + monthKey, type: 'sip', date: monthKey + '-01',
+      id: 'sip-' + series.id + '-' + monthKey, type: 'sip', date: dateStr,
       description: series.description, amount: series.amount, seriesId: series.id,
     });
   }
   return rows;
 }
 
+/* Maps a recurring series' "date of deduction" (1-31) onto a real date for
+   the given monthKey, clamping to the month's last valid day when the
+   chosen date doesn't exist that month (e.g. the 31st in February). */
+export function recurringRowsForMonth(recurringSeries, monthKey, deletedRecurring) {
+  const rows = [];
+  const [y, m] = monthKey.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  for (const series of recurringSeries) {
+    if (series.startMonth && series.startMonth > monthKey) continue;
+    if ((deletedRecurring || []).includes(series.id)) continue;
+    const targetDay = Math.min(Math.max(Number(series.dayOfMonth) || 1, 1), 31);
+    const day = Math.min(targetDay, daysInMonth);
+    const dateStr = monthKey + '-' + String(day).padStart(2, '0');
+    rows.push({
+      id: 'recurring-' + series.id + '-' + monthKey, type: 'recurring', date: dateStr,
+      description: series.description, amount: series.amount, seriesId: series.id,
+      paymentMode: series.paymentMode || 'bank', cardId: series.cardId || null,
+    });
+  }
+  return rows;
+}
+
 export function computeMonthTotals(entries) {
-  let income = 0, cashSpend = 0, cardPaymentSpend = 0, cardCharge = 0, invest = 0, emi = 0, sip = 0, payback = 0;
+  let income = 0, cashSpend = 0, cardPaymentSpend = 0, cardCharge = 0, invest = 0, emi = 0, sip = 0, payback = 0, recurring = 0, recurringCash = 0;
   let regularDebit = 0, cashPayments = 0, ccSpends = 0, others = 0;
 
   for (const e of entries) {
@@ -6348,6 +6402,15 @@ export function computeMonthTotals(entries) {
     } else if (e.type === 'sip') {
       sip += amt;
       others += amt;
+    } else if (e.type === 'recurring') {
+      recurring += amt;
+      others += amt;
+      if (e.paymentMode === 'card') {
+        cardCharge += amt;
+        ccSpends += amt;
+      } else {
+        recurringCash += amt;
+      }
     } else if (e.type === 'payback') {
       // Settlement of a "Lent" chip. Restores the running balance (it's
       // modelled as a negative regular cash outflow, same lever as a
@@ -6359,20 +6422,21 @@ export function computeMonthTotals(entries) {
     }
   }
 
-  const totalConsumption = regularDebit + cashPayments + ccSpends + emi;
+  const totalConsumption = regularDebit + cashPayments + ccSpends + emi + recurring;
 
   return {
-    income, cashSpend, cardPaymentSpend, cardCharge, invest, emi, sip, payback,
+    income, cashSpend, cardPaymentSpend, cardCharge, invest, emi, sip, payback, recurring, recurringCash,
     regularDebit, cashPayments, ccSpends, others, totalConsumption,
   };
 }
 
 export function monthCashOutflow(totals) {
-  return totals.cashSpend + totals.cardPaymentSpend + totals.emi + totals.invest + totals.sip;
+  const recCash = totals.recurringCash !== undefined ? totals.recurringCash : totals.recurring;
+  return totals.cashSpend + totals.cardPaymentSpend + totals.emi + totals.invest + totals.sip + recCash;
 }
 
 /* Chronological per-month running balance, honouring each month's carry/manual mode. */
-export async function computeMonthlyBreakdown(monthsIndex, emiSeries, sipSeries) {
+export async function computeMonthlyBreakdown(monthsIndex, emiSeries, sipSeries, recurringSeries) {
   const sortedKeys = [...monthsIndex].sort();
   const rows = [];
   let prevEnding = null;
@@ -6380,7 +6444,8 @@ export async function computeMonthlyBreakdown(monthsIndex, emiSeries, sipSeries)
     const data = await loadMonth(k);
     const emiRows = emiRowsForMonth(emiSeries, k, data.deletedEmi);
     const sipRows = sipRowsForMonth(sipSeries, k, data.deletedSip);
-    const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows));
+    const recurringRows = recurringRowsForMonth(recurringSeries || [], k, data.deletedRecurring);
+    const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows, recurringRows));
     let starting;
     if (data.startingBalanceMode === 'auto' && prevEnding !== null) {
       starting = prevEnding;
@@ -6397,8 +6462,8 @@ export async function computeMonthlyBreakdown(monthsIndex, emiSeries, sipSeries)
 
 /* Day-by-day running balance, from the 1st of the earliest logged month
    through today, carried flat on days with no transactions. */
-export async function computeDailyBalanceSeries(monthsIndex, emiSeries, sipSeries) {
-  const breakdown = await computeMonthlyBreakdown(monthsIndex, emiSeries, sipSeries);
+export async function computeDailyBalanceSeries(monthsIndex, emiSeries, sipSeries, recurringSeries) {
+  const breakdown = await computeMonthlyBreakdown(monthsIndex, emiSeries, sipSeries, recurringSeries);
   if (!breakdown.length) return [];
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const series = [];
@@ -6407,8 +6472,9 @@ export async function computeDailyBalanceSeries(monthsIndex, emiSeries, sipSerie
     const data = await loadMonth(b.monthKey);
     const emiRows = emiRowsForMonth(emiSeries, b.monthKey, data.deletedEmi);
     const sipRows = sipRowsForMonth(sipSeries, b.monthKey, data.deletedSip);
-    const relevant = [...data.entries, ...emiRows, ...sipRows].filter(e =>
-      e.type === 'income' || e.type === 'investment' || e.type === 'emi' || e.type === 'sip' || e.type === 'spend' || e.type === 'payback'
+    const recurringRows = recurringRowsForMonth(recurringSeries || [], b.monthKey, data.deletedRecurring);
+    const relevant = [...data.entries, ...emiRows, ...sipRows, ...recurringRows].filter(e =>
+      e.type === 'income' || e.type === 'investment' || e.type === 'emi' || e.type === 'sip' || e.type === 'recurring' || e.type === 'spend' || e.type === 'payback'
     );
     const deltaByDay = {};
     for (const e of relevant) {
@@ -6516,13 +6582,15 @@ export async function computeGlobalInvestments(monthsIndex, sipSeries, existingI
   return { total, list };
 }
 
-export async function computeGlobalCardDues(monthsIndex, cards) {
+export async function computeGlobalCardDues(monthsIndex, cards, recurringSeries) {
   const perCard = {};
   for (const c of cards) perCard[c.id] = { card: c, dues: 0 };
   for (const k of monthsIndex) {
     const data = await loadMonth(k);
-    for (const e of data.entries) {
-      if (e.type === 'cardcharge' && e.cardId) {
+    const recRows = recurringRowsForMonth(recurringSeries || [], k, data.deletedRecurring);
+    const allEntries = data.entries.concat(recRows);
+    for (const e of allEntries) {
+      if ((e.type === 'cardcharge' || (e.type === 'recurring' && e.paymentMode === 'card')) && e.cardId) {
         perCard[e.cardId] = perCard[e.cardId] || { card: cardById(cards, e.cardId), dues: 0 };
         perCard[e.cardId].dues += Number(e.amount) || 0;
       }
@@ -6542,12 +6610,12 @@ export async function computeGlobalCardDues(monthsIndex, cards) {
  * data they already loaded (cards/emiSeries/sipSeries/monthsIndex/
  * existingInvestments) — nothing is fetched implicitly here.
  */
-export async function computeGlobalStats({ cards, emiSeries, sipSeries, monthsIndex, existingInvestments, isShared, sharedSplitId, splitsIndex }) {
+export async function computeGlobalStats({ cards, emiSeries, sipSeries, recurringSeries, monthsIndex, existingInvestments, isShared, sharedSplitId, splitsIndex }) {
   const [owed, invested, cardDues, breakdown] = await Promise.all([
     computeGlobalOwed(monthsIndex, isShared, sharedSplitId, splitsIndex),
     computeGlobalInvestments(monthsIndex, sipSeries, existingInvestments),
-    computeGlobalCardDues(monthsIndex, cards),
-    computeMonthlyBreakdown(monthsIndex, emiSeries, sipSeries),
+    computeGlobalCardDues(monthsIndex, cards, recurringSeries),
+    computeMonthlyBreakdown(monthsIndex, emiSeries, sipSeries, recurringSeries),
   ]);
   const amountLeft = breakdown.length ? breakdown[breakdown.length - 1].ending : 0;
   return { owed, invested, cardDues, breakdown, amountLeft };
@@ -7224,7 +7292,7 @@ authReady.then(renderCards);
 import { Store } from '../core/store.js';
 import { fmtINR, currentMonthKey, monthKeyLabel } from '../core/format.js';
 import { authReady } from '../core/auth.js';
-import { computeGlobalStats, computeMonthTotals, emiRowsForMonth, sipRowsForMonth, loadMonth, computeDailyBalanceSeries, windowSeries } from '../core/domain.js';
+import { computeGlobalStats, computeMonthTotals, emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth, loadMonth, computeDailyBalanceSeries, windowSeries } from '../core/domain.js';
 import { computeGlobalSplitOwedByYou } from '../core/split-domain.js';
 import { renderStatCards, wireStatCardFlip } from '../components/stat-cards.js';
 import { dailyBalanceChart, wireChartTooltips } from '../components/charts/line-chart.js';
@@ -7237,13 +7305,14 @@ let balanceChartRange = 1;
 let cache = null; // { cards, emiSeries, sipSeries, monthsIndex, splitsIndex, existingInvestments, stats, splitOwed, dailySeries, currentMonthCardHtml }
 
 async function loadDomain() {
-  const [cards, emiSeries, sipSeries, monthsIndex, splitsIndex, existingInvestments] = await Promise.all([
+  const [cards, emiSeries, sipSeries, monthsIndex, splitsIndex, existingInvestments, recurringSeries] = await Promise.all([
     Store.get('creditcards', []),
     Store.get('emiseries', []),
     Store.get('sipseries', []),
     Store.get('months-index', []),
     Store.get('splits-index', []),
     Store.get('existinginvestments', 0),
+    Store.get('recurringseries', []),
   ]);
 
   // PRE-WARM CACHE: Perform a single bulk fetch to grab all historical months and splits.
@@ -7259,7 +7328,7 @@ async function loadDomain() {
     await Store.bulkGet(keysToBulkFetch);
   }
 
-  return { cards, emiSeries, sipSeries, monthsIndex, splitsIndex, existingInvestments };
+  return { cards, emiSeries, sipSeries, monthsIndex, splitsIndex, existingInvestments, recurringSeries };
 }
 
 async function renderCurrentMonthCard(domain) {
@@ -7278,8 +7347,9 @@ async function renderCurrentMonthCard(domain) {
   const data = await loadMonth(key);
   const emiRows = emiRowsForMonth(domain.emiSeries, key, data.deletedEmi);
   const sipRows = sipRowsForMonth(domain.sipSeries, key, data.deletedSip);
-  const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows));
-  computeMonthTotals(data.entries.concat(emiRows, sipRows)); // parity with original (unused in markup)
+  const recurringRows = recurringRowsForMonth(domain.recurringSeries, key);
+  const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows, recurringRows));
+  computeMonthTotals(data.entries.concat(emiRows, sipRows, recurringRows)); // parity with original (unused in markup)
   return `
   <a class="current-month-card" href="/month/${key}">
     <div class="cm-left">
@@ -7300,12 +7370,12 @@ async function renderCurrentMonthCard(domain) {
 async function buildCache() {
   const domain = await loadDomain();
   const stats = await computeGlobalStats({
-    cards: domain.cards, emiSeries: domain.emiSeries, sipSeries: domain.sipSeries,
+    cards: domain.cards, emiSeries: domain.emiSeries, sipSeries: domain.sipSeries, recurringSeries: domain.recurringSeries,
     monthsIndex: domain.monthsIndex, existingInvestments: domain.existingInvestments,
     isShared: false, sharedSplitId: null, splitsIndex: domain.splitsIndex,
   });
   const splitOwed = await computeGlobalSplitOwedByYou(domain.splitsIndex);
-  const dailySeries = await computeDailyBalanceSeries(domain.monthsIndex, domain.emiSeries, domain.sipSeries);
+  const dailySeries = await computeDailyBalanceSeries(domain.monthsIndex, domain.emiSeries, domain.sipSeries, domain.recurringSeries);
   const currentMonthCardHtml = await renderCurrentMonthCard(domain);
   return { ...domain, stats, splitOwed, dailySeries, currentMonthCardHtml };
 }
@@ -7355,6 +7425,11 @@ function renderFromCache() {
           <h3>Previous months</h3>
           <p>Browse every month you've logged so far.</p>
         </a>
+        <a class="action-card" href="/split">
+          <div class="ac-icon">⇄</div>
+          <h3>Split Money</h3>
+          <p>Track group spends with friends, settle debts, and sync it straight into your ledger.</p>
+        </a>
         <a class="action-card" href="/cards">
           <div class="ac-icon">▭</div>
           <h3>Credit cards</h3>
@@ -7365,10 +7440,10 @@ function renderFromCache() {
           <h3>Manage SIPs</h3>
           <p>Set up recurring investments so they're auto-tracked every month until you stop them.</p>
         </a>
-        <a class="action-card" href="/split">
-          <div class="ac-icon">⇄</div>
-          <h3>Split Money</h3>
-          <p>Track group spends with friends, settle debts, and sync it straight into your ledger.</p>
+        <a class="action-card" href="/subscriptions">
+          <div class="ac-icon">⟳</div>
+          <h3>Manage Subscriptions</h3>
+          <p>Track recurring bills and subscriptions so they're auto-deducted every month, on the date you pick.</p>
         </a>
         <a class="action-card" href="/pricetrack">
           <div class="ac-icon">↗</div>
@@ -7408,10 +7483,10 @@ wireChartTooltips(root);
 /* ---------- /month/<month_key> ---------- */
 import { Store } from '../core/store.js';
 import { $, $$, uid, escapeHtml } from '../core/dom.js';
-import { fmtINR, todayStr, currentMonthKey, monthKeyLabel, addMonths, diffMonths } from '../core/format.js';
+import { fmtINR, todayStr, currentMonthKey, monthKeyLabel, addMonths, diffMonths, ordinalSuffix } from '../core/format.js';
 import { authReady } from '../core/auth.js';
 import {
-  loadMonth, saveMonth, ensureMonthIndexed, emiRowsForMonth, sipRowsForMonth,
+  loadMonth, saveMonth, ensureMonthIndexed, emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth,
   computeMonthTotals, computeGlobalStats, cardById, allSpendTags,
 } from '../core/domain.js';
 import { renderStatCards, wireStatCardFlip } from '../components/stat-cards.js';
@@ -7432,6 +7507,7 @@ const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Transport', 'Subsc
 let cards = [];
 let emiSeries = [];
 let sipSeries = [];
+let recurringSeries = [];
 let monthsIndex = [];
 let customTags = [];
 let priceTrackDictionary = {};
@@ -7443,7 +7519,7 @@ let formSlideDirection = '';
 let animTimeout = null;
 let domainLoaded = false;
 
-const PILL_ORDER = ['spend', 'cardcharge', 'cashpayment', 'income', 'owed', 'emi', 'invest'];
+const PILL_ORDER = ['spend', 'cardcharge', 'cashpayment', 'recurring', 'income', 'owed', 'emi', 'invest'];
 
 // Fetched once. renderMonth() is called on almost every interaction on
 // this page (add/delete an entry, toggle starting balance, settle a debt,
@@ -7454,7 +7530,7 @@ const PILL_ORDER = ['spend', 'cardcharge', 'cashpayment', 'income', 'owed', 'emi
 // stays correct without a refetch.
 async function loadDomain() {
   if (domainLoaded) return;
-  [cards, emiSeries, sipSeries, monthsIndex, customTags, priceTrackDictionary, priceItems, existingInvestments, splitsIndex] = await Promise.all([
+  [cards, emiSeries, sipSeries, monthsIndex, customTags, priceTrackDictionary, priceItems, existingInvestments, splitsIndex, recurringSeries] = await Promise.all([
     Store.get('creditcards', []),
     Store.get('emiseries', []),
     Store.get('sipseries', []),
@@ -7464,6 +7540,7 @@ async function loadDomain() {
     Store.get('price-items', []),
     Store.get('existinginvestments', 0),
     Store.get('splits-index', []),
+    Store.get('recurringseries', []),
   ]);
   domainLoaded = true;
 }
@@ -7500,6 +7577,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
     else if (meta.quantity && meta.location) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.quantity)} @ ${escapeHtml(meta.location)}</span>`;
     else if (meta.quantity) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.quantity)}</span>`;
     else if (meta.location) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.location)}</span>`;
+    else if (meta.purpose) metaHtml = `</br><span class="meta-text">${escapeHtml(meta.purpose)}</span>`;
   }
 
   if (e.type === 'spend') {
@@ -7584,7 +7662,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       ${dateCell}
       <td class="type-cell"><span class="tag owed">Owed to you</span></td>
       <td class="desc-cell">
-        <strong>${escapeHtml(e.description)}</strong>
+        <strong>${escapeHtml(e.description)}</strong>${metaHtml}
         ${e.settled ? `<div class="subnote">Settled</div>` : `<div class="subnote">Carries forward until settled</div>`}
       </td>
       <td class="num" style="color:var(--amber)">${fmtINR(e.amount)}</td>
@@ -7676,7 +7754,11 @@ function renderForm(kind) {
   if (kind === 'cardcharge') {
     return `
     <div class="form-panel">
-      <div class="form-note" style="margin-top:0;margin-bottom:14px;">Money spent on credit — adds to that card's dues. Doesn't touch your cash balance until you pay it off via a "Spend" entry with mode "Credit card".</div>
+      <div class="form-note invest-form" style="margin-top:0;">
+        <span>Money spent on credit — adds to that card's dues. Doesn't touch your cash balance until you pay it off via a "Spend" entry with mode "Credit card".</span>
+        <a class="pill-btn sub-pill active hyperlink" href="/subscriptions">Manage Credit Cards</a>
+      </div>
+      <div class="form-note" style="margin-top:0;margin-bottom:14px;"></div>
       <div class="form-row">
         <div class="field"><label>Spend</label><input id="f-desc" type="text" placeholder="e.g. Dinner out" /></div>
         <div class="field"><label>Amount (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
@@ -7691,6 +7773,9 @@ function renderForm(kind) {
           ${renderTagField()}
         </div>
       </div>
+      <div id="f-price-track-wrap" style="margin-bottom: 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <button class="pill-btn sub-pill" id="f-price-track-btn" type="button">+ Add to Price Tracker</button>
+      </div>
       <label class="checkline"><input type="checkbox" id="f-lent-toggle" /> Lent — someone owes me part of this</label>
       <div id="f-lent-wrap" style="display:none;">
         <div class="lent-rows" id="lent-rows">
@@ -7703,7 +7788,6 @@ function renderForm(kind) {
       </div>
       <div class="form-actions">
         <button class="btn" data-submit="cardcharge" ${cards.length ? '' : 'disabled'}>Add card spend</button>
-        <button class="btn ghost" data-close-form>Cancel</button>
       </div>
     </div>`;
   }
@@ -7721,6 +7805,9 @@ function renderForm(kind) {
           ${renderTagField()}
         </div>
       </div>
+      <div id="f-price-track-wrap" style="margin-bottom: 14px;">
+        <button class="pill-btn sub-pill" id="f-price-track-btn" type="button">+ Add to Price Tracker</button>
+      </div>
       <label class="checkline"><input type="checkbox" id="f-lent-toggle" /> Lent — someone owes me part of this</label>
       <div id="f-lent-wrap" style="display:none;">
         <div class="lent-rows" id="lent-rows">
@@ -7733,6 +7820,34 @@ function renderForm(kind) {
       </div>
       <div class="form-actions">
         <button class="btn" data-submit="cashpayment">Add cash payment</button>
+        <button class="btn ghost" data-close-form>Cancel</button>
+      </div>
+    </div>`;
+  }
+  if (kind === 'recurring') {
+    return `
+    <div class="form-panel">
+      <div class="form-note invest-form" style="margin-top:0;">
+        <span>Auto-deducted every month on the date you choose. If a month doesn't have that many days, it deducts on the last valid day instead.</span>
+        <a class="pill-btn sub-pill active hyperlink" href="/subscriptions">Manage Subscriptions</a>
+      </div>
+      <div class="pill-grid" style="margin-bottom: 12px;" id="f-recurring-mode-selector">
+        <button class="pill-btn sub-pill active" data-recurring-mode="bank" type="button">Bank Transfer</button>
+        <button class="pill-btn sub-pill" data-recurring-mode="card" type="button" ${cards.length ? '' : 'disabled'}>Credit Card</button>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Details</label><input id="f-desc" type="text" placeholder="e.g. Netflix" /></div>
+        <div class="field"><label>Amount (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+        <div class="field"><label>Date of deduction</label><input id="f-recurring-day" type="number" step="1" min="1" max="31" placeholder="e.g. 5" /></div>
+      </div>
+      <div class="form-row" id="f-recurring-card-row" style="display:none;">
+        <div class="field">
+          <label>Card</label>
+          <select id="f-recurring-card">${cardOptions || '<option value="">No cards added</option>'}</select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn" data-submit="recurring">Add recurring expense</button>
         <button class="btn ghost" data-close-form>Cancel</button>
       </div>
     </div>`;
@@ -7771,6 +7886,9 @@ function renderForm(kind) {
         <div class="field"><label>Person</label><input id="f-desc" type="text" placeholder="Who owes you" /></div>
         <div class="field"><label>Amount (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
         <div class="field"><label>Date</label><input id="f-date" type="date" value="${todayStr()}" /></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Purpose</label><input id="f-owed-purpose" type="text" placeholder="e.g. Dinner split, movie tickets" /></div>
       </div>
       <div class="form-actions">
         <button class="btn" data-submit="owed">Add</button>
@@ -7815,6 +7933,7 @@ function renderForm(kind) {
   return '';
 }
 
+
 /* ---------- Main render ---------- */
 async function renderMonth() {
   await loadDomain();
@@ -7831,10 +7950,11 @@ async function renderMonth() {
 
   const emiRows = emiRowsForMonth(emiSeries, monthKey, data.deletedEmi);
   const sipRows = sipRowsForMonth(sipSeries, monthKey, data.deletedSip);
+  const recurringRows = recurringRowsForMonth(recurringSeries, monthKey, data.deletedRecurring);
   const allRows = [...data.entries].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  const monthTotals = computeMonthTotals(data.entries.concat(emiRows, sipRows));
+  const monthTotals = computeMonthTotals(data.entries.concat(emiRows, sipRows, recurringRows));
 
-  const stats = await computeGlobalStats({ cards, emiSeries, sipSeries, monthsIndex, existingInvestments, isShared: false, sharedSplitId: null, splitsIndex });
+  const stats = await computeGlobalStats({ cards, emiSeries, sipSeries, recurringSeries, monthsIndex, existingInvestments, isShared: false, sharedSplitId: null, splitsIndex });
 
   const monthInvestList = [];
   for (const e of data.entries) {
@@ -7880,18 +8000,40 @@ async function renderMonth() {
     </div>`;
   }).join('') + `</div>` : '';
 
-  const sipCardsHtml = sipRows.length ? `<div class="emi-list">` + sipRows.map(e => `
+  const sipCardsHtml = sipRows.length ? `<div class="emi-list">` + sipRows.map(e => {
+    const dayNum = new Date(e.date + 'T00:00:00').getDate();
+    return `
     <div class="emi-card">
       <div>
-        <h4>${escapeHtml(e.description)}</h4>
-        <div class="emi-stats">Recurring monthly investment</div>
+        <h4><span class="tag sip">SIP</span> ${escapeHtml(e.description)}</h4>
+        <div class="emi-stats">Recurring investment — deducted on the ${dayNum}${ordinalSuffix(dayNum)} of every month</div>
       </div>
       <div style="display: flex; align-items: center; gap: 16px;">
         <div class="num recurring-card">-${fmtINR(e.amount)}</div>
         <button class="icon-btn" data-popover-trigger data-skip-sip="${monthKey}|${e.seriesId}" title="Skip this month">⤵</button>
       </div>
-    </div>`
-  ).join('') + `</div>` : '';
+    </div>`;
+  }).join('') + `</div>` : '';
+
+  const recurringCardsHtml = recurringRows.length ? `<div class="emi-list">` + recurringRows.map(e => {
+    const dayNum = new Date(e.date + 'T00:00:00').getDate();
+    let modeText = 'Bank Transfer';
+    if (e.paymentMode === 'card') {
+      const c = cards.find(card => card.id === e.cardId);
+      modeText = c ? c.name : 'Credit Card';
+    }
+    return `
+    <div class="emi-card">
+      <div>
+        <h4><span class="tag recurring">RECURRING</span> ${escapeHtml(e.description)}</h4>
+        <div class="emi-stats">Recurring expense — deducted on the ${dayNum}${ordinalSuffix(dayNum)} of every month via ${escapeHtml(modeText)}</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <div class="num amt-debit recurring-card">-${fmtINR(e.amount)}</div>
+        <button class="icon-btn" data-popover-trigger data-skip-recurring="${monthKey}|${e.seriesId}" title="Skip this month">⤵</button>
+      </div>
+    </div>`;
+  }).join('') + `</div>` : '';
 
   let unsettledConsumptionLent = 0, settledConsumptionLent = 0;
   for (const e of data.entries) {
@@ -7952,6 +8094,7 @@ async function renderMonth() {
       <button class="pill-btn ${openForm === 'spend' ? 'active' : ''}" data-form="spend">+ Spend</button>
       <button class="pill-btn alt ${openForm === 'cardcharge' ? 'active' : ''}" data-form="cardcharge">+ Credit card spend</button>
       <button class="pill-btn alt ${openForm === 'cashpayment' ? 'active' : ''}" data-form="cashpayment">+ Cash Payments</button>
+      <button class="pill-btn ${openForm === 'recurring' ? 'active' : ''}" data-form="recurring">+ Recurring Expense</button>
       <button class="pill-btn ${openForm === 'income' ? 'active' : ''}" data-form="income">+ Income</button>
       <button class="pill-btn ${openForm === 'owed' ? 'active' : ''}" data-form="owed">+ Owed to you</button>
       <button class="pill-btn ${openForm === 'emi' ? 'active' : ''}" data-form="emi">+ EMI</button>
@@ -7976,6 +8119,7 @@ async function renderMonth() {
           { label: 'Credit card spends', value: monthTotals.ccSpends, color: '#8E6FB0' },
           { label: 'Cash payments', value: monthTotals.cashPayments, color: '#C98A3C' },
           { label: 'EMI', value: monthTotals.emi, color: '#5B4B9E' },
+          { label: 'Recurring', value: monthTotals.recurring, color: '#B0556F' },
           { label: 'SIP', value: monthTotals.sip, color: '#2E8B77' },
           { label: 'Investment', value: monthTotals.invest, color: 'var(--blue)' },
         ])}
@@ -8042,11 +8186,28 @@ async function renderMonth() {
     <div class="section-title"><h2>SIPs</h2><span class="hint">${sipRows.length} running this month - skip by clicking ⤵</span></div>
     ${sipCardsHtml}
   </div>` : ''}
+  ${recurringRows.length ? `
+  <div class="section">
+    <div class="section-title"><h2>Recurring Expenses</h2><span class="hint">${recurringRows.length} deducted this month</span></div>
+    ${recurringCardsHtml}
+  </div>` : ''}
   `;
 
   appendPageChrome(root);
   setupScrollWrappers(root);
   setupTableScrollIndicators(root);
+}
+
+async function syncToPriceTracker(name, amount, date, tag) {
+  const syncBtn = $('#f-price-track-btn');
+  if (!syncBtn || !syncBtn.classList.contains('active')) return;
+  let item = priceItems.find(i => i.name.toLowerCase() === name.toLowerCase() && !i.meta);
+  if (!item) {
+    item = { id: uid(), name, category: tag, history: [], meta: null };
+    priceItems.push(item);
+  }
+  item.history.push({ id: uid(), date, price: amount, note: 'Synced from Spends' });
+  await Store.set('price-items', priceItems);
 }
 
 /* ---------- Submit handler ---------- */
@@ -8120,16 +8281,18 @@ async function handleSubmit(kind) {
       }
     }
     data.entries.push({ id: uid(), type: 'spend', description: spendDesc, amount, date, paymentMode: mode, cardId, tag, lent: collectLent(), meta });
-  } else if (kind === 'cardcharge') {
+ } else if (kind === 'cardcharge') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a spend description and amount'); return; }
     const cardId = $('#f-card').value;
     const c = cardById(cards, cardId);
     if (!c) { showToast('Add a credit card first'); return; }
     const tag = await resolveTagFromForm();
+    await syncToPriceTracker(desc, amount, date, tag);
     data.entries.push({ id: uid(), type: 'cardcharge', description: desc, amount, date, cardId, tag, lent: collectLent() });
   } else if (kind === 'cashpayment') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a spend description and amount'); return; }
     const tag = await resolveTagFromForm();
+    await syncToPriceTracker(desc, amount, date, tag);
     data.entries.push({ id: uid(), type: 'cashpayment', description: desc, amount, date, tag, lent: collectLent() });
   } else if (kind === 'income') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a source and amount'); return; }
@@ -8137,7 +8300,8 @@ async function handleSubmit(kind) {
     data.entries.push({ id: uid(), type: 'income', description: desc, amount, date, category });
   } else if (kind === 'owed') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a person and amount'); return; }
-    data.entries.push({ id: uid(), type: 'owed', description: desc, amount, date, settled: false });
+    const owedPurpose = ($('#f-owed-purpose')?.value || '').trim();
+    data.entries.push({ id: uid(), type: 'owed', description: desc, amount, date, settled: false, meta: owedPurpose ? { purpose: owedPurpose } : null });
   } else if (kind === 'invest') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a description and amount'); return; }
     data.entries.push({ id: uid(), type: 'investment', description: desc, amount, date });
@@ -8149,6 +8313,25 @@ async function handleSubmit(kind) {
     if (elapsed >= months) { showToast('Invalid: EMI is already complete based on the starting month.'); return; }
     emiSeries.push({ id: uid(), description: desc, monthlyAmount: amount, totalMonths: months, startMonth });
     await Store.set('emiseries', emiSeries);
+  } else if (kind === 'recurring') {
+    const dayOfMonth = Number($('#f-recurring-day')?.value);
+    if (!desc || !amount || amount <= 0 || !dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) { showToast('Fill in details, amount and a valid date of deduction (1-31)'); return; }
+    
+    const modeBtn = document.querySelector('[data-recurring-mode].active');
+    const paymentMode = modeBtn ? modeBtn.dataset.recurringMode : 'bank';
+    let cardId = null;
+    if (paymentMode === 'card') {
+      cardId = $('#f-recurring-card').value;
+      if (!cardId) { showToast('Add a credit card first'); return; }
+    }
+
+    recurringSeries.push({ id: uid(), description: desc, amount, dayOfMonth, paymentMode, cardId, startMonth: monthKey });
+    await Store.set('recurringseries', recurringSeries);
+    await saveMonth(monthKey);
+    openForm = null;
+    await renderMonth();
+    showToast(`Recurring spend will be deducted on the ${dayOfMonth}${ordinalSuffix(dayOfMonth)} of every month`);
+    return;
   }
 
   await saveMonth(monthKey);
@@ -8224,6 +8407,23 @@ root.addEventListener('click', async (ev) => {
       if (lentContainer) lentContainer.style.display = 'none';
       if (lentWrap) lentWrap.style.display = 'none';
       if (lentToggle) lentToggle.checked = false;
+    }
+    return;
+  }
+
+  const recurringModeBtn = ev.target.closest('[data-recurring-mode]');
+  if (recurringModeBtn) {
+    if (recurringModeBtn.disabled) return;
+    const wrap = recurringModeBtn.closest('#f-recurring-mode-selector');
+    wrap.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+    recurringModeBtn.classList.add('active');
+
+    const mode = recurringModeBtn.dataset.recurringMode;
+    const cardRow = $('#f-recurring-card-row');
+    if (mode === 'card') {
+      if (cardRow) cardRow.style.display = 'contents';
+    } else {
+      if (cardRow) cardRow.style.display = 'none';
     }
     return;
   }
@@ -8352,6 +8552,28 @@ root.addEventListener('click', async (ev) => {
     hideDeleteCallout();
     await renderMonth();
     showToast('EMI deleted entirely');
+    return;
+  }
+
+  const skipRecurringBtn = ev.target.closest('[data-skip-recurring]');
+  if (skipRecurringBtn) {
+    ev.stopPropagation();
+    const { showDeleteCallout } = await import('../components/delete-popover.js');
+    showDeleteCallout(skipRecurringBtn, 'confirm-skip-recurring', skipRecurringBtn.dataset.skipRecurring, 'Confirm skip');
+    return;
+  }
+  const confirmSkipRecurring = ev.target.closest('[data-confirm-skip-recurring]');
+  if (confirmSkipRecurring) {
+    ev.stopPropagation();
+    const { hideDeleteCallout } = await import('../components/delete-popover.js');
+    const [mk, seriesId] = confirmSkipRecurring.dataset.confirmSkipRecurring.split('|');
+    const data = await loadMonth(mk);
+    data.deletedRecurring = data.deletedRecurring || [];
+    if (!data.deletedRecurring.includes(seriesId)) data.deletedRecurring.push(seriesId);
+    await saveMonth(mk);
+    hideDeleteCallout();
+    await renderMonth();
+    showToast("Skipped this month's recurring expense — balance updated");
     return;
   }
 
@@ -8567,7 +8789,7 @@ import { Store } from '../core/store.js';
 import { escapeHtml } from '../core/dom.js';
 import { fmtINR, fmtINRShort, monthKeyLabel, monthKeyShort, currentMonthKey, addMonths } from '../core/format.js';
 import { authReady } from '../core/auth.js';
-import { emiRowsForMonth, sipRowsForMonth, computeMonthTotals, allSpendTags } from '../core/domain.js';
+import { emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth, computeMonthTotals, allSpendTags } from '../core/domain.js';
 import { SPLIT_PALETTE } from '../components/charts/split-charts.js';
 import { wireChartTooltips } from '../components/charts/line-chart.js';
 import { setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
@@ -8577,11 +8799,12 @@ import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
 
 const root = document.getElementById('months-root');
-const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Subscription', 'Rent', 'Utility', 'Recharge', 'Transport', 'Gift'];
+const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Subscription', 'Rent', 'Utility', 'Recharge', 'Transport', 'Gift', 'EMI', 'SIP', 'RECURRING'];
 
 let monthsIndex = [];
 let emiSeries = [];
 let sipSeries = [];
+let recurringSeries = [];
 let customTags = [];
 let domainLoaded = false;
 let bulkDataCache = null;
@@ -8593,10 +8816,11 @@ let currentKeysAsc = [];
 // and persists it, so later re-renders never need to refetch it.
 async function loadDomain() {
   if (domainLoaded) return;
-  [monthsIndex, emiSeries, sipSeries, customTags] = await Promise.all([
+  [monthsIndex, emiSeries, sipSeries, recurringSeries, customTags] = await Promise.all([
     Store.get('months-index', []),
     Store.get('emiseries', []),
     Store.get('sipseries', []),
+    Store.get('recurringseries', []),
     Store.get('custom-spend-tags', []),
   ]);
   domainLoaded = true;
@@ -8629,10 +8853,12 @@ function computeMonthlyBreakdownFromBulk(keysAscending, bulkData) {
 
     if (!data.startingBalanceMode) data.startingBalanceMode = 'manual';
     if (!data.deletedSip) data.deletedSip = [];
+    if (!data.deletedRecurring) data.deletedRecurring = [];
 
     const emiRows = emiRowsForMonth(emiSeries, k, data.deletedEmi);
     const sipRows = sipRowsForMonth(sipSeries, k, data.deletedSip);
-    const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows));
+    const recurringRows = recurringRowsForMonth(recurringSeries, k, data.deletedRecurring);
+    const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows, recurringRows));
 
     let starting;
     if (data.startingBalanceMode === 'auto' && prevEnding !== null) {
@@ -8641,7 +8867,7 @@ function computeMonthlyBreakdownFromBulk(keysAscending, bulkData) {
       starting = Number(data.startingBalance) || 0;
     }
 
-    const outflow = totals.cashSpend + totals.cardPaymentSpend + totals.emi + totals.invest + totals.sip;
+    const outflow = totals.cashSpend + totals.cardPaymentSpend + totals.emi + totals.invest + totals.sip + totals.recurring;
     const ending = starting + totals.income - outflow;
     
     rows.push({ monthKey: k, starting, income: totals.income, outflow, ending, totals });
@@ -8677,19 +8903,31 @@ function renderMonthlyChartsSection(bulkData, allMonthKeys) {
   if (selectedTags.length > 0) {
       let maxVal = 0;
       const monthDataList = rangeKeys.map(k => {
-          const data = bulkData['month:' + k] || { entries: [] };
+          const data = bulkData['month:' + k] || { entries: [], deletedEmi: [], deletedSip: [], deletedRecurring: [] };
+          const allRows = data.entries.concat(
+              emiRowsForMonth(emiSeries, k, data.deletedEmi),
+              sipRowsForMonth(sipSeries, k, data.deletedSip),
+              recurringRowsForMonth(recurringSeries, k, data.deletedRecurring)
+          );
           let monthTotal = 0;
           const tagSums = {};
           selectedTags.forEach(t => tagSums[t] = 0);
 
-          for (const e of data.entries) {
+          for (const e of allRows) {
+              let tagValue = null;
               if (['spend', 'cardcharge', 'cashpayment'].includes(e.type)) {
-                  const t = (e.tag || 'Untagged').trim();
-                  const matchedTag = selectedTags.find(st => st.toLowerCase() === t.toLowerCase());
+                  tagValue = (e.tag || 'Untagged').trim();
+              } else if (e.type === 'emi') {
+                  tagValue = 'EMI';
+              } else if (e.type === 'sip') {
+                  tagValue = 'SIP';
+              } else if (e.type === 'recurring') {
+                  tagValue = 'RECURRING';
+              }
+
+              if (tagValue) {
+                  const matchedTag = selectedTags.find(st => st.toLowerCase() === tagValue.toLowerCase());
                   if (matchedTag) {
-                      // Personal spend + still-unsettled lent both count toward
-                      // this tag's outflow. A lent amount that's since been
-                      // settled is paid back, so it comes off the total entirely.
                       const amt = Number(e.amount) || 0;
                       tagSums[matchedTag] += amt;
                       monthTotal += amt;
@@ -9819,7 +10057,7 @@ async function renderSips() {
     <div class="cc-item">
       <div>
         <div class="cc-name">${escapeHtml(s.description)}</div>
-        <div class="cc-cycle">${fmtINR(s.amount)} / month · started ${monthKeyLabel(s.startMonth)}</div>
+        <div class="cc-cycle">${fmtINR(s.amount)} / month · deducted on the ${s.dayOfMonth || 1}${ordinalSuffix(s.dayOfMonth || 1)} · started ${monthKeyLabel(s.startMonth)}</div>
       </div>
       <button class="icon-btn" data-popover-trigger data-del-sip-series="${s.id}" title="Delete SIP">✕</button>
     </div>
@@ -9852,6 +10090,7 @@ async function renderSips() {
           <div class="form-row">
             <div class="field"><label>Description</label><input id="sip-desc" type="text" placeholder="e.g. Nifty Index Fund" /></div>
             <div class="field"><label>Amount (₹ / month)</label><input id="sip-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+            <div class="field"><label>Date of deduction</label><input id="sip-day" type="number" step="1" min="1" max="31" placeholder="e.g. 5" /></div>
           </div>
           <div class="form-actions"><button class="btn" id="sip-add">Add SIP</button></div>
         </div>
@@ -9876,11 +10115,12 @@ root.addEventListener('click', async (ev) => {
     ev.preventDefault(); // Prevents page refresh
     const desc = $('#sip-desc').value.trim();
     const amount = Number($('#sip-amount').value);
-    if (!desc || !amount || amount <= 0) { showToast('Enter a description and a valid amount'); return; }
-    sipSeries.push({ id: uid(), description: desc, amount, startMonth: currentMonthKey() });
+    const dayOfMonth = Number($('#sip-day').value);
+    if (!desc || !amount || amount <= 0 || !dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) { showToast('Enter details, a valid amount and a date of deduction (1-31)'); return; }
+    sipSeries.push({ id: uid(), description: desc, amount, dayOfMonth, startMonth: currentMonthKey() });
     await Store.set('sipseries', sipSeries);
     await renderSips();
-    showToast('SIP added');
+    showToast(`SIP will be deducted on the ${dayOfMonth}${ordinalSuffix(dayOfMonth)} of every month`);
   }
   const delSipSeriesBtn = ev.target.closest('[data-del-sip-series]');
   if (delSipSeriesBtn) {
@@ -10568,6 +10808,155 @@ window.addEventListener('auth:checked', renderSplit);
 // signed-out login hero for an already-authenticated visitor.
 authReady.then(renderSplit);
 
+=== ./static/js/views/subscriptions.js ===
+/* ---------- /subscriptions ---------- */
+import { Store } from '../core/store.js';
+import { $, uid, escapeHtml } from '../core/dom.js';
+import { fmtINR, ordinalSuffix, currentMonthKey } from '../core/format.js';
+import { authReady } from '../core/auth.js';
+import { appendPageChrome } from '../components/page-chrome.js';
+import { showToast } from '../components/toast.js';
+import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
+import { markRendered } from '../components/render-guard.js';
+
+const root = document.getElementById('subscriptions-root');
+let recurringSeries = [];
+let cards = [];
+let domainLoaded = false;
+
+async function renderSubscriptions() {
+  if (!domainLoaded) {
+    const [rs, c] = await Promise.all([
+      Store.get('recurringseries', []),
+      Store.get('creditcards', [])
+    ]);
+    recurringSeries = rs;
+    cards = c;
+    domainLoaded = true;
+  }
+
+  const cardOptions = cards.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+
+  const rows = recurringSeries.map(s => {
+    let modeText = 'Bank Transfer';
+    if (s.paymentMode === 'card') {
+      const c = cards.find(card => card.id === s.cardId);
+      modeText = c ? c.name : 'Credit Card';
+    }
+    return `
+    <div class="cc-item">
+      <div>
+        <div class="cc-name">${escapeHtml(s.description)}</div>
+        <div class="cc-cycle">${fmtINR(s.amount)} / month · deducted on the ${s.dayOfMonth}${ordinalSuffix(s.dayOfMonth)} via ${escapeHtml(modeText)}</div>
+      </div>
+      <button class="icon-btn" data-popover-trigger data-del-recurring-series="${s.id}" title="Delete recurring expense">✕</button>
+    </div>
+    `;
+  }).join('') || `<div class="empty-chart">No recurring expenses added yet — add one below.</div>`;
+
+  const tb = document.getElementById('global-topbar');
+  if (tb) tb.style.display = '';
+
+  markRendered(root);
+  root.innerHTML = `
+  <div class="section">
+    <div class="card">
+      <div class="section-title"><h2>Recurring Expenses</h2><span class="hint">Bills and subscriptions, auto-deducted every month automatically</span></div>
+        <div class="cc-list">${rows}</div>
+        <div class="form-panel">
+          <div class="form-note" style="margin-top:0;">Deducted every month on the date you choose — clamped to the last day of the month when it doesn't have that many days.</div>
+          
+          <div class="pill-grid" style="margin-bottom: 12px;" id="sub-mode-selector">
+            <button class="pill-btn sub-pill active" data-sub-mode="bank" type="button">Bank Transfer</button>
+            <button class="pill-btn sub-pill" data-sub-mode="card" type="button" ${cards.length ? '' : 'disabled'}>Credit Card</button>
+          </div>
+
+          <div class="form-row">
+            <div class="field"><label>Details</label><input id="recurring-desc" type="text" placeholder="e.g. Netflix" /></div>
+            <div class="field"><label>Amount (₹ / month)</label><input id="recurring-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+            <div class="field"><label>Date of deduction</label><input id="recurring-day" type="number" step="1" min="1" max="31" placeholder="e.g. 5" /></div>
+          </div>
+          
+          <div class="form-row" id="sub-card-row" style="display:none;">
+            <div class="field">
+              <label>Card</label>
+              <select id="recurring-card">${cardOptions || '<option value="">No cards added</option>'}</select>
+            </div>
+          </div>
+          
+          <div class="form-actions"><button class="btn" id="recurring-add">Add Recurring Expense</button></div>
+        </div>
+    </div>
+  </div>
+  `;
+
+  appendPageChrome(root);
+}
+
+root.addEventListener('click', async (ev) => {
+  const subModeBtn = ev.target.closest('[data-sub-mode]');
+  if (subModeBtn) {
+    if (subModeBtn.disabled) return;
+    const wrap = subModeBtn.closest('#sub-mode-selector');
+    wrap.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+    subModeBtn.classList.add('active');
+
+    const mode = subModeBtn.dataset.subMode;
+    const cardRow = $('#sub-card-row');
+    if (mode === 'card') {
+      if (cardRow) cardRow.style.display = 'contents';
+    } else {
+      if (cardRow) cardRow.style.display = 'none';
+    }
+    return;
+  }
+
+  const addRecurring = ev.target.closest('#recurring-add');
+  if (addRecurring) {
+    ev.preventDefault(); // Prevents page refresh
+    const desc = $('#recurring-desc').value.trim();
+    const amount = Number($('#recurring-amount').value);
+    const dayOfMonth = Number($('#recurring-day').value);
+    if (!desc || !amount || amount <= 0 || !dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) { showToast('Enter details, a valid amount and a date of deduction (1-31)'); return; }
+    
+    const modeBtn = document.querySelector('[data-sub-mode].active');
+    const paymentMode = modeBtn ? modeBtn.dataset.subMode : 'bank';
+    let cardId = null;
+    if (paymentMode === 'card') {
+      cardId = $('#recurring-card').value;
+      if (!cardId) { showToast('Add a credit card first'); return; }
+    }
+
+    recurringSeries.push({ id: uid(), description: desc, amount, dayOfMonth, paymentMode, cardId, startMonth: currentMonthKey() });
+    await Store.set('recurringseries', recurringSeries);
+    await renderSubscriptions();
+    showToast(`Recurring spend will be deducted on the ${dayOfMonth}${ordinalSuffix(dayOfMonth)} of every month`);
+    return;
+  }
+  const delRecurringSeriesBtn = ev.target.closest('[data-del-recurring-series]');
+  if (delRecurringSeriesBtn) {
+    ev.stopPropagation();
+    showDeleteCallout(delRecurringSeriesBtn, 'confirm-del-recurring-series', delRecurringSeriesBtn.dataset.delRecurringSeries);
+    return;
+  }
+  const confirmDelRecurringSeries = ev.target.closest('[data-confirm-del-recurring-series]');
+  if (confirmDelRecurringSeries) {
+    ev.stopPropagation();
+    const seriesId = confirmDelRecurringSeries.dataset.confirmDelRecurringSeries;
+    recurringSeries = recurringSeries.filter(s => s.id !== seriesId);
+    await Store.set('recurringseries', recurringSeries);
+    hideDeleteCallout();
+    await renderSubscriptions();
+    showToast('Recurring expense deleted entirely');
+  }
+});
+
+wireDeletePopoverDismiss(root);
+window.addEventListener('auth:signed-in', renderSubscriptions);
+window.addEventListener('auth:checked', renderSubscriptions);
+// Wait for the first /api/auth/me round trip so we never flash the
+// signed-out login hero for an already-authenticated visitor.
+authReady.then(renderSubscriptions);
 === ./templates/base.html ===
 <!DOCTYPE html>
 <html lang="en">
@@ -10931,3 +11320,17 @@ authReady.then(renderSplit);
   <script type="module" src="{{ url_for('static', filename='js/views/split.js') }}"></script>
 {% endblock %}
 
+=== ./templates/subscriptions.html ===
+{% extends "base.html" %}
+{% block title %}Subscriptions — Manage Your Money{% endblock %}
+{% block extra_css %}
+  <!-- Reuses .cc-item / .cc-name / .cc-cycle styling from cards.css -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/views/cards.css') }}?v={{ static_version }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/views/sips.css') }}?v={{ static_version }}" />
+{% endblock %}
+{% block content %}
+  <div id="subscriptions-root" class="sips-view" data-loading="true"></div>
+{% endblock %}
+{% block page_script %}
+  <script type="module" src="{{ url_for('static', filename='js/views/subscriptions.js') }}"></script>
+{% endblock %}

@@ -26,7 +26,7 @@ async function renderSips() {
     <div class="cc-item">
       <div>
         <div class="cc-name">${escapeHtml(s.description)}</div>
-        <div class="cc-cycle">${fmtINR(s.amount)} / month · started ${monthKeyLabel(s.startMonth)}</div>
+        <div class="cc-cycle">${fmtINR(s.amount)} / month · deducted on the ${s.dayOfMonth || 1}${ordinalSuffix(s.dayOfMonth || 1)} · started ${monthKeyLabel(s.startMonth)}</div>
       </div>
       <button class="icon-btn" data-popover-trigger data-del-sip-series="${s.id}" title="Delete SIP">✕</button>
     </div>
@@ -59,6 +59,7 @@ async function renderSips() {
           <div class="form-row">
             <div class="field"><label>Description</label><input id="sip-desc" type="text" placeholder="e.g. Nifty Index Fund" /></div>
             <div class="field"><label>Amount (₹ / month)</label><input id="sip-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+            <div class="field"><label>Date of deduction</label><input id="sip-day" type="number" step="1" min="1" max="31" placeholder="e.g. 5" /></div>
           </div>
           <div class="form-actions"><button class="btn" id="sip-add">Add SIP</button></div>
         </div>
@@ -83,11 +84,12 @@ root.addEventListener('click', async (ev) => {
     ev.preventDefault(); // Prevents page refresh
     const desc = $('#sip-desc').value.trim();
     const amount = Number($('#sip-amount').value);
-    if (!desc || !amount || amount <= 0) { showToast('Enter a description and a valid amount'); return; }
-    sipSeries.push({ id: uid(), description: desc, amount, startMonth: currentMonthKey() });
+    const dayOfMonth = Number($('#sip-day').value);
+    if (!desc || !amount || amount <= 0 || !dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) { showToast('Enter details, a valid amount and a date of deduction (1-31)'); return; }
+    sipSeries.push({ id: uid(), description: desc, amount, dayOfMonth, startMonth: currentMonthKey() });
     await Store.set('sipseries', sipSeries);
     await renderSips();
-    showToast('SIP added');
+    showToast(`SIP will be deducted on the ${dayOfMonth}${ordinalSuffix(dayOfMonth)} of every month`);
   }
   const delSipSeriesBtn = ev.target.closest('[data-del-sip-series]');
   if (delSipSeriesBtn) {

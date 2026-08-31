@@ -17,6 +17,25 @@
   color: var(--blue);
 }
 
+.form-pill-track {
+  gap: 10px;
+}
+
+.form-pill-track .pill-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media (max-width: 639px) {
+  .form-pill-track {
+    gap: 6px;
+  }
+  .form-pill-track .pill-btn {
+    padding: 6px 12px;
+    font-size: 0.72rem;
+  }
+}
+
 .balance-box {
   display: flex;
   flex-direction: column;
@@ -144,8 +163,11 @@
 }
 
 .emi-card:hover {
-  transform: translateY(-2px);
   box-shadow: var(--shadow);
+}
+
+:root[data-theme="dark"] .emi-card:hover {
+  box-shadow: 0 4px 18px #000;
 }
 
 .emi-card h4 {

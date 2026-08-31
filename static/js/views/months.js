@@ -3,7 +3,7 @@ import { Store } from '../core/store.js';
 import { escapeHtml } from '../core/dom.js';
 import { fmtINR, fmtINRShort, monthKeyLabel, monthKeyShort, currentMonthKey, addMonths } from '../core/format.js';
 import { authReady } from '../core/auth.js';
-import { emiRowsForMonth, sipRowsForMonth, computeMonthTotals, allSpendTags } from '../core/domain.js';
+import { emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth, computeMonthTotals, allSpendTags } from '../core/domain.js';
 import { SPLIT_PALETTE } from '../components/charts/split-charts.js';
 import { wireChartTooltips } from '../components/charts/line-chart.js';
 import { setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
@@ -13,11 +13,12 @@ import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
 
 const root = document.getElementById('months-root');
-const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Subscription', 'Rent', 'Utility', 'Recharge', 'Transport', 'Gift'];
+const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Subscription', 'Rent', 'Utility', 'Recharge', 'Transport', 'Gift', 'EMI', 'SIP', 'RECURRING'];
 
 let monthsIndex = [];
 let emiSeries = [];
 let sipSeries = [];
+let recurringSeries = [];
 let customTags = [];
 let domainLoaded = false;
 let bulkDataCache = null;
@@ -29,10 +30,11 @@ let currentKeysAsc = [];
 // and persists it, so later re-renders never need to refetch it.
 async function loadDomain() {
   if (domainLoaded) return;
-  [monthsIndex, emiSeries, sipSeries, customTags] = await Promise.all([
+  [monthsIndex, emiSeries, sipSeries, recurringSeries, customTags] = await Promise.all([
     Store.get('months-index', []),
     Store.get('emiseries', []),
     Store.get('sipseries', []),
+    Store.get('recurringseries', []),
     Store.get('custom-spend-tags', []),
   ]);
   domainLoaded = true;
@@ -65,10 +67,12 @@ function computeMonthlyBreakdownFromBulk(keysAscending, bulkData) {
 
     if (!data.startingBalanceMode) data.startingBalanceMode = 'manual';
     if (!data.deletedSip) data.deletedSip = [];
+    if (!data.deletedRecurring) data.deletedRecurring = [];
 
     const emiRows = emiRowsForMonth(emiSeries, k, data.deletedEmi);
     const sipRows = sipRowsForMonth(sipSeries, k, data.deletedSip);
-    const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows));
+    const recurringRows = recurringRowsForMonth(recurringSeries, k, data.deletedRecurring);
+    const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows, recurringRows));
 
     let starting;
     if (data.startingBalanceMode === 'auto' && prevEnding !== null) {
@@ -77,7 +81,7 @@ function computeMonthlyBreakdownFromBulk(keysAscending, bulkData) {
       starting = Number(data.startingBalance) || 0;
     }
 
-    const outflow = totals.cashSpend + totals.cardPaymentSpend + totals.emi + totals.invest + totals.sip;
+    const outflow = totals.cashSpend + totals.cardPaymentSpend + totals.emi + totals.invest + totals.sip + totals.recurring;
     const ending = starting + totals.income - outflow;
     
     rows.push({ monthKey: k, starting, income: totals.income, outflow, ending, totals });
@@ -113,19 +117,31 @@ function renderMonthlyChartsSection(bulkData, allMonthKeys) {
   if (selectedTags.length > 0) {
       let maxVal = 0;
       const monthDataList = rangeKeys.map(k => {
-          const data = bulkData['month:' + k] || { entries: [] };
+          const data = bulkData['month:' + k] || { entries: [], deletedEmi: [], deletedSip: [], deletedRecurring: [] };
+          const allRows = data.entries.concat(
+              emiRowsForMonth(emiSeries, k, data.deletedEmi),
+              sipRowsForMonth(sipSeries, k, data.deletedSip),
+              recurringRowsForMonth(recurringSeries, k, data.deletedRecurring)
+          );
           let monthTotal = 0;
           const tagSums = {};
           selectedTags.forEach(t => tagSums[t] = 0);
 
-          for (const e of data.entries) {
+          for (const e of allRows) {
+              let tagValue = null;
               if (['spend', 'cardcharge', 'cashpayment'].includes(e.type)) {
-                  const t = (e.tag || 'Untagged').trim();
-                  const matchedTag = selectedTags.find(st => st.toLowerCase() === t.toLowerCase());
+                  tagValue = (e.tag || 'Untagged').trim();
+              } else if (e.type === 'emi') {
+                  tagValue = 'EMI';
+              } else if (e.type === 'sip') {
+                  tagValue = 'SIP';
+              } else if (e.type === 'recurring') {
+                  tagValue = 'RECURRING';
+              }
+
+              if (tagValue) {
+                  const matchedTag = selectedTags.find(st => st.toLowerCase() === tagValue.toLowerCase());
                   if (matchedTag) {
-                      // Personal spend + still-unsettled lent both count toward
-                      // this tag's outflow. A lent amount that's since been
-                      // settled is paid back, so it comes off the total entirely.
                       const amt = Number(e.amount) || 0;
                       tagSums[matchedTag] += amt;
                       monthTotal += amt;

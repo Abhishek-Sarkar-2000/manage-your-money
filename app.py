@@ -190,6 +190,10 @@ def cards_view():
 def sips_view():
     return render_template("sips.html", **_shell_context("sips"))
 
+@app.route("/subscriptions")
+def subscriptions_view():
+    return render_template("subscriptions.html", **_shell_context("subscriptions"))
+
 @app.route("/split")
 def split_view():
     return render_template("split.html", **_shell_context("split"))

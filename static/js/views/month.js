@@ -1,10 +1,10 @@
 /* ---------- /month/<month_key> ---------- */
 import { Store } from '../core/store.js';
 import { $, $$, uid, escapeHtml } from '../core/dom.js';
-import { fmtINR, todayStr, currentMonthKey, monthKeyLabel, addMonths, diffMonths } from '../core/format.js';
+import { fmtINR, todayStr, currentMonthKey, monthKeyLabel, addMonths, diffMonths, ordinalSuffix } from '../core/format.js';
 import { authReady } from '../core/auth.js';
 import {
-  loadMonth, saveMonth, ensureMonthIndexed, emiRowsForMonth, sipRowsForMonth,
+  loadMonth, saveMonth, ensureMonthIndexed, emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth,
   computeMonthTotals, computeGlobalStats, cardById, allSpendTags,
 } from '../core/domain.js';
 import { renderStatCards, wireStatCardFlip } from '../components/stat-cards.js';
@@ -12,7 +12,7 @@ import { computeSplitPageData } from '../core/split-domain.js';
 import { donutChart } from '../components/charts/donut.js';
 import { barChart, tagsBarChart } from '../components/charts/bar-chart.js';
 import { lineChart, wireChartTooltips } from '../components/charts/line-chart.js';
-import { setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
+import { scrollWrapper, setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
@@ -25,6 +25,7 @@ const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Transport', 'Subsc
 let cards = [];
 let emiSeries = [];
 let sipSeries = [];
+let recurringSeries = [];
 let monthsIndex = [];
 let customTags = [];
 let priceTrackDictionary = {};
@@ -36,7 +37,7 @@ let formSlideDirection = '';
 let animTimeout = null;
 let domainLoaded = false;
 
-const PILL_ORDER = ['spend', 'cardcharge', 'cashpayment', 'income', 'owed', 'emi', 'invest'];
+const PILL_ORDER = ['spend', 'cardcharge', 'cashpayment', 'recurring', 'income', 'owed', 'emi', 'invest'];
 
 // Fetched once. renderMonth() is called on almost every interaction on
 // this page (add/delete an entry, toggle starting balance, settle a debt,
@@ -47,7 +48,7 @@ const PILL_ORDER = ['spend', 'cardcharge', 'cashpayment', 'income', 'owed', 'emi
 // stays correct without a refetch.
 async function loadDomain() {
   if (domainLoaded) return;
-  [cards, emiSeries, sipSeries, monthsIndex, customTags, priceTrackDictionary, priceItems, existingInvestments, splitsIndex] = await Promise.all([
+  [cards, emiSeries, sipSeries, monthsIndex, customTags, priceTrackDictionary, priceItems, existingInvestments, splitsIndex, recurringSeries] = await Promise.all([
     Store.get('creditcards', []),
     Store.get('emiseries', []),
     Store.get('sipseries', []),
@@ -57,6 +58,7 @@ async function loadDomain() {
     Store.get('price-items', []),
     Store.get('existinginvestments', 0),
     Store.get('splits-index', []),
+    Store.get('recurringseries', []),
   ]);
   domainLoaded = true;
 }
@@ -270,7 +272,11 @@ function renderForm(kind) {
   if (kind === 'cardcharge') {
     return `
     <div class="form-panel">
-      <div class="form-note" style="margin-top:0;margin-bottom:14px;">Money spent on credit — adds to that card's dues. Doesn't touch your cash balance until you pay it off via a "Spend" entry with mode "Credit card".</div>
+      <div class="form-note invest-form" style="margin-top:0;">
+        <span>Money spent on credit — adds to that card's dues. Doesn't touch your cash balance until you pay it off via a "Spend" entry with mode "Credit card".</span>
+        <a class="pill-btn sub-pill active hyperlink" href="/subscriptions">Manage Credit Cards</a>
+      </div>
+      <div class="form-note" style="margin-top:0;margin-bottom:14px;"></div>
       <div class="form-row">
         <div class="field"><label>Spend</label><input id="f-desc" type="text" placeholder="e.g. Dinner out" /></div>
         <div class="field"><label>Amount (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
@@ -287,7 +293,6 @@ function renderForm(kind) {
       </div>
       <div id="f-price-track-wrap" style="margin-bottom: 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <button class="pill-btn sub-pill" id="f-price-track-btn" type="button">+ Add to Price Tracker</button>
-        <a class="pill-btn sub-pill hyperlink" href="/cards">Manage Credit Cards</a>
       </div>
       <label class="checkline"><input type="checkbox" id="f-lent-toggle" /> Lent — someone owes me part of this</label>
       <div id="f-lent-wrap" style="display:none;">
@@ -301,7 +306,6 @@ function renderForm(kind) {
       </div>
       <div class="form-actions">
         <button class="btn" data-submit="cardcharge" ${cards.length ? '' : 'disabled'}>Add card spend</button>
-        <button class="btn ghost" data-close-form>Cancel</button>
       </div>
     </div>`;
   }
@@ -334,6 +338,34 @@ function renderForm(kind) {
       </div>
       <div class="form-actions">
         <button class="btn" data-submit="cashpayment">Add cash payment</button>
+        <button class="btn ghost" data-close-form>Cancel</button>
+      </div>
+    </div>`;
+  }
+  if (kind === 'recurring') {
+    return `
+    <div class="form-panel">
+      <div class="form-note invest-form" style="margin-top:0;">
+        <span>Auto-deducted every month on the date you choose. If a month doesn't have that many days, it deducts on the last valid day instead.</span>
+        <a class="pill-btn sub-pill active hyperlink" href="/subscriptions">Manage Subscriptions</a>
+      </div>
+      <div class="pill-grid" style="margin-bottom: 12px;" id="f-recurring-mode-selector">
+        <button class="pill-btn sub-pill active" data-recurring-mode="bank" type="button">Bank Transfer</button>
+        <button class="pill-btn sub-pill" data-recurring-mode="card" type="button" ${cards.length ? '' : 'disabled'}>Credit Card</button>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Details</label><input id="f-desc" type="text" placeholder="e.g. Netflix" /></div>
+        <div class="field"><label>Amount (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+        <div class="field"><label>Date of deduction</label><input id="f-recurring-day" type="number" step="1" min="1" max="31" placeholder="e.g. 5" /></div>
+      </div>
+      <div class="form-row" id="f-recurring-card-row" style="display:none;">
+        <div class="field">
+          <label>Card</label>
+          <select id="f-recurring-card">${cardOptions || '<option value="">No cards added</option>'}</select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn" data-submit="recurring">Add recurring expense</button>
         <button class="btn ghost" data-close-form>Cancel</button>
       </div>
     </div>`;
@@ -419,6 +451,7 @@ function renderForm(kind) {
   return '';
 }
 
+
 /* ---------- Main render ---------- */
 async function renderMonth() {
   await loadDomain();
@@ -435,10 +468,11 @@ async function renderMonth() {
 
   const emiRows = emiRowsForMonth(emiSeries, monthKey, data.deletedEmi);
   const sipRows = sipRowsForMonth(sipSeries, monthKey, data.deletedSip);
+  const recurringRows = recurringRowsForMonth(recurringSeries, monthKey, data.deletedRecurring);
   const allRows = [...data.entries].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  const monthTotals = computeMonthTotals(data.entries.concat(emiRows, sipRows));
+  const monthTotals = computeMonthTotals(data.entries.concat(emiRows, sipRows, recurringRows));
 
-  const stats = await computeGlobalStats({ cards, emiSeries, sipSeries, monthsIndex, existingInvestments, isShared: false, sharedSplitId: null, splitsIndex });
+  const stats = await computeGlobalStats({ cards, emiSeries, sipSeries, recurringSeries, monthsIndex, existingInvestments, isShared: false, sharedSplitId: null, splitsIndex });
 
   const monthInvestList = [];
   for (const e of data.entries) {
@@ -484,18 +518,40 @@ async function renderMonth() {
     </div>`;
   }).join('') + `</div>` : '';
 
-  const sipCardsHtml = sipRows.length ? `<div class="emi-list">` + sipRows.map(e => `
+  const sipCardsHtml = sipRows.length ? `<div class="emi-list">` + sipRows.map(e => {
+    const dayNum = new Date(e.date + 'T00:00:00').getDate();
+    return `
     <div class="emi-card">
       <div>
-        <h4>${escapeHtml(e.description)}</h4>
-        <div class="emi-stats">Recurring monthly investment</div>
+        <h4><span class="tag sip">SIP</span> ${escapeHtml(e.description)}</h4>
+        <div class="emi-stats">Recurring investment — deducted on the ${dayNum}${ordinalSuffix(dayNum)} of every month</div>
       </div>
       <div style="display: flex; align-items: center; gap: 16px;">
         <div class="num recurring-card">-${fmtINR(e.amount)}</div>
         <button class="icon-btn" data-popover-trigger data-skip-sip="${monthKey}|${e.seriesId}" title="Skip this month">⤵</button>
       </div>
-    </div>`
-  ).join('') + `</div>` : '';
+    </div>`;
+  }).join('') + `</div>` : '';
+
+  const recurringCardsHtml = recurringRows.length ? `<div class="emi-list">` + recurringRows.map(e => {
+    const dayNum = new Date(e.date + 'T00:00:00').getDate();
+    let modeText = 'Bank Transfer';
+    if (e.paymentMode === 'card') {
+      const c = cards.find(card => card.id === e.cardId);
+      modeText = c ? c.name : 'Credit Card';
+    }
+    return `
+    <div class="emi-card">
+      <div>
+        <h4><span class="tag recurring">RECURRING</span> ${escapeHtml(e.description)}</h4>
+        <div class="emi-stats">Recurring expense — deducted on the ${dayNum}${ordinalSuffix(dayNum)} of every month via ${escapeHtml(modeText)}</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <div class="num amt-debit recurring-card">-${fmtINR(e.amount)}</div>
+        <button class="icon-btn" data-popover-trigger data-skip-recurring="${monthKey}|${e.seriesId}" title="Skip this month">⤵</button>
+      </div>
+    </div>`;
+  }).join('') + `</div>` : '';
 
   let unsettledConsumptionLent = 0, settledConsumptionLent = 0;
   for (const e of data.entries) {
@@ -552,15 +608,16 @@ async function renderMonth() {
 
   <div class="section">
     <div class="section-title"><h2>Add an entry</h2><span class="hint">Log every credit and debit</span></div>
-    <div class="pill-grid">
+    ${scrollWrapper(`
       <button class="pill-btn ${openForm === 'spend' ? 'active' : ''}" data-form="spend">+ Spend</button>
       <button class="pill-btn alt ${openForm === 'cardcharge' ? 'active' : ''}" data-form="cardcharge">+ Credit card spend</button>
       <button class="pill-btn alt ${openForm === 'cashpayment' ? 'active' : ''}" data-form="cashpayment">+ Cash Payments</button>
+      <button class="pill-btn ${openForm === 'recurring' ? 'active' : ''}" data-form="recurring">+ Recurring Expense</button>
       <button class="pill-btn ${openForm === 'income' ? 'active' : ''}" data-form="income">+ Income</button>
       <button class="pill-btn ${openForm === 'owed' ? 'active' : ''}" data-form="owed">+ Owed to you</button>
       <button class="pill-btn ${openForm === 'emi' ? 'active' : ''}" data-form="emi">+ EMI</button>
       <button class="pill-btn ${openForm === 'invest' ? 'active' : ''}" data-form="invest">+ Investment</button>
-    </div>
+    `, 'form-pill-track')}
     ${openForm ? `
     <div id="form-panel-anim-inner" class="${formSlideDirection || ''}">
       ${renderForm(openForm)}
@@ -580,6 +637,7 @@ async function renderMonth() {
           { label: 'Credit card spends', value: monthTotals.ccSpends, color: '#8E6FB0' },
           { label: 'Cash payments', value: monthTotals.cashPayments, color: '#C98A3C' },
           { label: 'EMI', value: monthTotals.emi, color: '#5B4B9E' },
+          { label: 'Recurring', value: monthTotals.recurring, color: '#B0556F' },
           { label: 'SIP', value: monthTotals.sip, color: '#2E8B77' },
           { label: 'Investment', value: monthTotals.invest, color: 'var(--blue)' },
         ])}
@@ -645,6 +703,11 @@ async function renderMonth() {
   <div class="section">
     <div class="section-title"><h2>SIPs</h2><span class="hint">${sipRows.length} running this month - skip by clicking ⤵</span></div>
     ${sipCardsHtml}
+  </div>` : ''}
+  ${recurringRows.length ? `
+  <div class="section">
+    <div class="section-title"><h2>Recurring Expenses</h2><span class="hint">${recurringRows.length} deducted this month</span></div>
+    ${recurringCardsHtml}
   </div>` : ''}
   `;
 
@@ -768,6 +831,25 @@ async function handleSubmit(kind) {
     if (elapsed >= months) { showToast('Invalid: EMI is already complete based on the starting month.'); return; }
     emiSeries.push({ id: uid(), description: desc, monthlyAmount: amount, totalMonths: months, startMonth });
     await Store.set('emiseries', emiSeries);
+  } else if (kind === 'recurring') {
+    const dayOfMonth = Number($('#f-recurring-day')?.value);
+    if (!desc || !amount || amount <= 0 || !dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) { showToast('Fill in details, amount and a valid date of deduction (1-31)'); return; }
+    
+    const modeBtn = document.querySelector('[data-recurring-mode].active');
+    const paymentMode = modeBtn ? modeBtn.dataset.recurringMode : 'bank';
+    let cardId = null;
+    if (paymentMode === 'card') {
+      cardId = $('#f-recurring-card').value;
+      if (!cardId) { showToast('Add a credit card first'); return; }
+    }
+
+    recurringSeries.push({ id: uid(), description: desc, amount, dayOfMonth, paymentMode, cardId, startMonth: monthKey });
+    await Store.set('recurringseries', recurringSeries);
+    await saveMonth(monthKey);
+    openForm = null;
+    await renderMonth();
+    showToast(`Recurring spend will be deducted on the ${dayOfMonth}${ordinalSuffix(dayOfMonth)} of every month`);
+    return;
   }
 
   await saveMonth(monthKey);
@@ -843,6 +925,23 @@ root.addEventListener('click', async (ev) => {
       if (lentContainer) lentContainer.style.display = 'none';
       if (lentWrap) lentWrap.style.display = 'none';
       if (lentToggle) lentToggle.checked = false;
+    }
+    return;
+  }
+
+  const recurringModeBtn = ev.target.closest('[data-recurring-mode]');
+  if (recurringModeBtn) {
+    if (recurringModeBtn.disabled) return;
+    const wrap = recurringModeBtn.closest('#f-recurring-mode-selector');
+    wrap.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+    recurringModeBtn.classList.add('active');
+
+    const mode = recurringModeBtn.dataset.recurringMode;
+    const cardRow = $('#f-recurring-card-row');
+    if (mode === 'card') {
+      if (cardRow) cardRow.style.display = 'contents';
+    } else {
+      if (cardRow) cardRow.style.display = 'none';
     }
     return;
   }
@@ -971,6 +1070,28 @@ root.addEventListener('click', async (ev) => {
     hideDeleteCallout();
     await renderMonth();
     showToast('EMI deleted entirely');
+    return;
+  }
+
+  const skipRecurringBtn = ev.target.closest('[data-skip-recurring]');
+  if (skipRecurringBtn) {
+    ev.stopPropagation();
+    const { showDeleteCallout } = await import('../components/delete-popover.js');
+    showDeleteCallout(skipRecurringBtn, 'confirm-skip-recurring', skipRecurringBtn.dataset.skipRecurring, 'Confirm skip');
+    return;
+  }
+  const confirmSkipRecurring = ev.target.closest('[data-confirm-skip-recurring]');
+  if (confirmSkipRecurring) {
+    ev.stopPropagation();
+    const { hideDeleteCallout } = await import('../components/delete-popover.js');
+    const [mk, seriesId] = confirmSkipRecurring.dataset.confirmSkipRecurring.split('|');
+    const data = await loadMonth(mk);
+    data.deletedRecurring = data.deletedRecurring || [];
+    if (!data.deletedRecurring.includes(seriesId)) data.deletedRecurring.push(seriesId);
+    await saveMonth(mk);
+    hideDeleteCallout();
+    await renderMonth();
+    showToast("Skipped this month's recurring expense — balance updated");
     return;
   }
 
