@@ -687,19 +687,19 @@ async function renderMonth() {
         <div class="month-sip-card">
           <div class="month-sip-card-header">
             <div style="width: 100%;">
-              <h4 style="margin-bottom: 6px; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
+              <h4 style="margin-bottom: 0; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
                 <span style="word-break: break-word;">${escapeHtml(e.description)}</span>
                 <span style="display: inline-flex; gap: 4px; align-items: center; flex-shrink: 0;">
                   <span class="src-badge ${cat.cls}">${cat.label}</span>
                   <span class="src-badge sip">SIP</span>
                 </span>
               </h4>
-              <div class="emi-stats" style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace;">
-                Next deduction: ${dayNum}${ordinalSuffix(dayNum)}
-              </div>
             </div>
           </div>
-          <div class="month-sip-card-footer">
+          <div class="emi-stats" style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: auto; margin-bottom: 4px;">
+            Next deduction: ${dayNum}${ordinalSuffix(dayNum)}
+          </div>
+          <div class="month-sip-card-footer" style="margin-top: 0;">
             <div class="num recurring-card" style="font-size: 1.15rem; font-weight: 600; color: var(--blue);">
               -${fmtINR(e.amount)}
             </div>
@@ -735,19 +735,19 @@ async function renderMonth() {
     <div class="month-sip-card">
       <div class="month-sip-card-header">
         <div style="width: 100%;">
-          <h4 style="margin-bottom: 6px; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
-            <span style="word-break: break-word;">${escapeHtml(e.description)}</span>
-            <span style="display: inline-flex; gap: 4px; align-items: center; flex-shrink: 0;">
-              <span class="src-badge" style="background: ${modeBadgeBg}; color: ${modeBadgeColor};">${modeBadge}</span>
-              <span class="src-badge" style="background: #FCE8E6; color: #B0556F;">RECURRING</span>
-            </span>
-          </h4>
-          <div class="emi-stats" style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace;">
+          <h4 style="margin-bottom: 0; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
+                <span style="word-break: break-word;">${escapeHtml(e.description)}</span>
+                <span style="display: inline-flex; gap: 4px; align-items: center; flex-shrink: 0;">
+                  <span class="src-badge" style="background: ${modeBadgeBg}; color: ${modeBadgeColor};">${modeBadge}</span>
+                  <span class="src-badge" style="background: #FCE8E6; color: #B0556F;">RECURRING</span>
+                </span>
+              </h4>
+            </div>
+          </div>
+          <div class="emi-stats" style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: auto; margin-bottom: 4px;">
             Next deduction: ${dayNum}${ordinalSuffix(dayNum)} via ${escapeHtml(modeText)}
           </div>
-        </div>
-      </div>
-      <div class="month-sip-card-footer">
+          <div class="month-sip-card-footer" style="margin-top: 0;">
         <div class="num recurring-card" style="font-size: 1.15rem; font-weight: 600; color: var(--blue);">
           -${fmtINR(e.amount)}
         </div>

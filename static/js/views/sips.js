@@ -158,7 +158,7 @@ async function renderSips() {
         <div class="tsc-top">
           <div class="ifc-title">TOTAL MONTHLY SIP</div>
           <div class="tsc-val num">${fmtINR(totalMonthlySip)}</div>
-          <div class="tsc-mo">/mo</div>
+          <div class="tsc-mo">per month</div>
         </div>
         <div class="ifc-subtitle" style="margin-top: 12px; margin-bottom: 0;">Aggregated monthly contribution across all active SIPs.</div>
       </div>

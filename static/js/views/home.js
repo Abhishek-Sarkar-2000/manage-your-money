@@ -136,32 +136,32 @@ function renderFromCache() {
     <div class="scroll-wrapper" data-scroll-wrapper>
       <div class="scroll-track money-track" data-scroll-track>
         <a class="action-card" href="/months">
-          <div class="ac-icon">☰</div>
+          <div class="ac-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></div>
           <h3>Previous months</h3>
           <p>Browse every month you've logged so far.</p>
         </a>
         <a class="action-card" href="/split">
-          <div class="ac-icon">⇄</div>
+          <div class="ac-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
           <h3>Split Money</h3>
           <p>Track group spends with friends, settle debts, and sync it straight into your ledger.</p>
         </a>
         <a class="action-card" href="/cards">
-          <div class="ac-icon">▭</div>
+          <div class="ac-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg></div>
           <h3>Credit cards</h3>
           <p>Manage the cards you track charges and dues against.</p>
         </a>
         <a class="action-card" href="/sips">
-          <div class="ac-icon">↻</div>
+          <div class="ac-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="7" ry="3"></ellipse><path d="M5 5v4c0 1.7 3.1 3 7 3s7-1.3 7-3V5"></path><path d="M5 9v4c0 1.7 3.1 3 7 3s7-1.3 7-3V9"></path><path d="M5 13v4c0 1.7 3.1 3 7 3s7-1.3 7-3v-4"></path></svg></div>
           <h3>Manage SIPs</h3>
           <p>Set up recurring investments so they're auto-tracked every month until you stop them.</p>
         </a>
         <a class="action-card" href="/subscriptions">
-          <div class="ac-icon">⟳</div>
+          <div class="ac-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg></div>
           <h3>Manage Subscriptions</h3>
           <p>Track recurring bills and subscriptions so they're auto-deducted every month, on the date you pick.</p>
         </a>
         <a class="action-card" href="/pricetrack">
-          <div class="ac-icon">↗</div>
+          <div class="ac-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg></div>
           <h3>Price Tracker</h3>
           <p>Note down what things cost — groceries, transport, subscriptions — and watch prices move over time.</p>
         </a>

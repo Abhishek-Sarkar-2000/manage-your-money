@@ -195,67 +195,6 @@
   margin-top: auto;
 }
 
-@media (max-width: 580px) {
-  .month-sip-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .month-sip-card {
-    padding: 10px 10px;
-    border-radius: 8px;
-  }
-
-  .month-sip-card-header {
-    margin-bottom: 8px;
-  }
-
-  .month-sip-card h4 {
-    font-size: clamp(0.92rem, 3.4vw, 1.02rem) !important;
-    flex-wrap: wrap;
-    row-gap: 4px;
-    margin-bottom: 4px !important;
-  }
-
-  .month-sip-card .src-badge {
-    padding: 1px 4px !important;
-    font-size: 0.58rem !important;
-  }
-
-  .month-sip-card .emi-stats {
-    font-size: clamp(0.62rem, 2.2vw, 0.7rem) !important;
-    line-height: 1.2;
-  }
-
-  .month-sip-card-footer {
-    padding-top: 8px;
-  }
-
-  .month-sip-card .recurring-card {
-    font-size: clamp(0.85rem, 2.8vw, 0.95rem) !important;
-  }
-
-  .month-sip-card .icon-btn {
-    width: 26px !important;
-    height: 26px !important;
-    font-size: 0.72rem !important;
-    border-radius: 6px !important;
-  }
-}
-
-@media (max-width: 400px) {
-  .sip-filter-grid .pill-btn {
-    padding: 5px 9px;
-    font-size: 0.68rem;
-  }
-
-  .month-sip-grid {
-    grid-template-columns: 1fr;
-  }
-  .month-sip-card h4 {
-    font-size: 1.05rem !important;
-  }
-}
 /* ---------- EMI Cards ---------- */
 .emi-list {
   display: flex;
@@ -304,32 +243,6 @@
     font-size: 1.1rem;
     font-weight: 600;
     color: var(--blue);
-}
-
-@media (max-width: 560px) {
-  .recurring-card{
-    font-size: clamp(0.8rem, 4vw, 1.1rem);
-    white-space: nowrap;
-  }
-  .emi-card {
-    flex-wrap: wrap;
-    row-gap: 12px;
-  }
-
-  .emi-card > div:first-child {
-    flex: 1 1 100%;
-  }
-
-  .emi-card > div:last-child {
-    flex: 1 1 100%;
-    justify-content: space-between;
-    padding-top: 10px;
-    border-top: 1px dashed var(--hair);
-  }
-
-  .emi-card .emi-stats {
-    line-height: 1.5;
-  }
 }
 
 /* ---------- Add transaction panel ---------- */
@@ -511,6 +424,63 @@
   text-overflow: ellipsis;
 }
 
+@media (max-width: 582px) {
+  .month-sip-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .emi-list {
+    gap: 8px;
+  }
+
+  .emi-card {
+    padding: 10px 12px;
+    border-radius: 8px;
+  }
+
+  .month-sip-card {
+    padding: 10px 10px;
+    border-radius: 8px;
+  }
+
+  .month-sip-card-header {
+    margin-bottom: 8px;
+  }
+
+  .month-sip-card h4 {
+    font-size: clamp(0.92rem, 3.4vw, 1.02rem) !important;
+    flex-wrap: wrap;
+    row-gap: 4px;
+    margin-bottom: 4px !important;
+  }
+
+  .month-sip-card .src-badge {
+    padding: 1px 4px !important;
+    font-size: 0.58rem !important;
+  }
+
+  .month-sip-card .emi-stats {
+    font-size: clamp(0.62rem, 2.2vw, 0.7rem) !important;
+    line-height: 1.2;
+  }
+
+  .month-sip-card-footer {
+    padding-top: 8px;
+  }
+
+  .month-sip-card .recurring-card {
+    font-size: clamp(0.85rem, 2.8vw, 0.95rem) !important;
+  }
+
+  .month-sip-card .icon-btn {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 0.72rem !important;
+    border-radius: 6px !important;
+  }
+}
+
 @media (max-width: 480px) {
   .add-entry-trigger-sub,
   .txn-option-desc {
@@ -533,5 +503,38 @@
 
   .txn-option-title {
     font-size: 0.8rem;
+  }
+  .emi-card {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .emi-card > div:first-child {
+    flex: 1 1 100%;
+  }
+
+  .emi-card > div:last-child {
+    flex: 1 1 100%;
+    justify-content: space-between;
+    padding-top: 4px;
+    border-top: 1px dashed var(--sky);
+  }
+
+  .emi-card .emi-stats {
+    line-height: 1.5;
+  }
+}
+
+@media (max-width: 400px) {
+  .sip-filter-grid .pill-btn {
+    padding: 5px 9px;
+    font-size: 0.68rem;
+  }
+
+  .month-sip-grid {
+    grid-template-columns: 1fr;
+  }
+  .month-sip-card h4 {
+    font-size: 1.05rem !important;
   }
 }

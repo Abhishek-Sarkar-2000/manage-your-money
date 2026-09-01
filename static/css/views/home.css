@@ -165,11 +165,30 @@
 /* ---------- Stats (hoverable on desktop, slide-reveal on mobile) ---------- */
 
 @media (max-width: 480px) {
-  .money-track {
-    flex-wrap: wrap;
-    overflow-x: visible;
-  }
   .action-card {
-    flex: 0 0 100%;
+    flex: 0 0 180px;
+    min-width: 160px;
+    padding: 18px 16px;
+  }
+  
+  .action-card .ac-icon {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 12px;
+  }
+  
+  .action-card .ac-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .action-card h3 {
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+  }
+  
+  .action-card p {
+    font-size: 0.75rem;
+    line-height: 1.4;
   }
 }
