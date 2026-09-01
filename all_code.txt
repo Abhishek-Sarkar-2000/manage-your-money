@@ -1501,6 +1501,25 @@ color: #C07A2E;
   color: #2E8B77;
 }
 
+.src-badge.mf {
+  background: var(--blue-bg);
+  color: var(--blue);
+}
+
+.src-badge.etf {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+
+.src-badge.stock {
+  background: var(--royal-bg);
+  color: #5B4B9E;
+}
+
+:root[data-theme="dark"] .src-badge.stock {
+  color: var(--royal);
+}
+
 .tag.invest {
   background: #E4EEF9;
   color: var(--blue);
@@ -3437,9 +3456,6 @@ transform: translateY(0);
   border-width: 1px;
   border-color: var(--blue-soft);
 }
-:root[data-theme="dark"] .ifc-title {
-  color: #A8B1FF;
-}
 :root[data-theme="dark"] .ifc-subtitle {
   color: #fff;
 }
@@ -3451,8 +3467,9 @@ transform: translateY(0);
   color: #fff;
 }
 
-:root[data-theme="dark"] .current-month-card:not(.empty) .cm-eyebrow {
-  color: #A8B1FF;
+:root[data-theme="dark"] .current-month-card:not(.empty) .cm-eyebrow,
+:root[data-theme="dark"] .ifc-title {
+  color: var(--amber);
 }
 
 :root[data-theme="dark"] .current-month-card:not(.empty) .cm-sub {
@@ -3487,6 +3504,10 @@ transform: translateY(0);
 :root[data-theme="dark"] .toast {
   background: var(--ice);
   border: solid 1px var(--sky) ;
+}
+
+:root[data-theme="dark"] .tsc-mo {
+  color: var(--text-light);
 }
 
 :root[data-theme="dark"] .shared-share-grid-line,
@@ -3764,12 +3785,31 @@ footer {
 /* ---------- Stats (hoverable on desktop, slide-reveal on mobile) ---------- */
 
 @media (max-width: 480px) {
-  .money-track {
-    flex-wrap: wrap;
-    overflow-x: visible;
-  }
   .action-card {
-    flex: 0 0 100%;
+    flex: 0 0 180px;
+    min-width: 160px;
+    padding: 18px 16px;
+  }
+  
+  .action-card .ac-icon {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 12px;
+  }
+  
+  .action-card .ac-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .action-card h3 {
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+  }
+  
+  .action-card p {
+    font-size: 0.75rem;
+    line-height: 1.4;
   }
 }
 
@@ -3897,50 +3937,44 @@ footer {
   font-weight: 600;
 }
 
-.price-category-section {
-  margin-bottom: 24px;
-}
-
-.price-category-title {
+.sip-filter-grid {
   display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: #fff;
-  border-radius: 999px;
+  gap: 0;
+  margin-bottom: 18px;
+}
+
+.sip-filter-grid .pill-btn {
   padding: 6px 16px;
-  font-family: 'IBM Plex Mono', monospace;
   font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 600;
-  color: var(--royal);
-  border: 1px solid var(--hair);
-  box-shadow: var(--shadow-sm);
-  margin-bottom: 4px;
+  white-space: nowrap;
+  text-align: center;
+  border-radius: 0;
+  border-style: solid;
+  margin-left: -1.5px;
+  position: relative;
+  z-index: 1;
 }
 
-.price-category-title::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--blue);
-  flex-shrink: 0;
+.sip-filter-grid .pill-btn:first-child {
+  margin-left: 0;
+  border-top-left-radius: 999px;
+  border-bottom-left-radius: 999px;
 }
 
-:root[data-theme="dark"] .price-category-title {
-  background: var(--hair);
-  color: var(--navy);
-  border: 1px solid var(--blue-soft);
-  box-shadow: 0 10px 24px rgba(2, 11, 22, 0.77), 0 2px 6px rgba(9, 21, 36, 0.6);
+.sip-filter-grid .pill-btn:last-child {
+  border-top-right-radius: 999px;
+  border-bottom-right-radius: 999px;
 }
-:root[data-theme="hi-contrast"] .price-category-title {
-  background: var(--blue);
-  color: var(--text-white);
-  border: 1px solid var(--navy);
+
+.sip-filter-grid .pill-btn.active,
+.sip-filter-grid .pill-btn:hover {
+  z-index: 2;
 }
-:root[data-theme="hi-contrast"] .price-category-title::before {
-  background: var(--text-white);
+
+.month-sip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
 }
 
 .month-sip-card {
@@ -3948,34 +3982,33 @@ footer {
   background: linear-gradient(120deg, #fff, var(--ice-2));
   border: 1px solid var(--hair);
   border-radius: var(--radius-sm);
-  padding: 16px 18px;
+  padding: 18px;
   box-shadow: var(--shadow-sm);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  height: 100%;
+  height: auto;
 }
 
 .month-sip-card:hover {
   box-shadow: var(--shadow);
 }
 
-@media (max-width: 480px) {
-  .price-category-track .month-sip-card {
-    flex: 0 0 75vw;
-    min-width: 220px;
-    padding: 14px;
-  }
-  .month-sip-card h4 {
-    font-size: 0.95rem !important;
-  }
-  .month-sip-card .emi-stats {
-    font-size: 0.72rem !important;
-  }
-  .month-sip-card .recurring-card {
-    font-size: 1rem !important;
-  }
+.month-sip-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.month-sip-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px dashed var(--hair);
+  padding-top: 14px;
+  margin-top: auto;
 }
 
 /* ---------- EMI Cards ---------- */
@@ -4026,32 +4059,6 @@ footer {
     font-size: 1.1rem;
     font-weight: 600;
     color: var(--blue);
-}
-
-@media (max-width: 560px) {
-  .recurring-card{
-    font-size: clamp(0.8rem, 4vw, 1.1rem);
-    white-space: nowrap;
-  }
-  .emi-card {
-    flex-wrap: wrap;
-    row-gap: 12px;
-  }
-
-  .emi-card > div:first-child {
-    flex: 1 1 100%;
-  }
-
-  .emi-card > div:last-child {
-    flex: 1 1 100%;
-    justify-content: space-between;
-    padding-top: 10px;
-    border-top: 1px dashed var(--hair);
-  }
-
-  .emi-card .emi-stats {
-    line-height: 1.5;
-  }
 }
 
 /* ---------- Add transaction panel ---------- */
@@ -4233,6 +4240,63 @@ footer {
   text-overflow: ellipsis;
 }
 
+@media (max-width: 582px) {
+  .month-sip-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .emi-list {
+    gap: 8px;
+  }
+
+  .emi-card {
+    padding: 10px 12px;
+    border-radius: 8px;
+  }
+
+  .month-sip-card {
+    padding: 10px 10px;
+    border-radius: 8px;
+  }
+
+  .month-sip-card-header {
+    margin-bottom: 8px;
+  }
+
+  .month-sip-card h4 {
+    font-size: clamp(0.92rem, 3.4vw, 1.02rem) !important;
+    flex-wrap: wrap;
+    row-gap: 4px;
+    margin-bottom: 4px !important;
+  }
+
+  .month-sip-card .src-badge {
+    padding: 1px 4px !important;
+    font-size: 0.58rem !important;
+  }
+
+  .month-sip-card .emi-stats {
+    font-size: clamp(0.62rem, 2.2vw, 0.7rem) !important;
+    line-height: 1.2;
+  }
+
+  .month-sip-card-footer {
+    padding-top: 8px;
+  }
+
+  .month-sip-card .recurring-card {
+    font-size: clamp(0.85rem, 2.8vw, 0.95rem) !important;
+  }
+
+  .month-sip-card .icon-btn {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 0.72rem !important;
+    border-radius: 6px !important;
+  }
+}
+
 @media (max-width: 480px) {
   .add-entry-trigger-sub,
   .txn-option-desc {
@@ -4255,6 +4319,39 @@ footer {
 
   .txn-option-title {
     font-size: 0.8rem;
+  }
+  .emi-card {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .emi-card > div:first-child {
+    flex: 1 1 100%;
+  }
+
+  .emi-card > div:last-child {
+    flex: 1 1 100%;
+    justify-content: space-between;
+    padding-top: 4px;
+    border-top: 1px dashed var(--sky);
+  }
+
+  .emi-card .emi-stats {
+    line-height: 1.5;
+  }
+}
+
+@media (max-width: 400px) {
+  .sip-filter-grid .pill-btn {
+    padding: 5px 9px;
+    font-size: 0.68rem;
+  }
+
+  .month-sip-grid {
+    grid-template-columns: 1fr;
+  }
+  .month-sip-card h4 {
+    font-size: 1.05rem !important;
   }
 }
 === ./static/css/views/months.css ===
@@ -8178,32 +8275,32 @@ function renderFromCache() {
     <div class="scroll-wrapper" data-scroll-wrapper>
       <div class="scroll-track money-track" data-scroll-track>
         <a class="action-card" href="/months">
-          <div class="ac-icon">☰</div>
+          <div class="ac-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></div>
           <h3>Previous months</h3>
           <p>Browse every month you've logged so far.</p>
         </a>
         <a class="action-card" href="/split">
-          <div class="ac-icon">⇄</div>
+          <div class="ac-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
           <h3>Split Money</h3>
           <p>Track group spends with friends, settle debts, and sync it straight into your ledger.</p>
         </a>
         <a class="action-card" href="/cards">
-          <div class="ac-icon">▭</div>
+          <div class="ac-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg></div>
           <h3>Credit cards</h3>
           <p>Manage the cards you track charges and dues against.</p>
         </a>
         <a class="action-card" href="/sips">
-          <div class="ac-icon">↻</div>
+          <div class="ac-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="7" ry="3"></ellipse><path d="M5 5v4c0 1.7 3.1 3 7 3s7-1.3 7-3V5"></path><path d="M5 9v4c0 1.7 3.1 3 7 3s7-1.3 7-3V9"></path><path d="M5 13v4c0 1.7 3.1 3 7 3s7-1.3 7-3v-4"></path></svg></div>
           <h3>Manage SIPs</h3>
           <p>Set up recurring investments so they're auto-tracked every month until you stop them.</p>
         </a>
         <a class="action-card" href="/subscriptions">
-          <div class="ac-icon">⟳</div>
+          <div class="ac-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg></div>
           <h3>Manage Subscriptions</h3>
           <p>Track recurring bills and subscriptions so they're auto-deducted every month, on the date you pick.</p>
         </a>
         <a class="action-card" href="/pricetrack">
-          <div class="ac-icon">↗</div>
+          <div class="ac-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg></div>
           <h3>Price Tracker</h3>
           <p>Note down what things cost — groceries, transport, subscriptions — and watch prices move over time.</p>
         </a>
@@ -8277,6 +8374,7 @@ let isMoreOpen = false;
 let formSlideDirection = '';
 let animTimeout = null;
 let domainLoaded = false;
+let currentSipFilter = 'All';
 
 const PILL_ORDER = ['spend', 'cardcharge', 'cashpayment', 'recurring', 'income', 'owed', 'emi', 'invest'];
 
@@ -8890,56 +8988,108 @@ async function renderMonth() {
   }).join('') + `</div>` : '';
 
   let sipCardsHtml = '';
+  let sipFilterHtml = '';
+
   if (sipRows.length) {
-    const groupedSips = {};
-    for (const e of sipRows) {
-       const cat = e.category || 'Mutual Fund';
-       if (!groupedSips[cat]) groupedSips[cat] = [];
-       groupedSips[cat].push(e);
+    let sortedSips = [...sipRows].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
+
+    const categories = ['All', 'Mutual Fund', 'ETF', 'Stock'];
+    const displayNames = { 'All': 'All', 'Mutual Fund': 'Mutual Funds', 'ETF': 'ETFs', 'Stock': 'Stocks' };
+
+    sipFilterHtml = `
+    <div class="pill-grid sip-filter-grid">
+      ${categories.map(cat => `
+        <button class="pill-btn sub-pill ${currentSipFilter === cat ? 'active' : ''}" 
+                data-sip-filter="${cat}" type="button">
+          ${displayNames[cat]}
+        </button>
+      `).join('')}
+    </div>`;
+
+    if (currentSipFilter !== 'All') {
+      sortedSips = sortedSips.filter(s => (s.category || 'Mutual Fund') === currentSipFilter);
     }
 
-    const sortedCats = Object.keys(groupedSips).sort();
-    for (const cat of sortedCats) {
-       const catRows = groupedSips[cat].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
-       const cardsHtml = catRows.map(e => {
-         const dayNum = new Date(e.date + 'T00:00:00').getDate();
-         return `
-         <div class="month-sip-card">
-           <div>
-             <h4 style="margin-bottom: 4px; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.02rem;"><a style="margin-right:4px;">${escapeHtml(e.description)}</a><span class="src-badge sip">SIP</span></h4>
-             <div class="emi-stats" style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace;">Deducts on the ${dayNum}${ordinalSuffix(dayNum)}</div>
-           </div>
-           <div style="display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 14px;">
-             <div class="num recurring-card" style="font-size: 1.1rem; font-weight: 600; color: var(--blue);">-${fmtINR(e.amount)}</div>
-             <button class="icon-btn" data-popover-trigger data-skip-sip="${monthKey}|${e.seriesId}" title="Skip this month">⤵</button>
-           </div>
-         </div>`;
-       }).join('');
+    if (sortedSips.length) {
+      const catConfig = {
+        'mutual fund': { label: 'MF', cls: 'mf' },
+        'etf': { label: 'ETF', cls: 'etf' },
+        'stock': { label: 'STOCK', cls: 'stock' }
+      };
+      const cardsHtml = sortedSips.map(e => {
+        const dayNum = new Date(e.date + 'T00:00:00').getDate();
+        const cat = catConfig[(e.category || '').toLowerCase()] || { label: 'MF', cls: 'mf' };
+        return `
+        <div class="month-sip-card">
+          <div class="month-sip-card-header">
+            <div style="width: 100%;">
+              <h4 style="margin-bottom: 0; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
+                <span style="word-break: break-word;">${escapeHtml(e.description)}</span>
+                <span style="display: inline-flex; gap: 4px; align-items: center; flex-shrink: 0;">
+                  <span class="src-badge ${cat.cls}">${cat.label}</span>
+                  <span class="src-badge sip">SIP</span>
+                </span>
+              </h4>
+            </div>
+          </div>
+          <div class="emi-stats" style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: auto; margin-bottom: 4px;">
+            Next deduction: ${dayNum}${ordinalSuffix(dayNum)}
+          </div>
+          <div class="month-sip-card-footer" style="margin-top: 0;">
+            <div class="num recurring-card" style="font-size: 1.15rem; font-weight: 600; color: var(--blue);">
+              -${fmtINR(e.amount)}
+            </div>
+            <button class="icon-btn" data-popover-trigger data-skip-sip="${monthKey}|${e.seriesId}" title="Skip this month" style="background: var(--ice-2); border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
+              ⤵
+            </button>
+          </div>
+        </div>`;
+      }).join('');
 
-       sipCardsHtml += `
-       <div class="price-category-section">
-         <div class="price-category-title">${escapeHtml(cat)}</div>
-         ${scrollWrapper(cardsHtml, 'price-category-track')}
-       </div>`;
+      sipCardsHtml = `<div class="month-sip-grid">${cardsHtml}</div>`;
+    } else {
+      sipCardsHtml = `<div class="empty-chart" style="margin-top: 20px;">No ${displayNames[currentSipFilter]} SIPs running this month.</div>`;
     }
   }
 
-  const recurringCardsHtml = recurringRows.length ? `<div class="emi-list">` + recurringRows.map(e => {
+  const recurringCardsHtml = recurringRows.length ? `<div class="month-sip-grid">` + recurringRows.map(e => {
     const dayNum = new Date(e.date + 'T00:00:00').getDate();
     let modeText = 'Bank Transfer';
+    let modeBadge = 'SPEND';
+    let modeBadgeBg = 'var(--debit-bg)';
+    let modeBadgeColor = 'var(--debit)';
+    
     if (e.paymentMode === 'card') {
       const c = cards.find(card => card.id === e.cardId);
       modeText = c ? c.name : 'Credit Card';
+      modeBadge = 'CARD SPEND';
+      modeBadgeBg = '#FBF0E2';
+      modeBadgeColor = '#C07A2E';
     }
+
     return `
-    <div class="emi-card">
-      <div>
-        <h4><span class="tag recurring">RECURRING</span> ${escapeHtml(e.description)}</h4>
-        <div class="emi-stats">Expense deducted on ${dayNum}${ordinalSuffix(dayNum)} of the month via ${escapeHtml(modeText)}</div>
-      </div>
-      <div style="display: flex; align-items: center; gap: 16px;">
-        <div class="num amt-debit recurring-card">-${fmtINR(e.amount)}</div>
-        <button class="icon-btn" data-popover-trigger data-skip-recurring="${monthKey}|${e.seriesId}" title="Skip this month">⤵</button>
+    <div class="month-sip-card">
+      <div class="month-sip-card-header">
+        <div style="width: 100%;">
+          <h4 style="margin-bottom: 0; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
+                <span style="word-break: break-word;">${escapeHtml(e.description)}</span>
+                <span style="display: inline-flex; gap: 4px; align-items: center; flex-shrink: 0;">
+                  <span class="src-badge" style="background: ${modeBadgeBg}; color: ${modeBadgeColor};">${modeBadge}</span>
+                  <span class="src-badge" style="background: #FCE8E6; color: #B0556F;">RECURRING</span>
+                </span>
+              </h4>
+            </div>
+          </div>
+          <div class="emi-stats" style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: auto; margin-bottom: 4px;">
+            Next deduction: ${dayNum}${ordinalSuffix(dayNum)} via ${escapeHtml(modeText)}
+          </div>
+          <div class="month-sip-card-footer" style="margin-top: 0;">
+        <div class="num recurring-card" style="font-size: 1.15rem; font-weight: 600; color: var(--blue);">
+          -${fmtINR(e.amount)}
+        </div>
+        <button class="icon-btn" data-popover-trigger data-skip-recurring="${monthKey}|${e.seriesId}" title="Skip this month" style="background: var(--ice-2); border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
+          ⤵
+        </button>
       </div>
     </div>`;
   }).join('') + `</div>` : '';
@@ -9079,7 +9229,11 @@ async function renderMonth() {
   </div>
   ${sipRows.length ? `
   <div class="section">
-    <div class="section-title"><h2>SIPs</h2><span class="hint">${sipRows.length} running this month - skip by clicking ⤵</span></div>
+    <div class="section-title" style="margin-bottom: 8px;">
+      <h2>SIPs</h2>
+      <span class="hint">${sipRows.length} running this month</span>
+    </div>
+    ${sipFilterHtml}
     ${sipCardsHtml}
   </div>` : ''}
   ${recurringRows.length ? `
@@ -9549,6 +9703,13 @@ root.addEventListener('click', async (ev) => {
     hideDeleteCallout();
     await renderMonth();
     showToast("Skipped this month's recurring expense — balance updated");
+    return;
+  }
+
+  const sipFilterBtn = ev.target.closest('[data-sip-filter]');
+  if (sipFilterBtn) {
+    currentSipFilter = sipFilterBtn.dataset.sipFilter;
+    await renderMonth();
     return;
   }
 
@@ -11164,7 +11325,7 @@ async function renderSips() {
         <div class="tsc-top">
           <div class="ifc-title">TOTAL MONTHLY SIP</div>
           <div class="tsc-val num">${fmtINR(totalMonthlySip)}</div>
-          <div class="tsc-mo">/mo</div>
+          <div class="tsc-mo">per month</div>
         </div>
         <div class="ifc-subtitle" style="margin-top: 12px; margin-bottom: 0;">Aggregated monthly contribution across all active SIPs.</div>
       </div>

@@ -1,7 +1,7 @@
 /* ---------- /months ---------- */
 import { Store } from '../core/store.js';
 import { escapeHtml } from '../core/dom.js';
-import { fmtINR, fmtINRShort, monthKeyLabel, monthKeyShort, currentMonthKey, addMonths, todayStr } from '../core/format.js';
+import { fmtINR, fmtINRShort, monthKeyLabel, monthKeyShort, currentMonthKey, addMonths, todayStr, ordinalSuffix } from '../core/format.js';
 import { authReady } from '../core/auth.js';
 import { emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth, computeMonthTotals, allSpendTags } from '../core/domain.js';
 import { SPLIT_PALETTE } from '../components/charts/split-charts.js';
@@ -57,6 +57,58 @@ async function deleteMonth(key) {
 // This entirely replaces the imported domain.js version that 
 // was causing the N+1 network queries.
 // ---------------------------------------------------------
+const EXPENSE_ROW_TYPES = ['spend', 'cardcharge', 'cashpayment', 'emi', 'sip', 'recurring'];
+
+// Best-effort category label for a row, mirroring the tag legend used by
+// the monthly tag chart above (EMI/SIP/RECURRING are their own "tag" since
+// raw entries of those types never carry a user-set tag).
+function tagLabelForRow(e) {
+  if (e.type === 'emi') return 'EMI';
+  if (e.type === 'sip') return 'SIP';
+  if (e.type === 'recurring') return 'RECURRING';
+  return (e.tag || '').trim();
+}
+
+// "14th Oct" style label for a YYYY-MM-DD date string.
+function formatDayLabel(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  const monthShort = dt.toLocaleDateString('en-IN', { month: 'short' });
+  return `${d}${ordinalSuffix(d)} ${monthShort}`;
+}
+
+// Card-level summary metrics for a single month: total spend, the single
+// biggest transaction, and the highest/lowest logged spend day. Derived
+// from the same in-memory row list already built for the totals math
+// below, so this adds zero extra network or Store calls.
+function computeMonthCardMetrics(allRows) {
+  const expenseRows = allRows.filter(e => EXPENSE_ROW_TYPES.includes(e.type) && (Number(e.amount) || 0) > 0);
+
+  let totalExpenses = 0;
+  let highestSpend = null;
+  const byDay = {};
+
+  for (const e of expenseRows) {
+    const amt = Number(e.amount) || 0;
+    totalExpenses += amt;
+
+    if (!highestSpend || amt > highestSpend.amount) {
+      highestSpend = { description: e.description || 'Untitled', amount: amt, tag: tagLabelForRow(e) };
+    }
+
+    if (e.date) byDay[e.date] = (byDay[e.date] || 0) + amt;
+  }
+
+  let mostSpendDay = null;
+  let leastSpendDay = null;
+  for (const [date, amount] of Object.entries(byDay)) {
+    if (!mostSpendDay || amount > mostSpendDay.amount) mostSpendDay = { date, amount };
+    if (!leastSpendDay || amount < leastSpendDay.amount) leastSpendDay = { date, amount };
+  }
+
+  return { totalExpenses, highestSpend, mostSpendDay, leastSpendDay };
+}
+
 function computeMonthlyBreakdownFromBulk(keysAscending, bulkData) {
   const rows = [];
   let prevEnding = null;
@@ -72,7 +124,9 @@ function computeMonthlyBreakdownFromBulk(keysAscending, bulkData) {
     const emiRows = emiRowsForMonth(emiSeries, k, data.deletedEmi).filter(r => r.date <= todayStr());
     const sipRows = sipRowsForMonth(sipSeries, k, data.deletedSip).filter(r => r.date <= todayStr());
     const recurringRows = recurringRowsForMonth(recurringSeries, k, data.deletedRecurring).filter(r => r.date <= todayStr());
-    const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows, recurringRows));
+    const allRows = data.entries.concat(emiRows, sipRows, recurringRows);
+    const totals = computeMonthTotals(allRows);
+    const cardMetrics = computeMonthCardMetrics(allRows);
 
     let starting;
     if (data.startingBalanceMode === 'auto' && prevEnding !== null) {
@@ -83,8 +137,8 @@ function computeMonthlyBreakdownFromBulk(keysAscending, bulkData) {
 
     const outflow = totals.cashSpend + totals.cardPaymentSpend + totals.emi + totals.invest + totals.sip + totals.recurring;
     const ending = starting + totals.income - outflow;
-    
-    rows.push({ monthKey: k, starting, income: totals.income, outflow, ending, totals });
+
+    rows.push({ monthKey: k, starting, income: totals.income, outflow, ending, totals, cardMetrics });
     prevEnding = ending;
   }
   return rows;
@@ -227,6 +281,45 @@ function refreshChartSection() {
   container.innerHTML = renderMonthlyChartsSection(bulkDataCache, currentKeysAsc);
 }
 
+// Renders the 4-up metric strip inside a month card. Every branch has an
+// explicit empty state so a month with zero (or a single) logged expense
+// never renders blank cells or throws.
+function renderMonthMetrics(cm) {
+  const highestHtml = cm.highestSpend
+    ? `<div class="mr-metric-row">
+         <span class="mr-metric-desc">${escapeHtml(cm.highestSpend.description)}</span>
+         ${cm.highestSpend.tag ? `<span class="src-badge">${escapeHtml(cm.highestSpend.tag)}</span>` : ''}
+       </div>
+       <span class="mr-metric-amt num">${fmtINR(cm.highestSpend.amount)}</span>`
+    : `<span class="mr-metric-empty">No spends logged</span>`;
+
+  const mostDayHtml = cm.mostSpendDay
+    ? `<span class="mr-metric-desc">${formatDayLabel(cm.mostSpendDay.date)}</span><span class="mr-metric-amt num">${fmtINR(cm.mostSpendDay.amount)}</span>`
+    : `<span class="mr-metric-empty">—</span>`;
+
+  const leastDayHtml = cm.leastSpendDay
+    ? `<span class="mr-metric-desc">${formatDayLabel(cm.leastSpendDay.date)}</span><span class="mr-metric-amt num">${fmtINR(cm.leastSpendDay.amount)}</span>`
+    : `<span class="mr-metric-empty">—</span>`;
+
+  return `
+    <div class="mr-metric">
+      <div class="mr-metric-label">Total expenses</div>
+      <div class="mr-metric-value"><span class="mr-metric-amt num mr-metric-amt--lead">${fmtINR(cm.totalExpenses)}</span></div>
+    </div>
+    <div class="mr-metric">
+      <div class="mr-metric-label">Highest spend</div>
+      <div class="mr-metric-value">${highestHtml}</div>
+    </div>
+    <div class="mr-metric">
+      <div class="mr-metric-label">Most spent day</div>
+      <div class="mr-metric-value">${mostDayHtml}</div>
+    </div>
+    <div class="mr-metric">
+      <div class="mr-metric-label">Least spent day</div>
+      <div class="mr-metric-value">${leastDayHtml}</div>
+    </div>`;
+}
+
 async function renderMonths() {
   await loadDomain();
   
@@ -249,21 +342,38 @@ async function renderMonths() {
   const breakdown = computeMonthlyBreakdownFromBulk(keysAsc, bulkData);
   const byKey = Object.fromEntries(breakdown.map(b => [b.monthKey, b]));
 
+  const emptyCardMetrics = { totalExpenses: 0, highestSpend: null, mostSpendDay: null, leastSpendDay: null };
+
   let rows = '';
   for (const k of keysDesc) {
     // 3. Render rows entirely from memory, avoiding individual network calls
     const data = bulkData['month:' + k] || { entries: [] };
-    const b = byKey[k] || { ending: 0 };
-    
+    const b = byKey[k] || { ending: 0, cardMetrics: emptyCardMetrics };
+    const cm = b.cardMetrics || emptyCardMetrics;
+
     rows += `
       <a class="month-row" href="/month/${k}">
-        <div>
-          <div class="mr-name">${monthKeyLabel(k)}</div>
-          <div class="mr-sub">${data.entries.length} ${data.entries.length === 1 ? 'entry' : 'entries'} logged</div>
+        <div class="mr-header">
+          <div class="mr-heading">
+            <div class="mr-name">${monthKeyLabel(k)}</div>
+            <div class="mr-sub">${data.entries.length} ${data.entries.length === 1 ? 'entry' : 'entries'} logged</div>
+          </div>
+          <div class="mr-header-right">
+            <div class="mr-val num" style="color:${b.ending >= 0 ? 'var(--navy)' : 'var(--debit)'}">${fmtINR(b.ending)}</div>
+          </div>
         </div>
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <div class="mr-val num" style="color:${b.ending >= 0 ? 'var(--navy)' : 'var(--debit)'}">${fmtINR(b.ending)}</div>
-          <button class="icon-btn" data-popover-trigger data-del-month="${k}" title="Delete month" type="button">✕</button>
+        <div class="mr-metrics-wrap">
+          <div class="mr-metrics-inner">
+            <div class="mr-metrics">${renderMonthMetrics(cm)}</div>
+          </div>
+        </div>
+        <div class="mr-actions">
+          <button class="icon-btn mr-toggle" data-toggle-metrics aria-expanded="false" title="Show month details" type="button">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <button class="icon-btn" data-popover-trigger data-del-month="${k}" title="Delete month" type="button">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
         </div>
       </a>`;
   }
@@ -296,6 +406,19 @@ async function renderMonths() {
 }
 
 root.addEventListener('click', async (ev) => {
+  const toggleBtn = ev.target.closest('[data-toggle-metrics]');
+  if (toggleBtn) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const row = toggleBtn.closest('.month-row');
+    if (row) {
+      const isOpen = row.classList.toggle('expanded');
+      toggleBtn.setAttribute('aria-expanded', String(isOpen));
+      toggleBtn.title = isOpen ? 'Hide month details' : 'Show month details';
+    }
+    return;
+  }
+
   const rangeBtn = ev.target.closest('[data-chart-range]');
   if (rangeBtn) {
     chartRangeMonths = Number(rangeBtn.dataset.chartRange);
