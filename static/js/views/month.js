@@ -38,6 +38,7 @@ let isMoreOpen = false;
 let formSlideDirection = '';
 let animTimeout = null;
 let domainLoaded = false;
+let currentSipFilter = 'All';
 
 const PILL_ORDER = ['spend', 'cardcharge', 'cashpayment', 'recurring', 'income', 'owed', 'emi', 'invest'];
 
@@ -651,56 +652,108 @@ async function renderMonth() {
   }).join('') + `</div>` : '';
 
   let sipCardsHtml = '';
+  let sipFilterHtml = '';
+
   if (sipRows.length) {
-    const groupedSips = {};
-    for (const e of sipRows) {
-       const cat = e.category || 'Mutual Fund';
-       if (!groupedSips[cat]) groupedSips[cat] = [];
-       groupedSips[cat].push(e);
+    let sortedSips = [...sipRows].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
+
+    const categories = ['All', 'Mutual Fund', 'ETF', 'Stock'];
+    const displayNames = { 'All': 'All', 'Mutual Fund': 'Mutual Funds', 'ETF': 'ETFs', 'Stock': 'Stocks' };
+
+    sipFilterHtml = `
+    <div class="pill-grid sip-filter-grid">
+      ${categories.map(cat => `
+        <button class="pill-btn sub-pill ${currentSipFilter === cat ? 'active' : ''}" 
+                data-sip-filter="${cat}" type="button">
+          ${displayNames[cat]}
+        </button>
+      `).join('')}
+    </div>`;
+
+    if (currentSipFilter !== 'All') {
+      sortedSips = sortedSips.filter(s => (s.category || 'Mutual Fund') === currentSipFilter);
     }
 
-    const sortedCats = Object.keys(groupedSips).sort();
-    for (const cat of sortedCats) {
-       const catRows = groupedSips[cat].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
-       const cardsHtml = catRows.map(e => {
-         const dayNum = new Date(e.date + 'T00:00:00').getDate();
-         return `
-         <div class="month-sip-card">
-           <div>
-             <h4 style="margin-bottom: 4px; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.02rem;"><a style="margin-right:4px;">${escapeHtml(e.description)}</a><span class="src-badge sip">SIP</span></h4>
-             <div class="emi-stats" style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace;">Deducts on the ${dayNum}${ordinalSuffix(dayNum)}</div>
-           </div>
-           <div style="display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 14px;">
-             <div class="num recurring-card" style="font-size: 1.1rem; font-weight: 600; color: var(--blue);">-${fmtINR(e.amount)}</div>
-             <button class="icon-btn" data-popover-trigger data-skip-sip="${monthKey}|${e.seriesId}" title="Skip this month">⤵</button>
-           </div>
-         </div>`;
-       }).join('');
+    if (sortedSips.length) {
+      const catConfig = {
+        'mutual fund': { label: 'MF', cls: 'mf' },
+        'etf': { label: 'ETF', cls: 'etf' },
+        'stock': { label: 'STOCK', cls: 'stock' }
+      };
+      const cardsHtml = sortedSips.map(e => {
+        const dayNum = new Date(e.date + 'T00:00:00').getDate();
+        const cat = catConfig[(e.category || '').toLowerCase()] || { label: 'MF', cls: 'mf' };
+        return `
+        <div class="month-sip-card">
+          <div class="month-sip-card-header">
+            <div style="width: 100%;">
+              <h4 style="margin-bottom: 6px; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
+                <span style="word-break: break-word;">${escapeHtml(e.description)}</span>
+                <span style="display: inline-flex; gap: 4px; align-items: center; flex-shrink: 0;">
+                  <span class="src-badge ${cat.cls}">${cat.label}</span>
+                  <span class="src-badge sip">SIP</span>
+                </span>
+              </h4>
+              <div class="emi-stats" style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace;">
+                Next deduction: ${dayNum}${ordinalSuffix(dayNum)}
+              </div>
+            </div>
+          </div>
+          <div class="month-sip-card-footer">
+            <div class="num recurring-card" style="font-size: 1.15rem; font-weight: 600; color: var(--blue);">
+              -${fmtINR(e.amount)}
+            </div>
+            <button class="icon-btn" data-popover-trigger data-skip-sip="${monthKey}|${e.seriesId}" title="Skip this month" style="background: var(--ice-2); border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
+              ⤵
+            </button>
+          </div>
+        </div>`;
+      }).join('');
 
-       sipCardsHtml += `
-       <div class="price-category-section">
-         <div class="price-category-title">${escapeHtml(cat)}</div>
-         ${scrollWrapper(cardsHtml, 'price-category-track')}
-       </div>`;
+      sipCardsHtml = `<div class="month-sip-grid">${cardsHtml}</div>`;
+    } else {
+      sipCardsHtml = `<div class="empty-chart" style="margin-top: 20px;">No ${displayNames[currentSipFilter]} SIPs running this month.</div>`;
     }
   }
 
-  const recurringCardsHtml = recurringRows.length ? `<div class="emi-list">` + recurringRows.map(e => {
+  const recurringCardsHtml = recurringRows.length ? `<div class="month-sip-grid">` + recurringRows.map(e => {
     const dayNum = new Date(e.date + 'T00:00:00').getDate();
     let modeText = 'Bank Transfer';
+    let modeBadge = 'SPEND';
+    let modeBadgeBg = 'var(--debit-bg)';
+    let modeBadgeColor = 'var(--debit)';
+    
     if (e.paymentMode === 'card') {
       const c = cards.find(card => card.id === e.cardId);
       modeText = c ? c.name : 'Credit Card';
+      modeBadge = 'CARD SPEND';
+      modeBadgeBg = '#FBF0E2';
+      modeBadgeColor = '#C07A2E';
     }
+
     return `
-    <div class="emi-card">
-      <div>
-        <h4><span class="tag recurring">RECURRING</span> ${escapeHtml(e.description)}</h4>
-        <div class="emi-stats">Expense deducted on ${dayNum}${ordinalSuffix(dayNum)} of the month via ${escapeHtml(modeText)}</div>
+    <div class="month-sip-card">
+      <div class="month-sip-card-header">
+        <div style="width: 100%;">
+          <h4 style="margin-bottom: 6px; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
+            <span style="word-break: break-word;">${escapeHtml(e.description)}</span>
+            <span style="display: inline-flex; gap: 4px; align-items: center; flex-shrink: 0;">
+              <span class="src-badge" style="background: ${modeBadgeBg}; color: ${modeBadgeColor};">${modeBadge}</span>
+              <span class="src-badge" style="background: #FCE8E6; color: #B0556F;">RECURRING</span>
+            </span>
+          </h4>
+          <div class="emi-stats" style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace;">
+            Next deduction: ${dayNum}${ordinalSuffix(dayNum)} via ${escapeHtml(modeText)}
+          </div>
+        </div>
       </div>
-      <div style="display: flex; align-items: center; gap: 16px;">
-        <div class="num amt-debit recurring-card">-${fmtINR(e.amount)}</div>
-        <button class="icon-btn" data-popover-trigger data-skip-recurring="${monthKey}|${e.seriesId}" title="Skip this month">⤵</button>
+      <div class="month-sip-card-footer">
+        <div class="num recurring-card" style="font-size: 1.15rem; font-weight: 600; color: var(--blue);">
+          -${fmtINR(e.amount)}
+        </div>
+        <button class="icon-btn" data-popover-trigger data-skip-recurring="${monthKey}|${e.seriesId}" title="Skip this month" style="background: var(--ice-2); border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
+          ⤵
+        </button>
       </div>
     </div>`;
   }).join('') + `</div>` : '';
@@ -840,7 +893,11 @@ async function renderMonth() {
   </div>
   ${sipRows.length ? `
   <div class="section">
-    <div class="section-title"><h2>SIPs</h2><span class="hint">${sipRows.length} running this month - skip by clicking ⤵</span></div>
+    <div class="section-title" style="margin-bottom: 8px;">
+      <h2>SIPs</h2>
+      <span class="hint">${sipRows.length} running this month</span>
+    </div>
+    ${sipFilterHtml}
     ${sipCardsHtml}
   </div>` : ''}
   ${recurringRows.length ? `
@@ -1310,6 +1367,13 @@ root.addEventListener('click', async (ev) => {
     hideDeleteCallout();
     await renderMonth();
     showToast("Skipped this month's recurring expense — balance updated");
+    return;
+  }
+
+  const sipFilterBtn = ev.target.closest('[data-sip-filter]');
+  if (sipFilterBtn) {
+    currentSipFilter = sipFilterBtn.dataset.sipFilter;
+    await renderMonth();
     return;
   }
 

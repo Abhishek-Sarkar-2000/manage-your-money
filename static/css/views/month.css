@@ -121,50 +121,44 @@
   font-weight: 600;
 }
 
-.price-category-section {
-  margin-bottom: 24px;
-}
-
-.price-category-title {
+.sip-filter-grid {
   display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: #fff;
-  border-radius: 999px;
+  gap: 0;
+  margin-bottom: 18px;
+}
+
+.sip-filter-grid .pill-btn {
   padding: 6px 16px;
-  font-family: 'IBM Plex Mono', monospace;
   font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 600;
-  color: var(--royal);
-  border: 1px solid var(--hair);
-  box-shadow: var(--shadow-sm);
-  margin-bottom: 4px;
+  white-space: nowrap;
+  text-align: center;
+  border-radius: 0;
+  border-style: solid;
+  margin-left: -1.5px;
+  position: relative;
+  z-index: 1;
 }
 
-.price-category-title::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--blue);
-  flex-shrink: 0;
+.sip-filter-grid .pill-btn:first-child {
+  margin-left: 0;
+  border-top-left-radius: 999px;
+  border-bottom-left-radius: 999px;
 }
 
-:root[data-theme="dark"] .price-category-title {
-  background: var(--hair);
-  color: var(--navy);
-  border: 1px solid var(--blue-soft);
-  box-shadow: 0 10px 24px rgba(2, 11, 22, 0.77), 0 2px 6px rgba(9, 21, 36, 0.6);
+.sip-filter-grid .pill-btn:last-child {
+  border-top-right-radius: 999px;
+  border-bottom-right-radius: 999px;
 }
-:root[data-theme="hi-contrast"] .price-category-title {
-  background: var(--blue);
-  color: var(--text-white);
-  border: 1px solid var(--navy);
+
+.sip-filter-grid .pill-btn.active,
+.sip-filter-grid .pill-btn:hover {
+  z-index: 2;
 }
-:root[data-theme="hi-contrast"] .price-category-title::before {
-  background: var(--text-white);
+
+.month-sip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
 }
 
 .month-sip-card {
@@ -172,36 +166,96 @@
   background: linear-gradient(120deg, #fff, var(--ice-2));
   border: 1px solid var(--hair);
   border-radius: var(--radius-sm);
-  padding: 16px 18px;
+  padding: 18px;
   box-shadow: var(--shadow-sm);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  height: 100%;
+  height: auto;
 }
 
 .month-sip-card:hover {
   box-shadow: var(--shadow);
 }
 
-@media (max-width: 480px) {
-  .price-category-track .month-sip-card {
-    flex: 0 0 75vw;
-    min-width: 220px;
-    padding: 14px;
+.month-sip-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.month-sip-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px dashed var(--hair);
+  padding-top: 14px;
+  margin-top: auto;
+}
+
+@media (max-width: 580px) {
+  .month-sip-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
+
+  .month-sip-card {
+    padding: 10px 10px;
+    border-radius: 8px;
+  }
+
+  .month-sip-card-header {
+    margin-bottom: 8px;
+  }
+
   .month-sip-card h4 {
-    font-size: 0.95rem !important;
+    font-size: clamp(0.92rem, 3.4vw, 1.02rem) !important;
+    flex-wrap: wrap;
+    row-gap: 4px;
+    margin-bottom: 4px !important;
   }
+
+  .month-sip-card .src-badge {
+    padding: 1px 4px !important;
+    font-size: 0.58rem !important;
+  }
+
   .month-sip-card .emi-stats {
-    font-size: 0.72rem !important;
+    font-size: clamp(0.62rem, 2.2vw, 0.7rem) !important;
+    line-height: 1.2;
   }
+
+  .month-sip-card-footer {
+    padding-top: 8px;
+  }
+
   .month-sip-card .recurring-card {
-    font-size: 1rem !important;
+    font-size: clamp(0.85rem, 2.8vw, 0.95rem) !important;
+  }
+
+  .month-sip-card .icon-btn {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 0.72rem !important;
+    border-radius: 6px !important;
   }
 }
 
+@media (max-width: 400px) {
+  .sip-filter-grid .pill-btn {
+    padding: 5px 9px;
+    font-size: 0.68rem;
+  }
+
+  .month-sip-grid {
+    grid-template-columns: 1fr;
+  }
+  .month-sip-card h4 {
+    font-size: 1.05rem !important;
+  }
+}
 /* ---------- EMI Cards ---------- */
 .emi-list {
   display: flex;

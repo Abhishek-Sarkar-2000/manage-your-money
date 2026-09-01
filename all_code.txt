@@ -1496,7 +1496,7 @@ color: #C07A2E;
   color: #B0556F;
 }
 
-.tag.sip {
+.src-badge.sip {
   background: #E6F4EA;
   color: #2E8B77;
 }
@@ -3223,7 +3223,7 @@ transform: translateY(0);
   color: var(--yellow) !important;
 }
 
-:root[data-theme="hi-contrast"] .src-badge,
+:root[data-theme="hi-contrast"] .src-badge:not(.sip),
 :root[data-theme="hi-contrast"] .fab-home,
 :root[data-theme="hi-contrast"] .action-card .ac-icon {
   background: var(--blue);
@@ -3306,6 +3306,7 @@ transform: translateY(0);
 :root[data-theme="dark"] .current-month-card.empty,
 :root[data-theme="dark"] .stat-back,
 :root[data-theme="dark"] .emi-card,
+:root[data-theme="dark"] .month-sip-card ,
 :root[data-theme="dark"] .month-row,
 :root[data-theme="dark"] .profile-menu,
 :root[data-theme="dark"] tbody td,
@@ -3327,10 +3328,15 @@ transform: translateY(0);
 :root[data-theme="dark"] .price-item-card,
 :root[data-theme="dark"] .add-entry-panel,
 :root[data-theme="dark"] .cc-item,
-:root[data-theme="dark"] .balance-box {
+:root[data-theme="dark"] .balance-box,
+:root[data-theme="dark"] .sip-card{
   background: linear-gradient(135deg, var(--hair) 0%, var(--ice-2) 100%) !important;
   color: var(--navy);
   border-color: var(--sky) !important;
+}
+
+:root[data-theme="dark"] .month-sip-card:hover {
+  box-shadow: 0 4px 18px #000;
 }
 
 :root[data-theme="dark"] .form-panel {
@@ -3408,6 +3414,37 @@ transform: translateY(0);
 :root[data-theme="dark"] .chart-tooltip {
   background: linear-gradient(135deg, var(--blue) 0%, var(--text-sky) 100%);
   color: #fff;
+}
+
+:root[data-theme="hi-contrast"] .invest-foundation-card,
+:root[data-theme="hi-contrast"] .total-sip-card {
+  background: var(--blue);
+}
+:root[data-theme="hi-contrast"] .ifc-val,
+:root[data-theme="hi-contrast"] .tsc-val {
+  color: var(--yellow);
+}
+:root[data-theme="hi-contrast"] .ifc-subtitle,
+:root[data-theme="hi-contrast"] .ifc-title,
+:root[data-theme="hi-contrast"] .tsc-mo {
+  color: var(--text-white);
+}
+
+:root[data-theme="dark"] .invest-foundation-card,
+:root[data-theme="dark"] .total-sip-card {
+  background: linear-gradient(135deg, #181938 0%, #252458 55%, #3C367E 100%) !important;
+  border: solid;
+  border-width: 1px;
+  border-color: var(--blue-soft);
+}
+:root[data-theme="dark"] .ifc-title {
+  color: #A8B1FF;
+}
+:root[data-theme="dark"] .ifc-subtitle {
+  color: #fff;
+}
+:root[data-theme="dark"] .sip-card-footer {
+  border-top-color: var(--sky);
 }
 
 :root[data-theme="dark"] .chart-tooltip .ct-label {
@@ -3860,6 +3897,86 @@ footer {
   font-weight: 600;
 }
 
+.price-category-section {
+  margin-bottom: 24px;
+}
+
+.price-category-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--royal);
+  border: 1px solid var(--hair);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 4px;
+}
+
+.price-category-title::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--blue);
+  flex-shrink: 0;
+}
+
+:root[data-theme="dark"] .price-category-title {
+  background: var(--hair);
+  color: var(--navy);
+  border: 1px solid var(--blue-soft);
+  box-shadow: 0 10px 24px rgba(2, 11, 22, 0.77), 0 2px 6px rgba(9, 21, 36, 0.6);
+}
+:root[data-theme="hi-contrast"] .price-category-title {
+  background: var(--blue);
+  color: var(--text-white);
+  border: 1px solid var(--navy);
+}
+:root[data-theme="hi-contrast"] .price-category-title::before {
+  background: var(--text-white);
+}
+
+.month-sip-card {
+  position: relative;
+  background: linear-gradient(120deg, #fff, var(--ice-2));
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.month-sip-card:hover {
+  box-shadow: var(--shadow);
+}
+
+@media (max-width: 480px) {
+  .price-category-track .month-sip-card {
+    flex: 0 0 75vw;
+    min-width: 220px;
+    padding: 14px;
+  }
+  .month-sip-card h4 {
+    font-size: 0.95rem !important;
+  }
+  .month-sip-card .emi-stats {
+    font-size: 0.72rem !important;
+  }
+  .month-sip-card .recurring-card {
+    font-size: 1rem !important;
+  }
+}
 
 /* ---------- EMI Cards ---------- */
 .emi-list {
@@ -4329,7 +4446,7 @@ footer {
   color: var(--royal);
   border: 1px solid var(--hair);
   box-shadow: var(--shadow-sm);
-  margin-bottom: 14px;
+  margin-bottom: 4px;
 }
 
 .price-category-title::before {
@@ -4479,20 +4596,64 @@ footer {
 === ./static/css/views/sips.css ===
 /* ---------- Premium SIP & Portfolio Redesign ---------- */
 
-/* 1. Investment Foundation Card */
-.invest-foundation-card {
+/* 1. Investment Foundation & Total SIP Cards */
+.portfolio-summary-grid {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr;
+  gap: 16px;
+}
+
+.invest-foundation-card,
+.total-sip-card {
   position: relative;
   overflow: hidden;
+  min-width: 0;
   background: linear-gradient(135deg, var(--navy) 0%, var(--royal) 55%, var(--blue) 100%);
   border-radius: 16px;
   padding: 30px 32px;
   color: #fff;
+  box-shadow: 0 12px 28px rgba(11, 37, 69, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  container-type: inline-size;
+}
+
+.invest-foundation-card {
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 20px;
-  box-shadow: 0 12px 28px rgba(11, 37, 69, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+
+.total-sip-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.tsc-top {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tsc-val {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: clamp(1.9rem, 8cqi, 2.8rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tsc-mo {
+  font-family: 'Source Serif 4', serif;
+  font-size: 0.85rem;
+  color: var(--sky);
+  margin-top: -2px;
 }
 
 .ifc-left {
@@ -4519,7 +4680,7 @@ footer {
 
 .ifc-val {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 2.8rem;
+  font-size: clamp(2rem, 9cqi, 3.5rem);
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1;
@@ -4614,11 +4775,6 @@ footer {
 
 .sip-card.paused:hover {
   opacity: 1;
-}
-
-:root[data-theme="dark"] .sip-card {
-  background: var(--ice-2);
-  border-color: var(--sky);
 }
 
 .sip-card-header {
@@ -4778,9 +4934,12 @@ footer {
   background: linear-gradient(155deg, var(--ice-2), var(--paper));
 }
 
-@media (max-width: 569px) {
-  .invest-foundation-card {
+@media (max-width: 519px) {
+  .invest-foundation-card,
+  .total-sip-card {
     padding: 24px 20px;
+  }
+  .invest-foundation-card {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -4795,11 +4954,14 @@ footer {
     width: 100%;
     justify-content: center;
   }
-  .ifc-val {
-    font-size: 2.2rem;
-  }
   .ifc-sparkline {
     display: none;
+  }
+}
+
+@media (max-width: 819px) {
+  .portfolio-summary-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -4819,31 +4981,6 @@ footer {
     font-size: 0.68rem;
   }
 }
-
-:root[data-theme="hi-contrast"] .invest-foundation-card {
-  background: var(--blue);
-}
-:root[data-theme="hi-contrast"] .ifc-val{
-  color: var(--yellow);
-}
-:root[data-theme="hi-contrast"] .ifc-subtitle,
-:root[data-theme="hi-contrast"] .ifc-title {
-  color: var(--text-white);
-}
-
-:root[data-theme="dark"] .invest-foundation-card {
-  background: linear-gradient(135deg, #181938 0%, #252458 55%, #3C367E 100%) !important;
-  border: solid;
-  border-width: 1px;
-  border-color: var(--blue-soft);
-}
-:root[data-theme="dark"] .ifc-title {
-  color: #A8B1FF;
-}
-:root[data-theme="dark"] .ifc-subtitle {
-  color: #fff;
-}
-
 === ./static/css/views/split.css ===
 /* ---------- Split Money ---------- */
 .split-group-card {
@@ -6930,8 +7067,9 @@ export function emiRowsForMonth(emiSeries, monthKey, deletedEmi) {
     const inst = diffMonths(series.startMonth, monthKey) + 1;
     if (inst >= 1 && inst <= series.totalMonths) {
       if ((deletedEmi || []).includes(series.id)) continue;
+      const dateStr = monthKey + '-01';
       rows.push({
-        id: 'emi-' + series.id + '-' + monthKey, type: 'emi', date: monthKey + '-01',
+        id: 'emi-' + series.id + '-' + monthKey, type: 'emi', date: dateStr,
         description: series.description, amount: series.monthlyAmount,
         seriesId: series.id, installment: inst, totalMonths: series.totalMonths,
       });
@@ -6964,6 +7102,7 @@ export function sipRowsForMonth(sipSeries, monthKey, deletedSip) {
     rows.push({
       id: 'sip-' + series.id + '-' + monthKey, type: 'sip', date: dateStr,
       description: series.description, amount: series.amount, seriesId: series.id,
+      category: series.category || 'Mutual Fund',
     });
   }
   return rows;
@@ -8750,20 +8889,40 @@ async function renderMonth() {
     </div>`;
   }).join('') + `</div>` : '';
 
-  const sipCardsHtml = sipRows.length ? `<div class="emi-list">` + sipRows.map(e => {
-    const dayNum = new Date(e.date + 'T00:00:00').getDate();
-    return `
-    <div class="emi-card">
-      <div>
-        <h4><span class="tag sip">SIP</span> ${escapeHtml(e.description)}</h4>
-        <div class="emi-stats">Recurring investment — deducted on the ${dayNum}${ordinalSuffix(dayNum)} of every month</div>
-      </div>
-      <div style="display: flex; align-items: center; gap: 16px;">
-        <div class="num recurring-card">-${fmtINR(e.amount)}</div>
-        <button class="icon-btn" data-popover-trigger data-skip-sip="${monthKey}|${e.seriesId}" title="Skip this month">⤵</button>
-      </div>
-    </div>`;
-  }).join('') + `</div>` : '';
+  let sipCardsHtml = '';
+  if (sipRows.length) {
+    const groupedSips = {};
+    for (const e of sipRows) {
+       const cat = e.category || 'Mutual Fund';
+       if (!groupedSips[cat]) groupedSips[cat] = [];
+       groupedSips[cat].push(e);
+    }
+
+    const sortedCats = Object.keys(groupedSips).sort();
+    for (const cat of sortedCats) {
+       const catRows = groupedSips[cat].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
+       const cardsHtml = catRows.map(e => {
+         const dayNum = new Date(e.date + 'T00:00:00').getDate();
+         return `
+         <div class="month-sip-card">
+           <div>
+             <h4 style="margin-bottom: 4px; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.02rem;"><a style="margin-right:4px;">${escapeHtml(e.description)}</a><span class="src-badge sip">SIP</span></h4>
+             <div class="emi-stats" style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace;">Deducts on the ${dayNum}${ordinalSuffix(dayNum)}</div>
+           </div>
+           <div style="display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 14px;">
+             <div class="num recurring-card" style="font-size: 1.1rem; font-weight: 600; color: var(--blue);">-${fmtINR(e.amount)}</div>
+             <button class="icon-btn" data-popover-trigger data-skip-sip="${monthKey}|${e.seriesId}" title="Skip this month">⤵</button>
+           </div>
+         </div>`;
+       }).join('');
+
+       sipCardsHtml += `
+       <div class="price-category-section">
+         <div class="price-category-title">${escapeHtml(cat)}</div>
+         ${scrollWrapper(cardsHtml, 'price-category-track')}
+       </div>`;
+    }
+  }
 
   const recurringCardsHtml = recurringRows.length ? `<div class="emi-list">` + recurringRows.map(e => {
     const dayNum = new Date(e.date + 'T00:00:00').getDate();
@@ -8776,7 +8935,7 @@ async function renderMonth() {
     <div class="emi-card">
       <div>
         <h4><span class="tag recurring">RECURRING</span> ${escapeHtml(e.description)}</h4>
-        <div class="emi-stats">Recurring expense — deducted on the ${dayNum}${ordinalSuffix(dayNum)} of every month via ${escapeHtml(modeText)}</div>
+        <div class="emi-stats">Expense deducted on ${dayNum}${ordinalSuffix(dayNum)} of the month via ${escapeHtml(modeText)}</div>
       </div>
       <div style="display: flex; align-items: center; gap: 16px;">
         <div class="num amt-debit recurring-card">-${fmtINR(e.amount)}</div>
@@ -10898,6 +11057,8 @@ async function renderSips() {
   // Filter into active and paused
   const activeSips = sipSeries.filter(s => (!s.endMonth || s.endMonth >= currentMonth) && s.status !== 'paused');
   const pausedSips = sipSeries.filter(s => (!s.endMonth || s.endMonth >= currentMonth) && s.status === 'paused');
+  
+  const totalMonthlySip = activeSips.reduce((sum, s) => sum + Number(s.amount), 0);
 
   const foundationContent = isEditingFoundation ? `
     <div class="ifc-edit-mode">
@@ -10928,7 +11089,7 @@ async function renderSips() {
         </svg>
       </div>
     </div>
-    <div class="ifc-subtitle">This amount acts as the base of your total portfolio, combining dynamically with your recurring SIPs.</div>
+    <div class="ifc-subtitle">Base corpus, combining dynamically with recurring SIPs.</div>
     <div class="ifc-right">
       <button class="btn secondary" id="manage-base-btn"><span style="margin-right: 6px; display: inline-flex; width: 16px; height: 16px;">${ICONS.edit}</span> Manage Base</button>
     </div>
@@ -10995,8 +11156,18 @@ async function renderSips() {
   markRendered(root);
   root.innerHTML = `
   <div class="section">
-    <div class="invest-foundation-card">
-      ${foundationContent}
+    <div class="portfolio-summary-grid">
+      <div class="invest-foundation-card">
+        ${foundationContent}
+      </div>
+      <div class="total-sip-card">
+        <div class="tsc-top">
+          <div class="ifc-title">TOTAL MONTHLY SIP</div>
+          <div class="tsc-val num">${fmtINR(totalMonthlySip)}</div>
+          <div class="tsc-mo">/mo</div>
+        </div>
+        <div class="ifc-subtitle" style="margin-top: 12px; margin-bottom: 0;">Aggregated monthly contribution across all active SIPs.</div>
+      </div>
     </div>
   </div>
 

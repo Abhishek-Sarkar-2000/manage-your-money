@@ -591,6 +591,25 @@ color: #C07A2E;
   color: #2E8B77;
 }
 
+.src-badge.mf {
+  background: var(--blue-bg);
+  color: var(--blue);
+}
+
+.src-badge.etf {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+
+.src-badge.stock {
+  background: var(--royal-bg);
+  color: #5B4B9E;
+}
+
+:root[data-theme="dark"] .src-badge.stock {
+  color: var(--royal);
+}
+
 .tag.invest {
   background: #E4EEF9;
   color: var(--blue);
