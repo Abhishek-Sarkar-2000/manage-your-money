@@ -596,8 +596,13 @@ async function renderMonth() {
   const emiRows = emiRowsForMonth(emiSeries, monthKey, data.deletedEmi);
   const sipRows = sipRowsForMonth(sipSeries, monthKey, data.deletedSip);
   const recurringRows = recurringRowsForMonth(recurringSeries, monthKey, data.deletedRecurring);
+
+  const emiRowsFiltered = emiRows.filter(r => r.date <= todayStr());
+  const sipRowsFiltered = sipRows.filter(r => r.date <= todayStr());
+  const recurringRowsFiltered = recurringRows.filter(r => r.date <= todayStr());
+
   const allRows = [...data.entries].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  const monthTotals = computeMonthTotals(data.entries.concat(emiRows, sipRows, recurringRows));
+  const monthTotals = computeMonthTotals(data.entries.concat(emiRowsFiltered, sipRowsFiltered, recurringRowsFiltered));
 
   const stats = await computeGlobalStats({ cards, emiSeries, sipSeries, recurringSeries, monthsIndex, existingInvestments, isShared: false, sharedSplitId: null, splitsIndex });
 
@@ -605,7 +610,7 @@ async function renderMonth() {
   for (const e of data.entries) {
     if (e.type === 'investment') monthInvestList.push({ description: e.description, amount: Number(e.amount) || 0, monthKey: null });
   }
-  for (const s of sipRows) {
+  for (const s of sipRowsFiltered) {
     monthInvestList.push({ description: s.description + ' (SIP)', amount: Number(s.amount) || 0, monthKey: null });
   }
   stats.invested = { total: monthTotals.invest + monthTotals.sip, list: monthInvestList, title: "This month's investments" };
@@ -645,20 +650,40 @@ async function renderMonth() {
     </div>`;
   }).join('') + `</div>` : '';
 
-  const sipCardsHtml = sipRows.length ? `<div class="emi-list">` + sipRows.map(e => {
-    const dayNum = new Date(e.date + 'T00:00:00').getDate();
-    return `
-    <div class="emi-card">
-      <div>
-        <h4><span class="tag sip">SIP</span> ${escapeHtml(e.description)}</h4>
-        <div class="emi-stats">Recurring investment — deducted on the ${dayNum}${ordinalSuffix(dayNum)} of every month</div>
-      </div>
-      <div style="display: flex; align-items: center; gap: 16px;">
-        <div class="num recurring-card">-${fmtINR(e.amount)}</div>
-        <button class="icon-btn" data-popover-trigger data-skip-sip="${monthKey}|${e.seriesId}" title="Skip this month">⤵</button>
-      </div>
-    </div>`;
-  }).join('') + `</div>` : '';
+  let sipCardsHtml = '';
+  if (sipRows.length) {
+    const groupedSips = {};
+    for (const e of sipRows) {
+       const cat = e.category || 'Mutual Fund';
+       if (!groupedSips[cat]) groupedSips[cat] = [];
+       groupedSips[cat].push(e);
+    }
+
+    const sortedCats = Object.keys(groupedSips).sort();
+    for (const cat of sortedCats) {
+       const catRows = groupedSips[cat].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
+       const cardsHtml = catRows.map(e => {
+         const dayNum = new Date(e.date + 'T00:00:00').getDate();
+         return `
+         <div class="month-sip-card">
+           <div>
+             <h4 style="margin-bottom: 4px; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.02rem;"><a style="margin-right:4px;">${escapeHtml(e.description)}</a><span class="src-badge sip">SIP</span></h4>
+             <div class="emi-stats" style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace;">Deducts on the ${dayNum}${ordinalSuffix(dayNum)}</div>
+           </div>
+           <div style="display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 14px;">
+             <div class="num recurring-card" style="font-size: 1.1rem; font-weight: 600; color: var(--blue);">-${fmtINR(e.amount)}</div>
+             <button class="icon-btn" data-popover-trigger data-skip-sip="${monthKey}|${e.seriesId}" title="Skip this month">⤵</button>
+           </div>
+         </div>`;
+       }).join('');
+
+       sipCardsHtml += `
+       <div class="price-category-section">
+         <div class="price-category-title">${escapeHtml(cat)}</div>
+         ${scrollWrapper(cardsHtml, 'price-category-track')}
+       </div>`;
+    }
+  }
 
   const recurringCardsHtml = recurringRows.length ? `<div class="emi-list">` + recurringRows.map(e => {
     const dayNum = new Date(e.date + 'T00:00:00').getDate();
@@ -671,7 +696,7 @@ async function renderMonth() {
     <div class="emi-card">
       <div>
         <h4><span class="tag recurring">RECURRING</span> ${escapeHtml(e.description)}</h4>
-        <div class="emi-stats">Recurring expense — deducted on the ${dayNum}${ordinalSuffix(dayNum)} of every month via ${escapeHtml(modeText)}</div>
+        <div class="emi-stats">Expense deducted on ${dayNum}${ordinalSuffix(dayNum)} of the month via ${escapeHtml(modeText)}</div>
       </div>
       <div style="display: flex; align-items: center; gap: 16px;">
         <div class="num amt-debit recurring-card">-${fmtINR(e.amount)}</div>
@@ -779,7 +804,7 @@ async function renderMonth() {
       </div>
       <div class="chart-card" style="grid-column:1/-1;">
         <h4>Running balance through the month</h4>
-        ${lineChart(displayedStarting, data, emiRows.concat(sipRows))}
+        ${lineChart(displayedStarting, data, emiRowsFiltered.concat(sipRowsFiltered))}
       </div>
       <div style="grid-column: 1 / -1; margin-top: 8px;">
         <h3 style="font-size: 1.15rem; margin-bottom: 12px; font-weight: 600; font-family: 'Fraunces', serif;">Spends by Tags</h3>

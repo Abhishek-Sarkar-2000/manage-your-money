@@ -51,6 +51,8 @@ async function renderSips() {
   // Filter into active and paused
   const activeSips = sipSeries.filter(s => (!s.endMonth || s.endMonth >= currentMonth) && s.status !== 'paused');
   const pausedSips = sipSeries.filter(s => (!s.endMonth || s.endMonth >= currentMonth) && s.status === 'paused');
+  
+  const totalMonthlySip = activeSips.reduce((sum, s) => sum + Number(s.amount), 0);
 
   const foundationContent = isEditingFoundation ? `
     <div class="ifc-edit-mode">
@@ -81,7 +83,7 @@ async function renderSips() {
         </svg>
       </div>
     </div>
-    <div class="ifc-subtitle">This amount acts as the base of your total portfolio, combining dynamically with your recurring SIPs.</div>
+    <div class="ifc-subtitle">Base corpus, combining dynamically with recurring SIPs.</div>
     <div class="ifc-right">
       <button class="btn secondary" id="manage-base-btn"><span style="margin-right: 6px; display: inline-flex; width: 16px; height: 16px;">${ICONS.edit}</span> Manage Base</button>
     </div>
@@ -148,8 +150,18 @@ async function renderSips() {
   markRendered(root);
   root.innerHTML = `
   <div class="section">
-    <div class="invest-foundation-card">
-      ${foundationContent}
+    <div class="portfolio-summary-grid">
+      <div class="invest-foundation-card">
+        ${foundationContent}
+      </div>
+      <div class="total-sip-card">
+        <div class="tsc-top">
+          <div class="ifc-title">TOTAL MONTHLY SIP</div>
+          <div class="tsc-val num">${fmtINR(totalMonthlySip)}</div>
+          <div class="tsc-mo">/mo</div>
+        </div>
+        <div class="ifc-subtitle" style="margin-top: 12px; margin-bottom: 0;">Aggregated monthly contribution across all active SIPs.</div>
+      </div>
     </div>
   </div>
 

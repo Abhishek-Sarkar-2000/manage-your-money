@@ -3,7 +3,7 @@
    Each view calls only the pieces it needs — nothing here is invoked at
    boot for every page the way the old loadCore() was. */
 import { Store } from './store.js';
-import { currentMonthKey, diffMonths } from './format.js';
+import { currentMonthKey, diffMonths, todayStr } from './format.js';
 import { computeSplitPageData } from './split-domain.js';
 
 /* In-memory per-page-load cache. Fresh on every navigation (a real page
@@ -44,8 +44,9 @@ export function emiRowsForMonth(emiSeries, monthKey, deletedEmi) {
     const inst = diffMonths(series.startMonth, monthKey) + 1;
     if (inst >= 1 && inst <= series.totalMonths) {
       if ((deletedEmi || []).includes(series.id)) continue;
+      const dateStr = monthKey + '-01';
       rows.push({
-        id: 'emi-' + series.id + '-' + monthKey, type: 'emi', date: monthKey + '-01',
+        id: 'emi-' + series.id + '-' + monthKey, type: 'emi', date: dateStr,
         description: series.description, amount: series.monthlyAmount,
         seriesId: series.id, installment: inst, totalMonths: series.totalMonths,
       });
@@ -78,6 +79,7 @@ export function sipRowsForMonth(sipSeries, monthKey, deletedSip) {
     rows.push({
       id: 'sip-' + series.id + '-' + monthKey, type: 'sip', date: dateStr,
       description: series.description, amount: series.amount, seriesId: series.id,
+      category: series.category || 'Mutual Fund',
     });
   }
   return rows;
@@ -174,9 +176,9 @@ export async function computeMonthlyBreakdown(monthsIndex, emiSeries, sipSeries,
   let prevEnding = null;
   for (const k of sortedKeys) {
     const data = await loadMonth(k);
-    const emiRows = emiRowsForMonth(emiSeries, k, data.deletedEmi);
-    const sipRows = sipRowsForMonth(sipSeries, k, data.deletedSip);
-    const recurringRows = recurringRowsForMonth(recurringSeries || [], k, data.deletedRecurring);
+    const emiRows = emiRowsForMonth(emiSeries, k, data.deletedEmi).filter(r => r.date <= todayStr());
+    const sipRows = sipRowsForMonth(sipSeries, k, data.deletedSip).filter(r => r.date <= todayStr());
+    const recurringRows = recurringRowsForMonth(recurringSeries || [], k, data.deletedRecurring).filter(r => r.date <= todayStr());
     const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows, recurringRows));
     let starting;
     if (data.startingBalanceMode === 'auto' && prevEnding !== null) {
@@ -202,9 +204,9 @@ export async function computeDailyBalanceSeries(monthsIndex, emiSeries, sipSerie
 
   for (const b of breakdown) {
     const data = await loadMonth(b.monthKey);
-    const emiRows = emiRowsForMonth(emiSeries, b.monthKey, data.deletedEmi);
-    const sipRows = sipRowsForMonth(sipSeries, b.monthKey, data.deletedSip);
-    const recurringRows = recurringRowsForMonth(recurringSeries || [], b.monthKey, data.deletedRecurring);
+    const emiRows = emiRowsForMonth(emiSeries, b.monthKey, data.deletedEmi).filter(r => r.date <= todayStr());
+    const sipRows = sipRowsForMonth(sipSeries, b.monthKey, data.deletedSip).filter(r => r.date <= todayStr());
+    const recurringRows = recurringRowsForMonth(recurringSeries || [], b.monthKey, data.deletedRecurring).filter(r => r.date <= todayStr());
     const relevant = [...data.entries, ...emiRows, ...sipRows, ...recurringRows].filter(e =>
       e.type === 'income' || e.type === 'investment' || e.type === 'emi' || e.type === 'sip' || e.type === 'recurring' || e.type === 'spend' || e.type === 'payback'
     );
@@ -294,7 +296,7 @@ export async function computeGlobalInvestments(monthsIndex, sipSeries, existingI
     for (const e of data.entries) {
       if (e.type === 'investment') monthSum += Number(e.amount) || 0;
     }
-    const sipRows = sipRowsForMonth(sipSeries, k, data.deletedSip);
+    const sipRows = sipRowsForMonth(sipSeries, k, data.deletedSip).filter(r => r.date <= todayStr());
     for (const s of sipRows) monthSum += Number(s.amount) || 0;
 
     if (monthSum > 0) {
@@ -319,7 +321,7 @@ export async function computeGlobalCardDues(monthsIndex, cards, recurringSeries)
   for (const c of cards) perCard[c.id] = { card: c, dues: 0 };
   for (const k of monthsIndex) {
     const data = await loadMonth(k);
-    const recRows = recurringRowsForMonth(recurringSeries || [], k, data.deletedRecurring);
+    const recRows = recurringRowsForMonth(recurringSeries || [], k, data.deletedRecurring).filter(r => r.date <= todayStr());
     const allEntries = data.entries.concat(recRows);
     for (const e of allEntries) {
       if ((e.type === 'cardcharge' || (e.type === 'recurring' && e.paymentMode === 'card')) && e.cardId) {

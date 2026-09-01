@@ -158,7 +158,7 @@
   color: var(--yellow) !important;
 }
 
-:root[data-theme="hi-contrast"] .src-badge,
+:root[data-theme="hi-contrast"] .src-badge:not(.sip),
 :root[data-theme="hi-contrast"] .fab-home,
 :root[data-theme="hi-contrast"] .action-card .ac-icon {
   background: var(--blue);
@@ -241,6 +241,7 @@
 :root[data-theme="dark"] .current-month-card.empty,
 :root[data-theme="dark"] .stat-back,
 :root[data-theme="dark"] .emi-card,
+:root[data-theme="dark"] .month-sip-card ,
 :root[data-theme="dark"] .month-row,
 :root[data-theme="dark"] .profile-menu,
 :root[data-theme="dark"] tbody td,
@@ -262,10 +263,15 @@
 :root[data-theme="dark"] .price-item-card,
 :root[data-theme="dark"] .add-entry-panel,
 :root[data-theme="dark"] .cc-item,
-:root[data-theme="dark"] .balance-box {
+:root[data-theme="dark"] .balance-box,
+:root[data-theme="dark"] .sip-card{
   background: linear-gradient(135deg, var(--hair) 0%, var(--ice-2) 100%) !important;
   color: var(--navy);
   border-color: var(--sky) !important;
+}
+
+:root[data-theme="dark"] .month-sip-card:hover {
+  box-shadow: 0 4px 18px #000;
 }
 
 :root[data-theme="dark"] .form-panel {
@@ -293,6 +299,14 @@
   background: var(--hair) !important;
   color: var(--navy);
   border-color: var(--ice-2) !important;
+}
+
+:root[data-theme="dark"] .btn.secondary {
+  color: var(--sky);
+}
+:root[data-theme="dark"] .btn.ghost {
+  background: white;
+  color: var(--sky);
 }
 
 :root[data-theme="dark"] .field input,
@@ -335,6 +349,37 @@
 :root[data-theme="dark"] .chart-tooltip {
   background: linear-gradient(135deg, var(--blue) 0%, var(--text-sky) 100%);
   color: #fff;
+}
+
+:root[data-theme="hi-contrast"] .invest-foundation-card,
+:root[data-theme="hi-contrast"] .total-sip-card {
+  background: var(--blue);
+}
+:root[data-theme="hi-contrast"] .ifc-val,
+:root[data-theme="hi-contrast"] .tsc-val {
+  color: var(--yellow);
+}
+:root[data-theme="hi-contrast"] .ifc-subtitle,
+:root[data-theme="hi-contrast"] .ifc-title,
+:root[data-theme="hi-contrast"] .tsc-mo {
+  color: var(--text-white);
+}
+
+:root[data-theme="dark"] .invest-foundation-card,
+:root[data-theme="dark"] .total-sip-card {
+  background: linear-gradient(135deg, #181938 0%, #252458 55%, #3C367E 100%) !important;
+  border: solid;
+  border-width: 1px;
+  border-color: var(--blue-soft);
+}
+:root[data-theme="dark"] .ifc-title {
+  color: #A8B1FF;
+}
+:root[data-theme="dark"] .ifc-subtitle {
+  color: #fff;
+}
+:root[data-theme="dark"] .sip-card-footer {
+  border-top-color: var(--sky);
 }
 
 :root[data-theme="dark"] .chart-tooltip .ct-label {
@@ -414,9 +459,11 @@
     border-color: var(--blue-soft);
   }
   :root[data-theme="dark"] .btn.ghost:hover {
-    background: var(--hair);
-    color: var(--ink);
-    border-color: var(--sky);
+    background: var(--text-light);
+    color: var(--ice);
+  }
+  :root[data-theme="dark"] .btn.secondary:hover {
+    background: var(--text-light);
   }
 }
 

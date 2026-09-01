@@ -1,19 +1,63 @@
 /* ---------- Premium SIP & Portfolio Redesign ---------- */
 
-/* 1. Investment Foundation Card */
-.invest-foundation-card {
+/* 1. Investment Foundation & Total SIP Cards */
+.portfolio-summary-grid {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr;
+  gap: 16px;
+}
+
+.invest-foundation-card,
+.total-sip-card {
   position: relative;
   overflow: hidden;
+  min-width: 0;
   background: linear-gradient(135deg, var(--navy) 0%, var(--royal) 55%, var(--blue) 100%);
   border-radius: 16px;
   padding: 30px 32px;
   color: #fff;
+  box-shadow: 0 12px 28px rgba(11, 37, 69, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  container-type: inline-size;
+}
+
+.invest-foundation-card {
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 20px;
-  box-shadow: 0 12px 28px rgba(11, 37, 69, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+
+.total-sip-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.tsc-top {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tsc-val {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: clamp(1.9rem, 8cqi, 2.8rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tsc-mo {
+  font-family: 'Source Serif 4', serif;
+  font-size: 0.85rem;
+  color: var(--sky);
+  margin-top: -2px;
 }
 
 .ifc-left {
@@ -40,7 +84,7 @@
 
 .ifc-val {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 2.8rem;
+  font-size: clamp(2rem, 9cqi, 3.5rem);
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1;
@@ -135,11 +179,6 @@
 
 .sip-card.paused:hover {
   opacity: 1;
-}
-
-:root[data-theme="dark"] .sip-card {
-  background: var(--ice-2);
-  border-color: var(--sky);
 }
 
 .sip-card-header {
@@ -299,9 +338,12 @@
   background: linear-gradient(155deg, var(--ice-2), var(--paper));
 }
 
-@media (max-width: 569px) {
-  .invest-foundation-card {
+@media (max-width: 519px) {
+  .invest-foundation-card,
+  .total-sip-card {
     padding: 24px 20px;
+  }
+  .invest-foundation-card {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -316,11 +358,14 @@
     width: 100%;
     justify-content: center;
   }
-  .ifc-val {
-    font-size: 2.2rem;
-  }
   .ifc-sparkline {
     display: none;
+  }
+}
+
+@media (max-width: 819px) {
+  .portfolio-summary-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -339,28 +384,4 @@
   .sip-desc {
     font-size: 0.68rem;
   }
-}
-
-:root[data-theme="hi-contrast"] .invest-foundation-card {
-  background: var(--blue);
-}
-:root[data-theme="hi-contrast"] .ifc-val{
-  color: var(--yellow);
-}
-:root[data-theme="hi-contrast"] .ifc-subtitle,
-:root[data-theme="hi-contrast"] .ifc-title {
-  color: var(--text-white);
-}
-
-:root[data-theme="dark"] .invest-foundation-card {
-  background: linear-gradient(135deg, #181938 0%, #252458 55%, #3C367E 100%) !important;
-  border: solid;
-  border-width: 1px;
-  border-color: var(--blue-soft);
-}
-:root[data-theme="dark"] .ifc-title {
-  color: #A8B1FF;
-}
-:root[data-theme="dark"] .ifc-subtitle {
-  color: #fff;
 }

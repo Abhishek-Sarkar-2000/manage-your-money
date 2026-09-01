@@ -1,7 +1,7 @@
 /* ---------- /months ---------- */
 import { Store } from '../core/store.js';
 import { escapeHtml } from '../core/dom.js';
-import { fmtINR, fmtINRShort, monthKeyLabel, monthKeyShort, currentMonthKey, addMonths } from '../core/format.js';
+import { fmtINR, fmtINRShort, monthKeyLabel, monthKeyShort, currentMonthKey, addMonths, todayStr } from '../core/format.js';
 import { authReady } from '../core/auth.js';
 import { emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth, computeMonthTotals, allSpendTags } from '../core/domain.js';
 import { SPLIT_PALETTE } from '../components/charts/split-charts.js';
@@ -69,9 +69,9 @@ function computeMonthlyBreakdownFromBulk(keysAscending, bulkData) {
     if (!data.deletedSip) data.deletedSip = [];
     if (!data.deletedRecurring) data.deletedRecurring = [];
 
-    const emiRows = emiRowsForMonth(emiSeries, k, data.deletedEmi);
-    const sipRows = sipRowsForMonth(sipSeries, k, data.deletedSip);
-    const recurringRows = recurringRowsForMonth(recurringSeries, k, data.deletedRecurring);
+    const emiRows = emiRowsForMonth(emiSeries, k, data.deletedEmi).filter(r => r.date <= todayStr());
+    const sipRows = sipRowsForMonth(sipSeries, k, data.deletedSip).filter(r => r.date <= todayStr());
+    const recurringRows = recurringRowsForMonth(recurringSeries, k, data.deletedRecurring).filter(r => r.date <= todayStr());
     const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows, recurringRows));
 
     let starting;
@@ -119,9 +119,9 @@ function renderMonthlyChartsSection(bulkData, allMonthKeys) {
       const monthDataList = rangeKeys.map(k => {
           const data = bulkData['month:' + k] || { entries: [], deletedEmi: [], deletedSip: [], deletedRecurring: [] };
           const allRows = data.entries.concat(
-              emiRowsForMonth(emiSeries, k, data.deletedEmi),
-              sipRowsForMonth(sipSeries, k, data.deletedSip),
-              recurringRowsForMonth(recurringSeries, k, data.deletedRecurring)
+                  emiRowsForMonth(emiSeries, k, data.deletedEmi).filter(r => r.date <= todayStr()),
+                  sipRowsForMonth(sipSeries, k, data.deletedSip).filter(r => r.date <= todayStr()),
+                  recurringRowsForMonth(recurringSeries, k, data.deletedRecurring).filter(r => r.date <= todayStr())
           );
           let monthTotal = 0;
           const tagSums = {};

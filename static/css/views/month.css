@@ -121,6 +121,86 @@
   font-weight: 600;
 }
 
+.price-category-section {
+  margin-bottom: 24px;
+}
+
+.price-category-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--royal);
+  border: 1px solid var(--hair);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 4px;
+}
+
+.price-category-title::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--blue);
+  flex-shrink: 0;
+}
+
+:root[data-theme="dark"] .price-category-title {
+  background: var(--hair);
+  color: var(--navy);
+  border: 1px solid var(--blue-soft);
+  box-shadow: 0 10px 24px rgba(2, 11, 22, 0.77), 0 2px 6px rgba(9, 21, 36, 0.6);
+}
+:root[data-theme="hi-contrast"] .price-category-title {
+  background: var(--blue);
+  color: var(--text-white);
+  border: 1px solid var(--navy);
+}
+:root[data-theme="hi-contrast"] .price-category-title::before {
+  background: var(--text-white);
+}
+
+.month-sip-card {
+  position: relative;
+  background: linear-gradient(120deg, #fff, var(--ice-2));
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.month-sip-card:hover {
+  box-shadow: var(--shadow);
+}
+
+@media (max-width: 480px) {
+  .price-category-track .month-sip-card {
+    flex: 0 0 75vw;
+    min-width: 220px;
+    padding: 14px;
+  }
+  .month-sip-card h4 {
+    font-size: 0.95rem !important;
+  }
+  .month-sip-card .emi-stats {
+    font-size: 0.72rem !important;
+  }
+  .month-sip-card .recurring-card {
+    font-size: 1rem !important;
+  }
+}
 
 /* ---------- EMI Cards ---------- */
 .emi-list {
