@@ -379,6 +379,10 @@
   border-top-color: var(--sky);
 }
 
+:root[data-theme="dark"] .mr-metrics {
+  border-color: var(--sky);
+}
+
 :root[data-theme="dark"] .chart-tooltip .ct-label {
   color: #fff;
 }

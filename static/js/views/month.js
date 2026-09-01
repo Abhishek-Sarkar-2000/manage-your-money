@@ -35,7 +35,7 @@ let splitsIndex = [];
 let openForm = null;
 let isMenuOpen = false;
 let isMoreOpen = false;
-let formSlideDirection = '';
+let isFormOpening = false;
 let animTimeout = null;
 let domainLoaded = false;
 let currentSipFilter = 'All';
@@ -555,7 +555,7 @@ function renderAddEntryPanel() {
     </button>`;
 
   return `
-  <div class="add-entry-panel">
+  <div class="add-entry-panel ${isMenuOpen ? 'expanded' : ''}">
     <button class="add-entry-trigger ${isMenuOpen ? 'active' : ''}" id="add-entry-trigger" type="button" aria-expanded="${isMenuOpen}">
       <span class="add-entry-trigger-icon">+</span>
       <span class="add-entry-trigger-text">
@@ -564,18 +564,22 @@ function renderAddEntryPanel() {
       </span>
       <span class="add-entry-trigger-chevron">›</span>
     </button>
-    ${isMenuOpen ? `
-    <div class="txn-menu">
-      <div class="txn-option-grid">
-        ${primaryHtml}
-        ${isMoreOpen ? moreHtml : ''}
-        ${moreToggleHtml}
+    <div class="txn-menu-wrap">
+      <div class="txn-menu-inner">
+        <div class="txn-menu">
+          <div class="txn-option-grid">
+            ${primaryHtml}
+            ${isMoreOpen ? moreHtml : ''}
+            ${moreToggleHtml}
+          </div>
+          <div id="form-panel-anim-inner" class="form-panel-wrap ${openForm && !isFormOpening ? 'expanded' : ''}">
+            <div class="form-panel-inner">
+              ${openForm ? renderForm(openForm) : ''}
+            </div>
+          </div>
+        </div>
       </div>
-      ${openForm ? `
-      <div id="form-panel-anim-inner" class="${formSlideDirection || ''}">
-        ${renderForm(openForm)}
-      </div>` : ''}
-    </div>` : ''}
+    </div>
   </div>`;
 }
 
@@ -1083,9 +1087,21 @@ root.addEventListener('click', async (ev) => {
   if (addEntryTrigger) {
     if (animTimeout) clearTimeout(animTimeout);
     isMenuOpen = !isMenuOpen;
-    if (!isMenuOpen) { openForm = null; isMoreOpen = false; }
-    formSlideDirection = '';
-    await renderMonth();
+    const panel = addEntryTrigger.closest('.add-entry-panel');
+    if (panel) {
+      panel.classList.toggle('expanded', isMenuOpen);
+      addEntryTrigger.classList.toggle('active', isMenuOpen);
+      addEntryTrigger.setAttribute('aria-expanded', String(isMenuOpen));
+    }
+    if (!isMenuOpen) {
+      // Closing the menu also closes any open form. Collapse the form's
+      // own grid row immediately so both animate shut together instead
+      // of the form snapping to nothing right before the menu closes.
+      openForm = null;
+      isMoreOpen = false;
+      const formWrap = $('#form-panel-anim-inner');
+      if (formWrap) formWrap.classList.remove('expanded');
+    }
     return;
   }
 
@@ -1175,24 +1191,36 @@ root.addEventListener('click', async (ev) => {
     const newForm = formBtn.dataset.form;
     const oldForm = openForm;
     if (animTimeout) clearTimeout(animTimeout);
-    if (oldForm === newForm) { openForm = null; await renderMonth(); return; }
-    if (oldForm) {
-      // Get indices from the visual menu order (primary + more), dynamically based on viewport
-      const primaryOrder = getTxnPrimaryOrder();
-      const moreOrder = getTxnMoreOrder();
-      const allTxnOrder = [...primaryOrder, ...moreOrder];
-      const oldIdx = allTxnOrder.indexOf(oldForm);
-      const newIdx = allTxnOrder.indexOf(newForm);
-      const isRight = newIdx > oldIdx;
-      const inner = $('#form-panel-anim-inner');
-      if (inner) {
-        inner.className = isRight ? 'slide-out-left' : 'slide-out-right';
-        animTimeout = setTimeout(async () => { openForm = newForm; formSlideDirection = isRight ? 'slide-in-right' : 'slide-in-left'; await renderMonth(); }, 300);
-      } else { openForm = newForm; formSlideDirection = ''; await renderMonth(); }
+    if (oldForm === newForm) {
+      // Same type clicked again: collapse the form-panel-wrap back to
+      // 0fr, then clear the form markup once the transition has finished
+      // so the content doesn't disappear before it's done animating.
+      openForm = null;
+      formBtn.classList.remove('active');
+      const wrap = $('#form-panel-anim-inner');
+      if (wrap) wrap.classList.remove('expanded');
+      animTimeout = setTimeout(async () => { await renderMonth(); }, 250);
       return;
     }
-    openForm = newForm; formSlideDirection = '';
+    if (oldForm) {
+      // Switching type: switch immediately without intermediate collapse
+      openForm = newForm;
+      await renderMonth();
+      return;
+    }
+    
+    // Opening from closed state
+    isFormOpening = true;
+    openForm = newForm;
     await renderMonth();
+    isFormOpening = false;
+    
+    const wrap = $('#form-panel-anim-inner');
+    if (wrap) {
+      // Force reflow to ensure the non-expanded state is applied before transitioning
+      void wrap.offsetWidth;
+      wrap.classList.add('expanded');
+    }
     return;
   }
 
@@ -1200,7 +1228,8 @@ root.addEventListener('click', async (ev) => {
   if (closeForm) {
     if (animTimeout) clearTimeout(animTimeout);
     openForm = null;
-    await renderMonth();
+    const wrap = $('#form-panel-anim-inner');
+    if (wrap) wrap.classList.remove('expanded');
     return;
   }
 

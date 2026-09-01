@@ -3463,6 +3463,10 @@ transform: translateY(0);
   border-top-color: var(--sky);
 }
 
+:root[data-theme="dark"] .mr-metrics {
+  border-color: var(--sky);
+}
+
 :root[data-theme="dark"] .chart-tooltip .ct-label {
   color: #fff;
 }
@@ -4138,13 +4142,32 @@ footer {
 }
 
 .add-entry-trigger.active .add-entry-trigger-chevron {
-  transform: rotate(90deg);
+  transform: rotate(180deg);
   color: var(--blue);
+}
+
+/* Menu wrap: grid-row-based collapse/expand, mirroring .mr-metrics-wrap
+   on the months page. The wrap owns the 0fr -> 1fr transition, the inner
+   clips overflow so nothing peeks out while collapsed, and spacing/margin
+   live on the innermost element so they collapse away with the content
+   instead of leaving a stray gap. */
+.txn-menu-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.add-entry-panel.expanded .txn-menu-wrap {
+  grid-template-rows: 1fr;
+}
+
+.txn-menu-inner {
+  overflow: hidden;
+  min-height: 0;
 }
 
 .txn-menu {
   margin-top: 14px;
-  animation: fadeInDown 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .txn-option-grid {
@@ -4209,6 +4232,32 @@ footer {
   justify-content: center;
   font-size: 1.05rem;
   line-height: 1;
+}
+
+/* Selected-form wrap: same 0fr -> 1fr grid pattern as .txn-menu-wrap /
+   .mr-metrics-wrap. Grows smoothly from nothing to full height instead
+   of jumping in when a transaction type is picked, and shrinks back
+   the same way when switching type or cancelling. */
+.form-panel-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.form-panel-wrap.expanded {
+  grid-template-rows: 1fr;
+}
+
+.form-panel-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.form-panel-inner .form-panel {
+  /* The wrap now owns the reveal animation; suppress the page-wide
+     fadeInUp mount animation so it doesn't fight the grid transition. */
+  animation: none;
+  margin-top: 0;
 }
 
 .txn-option-icon--blue   { background: var(--blue-bg); }
@@ -4394,53 +4443,306 @@ footer {
 .months-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   margin-top: 10px;
 }
 
 .month-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto auto;
+  padding: 18px 22px;
   border: 1px solid var(--hair);
-  border-radius: var(--radius-sm);
-  background: #fff;
+  border-radius: var(--radius);
+  background: var(--paper);
   cursor: pointer;
-  transition: all 0.15s ease;
+  text-decoration: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .month-row:hover {
   border-color: var(--sky);
   box-shadow: var(--shadow-sm);
-  transform: translateX(3px);
+  transform: translateY(-2px);
+}
+
+.mr-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  grid-column: 1 / -1;
+}
+
+.mr-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.month-row .mr-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
 }
 
 .month-row .mr-name {
   font-family: 'Fraunces', serif;
   font-weight: 600;
-  font-size: 1.05rem;
+  font-size: 1.08rem;
   color: var(--navy);
 }
 
 .month-row .mr-sub {
   font-size: 0.8rem;
   color: var(--muted);
-  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .month-row .mr-val {
   font-family: 'IBM Plex Mono', monospace;
   font-weight: 600;
+  font-size: 1.02rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-@media (max-width: 480px) {
+.mr-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  grid-column: 2;
+  grid-row: 3;
+  justify-self: end;
+  align-self: end;
+}
+
+/* ---------- Month card metrics strip (collapsible) ---------- */
+.mr-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+}
+
+.mr-toggle:hover {
+  color: var(--blue);
+  background: var(--ice-2);
+}
+
+.mr-toggle svg {
+  display: block;
+  transition: transform 0.2s ease;
+}
+
+.month-row.expanded .mr-toggle {
+  color: var(--blue);
+}
+
+.month-row.expanded .mr-toggle svg {
+  transform: rotate(180deg);
+}
+
+/* Height-animated collapse: the wrap owns the 0fr→1fr row-track
+   transition, the inner clips overflow so nothing peeks out while
+   collapsed, and the border/spacing live on the innermost grid so they
+   disappear along with the content instead of leaving a stray line. */
+.mr-metrics-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.month-row.expanded .mr-metrics-wrap {
+  grid-template-rows: 1fr;
+}
+
+.mr-metrics-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.mr-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid var(--hair);
+  margin-top: 14px;
+  padding-top: 14px;
+  grid-column: 1 / -1;
+}
+
+.mr-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 16px;
+  min-width: 0;
+}
+
+.mr-metric:first-child {
+  border-left: none;
+  padding-left: 0;
+}
+
+.mr-metric-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.mr-metric-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+}
+
+.mr-metric-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.mr-metric-desc {
+  font-size: 0.82rem;
+  color: var(--ink);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.mr-metric-row .src-badge {
+  flex-shrink: 0;
+}
+
+.mr-metric-amt {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--navy);
+}
+
+.mr-metric-amt--lead {
+  font-size: 1rem;
+  color: var(--debit);
+}
+
+.mr-metric-empty {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Tablet / large mobile: collapse the 4-up strip into a 2-column sub-grid
+   with dividers only between rows/columns, and trim the padding a notch. */
+@media (max-width: 767px) {
+  .month-row {
+    padding: 16px 18px;
+  }
+
+  .mr-metrics {
+    grid-template-columns: repeat(2, 1fr);
+    row-gap: 12px;
+  }
+
+  .mr-metric {
+    padding: 0 12px;
+  }
+
+  .mr-metric:nth-child(2n+1) {
+    padding-left: 0;
+  }
+
+  .mr-metric:nth-child(n+3) {
+    border-top: 1px solid var(--hair);
+    padding-top: 10px;
+  }
+  :root[data-theme="dark"] .mr-metric:nth-child(n+3) {
+    border-color: var(--sky);
+  }
+}
+
+@media (max-width: 579px) {
+  .month-row {
+    padding: 14px 16px;
+  }
+
+  .mr-metric-label {
+    font-size: 0.62rem;
+  }
+
+  .mr-metric-desc,
+  .mr-metric-empty {
+    font-size: 0.76rem;
+  }
+
+  .mr-metric-amt {
+    font-size: 0.84rem;
+  }
+
+  .mr-metric-amt--lead {
+    font-size: 0.9rem;
+  }
+}
+
+/* Small mobile: stack every metric into a single column so nothing
+   overflows horizontally, while keeping text fully legible. */
+@media (max-width: 399px) {
+  .month-row {
+    grid-template-columns: 1fr;
+  }
+
+  .mr-actions {
+    grid-column: 1;
+    grid-row: 3;
+    justify-self: end;
+  }
+
+  .mr-metrics {
+    grid-template-columns: 1fr;
+    row-gap: 10px;
+  }
+
+  .mr-metric {
+    border-left: none !important;
+    padding: 0 !important;
+  }
+
+  .mr-metric:nth-child(n+2) {
+    border-top: 1px solid var(--hair) !important;
+    padding-top: 8px !important;
+  }
+
   .month-row .mr-name {
     font-size: clamp(0.82rem, 5vw, 0.92rem);
   }
+
   .month-row .mr-sub {
     font-size: clamp(0.65rem, 5vw, 0.7rem);
+  }
+
+  .month-row .mr-val {
+    font-size: 0.9rem;
+  }
+  
+  :root[data-theme="dark"] .mr-metric:nth-child(n+2) {
+    border-color: var(--sky) !important;
   }
 }
 
@@ -8371,7 +8673,6 @@ let splitsIndex = [];
 let openForm = null;
 let isMenuOpen = false;
 let isMoreOpen = false;
-let formSlideDirection = '';
 let animTimeout = null;
 let domainLoaded = false;
 let currentSipFilter = 'All';
@@ -8891,7 +9192,7 @@ function renderAddEntryPanel() {
     </button>`;
 
   return `
-  <div class="add-entry-panel">
+  <div class="add-entry-panel ${isMenuOpen ? 'expanded' : ''}">
     <button class="add-entry-trigger ${isMenuOpen ? 'active' : ''}" id="add-entry-trigger" type="button" aria-expanded="${isMenuOpen}">
       <span class="add-entry-trigger-icon">+</span>
       <span class="add-entry-trigger-text">
@@ -8900,18 +9201,22 @@ function renderAddEntryPanel() {
       </span>
       <span class="add-entry-trigger-chevron">›</span>
     </button>
-    ${isMenuOpen ? `
-    <div class="txn-menu">
-      <div class="txn-option-grid">
-        ${primaryHtml}
-        ${isMoreOpen ? moreHtml : ''}
-        ${moreToggleHtml}
+    <div class="txn-menu-wrap">
+      <div class="txn-menu-inner">
+        <div class="txn-menu">
+          <div class="txn-option-grid">
+            ${primaryHtml}
+            ${isMoreOpen ? moreHtml : ''}
+            ${moreToggleHtml}
+          </div>
+          <div id="form-panel-anim-inner" class="form-panel-wrap ${openForm ? 'expanded' : ''}">
+            <div class="form-panel-inner">
+              ${openForm ? renderForm(openForm) : ''}
+            </div>
+          </div>
+        </div>
       </div>
-      ${openForm ? `
-      <div id="form-panel-anim-inner" class="${formSlideDirection || ''}">
-        ${renderForm(openForm)}
-      </div>` : ''}
-    </div>` : ''}
+    </div>
   </div>`;
 }
 
@@ -9419,9 +9724,21 @@ root.addEventListener('click', async (ev) => {
   if (addEntryTrigger) {
     if (animTimeout) clearTimeout(animTimeout);
     isMenuOpen = !isMenuOpen;
-    if (!isMenuOpen) { openForm = null; isMoreOpen = false; }
-    formSlideDirection = '';
-    await renderMonth();
+    const panel = addEntryTrigger.closest('.add-entry-panel');
+    if (panel) {
+      panel.classList.toggle('expanded', isMenuOpen);
+      addEntryTrigger.classList.toggle('active', isMenuOpen);
+      addEntryTrigger.setAttribute('aria-expanded', String(isMenuOpen));
+    }
+    if (!isMenuOpen) {
+      // Closing the menu also closes any open form. Collapse the form's
+      // own grid row immediately so both animate shut together instead
+      // of the form snapping to nothing right before the menu closes.
+      openForm = null;
+      isMoreOpen = false;
+      const formWrap = $('#form-panel-anim-inner');
+      if (formWrap) formWrap.classList.remove('expanded');
+    }
     return;
   }
 
@@ -9511,24 +9828,45 @@ root.addEventListener('click', async (ev) => {
     const newForm = formBtn.dataset.form;
     const oldForm = openForm;
     if (animTimeout) clearTimeout(animTimeout);
-    if (oldForm === newForm) { openForm = null; await renderMonth(); return; }
-    if (oldForm) {
-      // Get indices from the visual menu order (primary + more), dynamically based on viewport
-      const primaryOrder = getTxnPrimaryOrder();
-      const moreOrder = getTxnMoreOrder();
-      const allTxnOrder = [...primaryOrder, ...moreOrder];
-      const oldIdx = allTxnOrder.indexOf(oldForm);
-      const newIdx = allTxnOrder.indexOf(newForm);
-      const isRight = newIdx > oldIdx;
-      const inner = $('#form-panel-anim-inner');
-      if (inner) {
-        inner.className = isRight ? 'slide-out-left' : 'slide-out-right';
-        animTimeout = setTimeout(async () => { openForm = newForm; formSlideDirection = isRight ? 'slide-in-right' : 'slide-in-left'; await renderMonth(); }, 300);
-      } else { openForm = newForm; formSlideDirection = ''; await renderMonth(); }
+    if (oldForm === newForm) {
+      // Same type clicked again: collapse the form-panel-wrap back to
+      // 0fr, then clear the form markup once the transition has finished
+      // so the content doesn't disappear before it's done animating.
+      openForm = null;
+      formBtn.classList.remove('active');
+      const wrap = $('#form-panel-anim-inner');
+      if (wrap) wrap.classList.remove('expanded');
+      animTimeout = setTimeout(async () => { await renderMonth(); }, 250);
       return;
     }
-    openForm = newForm; formSlideDirection = '';
+    if (oldForm) {
+      // Switching type: collapse the currently-open form first (grid
+      // 1fr -> 0fr), then swap in the new form's markup and expand it
+      // (0fr -> 1fr) once the collapse transition has finished. This
+      // mirrors the months-page pattern of a single owned transition
+      // instead of a manual slide/fade combo.
+      const wrap = $('#form-panel-anim-inner');
+      if (wrap) wrap.classList.remove('expanded');
+      formBtn.closest('.txn-option-grid')?.querySelectorAll('.txn-option-card').forEach(c => c.classList.remove('active'));
+      formBtn.classList.add('active');
+      animTimeout = setTimeout(async () => {
+        openForm = newForm;
+        await renderMonth();
+        // Expand on the next frame so the grid-template-rows change
+        // from 0fr -> 1fr is picked up as a transition, not a jump.
+        requestAnimationFrame(() => {
+          const newWrap = $('#form-panel-anim-inner');
+          if (newWrap) newWrap.classList.add('expanded');
+        });
+      }, 250);
+      return;
+    }
+    openForm = newForm;
     await renderMonth();
+    requestAnimationFrame(() => {
+      const wrap = $('#form-panel-anim-inner');
+      if (wrap) wrap.classList.add('expanded');
+    });
     return;
   }
 
@@ -9536,7 +9874,8 @@ root.addEventListener('click', async (ev) => {
   if (closeForm) {
     if (animTimeout) clearTimeout(animTimeout);
     openForm = null;
-    await renderMonth();
+    const wrap = $('#form-panel-anim-inner');
+    if (wrap) wrap.classList.remove('expanded');
     return;
   }
 
@@ -9923,7 +10262,7 @@ wireChartTooltips(root);
 /* ---------- /months ---------- */
 import { Store } from '../core/store.js';
 import { escapeHtml } from '../core/dom.js';
-import { fmtINR, fmtINRShort, monthKeyLabel, monthKeyShort, currentMonthKey, addMonths, todayStr } from '../core/format.js';
+import { fmtINR, fmtINRShort, monthKeyLabel, monthKeyShort, currentMonthKey, addMonths, todayStr, ordinalSuffix } from '../core/format.js';
 import { authReady } from '../core/auth.js';
 import { emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth, computeMonthTotals, allSpendTags } from '../core/domain.js';
 import { SPLIT_PALETTE } from '../components/charts/split-charts.js';
@@ -9979,6 +10318,58 @@ async function deleteMonth(key) {
 // This entirely replaces the imported domain.js version that 
 // was causing the N+1 network queries.
 // ---------------------------------------------------------
+const EXPENSE_ROW_TYPES = ['spend', 'cardcharge', 'cashpayment', 'emi', 'sip', 'recurring'];
+
+// Best-effort category label for a row, mirroring the tag legend used by
+// the monthly tag chart above (EMI/SIP/RECURRING are their own "tag" since
+// raw entries of those types never carry a user-set tag).
+function tagLabelForRow(e) {
+  if (e.type === 'emi') return 'EMI';
+  if (e.type === 'sip') return 'SIP';
+  if (e.type === 'recurring') return 'RECURRING';
+  return (e.tag || '').trim();
+}
+
+// "14th Oct" style label for a YYYY-MM-DD date string.
+function formatDayLabel(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  const monthShort = dt.toLocaleDateString('en-IN', { month: 'short' });
+  return `${d}${ordinalSuffix(d)} ${monthShort}`;
+}
+
+// Card-level summary metrics for a single month: total spend, the single
+// biggest transaction, and the highest/lowest logged spend day. Derived
+// from the same in-memory row list already built for the totals math
+// below, so this adds zero extra network or Store calls.
+function computeMonthCardMetrics(allRows) {
+  const expenseRows = allRows.filter(e => EXPENSE_ROW_TYPES.includes(e.type) && (Number(e.amount) || 0) > 0);
+
+  let totalExpenses = 0;
+  let highestSpend = null;
+  const byDay = {};
+
+  for (const e of expenseRows) {
+    const amt = Number(e.amount) || 0;
+    totalExpenses += amt;
+
+    if (!highestSpend || amt > highestSpend.amount) {
+      highestSpend = { description: e.description || 'Untitled', amount: amt, tag: tagLabelForRow(e) };
+    }
+
+    if (e.date) byDay[e.date] = (byDay[e.date] || 0) + amt;
+  }
+
+  let mostSpendDay = null;
+  let leastSpendDay = null;
+  for (const [date, amount] of Object.entries(byDay)) {
+    if (!mostSpendDay || amount > mostSpendDay.amount) mostSpendDay = { date, amount };
+    if (!leastSpendDay || amount < leastSpendDay.amount) leastSpendDay = { date, amount };
+  }
+
+  return { totalExpenses, highestSpend, mostSpendDay, leastSpendDay };
+}
+
 function computeMonthlyBreakdownFromBulk(keysAscending, bulkData) {
   const rows = [];
   let prevEnding = null;
@@ -9994,7 +10385,9 @@ function computeMonthlyBreakdownFromBulk(keysAscending, bulkData) {
     const emiRows = emiRowsForMonth(emiSeries, k, data.deletedEmi).filter(r => r.date <= todayStr());
     const sipRows = sipRowsForMonth(sipSeries, k, data.deletedSip).filter(r => r.date <= todayStr());
     const recurringRows = recurringRowsForMonth(recurringSeries, k, data.deletedRecurring).filter(r => r.date <= todayStr());
-    const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows, recurringRows));
+    const allRows = data.entries.concat(emiRows, sipRows, recurringRows);
+    const totals = computeMonthTotals(allRows);
+    const cardMetrics = computeMonthCardMetrics(allRows);
 
     let starting;
     if (data.startingBalanceMode === 'auto' && prevEnding !== null) {
@@ -10005,8 +10398,8 @@ function computeMonthlyBreakdownFromBulk(keysAscending, bulkData) {
 
     const outflow = totals.cashSpend + totals.cardPaymentSpend + totals.emi + totals.invest + totals.sip + totals.recurring;
     const ending = starting + totals.income - outflow;
-    
-    rows.push({ monthKey: k, starting, income: totals.income, outflow, ending, totals });
+
+    rows.push({ monthKey: k, starting, income: totals.income, outflow, ending, totals, cardMetrics });
     prevEnding = ending;
   }
   return rows;
@@ -10149,6 +10542,45 @@ function refreshChartSection() {
   container.innerHTML = renderMonthlyChartsSection(bulkDataCache, currentKeysAsc);
 }
 
+// Renders the 4-up metric strip inside a month card. Every branch has an
+// explicit empty state so a month with zero (or a single) logged expense
+// never renders blank cells or throws.
+function renderMonthMetrics(cm) {
+  const highestHtml = cm.highestSpend
+    ? `<div class="mr-metric-row">
+         <span class="mr-metric-desc">${escapeHtml(cm.highestSpend.description)}</span>
+         ${cm.highestSpend.tag ? `<span class="src-badge">${escapeHtml(cm.highestSpend.tag)}</span>` : ''}
+       </div>
+       <span class="mr-metric-amt num">${fmtINR(cm.highestSpend.amount)}</span>`
+    : `<span class="mr-metric-empty">No spends logged</span>`;
+
+  const mostDayHtml = cm.mostSpendDay
+    ? `<span class="mr-metric-desc">${formatDayLabel(cm.mostSpendDay.date)}</span><span class="mr-metric-amt num">${fmtINR(cm.mostSpendDay.amount)}</span>`
+    : `<span class="mr-metric-empty">—</span>`;
+
+  const leastDayHtml = cm.leastSpendDay
+    ? `<span class="mr-metric-desc">${formatDayLabel(cm.leastSpendDay.date)}</span><span class="mr-metric-amt num">${fmtINR(cm.leastSpendDay.amount)}</span>`
+    : `<span class="mr-metric-empty">—</span>`;
+
+  return `
+    <div class="mr-metric">
+      <div class="mr-metric-label">Total expenses</div>
+      <div class="mr-metric-value"><span class="mr-metric-amt num mr-metric-amt--lead">${fmtINR(cm.totalExpenses)}</span></div>
+    </div>
+    <div class="mr-metric">
+      <div class="mr-metric-label">Highest spend</div>
+      <div class="mr-metric-value">${highestHtml}</div>
+    </div>
+    <div class="mr-metric">
+      <div class="mr-metric-label">Most spent day</div>
+      <div class="mr-metric-value">${mostDayHtml}</div>
+    </div>
+    <div class="mr-metric">
+      <div class="mr-metric-label">Least spent day</div>
+      <div class="mr-metric-value">${leastDayHtml}</div>
+    </div>`;
+}
+
 async function renderMonths() {
   await loadDomain();
   
@@ -10171,21 +10603,38 @@ async function renderMonths() {
   const breakdown = computeMonthlyBreakdownFromBulk(keysAsc, bulkData);
   const byKey = Object.fromEntries(breakdown.map(b => [b.monthKey, b]));
 
+  const emptyCardMetrics = { totalExpenses: 0, highestSpend: null, mostSpendDay: null, leastSpendDay: null };
+
   let rows = '';
   for (const k of keysDesc) {
     // 3. Render rows entirely from memory, avoiding individual network calls
     const data = bulkData['month:' + k] || { entries: [] };
-    const b = byKey[k] || { ending: 0 };
-    
+    const b = byKey[k] || { ending: 0, cardMetrics: emptyCardMetrics };
+    const cm = b.cardMetrics || emptyCardMetrics;
+
     rows += `
       <a class="month-row" href="/month/${k}">
-        <div>
-          <div class="mr-name">${monthKeyLabel(k)}</div>
-          <div class="mr-sub">${data.entries.length} ${data.entries.length === 1 ? 'entry' : 'entries'} logged</div>
+        <div class="mr-header">
+          <div class="mr-heading">
+            <div class="mr-name">${monthKeyLabel(k)}</div>
+            <div class="mr-sub">${data.entries.length} ${data.entries.length === 1 ? 'entry' : 'entries'} logged</div>
+          </div>
+          <div class="mr-header-right">
+            <div class="mr-val num" style="color:${b.ending >= 0 ? 'var(--navy)' : 'var(--debit)'}">${fmtINR(b.ending)}</div>
+          </div>
         </div>
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <div class="mr-val num" style="color:${b.ending >= 0 ? 'var(--navy)' : 'var(--debit)'}">${fmtINR(b.ending)}</div>
-          <button class="icon-btn" data-popover-trigger data-del-month="${k}" title="Delete month" type="button">✕</button>
+        <div class="mr-metrics-wrap">
+          <div class="mr-metrics-inner">
+            <div class="mr-metrics">${renderMonthMetrics(cm)}</div>
+          </div>
+        </div>
+        <div class="mr-actions">
+          <button class="icon-btn mr-toggle" data-toggle-metrics aria-expanded="false" title="Show month details" type="button">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <button class="icon-btn" data-popover-trigger data-del-month="${k}" title="Delete month" type="button">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
         </div>
       </a>`;
   }
@@ -10218,6 +10667,19 @@ async function renderMonths() {
 }
 
 root.addEventListener('click', async (ev) => {
+  const toggleBtn = ev.target.closest('[data-toggle-metrics]');
+  if (toggleBtn) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const row = toggleBtn.closest('.month-row');
+    if (row) {
+      const isOpen = row.classList.toggle('expanded');
+      toggleBtn.setAttribute('aria-expanded', String(isOpen));
+      toggleBtn.title = isOpen ? 'Hide month details' : 'Show month details';
+    }
+    return;
+  }
+
   const rangeBtn = ev.target.closest('[data-chart-range]');
   if (rangeBtn) {
     chartRangeMonths = Number(rangeBtn.dataset.chartRange);

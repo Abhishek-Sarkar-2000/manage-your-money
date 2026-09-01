@@ -177,7 +177,6 @@
   flex-direction: column;
   gap: 6px;
   padding: 0 16px;
-  border-left: 1px solid var(--hair);
   min-width: 0;
 }
 
@@ -261,13 +260,15 @@
   }
 
   .mr-metric:nth-child(2n+1) {
-    border-left: none;
     padding-left: 0;
   }
 
   .mr-metric:nth-child(n+3) {
     border-top: 1px solid var(--hair);
     padding-top: 10px;
+  }
+  :root[data-theme="dark"] .mr-metric:nth-child(n+3) {
+    border-color: var(--sky);
   }
 }
 
@@ -332,5 +333,9 @@
 
   .month-row .mr-val {
     font-size: 0.9rem;
+  }
+  
+  :root[data-theme="dark"] .mr-metric:nth-child(n+2) {
+    border-color: var(--sky) !important;
   }
 }

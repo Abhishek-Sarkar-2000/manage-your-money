@@ -322,13 +322,32 @@
 }
 
 .add-entry-trigger.active .add-entry-trigger-chevron {
-  transform: rotate(90deg);
+  transform: rotate(180deg);
   color: var(--blue);
+}
+
+/* Menu wrap: grid-row-based collapse/expand, mirroring .mr-metrics-wrap
+   on the months page. The wrap owns the 0fr -> 1fr transition, the inner
+   clips overflow so nothing peeks out while collapsed, and spacing/margin
+   live on the innermost element so they collapse away with the content
+   instead of leaving a stray gap. */
+.txn-menu-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.add-entry-panel.expanded .txn-menu-wrap {
+  grid-template-rows: 1fr;
+}
+
+.txn-menu-inner {
+  overflow: hidden;
+  min-height: 0;
 }
 
 .txn-menu {
   margin-top: 14px;
-  animation: fadeInDown 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .txn-option-grid {
@@ -393,6 +412,30 @@
   justify-content: center;
   font-size: 1.05rem;
   line-height: 1;
+}
+
+/* Selected-form wrap: same 0fr -> 1fr grid pattern as .txn-menu-wrap /
+   .mr-metrics-wrap. Grows smoothly from nothing to full height instead
+   of jumping in when a transaction type is picked, and shrinks back
+   the same way when switching type or cancelling. */
+.form-panel-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.form-panel-wrap.expanded {
+  grid-template-rows: 1fr;
+}
+
+.form-panel-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.form-panel-inner .form-panel {
+  animation: none;
+  margin-top: 10px;
 }
 
 .txn-option-icon--blue   { background: var(--blue-bg); }
