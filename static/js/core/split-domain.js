@@ -220,7 +220,25 @@ export async function toggleSplitSettlement(groupId, transferId, from, to, amoun
       if (from === SPLIT_YOU) {
         entry = { id: uid(), type: 'spend', description: `Settled to ${to} - ${groupDesc}`, amount: Number(amount), date: todayStr(), paymentMode: 'cash', cardId: null, tag: 'split', lent: [] };
       } else {
-        entry = { id: uid(), type: 'spend', description: `Received settlement from ${from} - ${groupDesc}`, amount: -Number(amount), date: todayStr(), paymentMode: 'cash', cardId: null, tag: 'split', lent: [] };
+        // Figure out whether the debt being settled originated this same
+        // calendar month or carried over from an earlier one, using the
+        // earliest dated spend in the group as the debt's origin month.
+        const spendMonthKeys = (group.spends || [])
+          .map(s => s.monthKey || (s.date ? String(s.date).slice(0, 7) : null))
+          .filter(Boolean);
+        const originMonthKey = spendMonthKeys.length
+          ? spendMonthKeys.sort()[0]
+          : (group.createdAt ? String(group.createdAt).slice(0, 7) : mk);
+        const isCrossMonth = originMonthKey !== mk;
+        if (isCrossMonth) {
+          // Debt predates this month — record the payback as fresh
+          // "Friends" income instead of a negative spend, so it decreases
+          // the global "Owed to you" balance without rewriting a past
+          // month's spend totals.
+          entry = { id: uid(), type: 'income', category: 'Friends', description: `Settlement from ${from} - ${groupDesc}`, amount: Number(amount), date: todayStr() };
+        } else {
+          entry = { id: uid(), type: 'spend', description: `Received settlement from ${from} - ${groupDesc}`, amount: -Number(amount), date: todayStr(), paymentMode: 'cash', cardId: null, tag: 'split', lent: [] };
+        }
       }
       monthData.entries.push(entry);
       await saveMonth(mk);

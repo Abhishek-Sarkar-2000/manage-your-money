@@ -37,6 +37,7 @@ export function tagsBarChart(entries, targetType, options = {}) {
   const { splitAdjustment = 0, splitTagName = 'Split' } = options;
   const personalTotals = {};
   const lentTotals = {};
+  const settledLentTotals = {};
   const displayLabels = {};
   for (const e of entries) {
     if (e.type !== targetType) continue;
@@ -48,13 +49,23 @@ export function tagsBarChart(entries, targetType, options = {}) {
     if (!displayLabels[key]) displayLabels[key] = rawTag;
     const amount = Number(e.amount) || 0;
     const lentArr = Array.isArray(e.lent) ? e.lent : [];
-    // Settled lent is paid back — it's fully deducted and never appears
-    // here again. Unsettled lent is kept as its own segment so the bar
-    // shows exactly how much of this tag's spend is still outstanding.
     const settledLent = lentArr.reduce((s, l) => l.settled ? s + (Number(l.amount) || 0) : s, 0);
     const unsettledLent = lentArr.reduce((s, l) => !l.settled ? s + (Number(l.amount) || 0) : s, 0);
-    const personal = amount - unsettledLent;
-    personalTotals[key] = (personalTotals[key] || 0) + personal;
+    if (targetType === 'cardcharge') {
+      // Credit-card dues track settled lent as its own segment instead of
+      // folding it back into personal — the money's already been repaid
+      // to you, but the card bill still needs the full amount paid off,
+      // so it stays visible rather than vanishing into "personal".
+      const personal = amount - unsettledLent - settledLent;
+      personalTotals[key] = (personalTotals[key] || 0) + personal;
+      settledLentTotals[key] = (settledLentTotals[key] || 0) + settledLent;
+    } else {
+      // Settled lent is paid back — it's fully deducted and never appears
+      // here again. Unsettled lent is kept as its own segment so the bar
+      // shows exactly how much of this tag's spend is still outstanding.
+      const personal = amount - unsettledLent;
+      personalTotals[key] = (personalTotals[key] || 0) + personal;
+    }
     lentTotals[key] = (lentTotals[key] || 0) + unsettledLent;
   }
 
@@ -71,9 +82,15 @@ export function tagsBarChart(entries, targetType, options = {}) {
     lentTotals[key] = (lentTotals[key] || 0) + splitAdjustment;
   }
 
-  const keys = Object.keys(personalTotals).filter(k => (personalTotals[k] || 0) + (lentTotals[k] || 0) > 0);
+  const keys = Object.keys(personalTotals).filter(k => (personalTotals[k] || 0) + (lentTotals[k] || 0) + (settledLentTotals[k] || 0) > 0);
   const pairs = keys
-    .map(key => ({ label: displayLabels[key], personal: personalTotals[key] || 0, lent: lentTotals[key] || 0, value: (personalTotals[key] || 0) + (lentTotals[key] || 0) }))
+    .map(key => ({
+      label: displayLabels[key],
+      personal: personalTotals[key] || 0,
+      lent: lentTotals[key] || 0,
+      settledLent: settledLentTotals[key] || 0,
+      value: (personalTotals[key] || 0) + (lentTotals[key] || 0) + (settledLentTotals[key] || 0),
+    }))
     .sort((a, b) => b.value - a.value);
   if (!pairs.length) return { html: `<div class="empty-chart">No tagged spends yet.</div>`, count: 0 };
 
@@ -84,6 +101,9 @@ export function tagsBarChart(entries, targetType, options = {}) {
     const segments = [];
     // Bottom segment: personal spend for this tag.
     if (p.personal > 0) segments.push(`<div class="stacked-segment" data-val="${fmtINR(p.personal)}" data-label="${escapeHtml(p.label)} · Personal" style="height:${(p.personal / p.value * 100)}%; background:${color};"></div>`);
+    // Middle segment: settled lent for credit cards — already repaid to
+    // you, but still tracked distinctly from personal spend.
+    if (p.settledLent > 0) segments.push(`<div class="stacked-segment" data-val="${fmtINR(p.settledLent)}" data-label="${escapeHtml(p.label)} · Settled Lent" style="height:${(p.settledLent / p.value * 100)}%; background:var(--credit);"></div>`);
     // Top segment: still-unsettled lent for this tag.
     if (p.lent > 0) segments.push(`<div class="stacked-segment" data-val="${fmtINR(p.lent)}" data-label="${escapeHtml(p.label)} · Lent" style="height:${(p.lent / p.value * 100)}%; background:#E03131;"></div>`);
     return `
@@ -100,6 +120,14 @@ export function tagsBarChart(entries, targetType, options = {}) {
       <span class="shared-chart-legend-dot" style="background:${colors[i % colors.length]};"></span>
       <span>${escapeHtml(p.label)}</span>
     </div>`).join('');
+
+  if (pairs.some(p => p.settledLent > 0)) {
+    legend += `
+    <div class="shared-chart-legend-item">
+      <span class="shared-chart-legend-dot" style="background:var(--credit);"></span>
+      <span>Settled Lent</span>
+    </div>`;
+  }
 
   if (pairs.some(p => p.lent > 0)) {
     legend += `

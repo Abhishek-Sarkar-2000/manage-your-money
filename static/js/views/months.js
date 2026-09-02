@@ -92,11 +92,14 @@ function computeMonthCardMetrics(allRows) {
     const amt = Number(e.amount) || 0;
     totalExpenses += amt;
 
-    if (!highestSpend || amt > highestSpend.amount) {
-      highestSpend = { description: e.description || 'Untitled', amount: amt, tag: tagLabelForRow(e) };
-    }
+    const isInvestment = e.type === 'sip' || e.type === 'investment';
+    if (!isInvestment) {
+      if (!highestSpend || amt > highestSpend.amount) {
+        highestSpend = { description: e.description || 'Untitled', amount: amt, tag: tagLabelForRow(e) };
+      }
 
-    if (e.date) byDay[e.date] = (byDay[e.date] || 0) + amt;
+      if (e.date) byDay[e.date] = (byDay[e.date] || 0) + amt;
+    }
   }
 
   let mostSpendDay = null;

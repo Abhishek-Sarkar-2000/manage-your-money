@@ -4254,10 +4254,8 @@ footer {
 }
 
 .form-panel-inner .form-panel {
-  /* The wrap now owns the reveal animation; suppress the page-wide
-     fadeInUp mount animation so it doesn't fight the grid transition. */
   animation: none;
-  margin-top: 0;
+  margin-top: 10px;
 }
 
 .txn-option-icon--blue   { background: var(--blue-bg); }
@@ -6087,6 +6085,7 @@ export function tagsBarChart(entries, targetType, options = {}) {
   const { splitAdjustment = 0, splitTagName = 'Split' } = options;
   const personalTotals = {};
   const lentTotals = {};
+  const settledLentTotals = {};
   const displayLabels = {};
   for (const e of entries) {
     if (e.type !== targetType) continue;
@@ -6098,13 +6097,23 @@ export function tagsBarChart(entries, targetType, options = {}) {
     if (!displayLabels[key]) displayLabels[key] = rawTag;
     const amount = Number(e.amount) || 0;
     const lentArr = Array.isArray(e.lent) ? e.lent : [];
-    // Settled lent is paid back — it's fully deducted and never appears
-    // here again. Unsettled lent is kept as its own segment so the bar
-    // shows exactly how much of this tag's spend is still outstanding.
     const settledLent = lentArr.reduce((s, l) => l.settled ? s + (Number(l.amount) || 0) : s, 0);
     const unsettledLent = lentArr.reduce((s, l) => !l.settled ? s + (Number(l.amount) || 0) : s, 0);
-    const personal = amount - unsettledLent;
-    personalTotals[key] = (personalTotals[key] || 0) + personal;
+    if (targetType === 'cardcharge') {
+      // Credit-card dues track settled lent as its own segment instead of
+      // folding it back into personal — the money's already been repaid
+      // to you, but the card bill still needs the full amount paid off,
+      // so it stays visible rather than vanishing into "personal".
+      const personal = amount - unsettledLent - settledLent;
+      personalTotals[key] = (personalTotals[key] || 0) + personal;
+      settledLentTotals[key] = (settledLentTotals[key] || 0) + settledLent;
+    } else {
+      // Settled lent is paid back — it's fully deducted and never appears
+      // here again. Unsettled lent is kept as its own segment so the bar
+      // shows exactly how much of this tag's spend is still outstanding.
+      const personal = amount - unsettledLent;
+      personalTotals[key] = (personalTotals[key] || 0) + personal;
+    }
     lentTotals[key] = (lentTotals[key] || 0) + unsettledLent;
   }
 
@@ -6121,9 +6130,15 @@ export function tagsBarChart(entries, targetType, options = {}) {
     lentTotals[key] = (lentTotals[key] || 0) + splitAdjustment;
   }
 
-  const keys = Object.keys(personalTotals).filter(k => (personalTotals[k] || 0) + (lentTotals[k] || 0) > 0);
+  const keys = Object.keys(personalTotals).filter(k => (personalTotals[k] || 0) + (lentTotals[k] || 0) + (settledLentTotals[k] || 0) > 0);
   const pairs = keys
-    .map(key => ({ label: displayLabels[key], personal: personalTotals[key] || 0, lent: lentTotals[key] || 0, value: (personalTotals[key] || 0) + (lentTotals[key] || 0) }))
+    .map(key => ({
+      label: displayLabels[key],
+      personal: personalTotals[key] || 0,
+      lent: lentTotals[key] || 0,
+      settledLent: settledLentTotals[key] || 0,
+      value: (personalTotals[key] || 0) + (lentTotals[key] || 0) + (settledLentTotals[key] || 0),
+    }))
     .sort((a, b) => b.value - a.value);
   if (!pairs.length) return { html: `<div class="empty-chart">No tagged spends yet.</div>`, count: 0 };
 
@@ -6134,6 +6149,9 @@ export function tagsBarChart(entries, targetType, options = {}) {
     const segments = [];
     // Bottom segment: personal spend for this tag.
     if (p.personal > 0) segments.push(`<div class="stacked-segment" data-val="${fmtINR(p.personal)}" data-label="${escapeHtml(p.label)} · Personal" style="height:${(p.personal / p.value * 100)}%; background:${color};"></div>`);
+    // Middle segment: settled lent for credit cards — already repaid to
+    // you, but still tracked distinctly from personal spend.
+    if (p.settledLent > 0) segments.push(`<div class="stacked-segment" data-val="${fmtINR(p.settledLent)}" data-label="${escapeHtml(p.label)} · Settled Lent" style="height:${(p.settledLent / p.value * 100)}%; background:var(--credit);"></div>`);
     // Top segment: still-unsettled lent for this tag.
     if (p.lent > 0) segments.push(`<div class="stacked-segment" data-val="${fmtINR(p.lent)}" data-label="${escapeHtml(p.label)} · Lent" style="height:${(p.lent / p.value * 100)}%; background:#E03131;"></div>`);
     return `
@@ -6150,6 +6168,14 @@ export function tagsBarChart(entries, targetType, options = {}) {
       <span class="shared-chart-legend-dot" style="background:${colors[i % colors.length]};"></span>
       <span>${escapeHtml(p.label)}</span>
     </div>`).join('');
+
+  if (pairs.some(p => p.settledLent > 0)) {
+    legend += `
+    <div class="shared-chart-legend-item">
+      <span class="shared-chart-legend-dot" style="background:var(--credit);"></span>
+      <span>Settled Lent</span>
+    </div>`;
+  }
 
   if (pairs.some(p => p.lent > 0)) {
     legend += `
@@ -8078,7 +8104,25 @@ export async function toggleSplitSettlement(groupId, transferId, from, to, amoun
       if (from === SPLIT_YOU) {
         entry = { id: uid(), type: 'spend', description: `Settled to ${to} - ${groupDesc}`, amount: Number(amount), date: todayStr(), paymentMode: 'cash', cardId: null, tag: 'split', lent: [] };
       } else {
-        entry = { id: uid(), type: 'spend', description: `Received settlement from ${from} - ${groupDesc}`, amount: -Number(amount), date: todayStr(), paymentMode: 'cash', cardId: null, tag: 'split', lent: [] };
+        // Figure out whether the debt being settled originated this same
+        // calendar month or carried over from an earlier one, using the
+        // earliest dated spend in the group as the debt's origin month.
+        const spendMonthKeys = (group.spends || [])
+          .map(s => s.monthKey || (s.date ? String(s.date).slice(0, 7) : null))
+          .filter(Boolean);
+        const originMonthKey = spendMonthKeys.length
+          ? spendMonthKeys.sort()[0]
+          : (group.createdAt ? String(group.createdAt).slice(0, 7) : mk);
+        const isCrossMonth = originMonthKey !== mk;
+        if (isCrossMonth) {
+          // Debt predates this month — record the payback as fresh
+          // "Friends" income instead of a negative spend, so it decreases
+          // the global "Owed to you" balance without rewriting a past
+          // month's spend totals.
+          entry = { id: uid(), type: 'income', category: 'Friends', description: `Settlement from ${from} - ${groupDesc}`, amount: Number(amount), date: todayStr() };
+        } else {
+          entry = { id: uid(), type: 'spend', description: `Received settlement from ${from} - ${groupDesc}`, amount: -Number(amount), date: todayStr(), paymentMode: 'cash', cardId: null, tag: 'split', lent: [] };
+        }
       }
       monthData.entries.push(entry);
       await saveMonth(mk);
@@ -8646,7 +8690,6 @@ import {
   computeMonthTotals, computeGlobalStats, cardById, allSpendTags,
 } from '../core/domain.js';
 import { renderStatCards, wireStatCardFlip } from '../components/stat-cards.js';
-import { computeSplitPageData } from '../core/split-domain.js';
 import { donutChart } from '../components/charts/donut.js';
 import { barChart, tagsBarChart } from '../components/charts/bar-chart.js';
 import { lineChart, wireChartTooltips } from '../components/charts/line-chart.js';
@@ -8673,6 +8716,7 @@ let splitsIndex = [];
 let openForm = null;
 let isMenuOpen = false;
 let isMoreOpen = false;
+let isFormOpening = false;
 let animTimeout = null;
 let domainLoaded = false;
 let currentSipFilter = 'All';
@@ -8762,6 +8806,11 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       </tr>`;
     }
 
+    // A split settlement (paid to a friend from Split Money) is a
+    // system-generated ledger mirror, not a freeform spend — editing its
+    // description/amount would desync it from the settlement record it
+    // came from, so only deletion (which reverses the settlement) is offered.
+    const isSplitSettlement = e.tag === 'split' || e.isSplitSettlement || (e.description || '').startsWith('Settled to ');
     return `<tr>
       ${dateCell}
       <td class="type-cell"><span class="tag spend">Spend</span></td>
@@ -8771,7 +8820,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
         ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
       <td class="num amt-debit">-${fmtINR(displayAmount)}</td>
-      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">✎</button><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+      <td class="actions-cell"><span class="row-actions">${isSplitSettlement ? '' : `<button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">✎</button>`}<button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
   }
   if (e.type === 'cardcharge') {
@@ -9209,7 +9258,7 @@ function renderAddEntryPanel() {
             ${isMoreOpen ? moreHtml : ''}
             ${moreToggleHtml}
           </div>
-          <div id="form-panel-anim-inner" class="form-panel-wrap ${openForm ? 'expanded' : ''}">
+          <div id="form-panel-anim-inner" class="form-panel-wrap ${openForm && !isFormOpening ? 'expanded' : ''}">
             <div class="form-panel-inner">
               ${openForm ? renderForm(openForm) : ''}
             </div>
@@ -9399,7 +9448,13 @@ async function renderMonth() {
     </div>`;
   }).join('') + `</div>` : '';
 
-  let unsettledConsumptionLent = 0, settledConsumptionLent = 0;
+  // Only debts genuinely incurred THIS month's own entries count towards
+  // this month's Lent segment — split-page and historical-month debts are
+  // never injected here. They live exclusively in the global "Owed to you"
+  // total (stats.owed / computeGlobalOwed), so a past month's chart never
+  // gets today's numbers grafted onto it, and the current month's chart
+  // never gets debts that actually originated earlier.
+  let unsettledConsumptionLent = 0, settledConsumptionLent = 0, settledCardLent = 0;
   for (const e of data.entries) {
     if (!Array.isArray(e.lent)) continue;
     if (e.type === 'spend' || e.type === 'cardcharge' || e.type === 'cashpayment') {
@@ -9408,28 +9463,20 @@ async function renderMonth() {
       // longer part of this month's spend at all (personal or lent).
       settledConsumptionLent += e.lent.reduce((s, l) => l.settled ? s + (Number(l.amount) || 0) : s, 0);
     }
+    if (e.type === 'cardcharge') {
+      // Credit-card dues still need the full charge paid off via the card
+      // bill, but a settled lent portion has already been reimbursed to
+      // you — net it out of Personal Expense so it isn't double-counted
+      // as an out-of-pocket cost in the Cashflow Overview.
+      settledCardLent += e.lent.reduce((s, l) => l.settled ? s + (Number(l.amount) || 0) : s, 0);
+    }
   }
   const emiTotal = monthTotals.emi || 0;
-  // Personal spend = total consumption minus unsettled lent minus EMI.
-  // Settled lent is explicitly deducted from the spend's amount when checked,
-  // so totalConsumption only contains Personal + Unsettled.
-  const rawPersonalExpense = Math.max(0, monthTotals.totalConsumption - unsettledConsumptionLent - emiTotal);
-
-  // Split-page balances aren't tied to any one month's entries — they're a
-  // live, running "who owes who" ledger — so we only fold them into the
-  // month that's actually current. Viewing a past month shouldn't have
-  // today's split debts injected into its historical chart.
-  let splitOwedToYou = 0;
-  if (monthKey === currentMonthKey()) {
-    const { owedToYou } = await computeSplitPageData(false, null, splitsIndex);
-    splitOwedToYou = Object.values(owedToYou).reduce((s, v) => s + (Number(v) || 0), 0);
-  }
-  // The owed amount is money already inside this month's spend, not new
-  // spend on top of it — carve it out of personal (never past zero) and
-  // move it into the lent segment so the overall Expense total is unchanged.
-  const splitCarve = Math.min(splitOwedToYou, rawPersonalExpense);
-  const personalExpense = rawPersonalExpense - splitCarve;
-  const lentSegmentValue = unsettledConsumptionLent + splitOwedToYou;
+  // Personal spend = total consumption minus unsettled lent, settled
+  // credit-card lent, and EMI.
+  const rawPersonalExpense = Math.max(0, monthTotals.totalConsumption - unsettledConsumptionLent - settledCardLent - emiTotal);
+  const personalExpense = rawPersonalExpense;
+  const lentSegmentValue = unsettledConsumptionLent;
 
   const tb = document.getElementById('global-topbar');
   if (tb) tb.style.display = '';
@@ -9489,6 +9536,7 @@ async function renderMonth() {
           },
           ...(emiTotal > 0 ? [{ label: 'EMI', value: emiTotal, color: '#5B4B9E' }] : []),
           { label: 'Invested', value: monthTotals.invest + monthTotals.sip, color: 'var(--blue)' },
+          ...(stats.owed.total > 0 ? [{ label: 'Owed', value: stats.owed.total, color: 'var(--amber)' }] : []),
         ])}
         ${lentSegmentValue > 0 ? `
         <div class="shared-chart-legend" style="border-top: none; padding-top: 0; margin-top: 0;">
@@ -9505,7 +9553,7 @@ async function renderMonth() {
         ${(() => {
           const TAG_WIDE_THRESHOLD = 5;
           const tagCharts = [
-            { title: 'Debit by tag', data: tagsBarChart(data.entries, 'spend', { splitAdjustment: splitOwedToYou, splitTagName: 'Split' }) },
+            { title: 'Debit by tag', data: tagsBarChart(data.entries, 'spend') },
             { title: 'Credit card spends by tag', data: tagsBarChart(data.entries, 'cardcharge') },
             { title: 'Cash spends by tag', data: tagsBarChart(data.entries, 'cashpayment') },
           ];
@@ -9840,33 +9888,24 @@ root.addEventListener('click', async (ev) => {
       return;
     }
     if (oldForm) {
-      // Switching type: collapse the currently-open form first (grid
-      // 1fr -> 0fr), then swap in the new form's markup and expand it
-      // (0fr -> 1fr) once the collapse transition has finished. This
-      // mirrors the months-page pattern of a single owned transition
-      // instead of a manual slide/fade combo.
-      const wrap = $('#form-panel-anim-inner');
-      if (wrap) wrap.classList.remove('expanded');
-      formBtn.closest('.txn-option-grid')?.querySelectorAll('.txn-option-card').forEach(c => c.classList.remove('active'));
-      formBtn.classList.add('active');
-      animTimeout = setTimeout(async () => {
-        openForm = newForm;
-        await renderMonth();
-        // Expand on the next frame so the grid-template-rows change
-        // from 0fr -> 1fr is picked up as a transition, not a jump.
-        requestAnimationFrame(() => {
-          const newWrap = $('#form-panel-anim-inner');
-          if (newWrap) newWrap.classList.add('expanded');
-        });
-      }, 250);
+      // Switching type: switch immediately without intermediate collapse
+      openForm = newForm;
+      await renderMonth();
       return;
     }
+    
+    // Opening from closed state
+    isFormOpening = true;
     openForm = newForm;
     await renderMonth();
-    requestAnimationFrame(() => {
-      const wrap = $('#form-panel-anim-inner');
-      if (wrap) wrap.classList.add('expanded');
-    });
+    isFormOpening = false;
+    
+    const wrap = $('#form-panel-anim-inner');
+    if (wrap) {
+      // Force reflow to ensure the non-expanded state is applied before transitioning
+      void wrap.offsetWidth;
+      wrap.classList.add('expanded');
+    }
     return;
   }
 
@@ -10119,19 +10158,36 @@ root.addEventListener('click', async (ev) => {
 
     if (!l.settled) {
       // Settle, optimistically: flip the in-memory state, push the new
-      // Payback entry into the already-loaded month data if it lands on
-      // the page we're viewing, then re-render immediately. The actual
+      // Payback/Income entry into the already-loaded month data if it lands
+      // on the page we're viewing, then re-render immediately. The actual
       // PUT(s) to the backend happen afterwards, in the background, so
       // the click never waits on a network round trip.
+      //
+      // Same-month payback (spend and payback both land in the month
+      // that's actually "now") stays a `payback` entry, offsetting this
+      // month's cash outflow exactly as before. A cross-month payback
+      // (the spend/cardcharge lives in an earlier month) instead posts as
+      // fresh "Friends" income in the current month, so a historical
+      // month's chart is never rewritten by today's settlement.
+      const spendMonthKey = monthKey;
+      const isCrossMonth = spendMonthKey !== currentMonthKey();
       const paybackId = uid();
       const paybackKey = currentMonthKey();
-      const paybackEntry = {
+      const paybackEntry = isCrossMonth ? {
+        id: paybackId,
+        type: 'income',
+        category: 'Friends',
+        description: `Payback @${entry.description} (${l.person})`,
+        amount: Number(l.amount) || 0,
+        date: todayStr(),
+        linkedLent: { spendMonthKey, spendId: entry.id, lentId: l.id },
+      } : {
         id: paybackId,
         type: 'payback',
         description: `Payback @${entry.description} (${l.person})`,
         amount: Number(l.amount) || 0,
         date: todayStr(),
-        linkedLent: { spendMonthKey: monthKey, spendId: entry.id, lentId: l.id },
+        linkedLent: { spendMonthKey, spendId: entry.id, lentId: l.id },
       };
       l.settled = true;
       l.paybackRef = { monthKey: paybackKey, id: paybackId };
@@ -10172,7 +10228,7 @@ root.addEventListener('click', async (ev) => {
         data.entries = data.entries.filter(pe => pe.id !== ref.id);
       } else if (!ref) {
         data.entries = data.entries.filter(pe => !(
-          pe.type === 'payback' && pe.linkedLent &&
+          (pe.type === 'payback' || pe.type === 'income') && pe.linkedLent &&
           pe.linkedLent.spendId === entry.id && pe.linkedLent.lentId === l.id
         ));
       }
@@ -10190,7 +10246,7 @@ root.addEventListener('click', async (ev) => {
               const pbData = await loadMonth(sk);
               const before = pbData.entries.length;
               pbData.entries = pbData.entries.filter(pe => !(
-                pe.type === 'payback' && pe.linkedLent &&
+                (pe.type === 'payback' || pe.type === 'income') && pe.linkedLent &&
                 pe.linkedLent.spendId === entry.id && pe.linkedLent.lentId === l.id
               ));
               if (pbData.entries.length !== before) { await saveMonth(sk); break; }
