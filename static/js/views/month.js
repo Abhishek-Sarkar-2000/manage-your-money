@@ -233,6 +233,55 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">${editSvg}</button><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
   }
+  if (e.type === 'sip') {
+    const catConfig = {
+      'mutual fund': { label: 'MF', cls: 'mf' },
+      'etf': { label: 'ETF', cls: 'etf' },
+      'stock': { label: 'STOCK', cls: 'stock' }
+    };
+    const cat = catConfig[(e.category || '').toLowerCase()] || { label: 'MF', cls: 'mf' };
+    return `<tr>
+      ${dateCell}
+      <td class="type-cell"><span class="tag invest">INVESTMENT</span></td>
+      <td class="desc-cell">
+        <strong>${escapeHtml(e.description)}</strong> <span class="src-badge ${cat.cls}">${cat.label}</span>
+        <div class="subnote">Auto-deducted SIP</div>
+      </td>
+      <td class="num amt-debit">-${fmtINR(e.amount)}</td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-skip-sip="${key}|${e.seriesId}" title="Skip this month">✕</button></span></td>
+    </tr>`;
+  }
+  if (e.type === 'recurring') {
+    let modeText = 'Bank Transfer';
+    let subnote = 'Auto-deducted recurring expense';
+    if (e.paymentMode === 'card') {
+      const card = cardById(cards, e.cardId);
+      modeText = card ? card.name : 'Credit Card';
+      subnote = `Auto-deducted on ${escapeHtml(modeText)} — adds to card dues`;
+    }
+    return `<tr>
+      ${dateCell}
+      <td class="type-cell"><span class="tag" style="background: #FCE8E6; color: #B0556F;">RECURRING</span></td>
+      <td class="desc-cell">
+        <strong>${escapeHtml(e.description)}</strong>
+        <div class="subnote">${subnote}</div>
+      </td>
+      <td class="num amt-debit">-${fmtINR(e.amount)}</td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-skip-recurring="${key}|${e.seriesId}" title="Skip this month">✕</button></span></td>
+    </tr>`;
+  }
+  if (e.type === 'emi') {
+    return `<tr>
+      ${dateCell}
+      <td class="type-cell"><span class="tag emi">EMI</span></td>
+      <td class="desc-cell">
+        <strong>${escapeHtml(e.description)}</strong>
+        <div class="subnote">Instalment ${e.installment}/${e.totalMonths}</div>
+      </td>
+      <td class="num amt-debit">-${fmtINR(e.amount)}</td>
+      <td class="actions-cell"></td>
+    </tr>`;
+  }
   return '';
 }
 
@@ -628,7 +677,7 @@ async function renderMonth() {
   const sipRowsFiltered = sipRows.filter(r => r.date <= todayStr());
   const recurringRowsFiltered = recurringRows.filter(r => r.date <= todayStr());
 
-  const allRows = [...data.entries].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const allRows = [...data.entries, ...sipRowsFiltered, ...recurringRowsFiltered, ...emiRowsFiltered].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   const monthTotals = computeMonthTotals(data.entries.concat(emiRowsFiltered, sipRowsFiltered, recurringRowsFiltered));
 
   const stats = await computeGlobalStats({ cards, emiSeries, sipSeries, recurringSeries, monthsIndex, existingInvestments, isShared: false, sharedSplitId: null, splitsIndex });
@@ -1489,6 +1538,14 @@ root.addEventListener('click', async (ev) => {
     data.deletedSip = data.deletedSip || [];
     if (!data.deletedSip.includes(seriesId)) data.deletedSip.push(seriesId);
     await saveMonth(mk);
+
+    const sip = sipSeries.find(s => s.id === seriesId);
+    if (sip) {
+      sip.skipMonths = sip.skipMonths || [];
+      if (!sip.skipMonths.includes(mk)) sip.skipMonths.push(mk);
+      await Store.set('sipseries', sipSeries);
+    }
+
     hideDeleteCallout();
     await renderMonth();
     showToast("Skipped this month's SIP — balance updated");

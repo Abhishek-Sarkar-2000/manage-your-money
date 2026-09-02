@@ -47,6 +47,8 @@ async function renderSips() {
   }
 
   const currentMonth = currentMonthKey();
+  const monthData = await Store.get('month:' + currentMonth, { deletedSip: [] });
+  const currentDeletedSips = monthData.deletedSip || [];
   
   // Filter into active and paused
   const activeSips = sipSeries.filter(s => (!s.endMonth || s.endMonth >= currentMonth) && s.status !== 'paused');
@@ -90,7 +92,7 @@ async function renderSips() {
   `;
 
   const renderCard = (s, isPaused) => {
-    const isSkippedThisMonth = s.skipMonths && s.skipMonths.includes(currentMonth);
+    const isSkippedThisMonth = (s.skipMonths && s.skipMonths.includes(currentMonth)) || currentDeletedSips.includes(s.id);
     return `
     <div class="sip-card ${isPaused ? 'paused' : ''}">
       <div class="sip-card-header">
@@ -251,15 +253,24 @@ root.addEventListener('click', async (ev) => {
     const sipId = skipBtn.dataset.skipSip;
     const sip = sipSeries.find(s => s.id === sipId);
     const mKey = currentMonthKey();
+    
+    const monthData = await Store.get('month:' + mKey, { deletedSip: [] });
+    monthData.deletedSip = monthData.deletedSip || [];
+
     sip.skipMonths = sip.skipMonths || [];
-    if (sip.skipMonths.includes(mKey)) {
+    const isSkipped = sip.skipMonths.includes(mKey) || monthData.deletedSip.includes(sipId);
+
+    if (isSkipped) {
       sip.skipMonths = sip.skipMonths.filter(m => m !== mKey);
+      monthData.deletedSip = monthData.deletedSip.filter(id => id !== sipId);
       showToast('Skip cancelled. Deduction restored for this month.');
     } else {
       sip.skipMonths.push(mKey);
+      if (!monthData.deletedSip.includes(sipId)) monthData.deletedSip.push(sipId);
       showToast(`Skipping deduction for ${monthKeyLabel(mKey)}`);
     }
     await Store.set('sipseries', sipSeries);
+    await Store.set('month:' + mKey, monthData);
     await renderSips();
     return;
   }
@@ -300,15 +311,11 @@ root.addEventListener('click', async (ev) => {
   if (confirmDelSipSeries) {
     ev.stopPropagation();
     const seriesId = confirmDelSipSeries.dataset.confirmDelSipSeries;
-    const sip = sipSeries.find(s => s.id === seriesId);
-    if (sip) {
-      if (sip.startMonth === currentMonthKey()) sipSeries = sipSeries.filter(s => s.id !== seriesId);
-      else sip.endMonth = currentMonthKey(); 
-      await Store.set('sipseries', sipSeries);
-    }
+    sipSeries = sipSeries.filter(s => s.id !== seriesId);
+    await Store.set('sipseries', sipSeries);
     hideDeleteCallout();
     await renderSips();
-    showToast('SIP permanently stopped');
+    showToast('SIP permanently deleted');
   }
 });
 
