@@ -371,6 +371,96 @@ a {
   }
 }
 
+/* ---------- Transaction table controls ---------- */
+.table-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.table-controls select {
+  min-height: 36px;
+  padding: 7px 32px 7px 11px;
+  border: 1px solid var(--hair);
+  border-radius: 7px;
+  background: var(--ice-2);
+  color: var(--royal);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.74rem;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.table-controls select:hover {
+  border-color: var(--blue);
+  background: var(--ice);
+}
+
+.table-controls select:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(44, 105, 166, 0.12);
+}
+
+.table-controls select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+#table-type-filter,
+#table-tag-filter {
+  min-width: 145px;
+}
+
+#table-sort-control {
+  min-width: 150px;
+}
+
+#table-sort-direction {
+  min-height: 36px;
+  padding: 7px 11px;
+  white-space: nowrap;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+}
+
+/* Active transaction filters */
+.table-controls + .pill-grid {
+  gap: 7px;
+}
+
+.chart-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 7px 4px 10px !important;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.chart-tag-pill .chart-tag-remove {
+  width: 20px !important;
+  height: 20px !important;
+  padding: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 0.68rem !important;
+  line-height: 1;
+  border-radius: 999px !important;
+}
+
+.chart-tag-pill .chart-tag-remove:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
 /* ---------- Table ---------- */
 .table-wrap {
   overflow-x: auto;
@@ -434,56 +524,6 @@ tbody td {
 
 tbody tr:hover td {
   background: var(--ice-2);
-}
-
-
-@media (max-width: 480px) {
-  .table-scroll-shell {
-    position: relative;
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-  }
-
-  .table-scroll-shell::before,
-  .table-scroll-shell::after {
-    content: "";
-    position: absolute;
-    top: 1px;
-    bottom: 1px;
-    width: 18px;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.18s ease;
-    z-index: 5;
-  }
-
-  /* Fixed left-edge shadow */
-  .table-scroll-shell::before {
-    left: 1px;
-    background: linear-gradient(
-      to right,
-      rgba(120, 120, 134, 0.08),
-      transparent 55%
-    );
-  }
-
-  /* Fixed right-edge shadow */
-  .table-scroll-shell::after {
-    right: 1px;
-    background: linear-gradient(
-      to left,
-      rgba(120, 120, 134, 0.08),
-      transparent 55%
-    );
-  }
-
-  .table-scroll-shell.can-scroll-left::before {
-    opacity: 1;
-  }
-
-  .table-scroll-shell.can-scroll-right::after {
-    opacity: 1;
-  }
 }
 
 @media (max-width: 960px) {
@@ -740,6 +780,92 @@ td.actions-cell {
   font-style: italic;
 }
 
+@media (max-width: 480px) {
+  .table-controls {
+    gap: 7px;
+  }
+
+  .table-controls select {
+    flex: 1 1 calc(50% - 7px);
+    min-width: 0;
+    font-size: 0.68rem;
+    padding: 7px 26px 7px 9px;
+  }
+
+  #table-type-filter,
+  #table-tag-filter,
+  #table-sort-control {
+    min-width: 0;
+  }
+
+  #table-sort-direction {
+    flex: 1 1 100%;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .chart-tag-pill {
+    font-size: 0.68rem;
+  }
+
+  .table-scroll-shell {
+    position: relative;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+
+  .table-scroll-shell::before,
+  .table-scroll-shell::after {
+    content: "";
+    position: absolute;
+    top: 1px;
+    bottom: 1px;
+    width: 18px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    z-index: 5;
+  }
+
+  /* Fixed left-edge shadow */
+  .table-scroll-shell::before {
+    left: 1px;
+    background: linear-gradient(
+      to right,
+      rgba(120, 120, 134, 0.08),
+      transparent 55%
+    );
+  }
+
+  /* Fixed right-edge shadow */
+  .table-scroll-shell::after {
+    right: 1px;
+    background: linear-gradient(
+      to left,
+      rgba(120, 120, 134, 0.08),
+      transparent 55%
+    );
+  }
+
+  .table-scroll-shell.can-scroll-left::before {
+    opacity: 1;
+  }
+
+  .table-scroll-shell.can-scroll-right::after {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 400px) {
+  .table-controls select {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
+  #table-sort-direction {
+    flex-basis: 100%;
+  }
+}
 
 /* ---------- Entrance animation ---------- */
 @keyframes fadeInUp {

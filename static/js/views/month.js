@@ -41,6 +41,82 @@ let currentSipFilter = 'All';
 
 const PILL_ORDER = ['spend', 'cardcharge', 'cashpayment', 'recurring', 'income', 'owed', 'emi', 'invest'];
 
+let activeTypeFilters = [];
+let activeTagFilters = [];
+let currentSort = { key: 'date', asc: false };
+
+const TABLE_TYPE_LABELS = {
+  spend: 'Spend',
+  cardcharge: 'Card spend',
+  cashpayment: 'Cash spend',
+  income: 'Income',
+  payback: 'Payback',
+  owed: 'Owed to you',
+  investment: 'Investment',
+  emi: 'EMI',
+  sip: 'Investment',
+  recurring: 'Recurring',
+};
+
+function getTableTypeLabel(e) {
+  if (e.type === 'spend' && Number(e.amount) < 0) return 'Payback';
+  return TABLE_TYPE_LABELS[e.type] || String(e.type || 'Unknown');
+}
+
+function getTableTagLabel(e) {
+  if (['spend', 'cardcharge', 'cashpayment'].includes(e.type)) {
+    return String(e.tag || '').trim() || 'Untagged';
+  }
+
+  if (['income', 'sip', 'investment'].includes(e.type)) {
+    return String(e.category || '').trim() || 'Untagged';
+  }
+
+  return 'Untagged';
+}
+
+function hasLentData(e) {
+  return Array.isArray(e.lent) && e.lent.length > 0;
+}
+
+function getTableSortDirectionLabel(key, asc) {
+  if (key === 'date') return asc ? 'Oldest first' : 'Newest first';
+  if (key === 'amount') return asc ? 'Low to High' : 'High to Low';
+  if (key === 'type') return asc ? 'A-Z' : 'Z-A';
+  if (key === 'tag') return asc ? 'A-Z' : 'Z-A';
+  return '';
+}
+
+function compareTableRows(a, b, key) {
+  if (key === 'date') {
+    const aDate = Number.isFinite(Date.parse(a.date || '')) ? Date.parse(a.date || '') : -Infinity;
+    const bDate = Number.isFinite(Date.parse(b.date || '')) ? Date.parse(b.date || '') : -Infinity;
+    return aDate - bDate;
+  }
+
+  if (key === 'amount') {
+    return Math.abs(Number(a.amount) || 0) - Math.abs(Number(b.amount) || 0);
+  }
+
+  if (key === 'type') {
+    return getTableTypeLabel(a).localeCompare(
+      getTableTypeLabel(b),
+      undefined,
+      { sensitivity: 'base' }
+    );
+  }
+
+  if (key === 'tag') {
+    return getTableTagLabel(a).localeCompare(
+      getTableTagLabel(b),
+      undefined,
+      { sensitivity: 'base' }
+    );
+  }
+
+  return 0;
+}
+
 // Fetched once. renderMonth() is called on almost every interaction on
 // this page (add/delete an entry, toggle starting balance, settle a debt,
 // skip a SIP...) — without this guard every one of those was doing 7
@@ -698,14 +774,167 @@ async function renderMonth() {
   const mode = data.startingBalanceMode || 'manual';
   const displayedStarting = (mode === 'auto' && hasPrev) ? prevEnding : (Number(data.startingBalance) || 0);
 
-  const dateCounts = {};
-  for (const e of allRows) dateCounts[e.date] = (dateCounts[e.date] || 0) + 1;
-  const seenDates = new Set();
-  const rowsHtml = allRows.map(e => {
-    let isFirst = false;
-    if (!seenDates.has(e.date)) { seenDates.add(e.date); isFirst = true; }
-    return renderRow(e, monthKey, dateCounts[e.date], isFirst);
-  }).join('');
+  const typeOptions = [];
+  const tagOptions = [];
+  const seenTypeOptions = new Set();
+  const seenTagOptions = new Set();
+
+  for (const e of allRows) {
+    const typeLabel = getTableTypeLabel(e);
+
+    if (!seenTypeOptions.has(typeLabel)) {
+      seenTypeOptions.add(typeLabel);
+      typeOptions.push(typeLabel);
+    }
+
+    if (hasLentData(e) && !seenTypeOptions.has('Lent')) {
+      seenTypeOptions.add('Lent');
+      typeOptions.push('Lent');
+    }
+
+    const tagLabel = getTableTagLabel(e);
+
+    if (!seenTagOptions.has(tagLabel)) {
+      seenTagOptions.add(tagLabel);
+      tagOptions.push(tagLabel);
+    }
+  }
+
+  const filteredRows = allRows.filter(e => {
+    const typeLabel = getTableTypeLabel(e);
+
+    const typePass =
+      activeTypeFilters.length === 0 ||
+      activeTypeFilters.includes(typeLabel) ||
+      (activeTypeFilters.includes('Lent') && hasLentData(e));
+
+    const tagPass =
+      activeTagFilters.length === 0 ||
+      activeTagFilters.includes(getTableTagLabel(e));
+
+    return typePass && tagPass;
+  });
+
+  const sortedRows = filteredRows
+    .map((e, index) => ({ e, index }))
+    .sort((a, b) => {
+      const cmp = compareTableRows(a.e, b.e, currentSort.key);
+
+      if (cmp === 0) return a.index - b.index;
+
+      return currentSort.asc ? cmp : -cmp;
+    })
+    .map(({ e }) => e);
+
+  const dateStreakCounts = new Map();
+  const firstDateRows = new Set();
+
+  for (let i = 0; i < sortedRows.length;) {
+    let j = i + 1;
+
+    while (
+      j < sortedRows.length &&
+      sortedRows[j].date === sortedRows[i].date
+    ) {
+      j++;
+    }
+
+    dateStreakCounts.set(i, j - i);
+    firstDateRows.add(i);
+
+    i = j;
+  }
+
+  const rowsHtml = sortedRows.map((e, index) =>
+    renderRow(
+      e,
+      monthKey,
+      dateStreakCounts.get(index) || 1,
+      firstDateRows.has(index)
+    )
+  ).join('');
+
+  const tableSortOptions = [
+    ['date', 'Date'],
+    ['amount', 'Amount'],
+    ['type', 'Type'],
+    ['tag', 'Tag'],
+  ]
+    .map(([key, label]) =>
+      `<option value="${key}" ${currentSort.key === key ? 'selected' : ''}>${label}</option>`
+    )
+    .join('');
+
+  const tableTypeOptions = typeOptions
+    .map(type =>
+      `<option value="${escapeHtml(type)}" ${activeTypeFilters.includes(type) ? 'disabled' : ''}>${escapeHtml(type)}</option>`
+    )
+    .join('');
+
+  const tableTagOptions = tagOptions
+    .map(tag =>
+      `<option value="${escapeHtml(tag)}" ${activeTagFilters.includes(tag) ? 'disabled' : ''}>${escapeHtml(tag)}</option>`
+    )
+    .join('');
+
+  const activeTableFilterPills = [
+    ...activeTypeFilters.map(type => ({
+      category: 'type',
+      name: type
+    })),
+    ...activeTagFilters.map(tag => ({
+      category: 'tag',
+      name: tag
+    })),
+  ]
+    .map(({ category, name }) => `
+      <div class="pill-btn sub-pill active chart-tag-pill">
+        ${escapeHtml(name)}
+        <button
+          class="icon-btn chart-tag-remove"
+          data-remove-table-filter="${category}|${escapeHtml(name)}"
+          aria-label="Remove filter"
+        >✕</button>
+      </div>`
+    )
+    .join('');
+
+  const tableControlsHtml = `
+    <div
+      class="table-controls"
+      style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;"
+    >
+      <select id="table-type-filter" aria-label="Filter transactions by type">
+        <option value="">All Types</option>
+        ${tableTypeOptions}
+      </select>
+
+      <select id="table-tag-filter" aria-label="Filter transactions by tag">
+        <option value="">All Tags</option>
+        ${tableTagOptions}
+      </select>
+
+      <select id="table-sort-control" aria-label="Sort transactions">
+        ${tableSortOptions}
+      </select>
+
+      <button
+        id="table-sort-direction"
+        class="btn small"
+        type="button"
+        aria-label="Toggle sort direction"
+        style="min-height: 0px;"
+      >
+        ${currentSort.asc ? '↑' : '↓'}
+        ${getTableSortDirectionLabel(currentSort.key, currentSort.asc)}
+      </button>
+    </div>
+
+    ${
+      activeTableFilterPills
+        ? `<div class="pill-grid" style="margin-top: 12px; margin-bottom: 12px;">${activeTableFilterPills}</div>`
+        : ''
+    }`;
 
   const emiCardsHtml = emiRows.length ? `<div class="emi-list" style="margin-bottom: 20px;">` + emiRows.map(e => {
     const totalBill = e.amount * e.totalMonths;
@@ -994,13 +1223,42 @@ async function renderMonth() {
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Transactions</h2><span class="hint">${allRows.length} entries</span></div>
+    <div class="section-title">
+      <h2>Transactions</h2>
+      <span class="hint">
+        ${
+          activeTypeFilters.length || activeTagFilters.length
+            ? `${filteredRows.length} of ${allRows.length} entries`
+            : `${filteredRows.length} entries`
+        }
+      </span>
+    </div>
+
     ${emiCardsHtml}
+
+    ${tableControlsHtml}
+
     <div class="table-wrap">
-      <table ${allRows.length ? '' : 'style="width: 100%;"'}>
-        <thead><tr><th>Date</th><th class="type-cell">Type</th><th>Details</th><th class="table-numeric">Amount</th><th></th></tr></thead>
+      <table ${filteredRows.length ? '' : 'style="width: 100%;"'}>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th class="type-cell">Type</th>
+            <th>Details</th>
+            <th class="table-numeric">Amount</th>
+            <th></th>
+          </tr>
+        </thead>
         <tbody>
-          ${allRows.length ? rowsHtml : `<tr class="empty-row"><td colspan="5">No entries yet — add your first spend or income above.</td></tr>`}
+          ${
+            filteredRows.length
+              ? rowsHtml
+              : (
+                  allRows.length
+                    ? `<tr class="empty-row"><td colspan="5">No transactions match the selected filters.</td></tr>`
+                    : `<tr class="empty-row"><td colspan="5">No entries yet — add your first spend or income above.</td></tr>`
+                )
+          }
         </tbody>
       </table>
     </div>
@@ -1199,6 +1457,38 @@ function distributeLentShares(amount) {
 
 /* ---------- Event wiring ---------- */
 root.addEventListener('click', async (ev) => {
+  const removeTableFilter = ev.target.closest('[data-remove-table-filter]');
+
+  if (removeTableFilter) {
+    const [
+      filterCategory,
+      ...filterNameParts
+    ] = removeTableFilter.dataset.removeTableFilter.split('|');
+
+    const filterName = filterNameParts.join('|');
+
+    if (filterCategory === 'type') {
+      activeTypeFilters = activeTypeFilters.filter(
+        value => value !== filterName
+      );
+    } else if (filterCategory === 'tag') {
+      activeTagFilters = activeTagFilters.filter(
+        value => value !== filterName
+      );
+    }
+
+    await renderMonth();
+    return;
+  }
+
+  const sortDirectionBtn = ev.target.closest('#table-sort-direction');
+
+  if (sortDirectionBtn) {
+    currentSort.asc = !currentSort.asc;
+    await renderMonth();
+    return;
+  }
+
   const addEntryTrigger = ev.target.closest('#add-entry-trigger');
   if (addEntryTrigger) {
     if (animTimeout) clearTimeout(animTimeout);
@@ -1702,6 +1992,45 @@ root.addEventListener('click', async (ev) => {
 });
 
 root.addEventListener('change', async (ev) => {
+  if (ev.target.id === 'table-type-filter') {
+    const value = ev.target.value;
+
+    if (value && !activeTypeFilters.includes(value)) {
+      activeTypeFilters.push(value);
+    }
+
+    ev.target.value = '';
+    await renderMonth();
+    return;
+  }
+
+  if (ev.target.id === 'table-tag-filter') {
+    const value = ev.target.value;
+
+    if (value && !activeTagFilters.includes(value)) {
+      activeTagFilters.push(value);
+    }
+
+    ev.target.value = '';
+    await renderMonth();
+    return;
+  }
+
+  if (ev.target.id === 'table-sort-control') {
+    const key = ev.target.value;
+
+    if (!key) return;
+
+    if (key === currentSort.key) {
+      currentSort.asc = !currentSort.asc;
+    } else {
+      currentSort.key = key;
+    }
+
+    await renderMonth();
+    return;
+  }
+
   if (ev.target.id === 'f-tag') {
     const val = ev.target.value.toLowerCase();
     const customWrap = $('#f-tag-custom-wrap');
