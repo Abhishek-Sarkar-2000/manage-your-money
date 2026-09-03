@@ -270,6 +270,18 @@
   border-color: var(--sky) !important;
 }
 
+:root[data-theme="dark"] .amt-debit {
+  color: var(--debit) !important;
+}
+
+:root[data-theme="dark"] .amt-credit {
+  color: var(--credit) !important;
+}
+
+:root[data-theme="dark"] .amt-neutral {
+  color: var(--debit-bd) !important;
+}
+
 :root[data-theme="dark"] .month-sip-card:hover {
   box-shadow: 0 4px 18px #000;
 }

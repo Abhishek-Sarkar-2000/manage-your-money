@@ -854,6 +854,22 @@ async function renderMonth() {
     )
   ).join('');
 
+  const neutralTableTypes = new Set(['cardcharge', 'cashpayment']);
+
+  const tableNetTotal = sortedRows.reduce((total, e) => {
+    if (neutralTableTypes.has(e.type)) return total;
+
+    if (['spend', 'investment', 'sip', 'recurring', 'emi'].includes(e.type)) {
+      return total - Math.abs(Number(e.amount) || 0);
+    }
+
+    if (['income', 'payback', 'owed'].includes(e.type)) {
+      return total + Math.abs(Number(e.amount) || 0);
+    }
+
+    return total;
+  }, 0);
+
   const tableSortOptions = [
     ['date', 'Date'],
     ['amount', 'Amount'],
@@ -1258,6 +1274,20 @@ async function renderMonth() {
                     ? `<tr class="empty-row"><td colspan="5">No transactions match the selected filters.</td></tr>`
                     : `<tr class="empty-row"><td colspan="5">No entries yet — add your first spend or income above.</td></tr>`
                 )
+          }
+
+          ${
+            filteredRows.length
+              ? `
+                <tr class="table-total-row">
+                  <td colspan="3"><span style="margin-left:24px;">Total </span><span style="font-size:0.78rem; color: var(--muted);">[Credit minus Debit]</span></td>
+                  <td class="num table-total-amount ${tableNetTotal >= 0 ? 'amt-credit' : 'amt-debit'}">
+                    ${tableNetTotal >= 0 ? '+' : '-'}${fmtINR(Math.abs(tableNetTotal))}
+                  </td>
+                  <td></td>
+                </tr>
+              `
+              : ''
           }
         </tbody>
       </table>

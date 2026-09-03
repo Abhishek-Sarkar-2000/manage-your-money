@@ -467,6 +467,23 @@
   text-overflow: ellipsis;
 }
 
+.table-total-row td {
+  border-top: 2px solid var(--sky);
+  background: var(--ice-2);
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 700;
+}
+
+.table-total-row td:first-child {
+  text-align: left;
+  color: var(--royal);
+}
+
+.table-total-amount {
+  text-align: right;
+  white-space: nowrap;
+}
+
 @media (max-width: 582px) {
   .month-sip-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
