@@ -733,590 +733,606 @@ function renderAddEntryPanel() {
 
 /* ---------- Main render ---------- */
 async function renderMonth() {
-  await loadDomain();
-
-  // First-touch: mirrors the old openMonth()'s one-time carry/manual decision.
-  await ensureMonthIndexed(monthKey, monthsIndex);
-  const data = await loadMonth(monthKey);
-  if (!data._touched) {
-    const prevKey = addMonths(monthKey, -1);
-    data.startingBalanceMode = monthsIndex.includes(prevKey) ? 'auto' : 'manual';
-    data._touched = true;
-    await saveMonth(monthKey);
-  }
-
-  const emiRows = emiRowsForMonth(emiSeries, monthKey, data.deletedEmi);
-  const sipRows = sipRowsForMonth(sipSeries, monthKey, data.deletedSip);
-  const recurringRows = recurringRowsForMonth(recurringSeries, monthKey, data.deletedRecurring);
-
-  const emiRowsFiltered = emiRows.filter(r => r.date <= todayStr());
-  const sipRowsFiltered = sipRows.filter(r => r.date <= todayStr());
-  const recurringRowsFiltered = recurringRows.filter(r => r.date <= todayStr());
-
-  const allRows = [...data.entries, ...sipRowsFiltered, ...recurringRowsFiltered, ...emiRowsFiltered].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  const monthTotals = computeMonthTotals(data.entries.concat(emiRowsFiltered, sipRowsFiltered, recurringRowsFiltered));
-
-  const stats = await computeGlobalStats({ cards, emiSeries, sipSeries, recurringSeries, monthsIndex, existingInvestments, isShared: false, sharedSplitId: null, splitsIndex });
-
-  const monthInvestList = [];
-  for (const e of data.entries) {
-    if (e.type === 'investment') monthInvestList.push({ description: e.description, amount: Number(e.amount) || 0, monthKey: null });
-  }
-  for (const s of sipRowsFiltered) {
-    monthInvestList.push({ description: s.description + ' (SIP)', amount: Number(s.amount) || 0, monthKey: null });
-  }
-  stats.invested = { total: monthTotals.invest + monthTotals.sip, list: monthInvestList, title: "This month's investments" };
-
-  const breakdownByKey = Object.fromEntries(stats.breakdown.map(b => [b.monthKey, b]));
-  const prevKey = addMonths(monthKey, -1);
-  const hasPrev = monthsIndex.includes(prevKey) && !!breakdownByKey[prevKey];
-  const prevEnding = hasPrev ? breakdownByKey[prevKey].ending : null;
-  const mode = data.startingBalanceMode || 'manual';
-  const displayedStarting = (mode === 'auto' && hasPrev) ? prevEnding : (Number(data.startingBalance) || 0);
-
-  const typeOptions = [];
-  const tagOptions = [];
-  const seenTypeOptions = new Set();
-  const seenTagOptions = new Set();
-
-  for (const e of allRows) {
-    const typeLabel = getTableTypeLabel(e);
-
-    if (!seenTypeOptions.has(typeLabel)) {
-      seenTypeOptions.add(typeLabel);
-      typeOptions.push(typeLabel);
-    }
-
-    if (hasLentData(e) && !seenTypeOptions.has('Lent')) {
-      seenTypeOptions.add('Lent');
-      typeOptions.push('Lent');
-    }
-
-    const tagLabel = getTableTagLabel(e);
-
-    if (!seenTagOptions.has(tagLabel)) {
-      seenTagOptions.add(tagLabel);
-      tagOptions.push(tagLabel);
-    }
-  }
-
-  const filteredRows = allRows.filter(e => {
-    const typeLabel = getTableTypeLabel(e);
-
-    const typePass =
-      activeTypeFilters.length === 0 ||
-      activeTypeFilters.includes(typeLabel) ||
-      (activeTypeFilters.includes('Lent') && hasLentData(e));
-
-    const tagPass =
-      activeTagFilters.length === 0 ||
-      activeTagFilters.includes(getTableTagLabel(e));
-
-    return typePass && tagPass;
-  });
-
-  const sortedRows = filteredRows
-    .map((e, index) => ({ e, index }))
-    .sort((a, b) => {
-      const cmp = compareTableRows(a.e, b.e, currentSort.key);
-
-      if (cmp === 0) return a.index - b.index;
-
-      return currentSort.asc ? cmp : -cmp;
-    })
-    .map(({ e }) => e);
-
-  const dateStreakCounts = new Map();
-  const firstDateRows = new Set();
-
-  for (let i = 0; i < sortedRows.length;) {
-    let j = i + 1;
-
-    while (
-      j < sortedRows.length &&
-      sortedRows[j].date === sortedRows[i].date
-    ) {
-      j++;
-    }
-
-    dateStreakCounts.set(i, j - i);
-    firstDateRows.add(i);
-
-    i = j;
-  }
-
-  const rowsHtml = sortedRows.map((e, index) =>
-    renderRow(
-      e,
-      monthKey,
-      dateStreakCounts.get(index) || 1,
-      firstDateRows.has(index)
-    )
-  ).join('');
-
-  const neutralTableTypes = new Set(['cardcharge', 'cashpayment']);
-
-  const tableNetTotal = sortedRows.reduce((total, e) => {
-    if (neutralTableTypes.has(e.type)) return total;
-
-    if (['spend', 'investment', 'sip', 'recurring', 'emi'].includes(e.type)) {
-      return total - Math.abs(Number(e.amount) || 0);
-    }
-
-    if (['income', 'payback', 'owed'].includes(e.type)) {
-      return total + Math.abs(Number(e.amount) || 0);
-    }
-
-    return total;
-  }, 0);
-
-  const tableSortOptions = [
-    ['date', 'Date'],
-    ['amount', 'Amount'],
-    ['type', 'Type'],
-    ['tag', 'Tag'],
-  ]
-    .map(([key, label]) =>
-      `<option value="${key}" ${currentSort.key === key ? 'selected' : ''}>${label}</option>`
-    )
-    .join('');
-
-  const tableTypeOptions = typeOptions
-    .map(type =>
-      `<option value="${escapeHtml(type)}" ${activeTypeFilters.includes(type) ? 'disabled' : ''}>${escapeHtml(type)}</option>`
-    )
-    .join('');
-
-  const tableTagOptions = tagOptions
-    .map(tag =>
-      `<option value="${escapeHtml(tag)}" ${activeTagFilters.includes(tag) ? 'disabled' : ''}>${escapeHtml(tag)}</option>`
-    )
-    .join('');
-
-  const activeTableFilterPills = [
-    ...activeTypeFilters.map(type => ({
-      category: 'type',
-      name: type
-    })),
-    ...activeTagFilters.map(tag => ({
-      category: 'tag',
-      name: tag
-    })),
-  ]
-    .map(({ category, name }) => `
-      <div class="pill-btn sub-pill active chart-tag-pill">
-        ${escapeHtml(name)}
-        <button
-          class="icon-btn chart-tag-remove"
-          data-remove-table-filter="${category}|${escapeHtml(name)}"
-          aria-label="Remove filter"
-        >✕</button>
-      </div>`
-    )
-    .join('');
-
-  const tableControlsHtml = `
-    <div
-      class="table-controls"
-      style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;"
-    >
-      <select id="table-type-filter" aria-label="Filter transactions by type">
-        <option value="">All Types</option>
-        ${tableTypeOptions}
-      </select>
-
-      <select id="table-tag-filter" aria-label="Filter transactions by tag">
-        <option value="">All Tags</option>
-        ${tableTagOptions}
-      </select>
-
-      <select id="table-sort-control" aria-label="Sort transactions">
-        ${tableSortOptions}
-      </select>
-
-      <button
-        id="table-sort-direction"
-        class="btn small"
-        type="button"
-        aria-label="Toggle sort direction"
-        style="min-height: 0px;"
-      >
-        ${currentSort.asc ? '↑' : '↓'}
-        ${getTableSortDirectionLabel(currentSort.key, currentSort.asc)}
-      </button>
-    </div>
-
-    ${
-      activeTableFilterPills
-        ? `<div class="pill-grid" style="margin-top: 12px; margin-bottom: 12px;">${activeTableFilterPills}</div>`
-        : ''
-    }`;
-
-  const emiCardsHtml = emiRows.length ? `<div class="emi-list" style="margin-bottom: 20px;">` + emiRows.map(e => {
-    const totalBill = e.amount * e.totalMonths;
-    const totalPaid = e.amount * e.installment;
-    const left = e.totalMonths - e.installment;
-    return `
-    <div class="emi-card">
-      <div>
-        <h4><span class="tag emi">EMI</span> ${escapeHtml(e.description)}</h4>
-        <div class="emi-stats">
-          Instalment ${e.installment}/${e.totalMonths}(${left} left) <span style="opacity:0.5; margin:0 4px;"></span></br>Paid ${fmtINR(totalPaid)} of ${fmtINR(totalBill)}
-        </div>
-      </div>
-      <div style="display: flex; align-items: center; gap: 16px;">
-        <div class="num amt-debit recurring-card">-${fmtINR(e.amount)}</div>
-        <button class="icon-btn" data-popover-trigger data-del-emi-series="${e.seriesId}" title="Delete EMI series entirely">✕</button>
-      </div>
-    </div>`;
-  }).join('') + `</div>` : '';
-
-  let sipCardsHtml = '';
-  let sipFilterHtml = '';
-
-  if (sipRows.length) {
-    let sortedSips = [...sipRows].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
-
-    const categories = ['All', 'Mutual Fund', 'ETF', 'Stock'];
-    const displayNames = { 'All': 'All', 'Mutual Fund': 'Mutual Funds', 'ETF': 'ETFs', 'Stock': 'Stocks' };
-
-    sipFilterHtml = `
-    <div class="pill-grid sip-filter-grid">
-      ${categories.map(cat => `
-        <button class="pill-btn sub-pill ${currentSipFilter === cat ? 'active' : ''}" 
-                data-sip-filter="${cat}" type="button">
-          ${displayNames[cat]}
-        </button>
-      `).join('')}
-    </div>`;
-
-    if (currentSipFilter !== 'All') {
-      sortedSips = sortedSips.filter(s => (s.category || 'Mutual Fund') === currentSipFilter);
-    }
-
-    if (sortedSips.length) {
-      const catConfig = {
-        'mutual fund': { label: 'MF', cls: 'mf' },
-        'etf': { label: 'ETF', cls: 'etf' },
-        'stock': { label: 'STOCK', cls: 'stock' }
-      };
-      const cardsHtml = sortedSips.map(e => {
-        const dayNum = new Date(e.date + 'T00:00:00').getDate();
-        const cat = catConfig[(e.category || '').toLowerCase()] || { label: 'MF', cls: 'mf' };
-        return `
-        <div class="month-sip-card">
-          <div class="month-sip-card-header">
-            <div style="width: 100%;">
-              <h4 style="margin-bottom: 0; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
-                <span style="word-break: break-word;">${escapeHtml(e.description)}</span>
-                <span style="display: inline-flex; gap: 4px; align-items: center; flex-shrink: 0;">
-                  <span class="src-badge ${cat.cls}">${cat.label}</span>
-                  <span class="src-badge sip">SIP</span>
-                </span>
-              </h4>
-            </div>
-          </div>
-          <div class="emi-stats" style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: auto; margin-bottom: 4px;">
-            Next deduction: ${dayNum}${ordinalSuffix(dayNum)}
-          </div>
-          <div class="month-sip-card-footer" style="margin-top: 0;">
-            <div class="num recurring-card" style="font-size: 1.15rem; font-weight: 600; color: var(--blue);">
-              -${fmtINR(e.amount)}
-            </div>
-            <button class="icon-btn" data-popover-trigger data-skip-sip="${monthKey}|${e.seriesId}" title="Skip this month" style="background: var(--ice-2); border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
-              ⤵
-            </button>
-          </div>
-        </div>`;
-      }).join('');
-
-      sipCardsHtml = `<div class="month-sip-grid">${cardsHtml}</div>`;
-    } else {
-      sipCardsHtml = `<div class="empty-chart" style="margin-top: 20px;">No ${displayNames[currentSipFilter]} SIPs running this month.</div>`;
-    }
-  }
-
-  const recurringCardsHtml = recurringRows.length ? `<div class="month-sip-grid">` + recurringRows.map(e => {
-    const dayNum = new Date(e.date + 'T00:00:00').getDate();
-    let modeText = 'Bank Transfer';
-    let modeBadge = 'SPEND';
-    let modeBadgeBg = 'var(--debit-bg)';
-    let modeBadgeColor = 'var(--debit)';
+  try {
+    await loadDomain();
     
-    if (e.paymentMode === 'card') {
-      const c = cards.find(card => card.id === e.cardId);
-      modeText = c ? c.name : 'Credit Card';
-      modeBadge = 'CARD SPEND';
-      modeBadgeBg = '#FBF0E2';
-      modeBadgeColor = '#C07A2E';
+    // First-touch: mirrors the old openMonth()'s one-time carry/manual decision.
+    await ensureMonthIndexed(monthKey, monthsIndex);
+    const data = await loadMonth(monthKey);
+
+    if (!data._touched) {
+      const prevKey = addMonths(monthKey, -1);
+      data.startingBalanceMode = monthsIndex.includes(prevKey) ? 'auto' : 'manual';
+      data._touched = true;
+      await saveMonth(monthKey);
     }
 
-    return `
-    <div class="month-sip-card">
-      <div class="month-sip-card-header">
-        <div style="width: 100%;">
-          <h4 style="margin-bottom: 0; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
-                <span style="word-break: break-word;">${escapeHtml(e.description)}</span>
-                <span style="display: inline-flex; gap: 4px; align-items: center; flex-shrink: 0;">
-                  <span class="src-badge" style="background: ${modeBadgeBg}; color: ${modeBadgeColor};">${modeBadge}</span>
-                  <span class="src-badge" style="background: #FCE8E6; color: #B0556F;">RECURRING</span>
-                </span>
-              </h4>
-            </div>
-          </div>
-          <div class="emi-stats" style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: auto; margin-bottom: 4px;">
-            Next deduction: ${dayNum}${ordinalSuffix(dayNum)} via ${escapeHtml(modeText)}
-          </div>
-          <div class="month-sip-card-footer" style="margin-top: 0;">
-        <div class="num recurring-card" style="font-size: 1.15rem; font-weight: 600; color: var(--blue);">
-          -${fmtINR(e.amount)}
-        </div>
-        <button class="icon-btn" data-popover-trigger data-skip-recurring="${monthKey}|${e.seriesId}" title="Skip this month" style="background: var(--ice-2); border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
-          ⤵
+    const emiRows = emiRowsForMonth(emiSeries, monthKey, data.deletedEmi);
+    const sipRows = sipRowsForMonth(sipSeries, monthKey, data.deletedSip);
+    const recurringRows = recurringRowsForMonth(recurringSeries, monthKey, data.deletedRecurring);
+
+    const emiRowsFiltered = emiRows.filter(r => r.date <= todayStr());
+    const sipRowsFiltered = sipRows.filter(r => r.date <= todayStr());
+    const recurringRowsFiltered = recurringRows.filter(r => r.date <= todayStr());
+
+    const allRows = [...data.entries, ...sipRowsFiltered, ...recurringRowsFiltered, ...emiRowsFiltered].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const monthTotals = computeMonthTotals(data.entries.concat(emiRowsFiltered, sipRowsFiltered, recurringRowsFiltered));
+
+    const stats = await computeGlobalStats({ cards, emiSeries, sipSeries, recurringSeries, monthsIndex, existingInvestments, isShared: false, sharedSplitId: null, splitsIndex });
+
+    const monthInvestList = [];
+    for (const e of data.entries) {
+      if (e.type === 'investment') monthInvestList.push({ description: e.description, amount: Number(e.amount) || 0, monthKey: null });
+    }
+    for (const s of sipRowsFiltered) {
+      monthInvestList.push({ description: s.description + ' (SIP)', amount: Number(s.amount) || 0, monthKey: null });
+    }
+    stats.invested = { total: monthTotals.invest + monthTotals.sip, list: monthInvestList, title: "This month's investments" };
+
+    const breakdownByKey = Object.fromEntries(stats.breakdown.map(b => [b.monthKey, b]));
+    const prevKey = addMonths(monthKey, -1);
+    const hasPrev = monthsIndex.includes(prevKey) && !!breakdownByKey[prevKey];
+    const prevEnding = hasPrev ? breakdownByKey[prevKey].ending : null;
+    const mode = data.startingBalanceMode || 'manual';
+    const displayedStarting = (mode === 'auto' && hasPrev) ? prevEnding : (Number(data.startingBalance) || 0);
+
+    const typeOptions = [];
+    const tagOptions = [];
+    const seenTypeOptions = new Set();
+    const seenTagOptions = new Set();
+
+    for (const e of allRows) {
+      const typeLabel = getTableTypeLabel(e);
+
+      if (!seenTypeOptions.has(typeLabel)) {
+        seenTypeOptions.add(typeLabel);
+        typeOptions.push(typeLabel);
+      }
+
+      if (hasLentData(e) && !seenTypeOptions.has('Lent')) {
+        seenTypeOptions.add('Lent');
+        typeOptions.push('Lent');
+      }
+
+      const tagLabel = getTableTagLabel(e);
+
+      if (!seenTagOptions.has(tagLabel)) {
+        seenTagOptions.add(tagLabel);
+        tagOptions.push(tagLabel);
+      }
+    }
+
+    const filteredRows = allRows.filter(e => {
+      const typeLabel = getTableTypeLabel(e);
+
+      const typePass =
+        activeTypeFilters.length === 0 ||
+        activeTypeFilters.includes(typeLabel) ||
+        (activeTypeFilters.includes('Lent') && hasLentData(e));
+
+      const tagPass =
+        activeTagFilters.length === 0 ||
+        activeTagFilters.includes(getTableTagLabel(e));
+
+      return typePass && tagPass;
+    });
+
+    const sortedRows = filteredRows
+      .map((e, index) => ({ e, index }))
+      .sort((a, b) => {
+        const cmp = compareTableRows(a.e, b.e, currentSort.key);
+
+        if (cmp === 0) return a.index - b.index;
+
+        return currentSort.asc ? cmp : -cmp;
+      })
+      .map(({ e }) => e);
+
+    const dateStreakCounts = new Map();
+    const firstDateRows = new Set();
+
+    for (let i = 0; i < sortedRows.length;) {
+      let j = i + 1;
+
+      while (
+        j < sortedRows.length &&
+        sortedRows[j].date === sortedRows[i].date
+      ) {
+        j++;
+      }
+
+      dateStreakCounts.set(i, j - i);
+      firstDateRows.add(i);
+
+      i = j;
+    }
+
+    const rowsHtml = sortedRows.map((e, index) =>
+      renderRow(
+        e,
+        monthKey,
+        dateStreakCounts.get(index) || 1,
+        firstDateRows.has(index)
+      )
+    ).join('');
+
+    const neutralTableTypes = new Set(['cardcharge', 'cashpayment']);
+
+    const tableNetTotal = sortedRows.reduce((total, e) => {
+      if (neutralTableTypes.has(e.type)) return total;
+
+      if (['spend', 'investment', 'sip', 'recurring', 'emi'].includes(e.type)) {
+        return total - Math.abs(Number(e.amount) || 0);
+      }
+
+      if (['income', 'payback', 'owed'].includes(e.type)) {
+        return total + Math.abs(Number(e.amount) || 0);
+      }
+
+      return total;
+    }, 0);
+
+    const tableSortOptions = [
+      ['date', 'Date'],
+      ['amount', 'Amount'],
+      ['type', 'Type'],
+      ['tag', 'Tag'],
+    ]
+      .map(([key, label]) =>
+        `<option value="${key}" ${currentSort.key === key ? 'selected' : ''}>${label}</option>`
+      )
+      .join('');
+
+    const tableTypeOptions = typeOptions
+      .map(type =>
+        `<option value="${escapeHtml(type)}" ${activeTypeFilters.includes(type) ? 'disabled' : ''}>${escapeHtml(type)}</option>`
+      )
+      .join('');
+
+    const tableTagOptions = tagOptions
+      .map(tag =>
+        `<option value="${escapeHtml(tag)}" ${activeTagFilters.includes(tag) ? 'disabled' : ''}>${escapeHtml(tag)}</option>`
+      )
+      .join('');
+
+    const activeTableFilterPills = [
+      ...activeTypeFilters.map(type => ({
+        category: 'type',
+        name: type
+      })),
+      ...activeTagFilters.map(tag => ({
+        category: 'tag',
+        name: tag
+      })),
+    ]
+      .map(({ category, name }) => `
+        <div class="pill-btn sub-pill active chart-tag-pill">
+          ${escapeHtml(name)}
+          <button
+            class="icon-btn chart-tag-remove"
+            data-remove-table-filter="${category}|${escapeHtml(name)}"
+            aria-label="Remove filter"
+          >✕</button>
+        </div>`
+      )
+      .join('');
+
+    const tableControlsHtml = `
+      <div
+        class="table-controls"
+        style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;"
+      >
+        <select id="table-type-filter" aria-label="Filter transactions by type">
+          <option value="">All Types</option>
+          ${tableTypeOptions}
+        </select>
+
+        <select id="table-tag-filter" aria-label="Filter transactions by tag">
+          <option value="">All Tags</option>
+          ${tableTagOptions}
+        </select>
+
+        <select id="table-sort-control" aria-label="Sort transactions">
+          ${tableSortOptions}
+        </select>
+
+        <button
+          id="table-sort-direction"
+          class="btn small"
+          type="button"
+          aria-label="Toggle sort direction"
+          style="min-height: 0px;"
+        >
+          ${currentSort.asc ? '↑' : '↓'}
+          ${getTableSortDirectionLabel(currentSort.key, currentSort.asc)}
         </button>
       </div>
-    </div>`;
-  }).join('') + `</div>` : '';
 
-  // Only debts genuinely incurred THIS month's own entries count towards
-  // this month's Lent segment — split-page and historical-month debts are
-  // never injected here. They live exclusively in the global "Owed to you"
-  // total (stats.owed / computeGlobalOwed), so a past month's chart never
-  // gets today's numbers grafted onto it, and the current month's chart
-  // never gets debts that actually originated earlier.
-  let unsettledConsumptionLent = 0, settledConsumptionLent = 0, settledCardLent = 0;
-  for (const e of data.entries) {
-    if (!Array.isArray(e.lent)) continue;
-    if (e.type === 'spend' || e.type === 'cardcharge' || e.type === 'cashpayment') {
-      unsettledConsumptionLent += e.lent.reduce((s, l) => !l.settled ? s + (Number(l.amount) || 0) : s, 0);
-      // Settled lent has been paid back — deduct it entirely, it's no
-      // longer part of this month's spend at all (personal or lent).
-      settledConsumptionLent += e.lent.reduce((s, l) => l.settled ? s + (Number(l.amount) || 0) : s, 0);
-    }
-    if (e.type === 'cardcharge') {
-      // Credit-card dues still need the full charge paid off via the card
-      // bill, but a settled lent portion has already been reimbursed to
-      // you — net it out of Personal Expense so it isn't double-counted
-      // as an out-of-pocket cost in the Cashflow Overview.
-      settledCardLent += e.lent.reduce((s, l) => l.settled ? s + (Number(l.amount) || 0) : s, 0);
-    }
-  }
-  const emiTotal = monthTotals.emi || 0;
-  // Personal spend = total consumption minus unsettled lent, settled
-  // credit-card lent, and EMI.
-  const rawPersonalExpense = Math.max(0, monthTotals.totalConsumption - unsettledConsumptionLent - settledCardLent - emiTotal);
-  const personalExpense = rawPersonalExpense;
-  const lentSegmentValue = unsettledConsumptionLent;
+      ${
+        activeTableFilterPills
+          ? `<div class="pill-grid" style="margin-top: 12px; margin-bottom: 12px;">${activeTableFilterPills}</div>`
+          : ''
+      }`;
 
-  // Requirement 2: Income Segments
-  const incomeCategories = {};
-  for (const e of data.entries) {
-    if (e.type === 'income') {
-      const cat = e.category || 'Uncategorized';
-      incomeCategories[cat] = (incomeCategories[cat] || 0) + (Number(e.amount) || 0);
-    }
-  }
-  const incomeColors = ['var(--credit)', 'var(--sky)', 'var(--blue-soft)', '#C98A3C', '#8E6FB0'];
-  let colorIdx = 0;
-  const incomeSegments = Object.entries(incomeCategories)
-    .filter(([, val]) => val > 0)
-    .map(([cat, val]) => ({ label: cat, value: val, color: incomeColors[colorIdx++ % incomeColors.length] }));
-
-  // Requirement 3: Investment Segments
-  const investBuckets = { 'MF': 0, 'ETF': 0, 'Stock': 0, 'Bond': 0, 'FD': 0 };
-  for (const e of data.entries) {
-    if (e.type === 'investment') {
-      const amt = Number(e.amount) || 0;
-      const cat = e.category || 'Fixed Deposit';
-      if (cat === 'Lump-sum MF') investBuckets['MF'] += amt;
-      else if (cat === 'Stock') investBuckets['Stock'] += amt;
-      else if (cat === 'Bond') investBuckets['Bond'] += amt;
-      else investBuckets['FD'] += amt;
-    }
-  }
-  for (const s of sipRowsFiltered) {
-    const amt = Number(s.amount) || 0;
-    const cat = s.category || 'Mutual Fund';
-    if (cat === 'Mutual Fund') investBuckets['MF'] += amt;
-    else if (cat === 'ETF') investBuckets['ETF'] += amt;
-    else if (cat === 'Stock') investBuckets['Stock'] += amt;
-    else investBuckets['MF'] += amt;
-  }
-  const investColors = { 'MF': 'var(--blue)', 'ETF': 'var(--amber)', 'Stock': '#5B4B9E', 'Bond': '#2E7D6B', 'FD': '#C98A3C' };
-  const investSegments = Object.entries(investBuckets)
-    .filter(([, val]) => val > 0)
-    .map(([cat, val]) => ({ label: cat, value: val, color: investColors[cat] }));
-
-  const tb = document.getElementById('global-topbar');
-  if (tb) tb.style.display = '';
-
-  markRendered(root);
-  root.innerHTML = `
-  <div class="section">
-    <div class="month-header">
-      <h1>${monthKeyLabel(monthKey)}</h1>
-      <h3 style="margin-bottom: 2px;">Starting balance: ${fmtINR(displayedStarting)}</h3>
-    </div>
-    <div class="balance-box">
-      <div class="balance-set">
-        <div class="balance-set-input">
-          Set starting balance:
-          <input type="number" step="0.01" id="starting-balance-manual" value="${Number(data.startingBalance) || 0}" ${mode === 'auto' ? 'disabled' : ''} style="opacity: ${mode === 'auto' ? '0.5' : '1'}; transition: opacity 0.2s ease;" />
+    const emiCardsHtml = emiRows.length ? `<div class="emi-list" style="margin-bottom: 20px;">` + emiRows.map(e => {
+      const totalBill = e.amount * e.totalMonths;
+      const totalPaid = e.amount * e.installment;
+      const left = e.totalMonths - e.installment;
+      return `
+      <div class="emi-card">
+        <div>
+          <h4><span class="tag emi">EMI</span> ${escapeHtml(e.description)}</h4>
+          <div class="emi-stats">
+            Instalment ${e.installment}/${e.totalMonths}(${left} left) <span style="opacity:0.5; margin:0 4px;"></span></br>Paid ${fmtINR(totalPaid)} of ${fmtINR(totalBill)}
+          </div>
         </div>
-        <button class="pill-btn ${mode === 'manual' ? '' : 'active'}" id="toggle-manual-balance-btn" type="button">${mode === 'manual' ? 'Custom starting balance' : 'Carry from last month'}</button>
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div class="num amt-debit recurring-card">-${fmtINR(e.amount)}</div>
+          <button class="icon-btn" data-popover-trigger data-del-emi-series="${e.seriesId}" title="Delete EMI series entirely">✕</button>
+        </div>
+      </div>`;
+    }).join('') + `</div>` : '';
+
+    let sipCardsHtml = '';
+    let sipFilterHtml = '';
+
+    if (sipRows.length) {
+      let sortedSips = [...sipRows].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
+
+      const categories = ['All', 'Mutual Fund', 'ETF', 'Stock'];
+      const displayNames = { 'All': 'All', 'Mutual Fund': 'Mutual Funds', 'ETF': 'ETFs', 'Stock': 'Stocks' };
+
+      sipFilterHtml = `
+      <div class="pill-grid sip-filter-grid">
+        ${categories.map(cat => `
+          <button class="pill-btn sub-pill ${currentSipFilter === cat ? 'active' : ''}" 
+                  data-sip-filter="${cat}" type="button">
+            ${displayNames[cat]}
+          </button>
+        `).join('')}
+      </div>`;
+
+      if (currentSipFilter !== 'All') {
+        sortedSips = sortedSips.filter(s => (s.category || 'Mutual Fund') === currentSipFilter);
+      }
+
+      if (sortedSips.length) {
+        const catConfig = {
+          'mutual fund': { label: 'MF', cls: 'mf' },
+          'etf': { label: 'ETF', cls: 'etf' },
+          'stock': { label: 'STOCK', cls: 'stock' }
+        };
+        const cardsHtml = sortedSips.map(e => {
+          const dayNum = new Date(e.date + 'T00:00:00').getDate();
+          const cat = catConfig[(e.category || '').toLowerCase()] || { label: 'MF', cls: 'mf' };
+          return `
+          <div class="month-sip-card">
+            <div class="month-sip-card-header">
+              <div style="width: 100%;">
+                <h4 style="margin-bottom: 0; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
+                  <span style="word-break: break-word;">${escapeHtml(e.description)}</span>
+                  <span style="display: inline-flex; gap: 4px; align-items: center; flex-shrink: 0;">
+                    <span class="src-badge ${cat.cls}">${cat.label}</span>
+                    <span class="src-badge sip">SIP</span>
+                  </span>
+                </h4>
+              </div>
+            </div>
+            <div class="emi-stats" style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: auto; margin-bottom: 4px;">
+              Next deduction: ${dayNum}${ordinalSuffix(dayNum)}
+            </div>
+            <div class="month-sip-card-footer" style="margin-top: 0;">
+              <div class="num recurring-card" style="font-size: 1.15rem; font-weight: 600; color: var(--blue);">
+                -${fmtINR(e.amount)}
+              </div>
+              <button class="icon-btn" data-popover-trigger data-skip-sip="${monthKey}|${e.seriesId}" title="Skip this month" style="background: var(--ice-2); border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
+                ⤵
+              </button>
+            </div>
+          </div>`;
+        }).join('');
+
+        sipCardsHtml = `<div class="month-sip-grid">${cardsHtml}</div>`;
+      } else {
+        sipCardsHtml = `<div class="empty-chart" style="margin-top: 20px;">No ${displayNames[currentSipFilter]} SIPs running this month.</div>`;
+      }
+    }
+
+    const recurringCardsHtml = recurringRows.length ? `<div class="month-sip-grid">` + recurringRows.map(e => {
+      const dayNum = new Date(e.date + 'T00:00:00').getDate();
+      let modeText = 'Bank Transfer';
+      let modeBadge = 'SPEND';
+      let modeBadgeBg = 'var(--debit-bg)';
+      let modeBadgeColor = 'var(--debit)';
+      
+      if (e.paymentMode === 'card') {
+        const c = cards.find(card => card.id === e.cardId);
+        modeText = c ? c.name : 'Credit Card';
+        modeBadge = 'CARD SPEND';
+        modeBadgeBg = '#FBF0E2';
+        modeBadgeColor = '#C07A2E';
+      }
+
+      return `
+      <div class="month-sip-card">
+        <div class="month-sip-card-header">
+          <div style="width: 100%;">
+            <h4 style="margin-bottom: 0; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
+                  <span style="word-break: break-word;">${escapeHtml(e.description)}</span>
+                  <span style="display: inline-flex; gap: 4px; align-items: center; flex-shrink: 0;">
+                    <span class="src-badge" style="background: ${modeBadgeBg}; color: ${modeBadgeColor};">${modeBadge}</span>
+                    <span class="src-badge" style="background: #FCE8E6; color: #B0556F;">RECURRING</span>
+                  </span>
+                </h4>
+              </div>
+            </div>
+            <div class="emi-stats" style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: auto; margin-bottom: 4px;">
+              Next deduction: ${dayNum}${ordinalSuffix(dayNum)} via ${escapeHtml(modeText)}
+            </div>
+            <div class="month-sip-card-footer" style="margin-top: 0;">
+          <div class="num recurring-card" style="font-size: 1.15rem; font-weight: 600; color: var(--blue);">
+            -${fmtINR(e.amount)}
+          </div>
+          <button class="icon-btn" data-popover-trigger data-skip-recurring="${monthKey}|${e.seriesId}" title="Skip this month" style="background: var(--ice-2); border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
+            ⤵
+          </button>
+        </div>
+      </div>`;
+    }).join('') + `</div>` : '';
+
+    // Only debts genuinely incurred THIS month's own entries count towards
+    // this month's Lent segment — split-page and historical-month debts are
+    // never injected here. They live exclusively in the global "Owed to you"
+    // total (stats.owed / computeGlobalOwed), so a past month's chart never
+    // gets today's numbers grafted onto it, and the current month's chart
+    // never gets debts that actually originated earlier.
+    let unsettledConsumptionLent = 0, settledConsumptionLent = 0, settledCardLent = 0;
+    for (const e of data.entries) {
+      if (!Array.isArray(e.lent)) continue;
+      if (e.type === 'spend' || e.type === 'cardcharge' || e.type === 'cashpayment') {
+        unsettledConsumptionLent += e.lent.reduce((s, l) => !l.settled ? s + (Number(l.amount) || 0) : s, 0);
+        // Settled lent has been paid back — deduct it entirely, it's no
+        // longer part of this month's spend at all (personal or lent).
+        settledConsumptionLent += e.lent.reduce((s, l) => l.settled ? s + (Number(l.amount) || 0) : s, 0);
+      }
+      if (e.type === 'cardcharge') {
+        // Credit-card dues still need the full charge paid off via the card
+        // bill, but a settled lent portion has already been reimbursed to
+        // you — net it out of Personal Expense so it isn't double-counted
+        // as an out-of-pocket cost in the Cashflow Overview.
+        settledCardLent += e.lent.reduce((s, l) => l.settled ? s + (Number(l.amount) || 0) : s, 0);
+      }
+    }
+    const emiTotal = monthTotals.emi || 0;
+    // Personal spend = total consumption minus unsettled lent, settled
+    // credit-card lent, and EMI.
+    const rawPersonalExpense = Math.max(0, monthTotals.totalConsumption - unsettledConsumptionLent - settledCardLent - emiTotal);
+    const personalExpense = rawPersonalExpense;
+    const lentSegmentValue = unsettledConsumptionLent;
+
+    // Requirement 2: Income Segments
+    const incomeCategories = {};
+    for (const e of data.entries) {
+      if (e.type === 'income') {
+        const cat = e.category || 'Uncategorized';
+        incomeCategories[cat] = (incomeCategories[cat] || 0) + (Number(e.amount) || 0);
+      }
+    }
+    const incomeColors = ['var(--credit)', 'var(--sky)', 'var(--blue-soft)', '#C98A3C', '#8E6FB0'];
+    let colorIdx = 0;
+    const incomeSegments = Object.entries(incomeCategories)
+      .filter(([, val]) => val > 0)
+      .map(([cat, val]) => ({ label: cat, value: val, color: incomeColors[colorIdx++ % incomeColors.length] }));
+
+    // Requirement 3: Investment Segments
+    const investBuckets = { 'MF': 0, 'ETF': 0, 'Stock': 0, 'Bond': 0, 'FD': 0 };
+    for (const e of data.entries) {
+      if (e.type === 'investment') {
+        const amt = Number(e.amount) || 0;
+        const cat = e.category || 'Fixed Deposit';
+        if (cat === 'Lump-sum MF') investBuckets['MF'] += amt;
+        else if (cat === 'Stock') investBuckets['Stock'] += amt;
+        else if (cat === 'Bond') investBuckets['Bond'] += amt;
+        else investBuckets['FD'] += amt;
+      }
+    }
+    for (const s of sipRowsFiltered) {
+      const amt = Number(s.amount) || 0;
+      const cat = s.category || 'Mutual Fund';
+      if (cat === 'Mutual Fund') investBuckets['MF'] += amt;
+      else if (cat === 'ETF') investBuckets['ETF'] += amt;
+      else if (cat === 'Stock') investBuckets['Stock'] += amt;
+      else investBuckets['MF'] += amt;
+    }
+    const investColors = { 'MF': 'var(--blue)', 'ETF': 'var(--amber)', 'Stock': '#5B4B9E', 'Bond': '#2E7D6B', 'FD': '#C98A3C' };
+    const investSegments = Object.entries(investBuckets)
+      .filter(([, val]) => val > 0)
+      .map(([cat, val]) => ({ label: cat, value: val, color: investColors[cat] }));
+
+    const tb = document.getElementById('global-topbar');
+    if (tb) tb.style.display = '';
+
+    markRendered(root);
+    root.innerHTML = `
+    <div class="section">
+      <div class="month-header">
+        <h1>${monthKeyLabel(monthKey)}</h1>
+        <h3 style="margin-bottom: 2px;">Starting balance: ${fmtINR(displayedStarting)}</h3>
+      </div>
+      <div class="balance-box">
+        <div class="balance-set">
+          <div class="balance-set-input">
+            Set starting balance:
+            <input type="number" step="0.01" id="starting-balance-manual" value="${Number(data.startingBalance) || 0}" ${mode === 'auto' ? 'disabled' : ''} style="opacity: ${mode === 'auto' ? '0.5' : '1'}; transition: opacity 0.2s ease;" />
+          </div>
+          <button class="pill-btn ${mode === 'manual' ? '' : 'active'}" id="toggle-manual-balance-btn" type="button">${mode === 'manual' ? 'Custom starting balance' : 'Carry from last month'}</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="section">
-    <div class="section-title"><h2>Add an entry</h2><span class="hint">Log every credit and debit</span></div>
-    ${renderAddEntryPanel()}
-  </div>
-  <div class="section">
-    <div class="section-title"><h2>This month's finances, at a glance</h2><span class="hint">Hover a card for the breakdown</span></div>
-    ${renderStatCards(stats)}
-  </div>
-  <div class="section">
-    <div class="section-title"><h2>This month's charts</h2><span class="hint">${monthKeyLabel(monthKey)} only</span></div>
-    <div class="charts-grid">
-      <div class="chart-card" style="min-width: 0; overflow-x: auto;">
-        <h4>Spending Breakdown</h4>
-        ${donutChart([
-          { label: 'Regular debit', value: monthTotals.regularDebit, color: 'var(--debit)' },
-          { label: 'Credit card spends', value: monthTotals.ccSpends, color: '#8E6FB0' },
-          { label: 'Cash payments', value: monthTotals.cashPayments, color: '#C98A3C' },
-          { label: 'EMI', value: monthTotals.emi, color: '#5B4B9E' },
-          { label: 'Recurring', value: monthTotals.recurring, color: '#B0556F' },
-          { label: 'SIP', value: monthTotals.sip, color: '#2E8B77' },
-          { label: 'Investment', value: monthTotals.invest, color: 'var(--blue)' },
-        ])}
-      </div>
+    <div class="section">
+      <div class="section-title"><h2>Add an entry</h2><span class="hint">Log every credit and debit</span></div>
+      ${renderAddEntryPanel()}
+    </div>
+    <div class="section">
+      <div class="section-title"><h2>This month's finances, at a glance</h2><span class="hint">Hover a card for the breakdown</span></div>
+      ${renderStatCards(stats)}
+    </div>
+    <div class="section">
+      <div class="section-title"><h2>This month's charts</h2><span class="hint">${monthKeyLabel(monthKey)} only</span></div>
+      <div class="charts-grid">
+        <div class="chart-card" style="min-width: 0; overflow-x: auto;">
+          <h4>Spending Breakdown</h4>
+          ${donutChart([
+            { label: 'Regular debit', value: monthTotals.regularDebit, color: 'var(--debit)' },
+            { label: 'Credit card spends', value: monthTotals.ccSpends, color: '#8E6FB0' },
+            { label: 'Cash payments', value: monthTotals.cashPayments, color: '#C98A3C' },
+            { label: 'EMI', value: monthTotals.emi, color: '#5B4B9E' },
+            { label: 'Recurring', value: monthTotals.recurring, color: '#B0556F' },
+            { label: 'SIP', value: monthTotals.sip, color: '#2E8B77' },
+            { label: 'Investment', value: monthTotals.invest, color: 'var(--blue)' },
+          ])}
+        </div>
 
-      <div class="chart-card" style="min-width: 0; overflow-x: auto;">
-        <h4>Cashflow Overview</h4>
-        <p class="hint" style="margin: 4px 0 12px; font-size: 0.8rem;">Hover over a stack to check amount and subcategory</p>
-        ${barChart([
-          { label: 'Income', segments: incomeSegments.length ? incomeSegments : [{ label: 'Income', value: 0, color: 'var(--credit)' }] },
-          {
-            label: 'Expense',
-            segments: [
-              { label: 'Personal', value: personalExpense, color: 'var(--debit)' },
-              { label: 'Lent (unsettled)', value: lentSegmentValue, color: '#E03131' },
-            ],
-          },
-          ...(emiTotal > 0 ? [{ label: 'EMI', value: emiTotal, color: '#5B4B9E' }] : []),
-          { label: 'Invested', segments: investSegments.length ? investSegments : [{ label: 'Invested', value: 0, color: 'var(--blue)' }] },
-          ...(stats.owed.total > 0 ? [{ label: 'Owed', value: stats.owed.total, color: 'var(--amber)' }] : []),
-        ])}
-        ${lentSegmentValue > 0 ? `
-        <div class="shared-chart-legend" style="border-top: none; padding-top: 0; margin-top: 0;">
-          <div class="shared-chart-legend-item"><span class="shared-chart-legend-dot" style="background:var(--debit);"></span><span>Personal Expense</span></div>
-          <div class="shared-chart-legend-item"><span class="shared-chart-legend-dot" style="background:#E03131;"></span><span>Lent (unsettled)</span></div>
-        </div>` : ''}
-      </div>
-      <div class="chart-card" style="grid-column:1/-1;">
-        <h4>Running balance through the month</h4>
-        ${lineChart(displayedStarting, data, emiRowsFiltered.concat(sipRowsFiltered))}
-      </div>
-      <div style="grid-column: 1 / -1; margin-top: 8px;">
-        <h3 style="font-size: 1.15rem; margin-bottom: 12px; font-weight: 600; font-family: 'Fraunces', serif;">Spends by Tags</h3>
-        ${(() => {
-          const TAG_WIDE_THRESHOLD = 5;
-          const tagCharts = [
-            { title: 'Debit by tag', data: tagsBarChart(data.entries, 'spend') },
-            { title: 'Credit card spends by tag', data: tagsBarChart(data.entries, 'cardcharge') },
-            { title: 'Cash spends by tag', data: tagsBarChart(data.entries, 'cashpayment') },
-          ];
-          const cardsHtml = tagCharts.map(({ title, data: { html, count } }) => `
-            <div class="chart-card tag-chart-card ${count > TAG_WIDE_THRESHOLD ? 'tag-chart-card--wide' : ''}">
-              <h4>${title}</h4>
-              ${html}
-            </div>`).join('');
-          return `<div class="tags-charts-row">${cardsHtml}</div>`;
-        })()}
+        <div class="chart-card" style="min-width: 0; overflow-x: auto;">
+          <h4>Cashflow Overview</h4>
+          <p class="hint" style="margin: 4px 0 12px; font-size: 0.8rem;">Hover over a stack to check amount and subcategory</p>
+          ${barChart([
+            { label: 'Income', segments: incomeSegments.length ? incomeSegments : [{ label: 'Income', value: 0, color: 'var(--credit)' }] },
+            {
+              label: 'Expense',
+              segments: [
+                { label: 'Personal', value: personalExpense, color: 'var(--debit)' },
+                { label: 'Lent (unsettled)', value: lentSegmentValue, color: '#E03131' },
+              ],
+            },
+            ...(emiTotal > 0 ? [{ label: 'EMI', value: emiTotal, color: '#5B4B9E' }] : []),
+            { label: 'Invested', segments: investSegments.length ? investSegments : [{ label: 'Invested', value: 0, color: 'var(--blue)' }] },
+            ...(stats.owed.total > 0 ? [{ label: 'Owed', value: stats.owed.total, color: 'var(--amber)' }] : []),
+          ])}
+          ${lentSegmentValue > 0 ? `
+          <div class="shared-chart-legend" style="border-top: none; padding-top: 0; margin-top: 0;">
+            <div class="shared-chart-legend-item"><span class="shared-chart-legend-dot" style="background:var(--debit);"></span><span>Personal Expense</span></div>
+            <div class="shared-chart-legend-item"><span class="shared-chart-legend-dot" style="background:#E03131;"></span><span>Lent (unsettled)</span></div>
+          </div>` : ''}
+        </div>
+        <div class="chart-card" style="grid-column:1/-1;">
+          <h4>Running balance through the month</h4>
+          ${lineChart(displayedStarting, data, emiRowsFiltered.concat(sipRowsFiltered))}
+        </div>
+        <div style="grid-column: 1 / -1; margin-top: 8px;">
+          <h3 style="font-size: 1.15rem; margin-bottom: 12px; font-weight: 600; font-family: 'Fraunces', serif;">Spends by Tags</h3>
+          ${(() => {
+            const TAG_WIDE_THRESHOLD = 5;
+            const tagCharts = [
+              { title: 'Debit by tag', data: tagsBarChart(data.entries, 'spend') },
+              { title: 'Credit card spends by tag', data: tagsBarChart(data.entries, 'cardcharge') },
+              { title: 'Cash spends by tag', data: tagsBarChart(data.entries, 'cashpayment') },
+            ];
+            const cardsHtml = tagCharts.map(({ title, data: { html, count } }) => `
+              <div class="chart-card tag-chart-card ${count > TAG_WIDE_THRESHOLD ? 'tag-chart-card--wide' : ''}">
+                <h4>${title}</h4>
+                ${html}
+              </div>`).join('');
+            return `<div class="tags-charts-row">${cardsHtml}</div>`;
+          })()}
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="section">
-    <div class="section-title">
-      <h2>Transactions</h2>
-      <span class="hint">
-        ${
-          activeTypeFilters.length || activeTagFilters.length
-            ? `${filteredRows.length} of ${allRows.length} entries`
-            : `${filteredRows.length} entries`
-        }
-      </span>
-    </div>
-
-    ${emiCardsHtml}
-
-    ${tableControlsHtml}
-
-    <div class="table-wrap">
-      <table ${filteredRows.length ? '' : 'style="width: 100%;"'}>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th class="type-cell">Type</th>
-            <th>Details</th>
-            <th class="table-numeric">Amount</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
+    <div class="section">
+      <div class="section-title">
+        <h2>Transactions</h2>
+        <span class="hint">
           ${
-            filteredRows.length
-              ? rowsHtml
-              : (
-                  allRows.length
-                    ? `<tr class="empty-row"><td colspan="5">No transactions match the selected filters.</td></tr>`
-                    : `<tr class="empty-row"><td colspan="5">No entries yet — add your first spend or income above.</td></tr>`
-                )
+            activeTypeFilters.length || activeTagFilters.length
+              ? `${filteredRows.length} of ${allRows.length} entries`
+              : `${filteredRows.length} entries`
           }
+        </span>
+      </div>
 
-          ${
-            filteredRows.length
-              ? `
-                <tr class="table-total-row">
-                  <td colspan="3"><span style="margin-left:24px;">Total </span><span style="font-size:0.78rem; color: var(--muted);">[Credit minus Debit]</span></td>
-                  <td class="num table-total-amount ${tableNetTotal >= 0 ? 'amt-credit' : 'amt-debit'}">
-                    ${tableNetTotal >= 0 ? '+' : '-'}${fmtINR(Math.abs(tableNetTotal))}
-                  </td>
-                  <td></td>
-                </tr>
-              `
-              : ''
-          }
-        </tbody>
-      </table>
-    </div>
-  </div>
-  ${sipRows.length ? `
-  <div class="section">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px;">
-      <h2>SIPs</h2>
-      <a href="/sips" class="pill-btn sub-pill active hyperlink" style="text-decoration: none; white-sace: nowrap; pflex-shrink: 0; margin-right: 4px;">Manage SIPs</a>
-    </div>
-    <span class="hint" style="display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 12px;">${sipRows.length} running this month</span>
-    ${sipFilterHtml}
-    ${sipCardsHtml}
-  </div>` : ''}
-  ${recurringRows.length ? `
-  <div class="section">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 8px;">
-      <h2 style="min-width: 0; margin: 0;">Recurring Expenses</h2>
-      <a href="/subscriptions" class="pill-btn sub-pill active hyperlink" style="text-decoration: none; white-space: nowrap !important; flex-shrink: 0; display: inline-flex; align-items: center; line-height: 1; height: fit-content; margin-right: 4px;">Manage Recurring</a>
-    </div>
-    <span class="hint" style="display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 12px;">${recurringRows.length} deducted this month</span>
-    ${recurringCardsHtml}
-  </div>` : ''}
-  `;
+      ${emiCardsHtml}
 
-  appendPageChrome(root);
-  setupScrollWrappers(root);
-  setupTableScrollIndicators(root);
+      ${tableControlsHtml}
+
+      <div class="table-wrap">
+        <table ${filteredRows.length ? '' : 'style="width: 100%;"'}>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th class="type-cell">Type</th>
+              <th>Details</th>
+              <th class="table-numeric">Amount</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              filteredRows.length
+                ? rowsHtml
+                : (
+                    allRows.length
+                      ? `<tr class="empty-row"><td colspan="5">No transactions match the selected filters.</td></tr>`
+                      : `<tr class="empty-row"><td colspan="5">No entries yet — add your first spend or income above.</td></tr>`
+                  )
+            }
+
+            ${
+              filteredRows.length
+                ? `
+                  <tr class="table-total-row">
+                    <td colspan="3"><span style="margin-left:24px;">Total </span><span style="font-size:0.78rem; color: var(--muted);">[Credit minus Debit]</span></td>
+                    <td class="num table-total-amount ${tableNetTotal >= 0 ? 'amt-credit' : 'amt-debit'}">
+                      ${tableNetTotal >= 0 ? '+' : '-'}${fmtINR(Math.abs(tableNetTotal))}
+                    </td>
+                    <td></td>
+                  </tr>
+                `
+                : ''
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+    ${sipRows.length ? `
+    <div class="section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px;">
+        <h2>SIPs</h2>
+        <a href="/sips" class="pill-btn sub-pill active hyperlink" style="text-decoration: none; white-sace: nowrap; pflex-shrink: 0; margin-right: 4px;">Manage SIPs</a>
+      </div>
+      <span class="hint" style="display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 12px;">${sipRows.length} running this month</span>
+      ${sipFilterHtml}
+      ${sipCardsHtml}
+    </div>` : ''}
+    ${recurringRows.length ? `
+    <div class="section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 8px;">
+        <h2 style="min-width: 0; margin: 0;">Recurring Expenses</h2>
+        <a href="/subscriptions" class="pill-btn sub-pill active hyperlink" style="text-decoration: none; white-space: nowrap !important; flex-shrink: 0; display: inline-flex; align-items: center; line-height: 1; height: fit-content; margin-right: 4px;">Manage Recurring</a>
+      </div>
+      <span class="hint" style="display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 12px;">${recurringRows.length} deducted this month</span>
+      ${recurringCardsHtml}
+    </div>` : ''}
+    `;
+
+    appendPageChrome(root);
+    setupScrollWrappers(root);
+    setupTableScrollIndicators(root);
+  } catch (err) {
+    showToast("Oops! We had trouble securely grabbing this month's numbers. Please refresh the page.");
+    
+    root.innerHTML = `
+      <div class="section">
+        <div class="empty-chart" style="margin-top: 40px; padding: 40px; border: 1px dashed var(--debit); border-radius: var(--radius); color: var(--debit);">
+          <strong style="font-size: 1.1rem;">Connection Issue</strong><br/><br/>
+          We stopped loading this page to keep your previous data safe.<br/>
+          Please make sure you have internet access and refresh the page.
+        </div>
+      </div>
+    `;
+    appendPageChrome(root);
+  }
 }
 
 async function syncToPriceTracker(name, amount, date, tag) {

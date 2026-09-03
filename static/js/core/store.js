@@ -65,7 +65,7 @@ export const Store = {
       // 2. Fetch from backend if missing
       const res = await fetch('/api/storage/' + encodeURIComponent(key));
       if (res.status === 401) { onAuthRequired(); return fallback; }
-      if (res.status === 404) return fallback;
+      if (res.status === 404) return fallback; // Correct: Month doesn't exist yet
       if (!res.ok) throw new Error('GET failed: ' + res.status);
       
       const body = await res.json();
@@ -75,9 +75,8 @@ export const Store = {
       sessionStorage.setItem(key, JSON.stringify(value));
       return value;
     } catch (e) {
-      console.error('storage get failed', key, e);
-      showToast('Could not reach the server — is app.py running?');
-      return fallback;
+      showToast("Uh oh! We couldn't load your data safely. Please check your internet connection and refresh the page.");
+      throw e;
     }
   },
 
