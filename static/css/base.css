@@ -432,6 +432,83 @@ a {
   gap: 7px;
 }
 
+/* Unified transactions container */
+.transactions-container {
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+:root[data-theme="dark"] .transactions-container {
+  border-color: var(--sky) !important;
+  background: var(--ice-2) !important;
+}
+:root[data-theme="hi-contrast"] .transactions-container {
+  border-color: #000000 !important;
+  background: #FFFFFF !important;
+}
+
+/* Sticky wrapper: docks below the topbar and holds both controls and table header */
+.sticky-controls-wrap {
+  position: sticky;
+  top: 51px;
+  z-index: 40;
+  background: #fff;
+  padding: 18px 0 0 0; /* CRITICAL: 0 padding on the left, right, and bottom */
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  transition: background-color 0.2s ease;
+}
+
+:root[data-theme="dark"] .sticky-controls-wrap {
+  background: var(--ice-2) !important;
+}
+
+:root[data-theme="hi-contrast"] .sticky-controls-wrap {
+  background: #FFFFFF !important;
+}
+
+.sticky-controls-wrap .table-controls {
+  padding: 0 14px;
+  margin-bottom: 12px;
+}
+
+/* Tables sharing fixed column widths */
+.table-header-sticky,
+.table-body-sticky {
+  width: 100%;
+  min-width: 565px;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.table-header-sticky thead th {
+  border-top: none;
+}
+
+.transactions-container .table-wrap {
+  border: none !important;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm) !important;
+}
+
+.table-header-wrap {
+  width: 100%;
+  overflow: hidden;
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair); /* Adds a clean line above the first row */
+  background: var(--royal);
+}
+
+:root[data-theme="dark"] .table-header-wrap {
+  border-top-color: var(--sky);
+  border-bottom-color: var(--sky);
+  background: var(--hair) !important;
+}
+
+:root[data-theme="hi-contrast"] .table-header-wrap {
+  border-top-color: #000000;
+  border-bottom-color: #000000;
+  background: var(--royal) !important;
+}
+
 .chart-tag-pill {
   display: inline-flex;
   align-items: center;
@@ -751,6 +828,7 @@ color: #C07A2E;
 .row-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: nowrap;
 }
 
 td.actions-cell {
@@ -807,54 +885,57 @@ td.actions-cell {
   .chart-tag-pill {
     font-size: 0.68rem;
   }
-
-  .table-scroll-shell {
-    position: relative;
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-  }
-
-  .table-scroll-shell::before,
-  .table-scroll-shell::after {
-    content: "";
-    position: absolute;
-    top: 1px;
-    bottom: 1px;
-    width: 18px;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.18s ease;
-    z-index: 5;
-  }
-
-  /* Fixed left-edge shadow */
-  .table-scroll-shell::before {
-    left: 1px;
-    background: linear-gradient(
-      to right,
-      rgba(120, 120, 134, 0.08),
-      transparent 55%
-    );
-  }
-
-  /* Fixed right-edge shadow */
-  .table-scroll-shell::after {
-    right: 1px;
-    background: linear-gradient(
-      to left,
-      rgba(120, 120, 134, 0.08),
-      transparent 55%
-    );
-  }
-
-  .table-scroll-shell.can-scroll-left::before {
-    opacity: 1;
-  }
-
-  .table-scroll-shell.can-scroll-right::after {
-    opacity: 1;
-  }
 }
+
+/* Universal Scroll Shadows for Table Header and Body (Moved to global scope) */
+.table-scroll-shell {
+  position: relative;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  overflow: hidden;
+}
+
+.table-scroll-shell::before,
+.table-scroll-shell::after,
+.sticky-controls-wrap::before,
+.sticky-controls-wrap::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  z-index: 50;
+}
+
+.table-scroll-shell::before,
+.table-scroll-shell::after {
+  top: 0;
+  bottom: 0;
+}
+
+.sticky-controls-wrap::before,
+.sticky-controls-wrap::after {
+  bottom: 0;
+  height: 38px; /* Targets the header bar specifically */
+}
+
+.table-scroll-shell::before,
+.sticky-controls-wrap::before {
+  left: 0;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.05), transparent);
+}
+
+.table-scroll-shell::after,
+.sticky-controls-wrap::after {
+  right: 0;
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.05), transparent);
+}
+
+.table-scroll-shell.can-scroll-left::before,
+.sticky-controls-wrap.can-scroll-left::before { opacity: 1; }
+
+.table-scroll-shell.can-scroll-right::after,
+.sticky-controls-wrap.can-scroll-right::after { opacity: 1; }
 
 @media (max-width: 400px) {
   .table-controls select {

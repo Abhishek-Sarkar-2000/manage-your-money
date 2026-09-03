@@ -917,7 +917,35 @@ async function renderMonth() {
       )
       .join('');
 
-    const tableControlsHtml = `
+    const tableColgroupHtml = `
+      <colgroup>
+        <col style="width: 95px;">
+        <col style="width: 120px;">
+        <col style="width: auto;">
+        <col style="width: 130px;">
+        <col style="width: 110px;">
+      </colgroup>
+    `;
+
+  const tableHeaderHtml = `
+    <div class="table-header-wrap">
+      <table class="table-header-sticky">
+        ${tableColgroupHtml}
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th class="type-cell">Type</th>
+            <th>Details</th>
+            <th class="table-numeric">Amount</th>
+            <th></th>
+          </tr>
+        </thead>
+      </table>
+    </div>
+  `;
+
+  const tableControlsHtml = `
+    <div class="sticky-controls-wrap">
       <div
         class="table-controls"
         style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;"
@@ -950,9 +978,12 @@ async function renderMonth() {
 
       ${
         activeTableFilterPills
-          ? `<div class="pill-grid" style="margin-top: 12px; margin-bottom: 12px;">${activeTableFilterPills}</div>`
+          ? `<div class="pill-grid" style="margin-top: 10px; margin-bottom: 12px; padding: 0 14px;">${activeTableFilterPills}</div>`
           : ''
-      }`;
+      }
+
+      ${tableHeaderHtml}
+    </div>`;
 
     const emiCardsHtml = emiRows.length ? `<div class="emi-list" style="margin-bottom: 20px;">` + emiRows.map(e => {
       const totalBill = e.amount * e.totalMonths;
@@ -1254,19 +1285,12 @@ async function renderMonth() {
 
       ${emiCardsHtml}
 
+    <div class="transactions-container">
       ${tableControlsHtml}
 
       <div class="table-wrap">
-        <table ${filteredRows.length ? '' : 'style="width: 100%;"'}>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th class="type-cell">Type</th>
-              <th>Details</th>
-              <th class="table-numeric">Amount</th>
-              <th></th>
-            </tr>
-          </thead>
+        <table class="table-body-sticky" ${filteredRows.length ? '' : 'style="width: 100%;"'}>
+          ${tableColgroupHtml}
           <tbody>
             ${
               filteredRows.length
@@ -1282,7 +1306,11 @@ async function renderMonth() {
               filteredRows.length
                 ? `
                   <tr class="table-total-row">
-                    <td colspan="3"><span style="margin-left:24px;">Total </span><span style="font-size:0.78rem; color: var(--muted);">[Credit minus Debit]</span></td>
+                    <td colspan="3">
+                      <div style="display: flex; align-items: center; gap: 6px;">
+                        Total <span style="font-size:0.78rem; color: var(--muted);">Credit minus Debit</span>
+                      </div>
+                    </td>
                     <td class="num table-total-amount ${tableNetTotal >= 0 ? 'amt-credit' : 'amt-debit'}">
                       ${tableNetTotal >= 0 ? '+' : '-'}${fmtINR(Math.abs(tableNetTotal))}
                     </td>
@@ -1295,7 +1323,8 @@ async function renderMonth() {
         </table>
       </div>
     </div>
-    ${sipRows.length ? `
+  </div>
+  ${sipRows.length ? `
     <div class="section">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px;">
         <h2>SIPs</h2>
@@ -1319,6 +1348,38 @@ async function renderMonth() {
     appendPageChrome(root);
     setupScrollWrappers(root);
     setupTableScrollIndicators(root);
+
+    // Sync horizontal scrolling and EXACT table widths between the body and sticky header
+    const tableWrapEl = root.querySelector('.transactions-container .table-wrap');
+    const headerWrapEl = root.querySelector('.transactions-container .table-header-wrap');
+    
+    if (tableWrapEl && headerWrapEl) {
+      const bodyTable = tableWrapEl.querySelector('table');
+      const headerTable = headerWrapEl.querySelector('table');
+
+      if (bodyTable && headerTable) {
+        const syncTableWidth = () => {
+          if (headerTable && bodyTable) {
+            headerTable.style.width = bodyTable.offsetWidth + 'px';
+          }
+        };
+        
+        // Sync exactly once after rendering. Avoids ResizeObserver layout-thrashing on mobile scrolls.
+        // A tiny timeout ensures the browser has finished computing the table's contents.
+        setTimeout(syncTableWidth, 10);
+        
+        // Only re-sync on actual device rotations/resizes, safely debounced
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+          clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(syncTableWidth, 150);
+        });
+      }
+
+      tableWrapEl.addEventListener('scroll', () => {
+        headerWrapEl.scrollLeft = tableWrapEl.scrollLeft;
+      }, { passive: true });
+    }
   } catch (err) {
     showToast("Oops! We had trouble securely grabbing this month's numbers. Please refresh the page.");
     

@@ -485,20 +485,12 @@
   }
 }
 
-@media (max-width: 480px) {
-  :root[data-theme="dark"] .table-scroll-shell::before {
-    background: linear-gradient(
-      to right,
-      rgba(0, 0, 0, 0.16),
-      transparent 55%
-    ) !important;
-  }
+:root[data-theme="dark"] .table-scroll-shell::before,
+:root[data-theme="dark"] .sticky-controls-wrap::before {
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.15), transparent) !important;
+}
 
-  :root[data-theme="dark"] .table-scroll-shell::after {
-    background: linear-gradient(
-      to left,
-      rgba(0, 0, 0, 0.16),
-      transparent 55%
-    ) !important;
-  }
+:root[data-theme="dark"] .table-scroll-shell::after,
+:root[data-theme="dark"] .sticky-controls-wrap::after {
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.15), transparent) !important;
 }

@@ -48,13 +48,22 @@ export function setupTableScrollIndicators(root = document) {
       shell.appendChild(wrap);
     }
 
+    const container = wrap.closest('.transactions-container');
+    const stickyWrap = container ? container.querySelector('.sticky-controls-wrap') : null;
+
     const checkScroll = () => {
       const maxScroll = Math.max(0, wrap.scrollWidth - wrap.clientWidth);
       const canScrollLeft = wrap.scrollLeft > 5;
       const canScrollRight = maxScroll > 5 && wrap.scrollLeft < maxScroll - 5;
+      
       shell.classList.toggle('can-scroll-left', canScrollLeft);
       shell.classList.toggle('can-scroll-right', canScrollRight);
       shell.classList.toggle('can-scroll-both', canScrollLeft && canScrollRight);
+      
+      if (stickyWrap) {
+        stickyWrap.classList.toggle('can-scroll-left', canScrollLeft);
+        stickyWrap.classList.toggle('can-scroll-right', canScrollRight);
+      }
     };
 
     wrap.addEventListener('scroll', checkScroll, { passive: true });
