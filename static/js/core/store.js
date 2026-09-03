@@ -52,7 +52,7 @@ export const Store = {
         if (raw === null) return fallback;
         return JSON.parse(raw);
       } catch (e) {
-        console.error('local storage get failed', key, e);
+        showToast("We couldn't load your local data. Your browser storage might be restricted.");
         return fallback;
       }
     }
@@ -91,7 +91,7 @@ export const Store = {
           if (raw !== null) result[k] = JSON.parse(raw);
         });
       } catch (e) {
-        console.error('local storage bulk get failed', e);
+        showToast("We couldn't load your offline data. Please check your browser's storage settings.");
       }
       return result;
     }
@@ -131,7 +131,7 @@ export const Store = {
         }
         return result;
       } catch (e) {
-        console.warn('bulk fetch failed after retries, falling back to per-key fetches', e);
+        showToast("Network hiccup! We're trying a different way to load your data...");
       }
 
       // 2. Bulk endpoint is still down — recover by fetching each missing
@@ -168,14 +168,12 @@ export const Store = {
       if (!anySucceeded) {
         // Only reached if the bulk endpoint AND every individual per-key
         // request failed — a genuine outage, not a one-off blip.
-        console.error('storage bulk get failed for all keys');
-        showToast('Could not load your data — check your connection and try again.');
+        showToast("We couldn't load your data. Please check your internet connection and try again.");
         return fallback;
       }
       return result;
     } catch (e) {
-      console.error('storage bulk get failed', e);
-      showToast('Could not load your data — check your connection and try again.');
+      showToast("We couldn't load your data. Please check your internet connection and try again.");
       return fallback;
     }
   },
@@ -188,8 +186,7 @@ export const Store = {
         localStorage.setItem(key, JSON.stringify(value));
         return true;
       } catch (e) {
-        console.error('local storage set failed', key, e);
-        showToast('Could not save locally — your browser storage may be full.');
+        showToast("Could not save locally — your browser storage may be full or restricted.");
         return false;
       }
     }
@@ -208,8 +205,7 @@ export const Store = {
       if (!res.ok) throw new Error('PUT failed: ' + res.status);
       return true;
     } catch (e) {
-      console.error('storage set failed', key, e);
-      showToast('Could not save to server — check your connection');
+      showToast("Yikes, your last change didn't save! Please check your internet connection before adding anything else.");
       return false;
     } finally {
       pendingWrites--;
@@ -223,7 +219,7 @@ export const Store = {
         localStorage.removeItem(key);
         return true;
       } catch (e) {
-        console.error('local storage remove failed', key, e);
+        showToast("Couldn't delete this item locally. Please try again.");
         return false;
       }
     }
@@ -237,8 +233,7 @@ export const Store = {
       sessionStorage.removeItem(key);
       return true;
     } catch (e) {
-      console.error('storage delete failed', key, e);
-      showToast('Could not delete — is app.py running?');
+      showToast("Couldn't delete this item from the server. Please check your connection.");
       return false;
     }
   }

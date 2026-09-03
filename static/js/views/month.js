@@ -1986,8 +1986,7 @@ root.addEventListener('click', async (ev) => {
             await Promise.all([saveMonth(monthKey), saveMonth(paybackKey)]);
           }
         } catch (err) {
-          console.error('Failed to persist payback', err);
-          showToast('Saved locally but failed to sync — check your connection');
+          showToast("Your payback was saved locally, but we couldn't sync it to the server. Check your connection.");
         }
       })();
     } else {
@@ -2028,8 +2027,7 @@ root.addEventListener('click', async (ev) => {
             }
           }
         } catch (err) {
-          console.error('Failed to persist undo', err);
-          showToast('Saved locally but failed to sync — check your connection');
+          showToast("Your change was saved locally, but we couldn't sync it to the server. Check your connection.");
         }
       })();
     }

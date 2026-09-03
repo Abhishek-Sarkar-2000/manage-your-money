@@ -7,6 +7,7 @@
 import { Store } from './store.js';
 import { uid, escapeHtml } from './dom.js';
 import { todayStr, currentMonthKey } from './format.js';
+import { showToast } from '../components/toast.js';
 import { loadMonth, saveMonth, ensureMonthIndexed } from './domain.js';
 
 export const SPLIT_YOU = 'YOU';
@@ -57,7 +58,7 @@ export async function loadSharedSplit(shareId) {
     splitCache[shareId] = group;
     return { group, owner: body.owner || null, error: null };
   } catch (e) {
-    console.error('failed to load shared split', e);
+    showToast("Couldn't load this shared split. Please check your internet connection.");
     splitCache[shareId] = null;
     return { group: null, owner: null, error: 'Could not load this shared split.' };
   }

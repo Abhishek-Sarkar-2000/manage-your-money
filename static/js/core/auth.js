@@ -48,7 +48,7 @@ async function migrateGuestDataToCloud() {
         migratedCount++;
       }
     } catch (e) {
-      console.error('Failed to migrate guest key to cloud', key, e);
+      showToast("We couldn't sync some of your local data to the cloud. We'll try again later.");
     }
   }
 
@@ -65,7 +65,7 @@ export async function checkAuth() {
     const body = await res.json();
     currentUser = body.authenticated ? body.user : null;
   } catch (e) {
-    console.error('auth check failed', e);
+    showToast("We couldn't verify your session. Please check your internet connection.");
     currentUser = null;
   }
   updateProfileBadge();
@@ -79,7 +79,7 @@ export async function signOut() {
   try {
     await fetch('/api/auth/logout', { method: 'POST' });
   } catch (e) {
-    console.error('logout request failed', e);
+    showToast("We had trouble securely signing you out. Please refresh and try again.");
   }
   if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
   currentUser = null;
@@ -116,8 +116,7 @@ async function handleGoogleCredential(response) {
 
     window.dispatchEvent(new CustomEvent('auth:signed-in', { detail: currentUser }));
   } catch (e) {
-    console.error('Google sign-in failed', e);
-    showToast('Sign-in failed — check your connection.');
+    showToast("Google sign-in failed — please check your internet connection and try again.");
   }
 }
 
