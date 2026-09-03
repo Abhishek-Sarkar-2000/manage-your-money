@@ -1010,8 +1010,9 @@ async function renderMonth() {
             </div>
             <span style="font-size: 0.72rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; white-space: nowrap;">${left} left</span>
           </div>
-          <div class="emi-stats" style="margin-top: 8px;">
+          <div class="emi-stats" style="margin-top: 8px; display: flex; align-items: center; gap: 4px;">
             Next deduction: ${dayNum}${ordinalSuffix(dayNum)}
+            <button class="icon-btn" data-edit-emi-day="${e.seriesId}" title="Edit date" style="padding: 2px;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></button>
           </div>
         </div>
         <div style="display: flex; align-items: center; gap: 16px; align-self: flex-start;">
@@ -1838,6 +1839,52 @@ root.addEventListener('click', async (ev) => {
 
   const cancelEdit = ev.target.closest('[data-cancel-edit]');
   if (cancelEdit) {
+    await renderMonth();
+    return;
+  }
+
+  const editEmiDay = ev.target.closest('[data-edit-emi-day]');
+  if (editEmiDay) {
+    const seriesId = editEmiDay.dataset.editEmiDay;
+    const series = emiSeries.find(s => s.id === seriesId);
+    if (!series) return;
+    
+    const container = editEmiDay.closest('.emi-stats');
+    container.innerHTML = `
+      <span>Next deduction:</span>
+      <input type="number" min="1" max="31" class="inline-edit-emi-day" value="${series.dayOfMonth || 1}" style="width: 45px; padding: 2px 4px; border: 1px solid var(--sky); border-radius: 4px; font-family: inherit; font-size: 0.8rem;" />
+      <button class="icon-btn" data-save-emi-day="${seriesId}" title="Save" style="color: var(--credit); padding: 2px;">✓</button>
+      <button class="icon-btn" data-cancel-edit-emi title="Cancel" style="color: var(--debit); padding: 2px;">✕</button>
+    `;
+    
+    // Focus the input automatically
+    container.querySelector('.inline-edit-emi-day').focus();
+    return;
+  }
+
+  const saveEmiDay = ev.target.closest('[data-save-emi-day]');
+  if (saveEmiDay) {
+    const seriesId = saveEmiDay.dataset.saveEmiDay;
+    const container = saveEmiDay.closest('.emi-stats');
+    const newDay = Number(container.querySelector('.inline-edit-emi-day').value);
+    
+    if (!newDay || newDay < 1 || newDay > 31) {
+      showToast("Enter a valid day (1-31).");
+      return;
+    }
+    
+    const series = emiSeries.find(s => s.id === seriesId);
+    if (series) {
+      series.dayOfMonth = newDay;
+      await Store.set('emiseries', emiSeries);
+      await renderMonth();
+      showToast("Deduction date updated");
+    }
+    return;
+  }
+
+  const cancelEditEmi = ev.target.closest('[data-cancel-edit-emi]');
+  if (cancelEditEmi) {
     await renderMonth();
     return;
   }
