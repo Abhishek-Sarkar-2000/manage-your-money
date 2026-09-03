@@ -1358,7 +1358,7 @@ a {
 }
 
 /* Sticky wrapper: docks below the topbar and holds both controls and table header */
-.sticky-controls-wrap.sticky-controls-wrap {
+.sticky-controls-wrap {
   position: sticky;
   top: 51px;
   z-index: 40;
@@ -1795,57 +1795,57 @@ td.actions-cell {
   .chart-tag-pill {
     font-size: 0.68rem;
   }
-
-  /* Universal Scroll Shadows for Table Header and Body */
-  .table-scroll-shell {
-    position: relative;
-    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-    overflow: hidden;
-  }
-
-  .table-scroll-shell::before,
-  .table-scroll-shell::after,
-  .sticky-controls-wrap::before,
-  .sticky-controls-wrap::after {
-    content: "";
-    position: absolute;
-    width: 18px;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.18s ease;
-    z-index: 50;
-  }
-
-  .table-scroll-shell::before,
-  .table-scroll-shell::after {
-    top: 0;
-    bottom: 0;
-  }
-
-  .sticky-controls-wrap::before,
-  .sticky-controls-wrap::after {
-    bottom: 0;
-    height: 38px; /* Targets the header bar specifically */
-  }
-
-  .table-scroll-shell::before,
-  .sticky-controls-wrap::before {
-    left: 0;
-    background: linear-gradient(to right, rgba(120, 120, 134, 0.18), transparent);
-  }
-
-  .table-scroll-shell::after,
-  .sticky-controls-wrap::after {
-    right: 0;
-    background: linear-gradient(to left, rgba(120, 120, 134, 0.18), transparent);
-  }
-
-  .table-scroll-shell.can-scroll-left::before,
-  .sticky-controls-wrap.can-scroll-left::before { opacity: 1; }
-
-  .table-scroll-shell.can-scroll-right::after,
-  .sticky-controls-wrap.can-scroll-right::after { opacity: 1; }
 }
+
+/* Universal Scroll Shadows for Table Header and Body (Moved to global scope) */
+.table-scroll-shell {
+  position: relative;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  overflow: hidden;
+}
+
+.table-scroll-shell::before,
+.table-scroll-shell::after,
+.sticky-controls-wrap::before,
+.sticky-controls-wrap::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  z-index: 50;
+}
+
+.table-scroll-shell::before,
+.table-scroll-shell::after {
+  top: 0;
+  bottom: 0;
+}
+
+.sticky-controls-wrap::before,
+.sticky-controls-wrap::after {
+  bottom: 0;
+  height: 38px; /* Targets the header bar specifically */
+}
+
+.table-scroll-shell::before,
+.sticky-controls-wrap::before {
+  left: 0;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.05), transparent);
+}
+
+.table-scroll-shell::after,
+.sticky-controls-wrap::after {
+  right: 0;
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.05), transparent);
+}
+
+.table-scroll-shell.can-scroll-left::before,
+.sticky-controls-wrap.can-scroll-left::before { opacity: 1; }
+
+.table-scroll-shell.can-scroll-right::after,
+.sticky-controls-wrap.can-scroll-right::after { opacity: 1; }
 
 @media (max-width: 400px) {
   .table-controls select {
@@ -3778,19 +3778,12 @@ transform: translateY(0);
 
 :root[data-theme="dark"] .table-scroll-shell::before,
 :root[data-theme="dark"] .sticky-controls-wrap::before {
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.85), transparent) !important;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.15), transparent) !important;
 }
 
 :root[data-theme="dark"] .table-scroll-shell::after,
 :root[data-theme="dark"] .sticky-controls-wrap::after {
-  background: linear-gradient(to left, rgba(0, 0, 0, 0.85), transparent) !important;
-}
-
-:root[data-theme="hi-contrast"] .table-scroll-shell::before,
-:root[data-theme="hi-contrast"] .table-scroll-shell::after,
-:root[data-theme="hi-contrast"] .sticky-controls-wrap::before,
-:root[data-theme="hi-contrast"] .sticky-controls-wrap::after {
-  background: transparent !important;
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.15), transparent) !important;
 }
 === ./static/css/views/cards.css ===
 /* ---------- Credit cards ---------- */
@@ -10264,6 +10257,10 @@ async function renderMonth() {
       ${recurringCardsHtml}
     </div>` : ''}
     `;
+
+    appendPageChrome(root);
+    setupScrollWrappers(root);
+    setupTableScrollIndicators(root);
 
     // Sync horizontal scrolling and EXACT table widths between the body and sticky header
     const tableWrapEl = root.querySelector('.transactions-container .table-wrap');

@@ -40,15 +40,23 @@ export function cardById(cards, id) {
 
 export function emiRowsForMonth(emiSeries, monthKey, deletedEmi) {
   const rows = [];
+  const [y, m] = monthKey.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  
   for (const series of emiSeries) {
     const inst = diffMonths(series.startMonth, monthKey) + 1;
     if (inst >= 1 && inst <= series.totalMonths) {
       if ((deletedEmi || []).includes(series.id)) continue;
-      const dateStr = monthKey + '-01';
+      
+      const targetDay = Math.min(Math.max(Number(series.dayOfMonth) || 1, 1), 31);
+      const day = Math.min(targetDay, daysInMonth);
+      const dateStr = monthKey + '-' + String(day).padStart(2, '0');
+      
       rows.push({
         id: 'emi-' + series.id + '-' + monthKey, type: 'emi', date: dateStr,
         description: series.description, amount: series.monthlyAmount,
         seriesId: series.id, installment: inst, totalMonths: series.totalMonths,
+        dayOfMonth: targetDay, tag: series.tag || 'EMI'
       });
     }
   }

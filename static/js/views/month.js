@@ -351,7 +351,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       ${dateCell}
       <td class="type-cell"><span class="tag emi">EMI</span></td>
       <td class="desc-cell">
-        <strong>${escapeHtml(e.description)}</strong>
+        <strong>${escapeHtml(e.description)}</strong>${e.tag && e.tag !== 'EMI' ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}
         <div class="subnote">Instalment ${e.installment}/${e.totalMonths}</div>
       </td>
       <td class="num amt-debit">-${fmtINR(e.amount)}</td>
@@ -580,6 +580,12 @@ function renderForm(kind) {
         <div class="field"><label>Monthly deductible (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
         <div class="field"><label>Number of months</label><input id="f-months" type="number" step="1" min="1" placeholder="e.g. 12" /></div>
         <div class="field"><label>Starting Month</label><input id="f-emi-start" type="month" max="${currentMonthKey()}" value="${monthKey}" /></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Date of deduction</label><input id="f-emi-day" type="number" step="1" min="1" max="31" placeholder="e.g. 5" /></div>
+        <div id="f-tag-row" style="display:contents;">
+          ${renderTagField()}
+        </div>
       </div>
       <div class="form-actions">
         <button class="btn" data-submit="emi">Add EMI</button>
@@ -989,15 +995,26 @@ async function renderMonth() {
       const totalBill = e.amount * e.totalMonths;
       const totalPaid = e.amount * e.installment;
       const left = e.totalMonths - e.installment;
+      const pct = totalBill > 0 ? Math.min(100, (totalPaid / totalBill) * 100) : 0;
+      const dayNum = e.dayOfMonth || 1;
       return `
       <div class="emi-card">
-        <div>
+        <div style="flex: 1; min-width: 0;">
           <h4><span class="tag emi">EMI</span> ${escapeHtml(e.description)}</h4>
-          <div class="emi-stats">
-            Instalment ${e.installment}/${e.totalMonths}(${left} left) <span style="opacity:0.5; margin:0 4px;"></span></br>Paid ${fmtINR(totalPaid)} of ${fmtINR(totalBill)}
+          <div class="emi-stats" style="margin-bottom: 6px;">
+            Paid ${fmtINR(totalPaid)} of ${fmtINR(totalBill)}
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="flex: 1; height: 4px; background: var(--hair); border-radius: 2px; overflow: hidden; position: relative;">
+              <div style="position: absolute; left: 0; top: 0; bottom: 0; width: ${pct}%; background: var(--blue); border-radius: 2px;"></div>
+            </div>
+            <span style="font-size: 0.72rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; white-space: nowrap;">${left} left</span>
+          </div>
+          <div class="emi-stats" style="margin-top: 8px;">
+            Next deduction: ${dayNum}${ordinalSuffix(dayNum)}
           </div>
         </div>
-        <div style="display: flex; align-items: center; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 16px; align-self: flex-start;">
           <div class="num amt-debit recurring-card">-${fmtINR(e.amount)}</div>
           <button class="icon-btn" data-popover-trigger data-del-emi-series="${e.seriesId}" title="Delete EMI series entirely">✕</button>
         </div>
@@ -1507,10 +1524,12 @@ async function handleSubmit(kind) {
   } else if (kind === 'emi') {
     const months = Number($('#f-months')?.value);
     const startMonth = $('#f-emi-start')?.value || monthKey;
-    if (!desc || !amount || amount <= 0 || !months || months < 1) { showToast('Fill in description, amount and number of months'); return; }
+    const dayOfMonth = Number($('#f-emi-day')?.value);
+    if (!desc || !amount || amount <= 0 || !months || months < 1 || !dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) { showToast('Fill in description, amount, number of months, and a valid date (1-31)'); return; }
     const elapsed = diffMonths(startMonth, currentMonthKey());
     if (elapsed >= months) { showToast('Invalid: EMI is already complete based on the starting month.'); return; }
-    emiSeries.push({ id: uid(), description: desc, monthlyAmount: amount, totalMonths: months, startMonth });
+    const tag = await resolveTagFromForm();
+    emiSeries.push({ id: uid(), description: desc, monthlyAmount: amount, totalMonths: months, startMonth, dayOfMonth, tag });
     await Store.set('emiseries', emiSeries);
   } else if (kind === 'recurring') {
     const dayOfMonth = Number($('#f-recurring-day')?.value);
