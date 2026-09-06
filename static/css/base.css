@@ -768,6 +768,7 @@ color: #C07A2E;
   border-radius: 999px;
   margin: 2px 4px 0 0;
   font-family: 'IBM Plex Mono', monospace;
+  text-wrap: nowrap;
 }
 
 .chip.settled {

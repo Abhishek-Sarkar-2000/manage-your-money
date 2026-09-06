@@ -134,37 +134,73 @@ export function greedySettle(net) {
     if (r > 0.004) creditors.push({ person: p, amt: r });
     else if (r < -0.004) debtors.push({ person: p, amt: -r });
   }
-  creditors.sort((a, b) => b.amt - a.amt);
-  debtors.sort((a, b) => b.amt - a.amt);
+  // Deterministic sort with name tie-breakers prevents random reshuffling
+  creditors.sort((a, b) => (b.amt - a.amt) || a.person.localeCompare(b.person));
+  debtors.sort((a, b) => (b.amt - a.amt) || a.person.localeCompare(b.person));
   const transfers = [];
   let i = 0, j = 0;
   while (i < debtors.length && j < creditors.length) {
     const d = debtors[i], c = creditors[j];
     const amt = Math.round(Math.min(d.amt, c.amt) * 100) / 100;
     if (amt > 0.004) transfers.push({ from: d.person, to: c.person, amount: amt });
-    d.amt -= amt; c.amt -= amt;
+    d.amt = Math.round((d.amt - amt) * 100) / 100;
+    c.amt = Math.round((c.amt - amt) * 100) / 100;
     if (d.amt <= 0.004) i++;
     if (c.amt <= 0.004) j++;
   }
   return transfers;
 }
 
-/* Returns {rawNet, paid, cards} where cards = settled records (from
-   storage) + freshly computed outstanding transfers (virtual, unsaved
-   until toggled). */
+/* Returns {rawNet, paid, cards} where cards maintains a stable settlement
+   plan across group members instead of reshuffling remaining debts on every settlement. */
 export function computeGroupSettlementView(group) {
   const rawNet = computeGroupNet(group);
   const paid = computeGroupPaid(group);
-  const adjustedNet = applySettledAdjustments(rawNet, group.settlements);
-  const outstanding = greedySettle(adjustedNet);
+  const baseTransfers = greedySettle(rawNet);
   const cards = [];
+  const matchedSettlementIds = new Set();
+
+  for (const t of baseTransfers) {
+    const st = (group.settlements || []).find(
+      s => s.settled && s.from === t.from && s.to === t.to && !matchedSettlementIds.has(s.id)
+    );
+    if (st) {
+      matchedSettlementIds.add(st.id);
+      cards.push({
+        id: st.id,
+        from: t.from,
+        to: t.to,
+        amount: t.amount,
+        settled: true,
+        ledgerEntryId: st.ledgerEntryId,
+        monthKey: st.monthKey,
+      });
+    } else {
+      cards.push({
+        id: 'virtual-' + t.from + '-' + t.to,
+        from: t.from,
+        to: t.to,
+        amount: t.amount,
+        settled: false,
+      });
+    }
+  }
+
+  // Preserve any historical settlement records from modified spends
   for (const st of (group.settlements || [])) {
-    if (!st.settled) continue;
-    cards.push({ id: st.id, from: st.from, to: st.to, amount: Number(st.amount) || 0, settled: true, ledgerEntryId: st.ledgerEntryId, monthKey: st.monthKey });
+    if (st.settled && !matchedSettlementIds.has(st.id)) {
+      cards.push({
+        id: st.id,
+        from: st.from,
+        to: st.to,
+        amount: Number(st.amount) || 0,
+        settled: true,
+        ledgerEntryId: st.ledgerEntryId,
+        monthKey: st.monthKey,
+      });
+    }
   }
-  for (const t of outstanding) {
-    cards.push({ id: 'virtual-' + t.from + '-' + t.to, from: t.from, to: t.to, amount: t.amount, settled: false });
-  }
+
   return { rawNet, paid, cards };
 }
 
@@ -202,7 +238,7 @@ export async function toggleSplitSettlement(groupId, transferId, from, to, amoun
   const group = await loadSplit(groupId, false);
   if (!group) return;
   group.settlements = group.settlements || [];
-  let record = group.settlements.find(s => s.id === transferId);
+  let record = group.settlements.find(s => s.id === transferId || (s.from === from && s.to === to));
 
   if (willSettle) {
     if (record && record.settled) return;

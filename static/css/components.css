@@ -766,7 +766,7 @@ transform: translateY(0);
   position: relative;
   cursor: pointer;
   outline: none;
-  transition: background 0.15s ease;
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
   margin: 0;
 }
@@ -780,8 +780,10 @@ transform: translateY(0);
   height: 16px;
   border-radius: 50%;
   background: #fff;
-  transition: transform 0.15s ease;
+  transform: translateX(0);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 1px 3px rgba(11, 37, 69, 0.3);
+  will-change: transform;
 }
 
 .toggle-switch input:checked {

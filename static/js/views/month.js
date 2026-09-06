@@ -44,6 +44,7 @@ const PILL_ORDER = ['spend', 'cardcharge', 'cashpayment', 'recurring', 'income',
 let activeTypeFilters = [];
 let activeTagFilters = [];
 let currentSort = { key: 'date', asc: false };
+let deductCcCash = false;
 
 const TABLE_TYPE_LABELS = {
   spend: 'Spend',
@@ -162,8 +163,23 @@ async function resolveTagFromForm() {
 function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   let dateCell = '';
   if (isFirstDateRow) {
-    const dateLabel = e.date ? new Date(e.date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—';
-    dateCell = `<td class="dv-date num" rowspan="${rowspan}">${dateLabel}</td>`;
+    let dateContent = '—';
+    if (e.date) {
+      const dt = new Date(e.date + 'T00:00:00');
+      const day = dt.toLocaleDateString('en-IN', { day: '2-digit' });
+      const month = dt.toLocaleDateString('en-IN', { month: 'short' });
+      const weekday = dt.toLocaleDateString('en-IN', { weekday: 'short' });
+      dateContent = `
+        <div class="dv-date-badge" style="display: inline-flex; flex-wrap: wrap; flex-direction: column;">
+          <div class="dv-date-top" style="white-space: nowrap;">
+            <strong class="dv-date-day" style="display: inline-block; font-size: 1.2rem; font-weight: 600;">${day}</strong>
+            <span class="dv-date-month">${month}</span>
+          </div>
+          <div class="dv-date-weekday" style="color: var(--muted);">${weekday}</div>
+        </div>
+      `;
+    }
+    dateCell = `<td class="dv-date num" rowspan="${rowspan}">${dateContent}</td>`;
   }
 
   let metaHtml = '';
@@ -301,10 +317,17 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
     </tr>`;
   }
   if (e.type === 'investment') {
+    const catConfig = {
+      'fixed deposit': { label: 'FD', cls: 'fd' },
+      'lump-sum mf': { label: 'FUND', cls: 'mf' },
+      'bond': { label: 'BOND', cls: 'bond' },
+      'stock': { label: 'STOCK', cls: 'stock' }
+    };
+    const cat = catConfig[(e.category || '').toLowerCase()] || { label: 'FD', cls: 'fd' };
     return `<tr>
       ${dateCell}
       <td class="type-cell"><span class="tag invest">Investment</span></td>
-      <td class="desc-cell"><strong>${escapeHtml(e.description)}</strong></td>
+      <td class="desc-cell"><strong>${escapeHtml(e.description)}</strong> <span class="src-badge ${cat.cls}">${cat.label}</span></td>
       <td class="num amt-debit">-${fmtINR(e.amount)}</td>
       <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">${editSvg}</button><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
     </tr>`;
@@ -865,9 +888,9 @@ async function renderMonth() {
     const neutralTableTypes = new Set(['cardcharge', 'cashpayment']);
 
     const tableNetTotal = sortedRows.reduce((total, e) => {
-      if (neutralTableTypes.has(e.type)) return total;
+      if (!deductCcCash && neutralTableTypes.has(e.type)) return total;
 
-      if (['spend', 'investment', 'sip', 'recurring', 'emi'].includes(e.type)) {
+      if (['spend', 'investment', 'sip', 'recurring', 'emi'].includes(e.type) || (deductCcCash && neutralTableTypes.has(e.type))) {
         return total - Math.abs(Number(e.amount) || 0);
       }
 
@@ -925,10 +948,10 @@ async function renderMonth() {
 
     const tableColgroupHtml = `
       <colgroup>
-        <col style="width: 95px;">
+        <col style="width: 110px;">
         <col style="width: 120px;">
         <col style="width: auto;">
-        <col style="width: 130px;">
+        <col style="width: 155px;">
         <col style="width: 110px;">
       </colgroup>
     `;
@@ -1326,8 +1349,12 @@ async function renderMonth() {
                   <tr class="table-total-row">
                     <td colspan="3">
                       <div style="display: flex; align-items: center; gap: 6px;">
-                        Total <span style="font-size:0.78rem; color: var(--muted);">Credit minus Debit</span>
+                        Total <span style="font-family: 'Source Serif 4', Georgia, serif; font-size:0.78rem; color: var(--muted);"> [Credit minus Debit]</span>
                       </div>
+                      <label class="toggle-switch" style="margin-top: 8px; justify-content: flex-start;">
+                        <input type="checkbox" id="deduct-cc-cash-toggle" ${deductCcCash ? 'checked' : ''} />
+                        <span class="meta-text" style="color: var(--muted);">Deduct CC & cash payments</span>
+                      </label>
                     </td>
                     <td class="num table-total-amount ${tableNetTotal >= 0 ? 'amt-credit' : 'amt-debit'}">
                       ${tableNetTotal >= 0 ? '+' : '-'}${fmtINR(Math.abs(tableNetTotal))}
@@ -1801,8 +1828,8 @@ root.addEventListener('click', async (ev) => {
     const amountTd = tr.querySelector('td.num:not(.dv-date)');
     const actionsSpan = tr.querySelector('.row-actions');
 
-    descStrong.innerHTML = `<input type="text" class="inline-edit-desc" value="${escapeHtml(entryToEdit.description)}" style="width: 100%; padding: 4px 6px; border: 1px solid var(--sky); border-radius: 4px; font-family: inherit; font-size: 0.9rem;" />`;
-    amountTd.innerHTML = `<input type="number" step="0.01" class="inline-edit-amount" value="${entryToEdit.amount}" style="width: 85px; padding: 4px 6px; border: 1px solid var(--sky); border-radius: 4px; font-family: inherit; font-size: 0.9rem;" />`;
+    descStrong.innerHTML = `<input type="text" class="inline-edit-desc" value="${escapeHtml(entryToEdit.description)}" style="width: 100%; padding: 4px 6px; border: 1px solid var(--sky); border-radius: 4px; background: var(--ice); font-family: 'Source Serif 4', Georgia, serif; font-size: 0.9rem;" />`;
+    amountTd.innerHTML = `<input type="number" step="0.01" class="inline-edit-amount" value="${entryToEdit.amount}" style="width: 85px; padding: 4px 6px; border: 1px solid var(--sky); border-radius: 4px; background: var(--ice); font-family: 'Source Serif 4', Georgia, serif; font-size: 0.9rem;" />`;
     
     actionsSpan.innerHTML = `
       <button class="icon-btn" data-save-entry="${mk}|${id}" title="Save" style="color: var(--credit);">✓</button>
@@ -2163,6 +2190,14 @@ root.addEventListener('click', async (ev) => {
 });
 
 root.addEventListener('change', async (ev) => {
+  if (ev.target.id === 'deduct-cc-cash-toggle') {
+    deductCcCash = ev.target.checked;
+    setTimeout(async () => {
+      await renderMonth();
+    }, 200);
+    return;
+  }
+
   if (ev.target.id === 'table-type-filter') {
     const value = ev.target.value;
 

@@ -131,7 +131,7 @@ export const Store = {
         }
         return result;
       } catch (e) {
-        showToast("Network hiccup! We're trying a different way to load your data...");
+        showToast("Network hiccup! Please wait...");
       }
 
       // 2. Bulk endpoint is still down — recover by fetching each missing

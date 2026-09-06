@@ -321,8 +321,17 @@
   color: var(--sky);
 }
 
+:root[data-theme="dark"] .toggle-switch input {
+  background: var(--sky) !important;
+  color: var(--ink);
+  border-color: var(--hair) !important;
+}
+
+:root[data-theme="dark"] .toggle-switch input:checked {
+  background: var(--blue-soft) !important;
+}
+
 :root[data-theme="dark"] .field input,
-:root[data-theme="dark"] .toggle-switch input,
 :root[data-theme="dark"] .balance-box input[type="number"] {
   background: var(--paper) !important;
   color: var(--ink);
