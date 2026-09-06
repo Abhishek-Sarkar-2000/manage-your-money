@@ -1348,8 +1348,8 @@ async function renderMonth() {
                 ? `
                   <tr class="table-total-row">
                     <td colspan="3">
-                      <div style="display: flex; align-items: center; gap: 6px;">
-                        Total <span style="font-family: 'Source Serif 4', Georgia, serif; font-size:0.78rem; color: var(--muted);"> [Credit minus Debit]</span>
+                      <div style="font-family: 'Source Serif 4', Georgia, serif; font-size:1.1rem; display: flex; align-items: center; gap: 6px;">
+                        Total <span style="font-size:0.78rem; color: var(--muted);"> [Credit minus Debit]</span>
                       </div>
                       <label class="toggle-switch" style="margin-top: 8px; justify-content: flex-start;">
                         <input type="checkbox" id="deduct-cc-cash-toggle" ${deductCcCash ? 'checked' : ''} />

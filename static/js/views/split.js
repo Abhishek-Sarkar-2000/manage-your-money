@@ -32,6 +32,9 @@ let splitSlideDirection = '';
 let animTimeout = null;
 let domainLoaded = false;
 
+let currentPayeeFilter = '';
+let currentSort = { key: 'date', asc: false };
+
 // Fetched once; renderSplit() runs on nearly every interaction (settle
 // toggles, expanding a card, adding a spend), so refetching these two
 // index arrays every time would mean a network round trip per click.
@@ -155,7 +158,7 @@ function renderSplitShareCallout(group, s) {
     amount: Number((s.shares || {})[p]) || 0,
   }));
   const dataAttr = escapeHtml(JSON.stringify(shares));
-  return `<span class="split-spend-cell" tabindex="0" data-spend-toggle data-spend-shares="${dataAttr}">${escapeHtml(s.description)}</span>`;
+  return `<strong class="split-spend-cell" tabindex="0" data-spend-toggle data-spend-shares="${dataAttr}">${escapeHtml(s.description)}</strong>`;
 }
 
 function renderSplitDetailsPanel(group) {
@@ -175,14 +178,62 @@ function renderSplitDetailsPanel(group) {
     </div>`;
   }).join('');
 
-  const sortedSpends = [...group.spends].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  const dateCounts = {};
-  for (const s of sortedSpends) dateCounts[s.date] = (dateCounts[s.date] || 0) + 1;
-  const seenDates = new Set();
-  const rowsHtml = sortedSpends.map(s => {
-    const dateLabel = s.date ? new Date(s.date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—';
+  // 1. Extract Payees
+  const payees = [...new Set((group.spends || []).map(s => s.payee))].filter(Boolean).sort();
+  
+  // 2. Filter & Sort
+  let filteredSpends = (group.spends || []).filter(s => {
+    if (currentPayeeFilter && s.payee !== currentPayeeFilter) return false;
+    return true;
+  });
+
+  filteredSpends.sort((a, b) => {
+    if (currentSort.key === 'date') {
+      const aDate = Number.isFinite(Date.parse(a.date || '')) ? Date.parse(a.date || '') : -Infinity;
+      const bDate = Number.isFinite(Date.parse(b.date || '')) ? Date.parse(b.date || '') : -Infinity;
+      const cmp = aDate - bDate;
+      return currentSort.asc ? cmp : -cmp;
+    } else if (currentSort.key === 'amount') {
+      const cmp = (Number(a.amount) || 0) - (Number(b.amount) || 0);
+      return currentSort.asc ? cmp : -cmp;
+    }
+    return 0;
+  });
+
+  const dateStreakCounts = new Map();
+  const firstDateRows = new Set();
+
+  for (let i = 0; i < filteredSpends.length;) {
+    let j = i + 1;
+    while (j < filteredSpends.length && filteredSpends[j].date === filteredSpends[i].date) {
+      j++;
+    }
+    dateStreakCounts.set(i, j - i);
+    firstDateRows.add(i);
+    i = j;
+  }
+
+  const rowsHtml = filteredSpends.map((s, index) => {
+    let dateContent = '—';
+    if (s.date) {
+      const dt = new Date(s.date + 'T00:00:00');
+      const day = dt.toLocaleDateString('en-IN', { day: '2-digit' });
+      const month = dt.toLocaleDateString('en-IN', { month: 'short' });
+      const weekday = dt.toLocaleDateString('en-IN', { weekday: 'short' });
+      dateContent = `
+        <div class="dv-date-badge" style="display: inline-flex; flex-wrap: wrap; flex-direction: column;">
+          <div class="dv-date-top" style="white-space: nowrap;">
+            <strong class="dv-date-day" style="display: inline-block; font-size: 1.2rem; font-weight: 600;">${day}</strong>
+            <span class="dv-date-month">${month}</span>
+          </div>
+          <div class="dv-date-weekday" style="color: var(--muted);">${weekday}</div>
+        </div>
+      `;
+    }
     let dateCell = '';
-    if (!seenDates.has(s.date)) { seenDates.add(s.date); dateCell = `<td class="dv-date" rowspan="${dateCounts[s.date]}">${dateLabel}</td>`; }
+    if (firstDateRows.has(index)) {
+      dateCell = `<td class="dv-date" rowspan="${dateStreakCounts.get(index)}">${dateContent}</td>`;
+    }
     return `
     <tr>${dateCell}
       <td class="desc-cell">
@@ -193,6 +244,50 @@ function renderSplitDetailsPanel(group) {
       <td class="actions-cell"><button class="icon-btn" data-del-split-spend="${group.id}|${s.id}" title="Remove spend">✕</button></td>
     </tr>`;
   }).join('');
+
+  const filteredTotal = filteredSpends.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+
+  // 3. UI Controls
+  const tablePayeeOptions = payees.map(p => `<option value="${escapeHtml(p)}" ${currentPayeeFilter === p ? 'disabled' : ''}>${escapeHtml(p)}</option>`).join('');
+  const activeTableFilterPills = currentPayeeFilter ? `
+    <div class="pill-btn sub-pill active chart-tag-pill">
+      ${escapeHtml(currentPayeeFilter)}
+      <button class="icon-btn chart-tag-remove" data-remove-table-filter="payee|${escapeHtml(currentPayeeFilter)}" aria-label="Remove filter">✕</button>
+    </div>` : '';
+
+  const sortDirectionLabel = currentSort.key === 'date' 
+    ? (currentSort.asc ? 'Oldest first' : 'Newest first')
+    : (currentSort.asc ? 'Low to High' : 'High to Low');
+
+  const tableControlsHtml = `
+    <div class="sticky-controls-wrap">
+      <div class="table-controls" style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+        <select id="table-payee-filter" aria-label="Filter by payee">
+          <option value="">All Payees</option>
+          ${tablePayeeOptions}
+        </select>
+        <select id="table-sort-control" aria-label="Sort transactions">
+          <option value="date" ${currentSort.key === 'date' ? 'selected' : ''}>Date</option>
+          <option value="amount" ${currentSort.key === 'amount' ? 'selected' : ''}>Amount</option>
+        </select>
+        <button id="table-sort-direction" class="btn small" type="button" aria-label="Toggle sort direction" style="min-height: 0px;">
+          ${currentSort.asc ? '↑' : '↓'} ${sortDirectionLabel}
+        </button>
+      </div>
+      ${activeTableFilterPills ? `<div class="pill-grid" style="margin-top: 10px; margin-bottom: 12px; padding: 0 14px;">${activeTableFilterPills}</div>` : ''}
+      
+      <div class="table-header-wrap">
+        <table class="table-header-sticky" style="min-width: 500px;">
+          <colgroup>
+            <col style="width: 95px;">
+            <col style="width: auto;">
+            <col style="width: 120px;">
+            <col style="width: 50px;">
+          </colgroup>
+          <thead><tr><th>Date</th><th>Details</th><th class="table-numeric">Amount</th><th></th></tr></thead>
+        </table>
+      </div>
+    </div>`;
 
   const formHtml = splitSpendFormOpen ? `
   <div class="form-panel slide-down-fade" style="margin-top:14px;">
@@ -244,11 +339,35 @@ function renderSplitDetailsPanel(group) {
     ${formHtml}
     ${addMemberFormHtml}
     <div class="form-note" style="margin-top:18px; margin-bottom:8px;">All group spends are listed here. Click a spend name to view share divisions.</div>
-    <div class="table-wrap">
-      <table class="divisions-table" ${rowsHtml ? '' : `style="width: 100%;"`}>
-        <thead><tr><th>Date</th><th>Details</th><th ${rowsHtml ? `class="num"` : ''}>Amount</th><th></th></tr></thead>
-        <tbody>${rowsHtml || `<tr class="empty-row"><td colspan="5">No spends logged in this group yet.</td></tr>`}</tbody>
-      </table>
+    
+    <div class="transactions-container">
+      ${tableControlsHtml}
+      <div class="table-wrap">
+        <table class="divisions-table table-body-sticky" ${filteredSpends.length ? 'style="min-width: 500px;"' : `style="width: 100%;"`}>
+          <colgroup>
+            <col style="width: 95px;">
+            <col style="width: auto;">
+            <col style="width: 120px;">
+            <col style="width: 50px;">
+          </colgroup>
+          <tbody>
+            ${rowsHtml || (group.spends.length ? `<tr class="empty-row"><td colspan="4">No spends match the selected filter.</td></tr>` : `<tr class="empty-row"><td colspan="4">No spends logged in this group yet.</td></tr>`)}
+            ${filteredSpends.length ? `
+              <tr class="table-total-row">
+                <td colspan="2">
+                  <div style="font-family: 'Source Serif 4', Georgia, serif; font-size:1rem; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                    Total <span style="font-size:0.78rem; color: var(--muted);"> [Filtered Spends]</span>
+                  </div>
+                </td>
+                <td class="num table-total-amount">
+                  ${fmtINR(Math.abs(filteredTotal))}
+                </td>
+                <td></td>
+              </tr>
+            ` : ''}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>`;
 }
@@ -406,9 +525,52 @@ async function renderSplit() {
   appendPageChrome(root);
   setupScrollWrappers(root);
   setupTableScrollIndicators(root);
+
+  // Sync horizontal scrolling and EXACT table widths between the body and sticky header
+  const tableWrapEl = root.querySelector('.transactions-container .table-wrap');
+  const headerWrapEl = root.querySelector('.transactions-container .table-header-wrap');
+  
+  if (tableWrapEl && headerWrapEl) {
+    const bodyTable = tableWrapEl.querySelector('table');
+    const headerTable = headerWrapEl.querySelector('table');
+
+    if (bodyTable && headerTable) {
+      const syncTableWidth = () => {
+        if (headerTable && bodyTable) {
+          headerTable.style.width = bodyTable.offsetWidth + 'px';
+        }
+      };
+      
+      setTimeout(syncTableWidth, 10);
+      
+      let resizeTimer;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(syncTableWidth, 150);
+      });
+    }
+
+    tableWrapEl.addEventListener('scroll', () => {
+      headerWrapEl.scrollLeft = tableWrapEl.scrollLeft;
+    }, { passive: true });
+  }
 }
 
 root.addEventListener('click', async (ev) => {
+  const removeTableFilter = ev.target.closest('[data-remove-table-filter]');
+  if (removeTableFilter) {
+    currentPayeeFilter = '';
+    await renderSplit();
+    return;
+  }
+
+  const sortDirectionBtn = ev.target.closest('#table-sort-direction');
+  if (sortDirectionBtn) {
+    currentSort.asc = !currentSort.asc;
+    await renderSplit();
+    return;
+  }
+
   const splitFormToggle = ev.target.closest('[data-split-form-toggle]');
   if (splitFormToggle) { splitFormOpen = !splitFormOpen; await renderSplit(); return; }
 
@@ -613,6 +775,28 @@ root.addEventListener('click', async (ev) => {
 });
 
 root.addEventListener('change', async (ev) => {
+  if (ev.target.id === 'table-payee-filter') {
+    const value = ev.target.value;
+    if (value && currentPayeeFilter !== value) {
+      currentPayeeFilter = value;
+    }
+    ev.target.value = '';
+    await renderSplit();
+    return;
+  }
+
+  if (ev.target.id === 'table-sort-control') {
+    const key = ev.target.value;
+    if (!key) return;
+    if (key === currentSort.key) {
+      currentSort.asc = !currentSort.asc;
+    } else {
+      currentSort.key = key;
+    }
+    await renderSplit();
+    return;
+  }
+
   if (ev.target.matches('.sp-member-toggle')) {
     const totalAmt = Number($('#sp-amount')?.value) || 0;
     distributeSplitShares(totalAmt);
