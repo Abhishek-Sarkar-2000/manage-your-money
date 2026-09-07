@@ -168,7 +168,19 @@ async function renderSips() {
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Active SIPs</h2><span class="hint">Automated recurring investments</span></div>
+    <div class="section-title" style="margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="2 17 8.5 10.5 13.5 15.5 22 7"></polyline>
+            <polyline points="16 7 22 7 22 13"></polyline>
+            <polygon points="15 15 21 18.5 15 22" fill="currentColor" stroke="none"></polygon>
+          </svg>
+        </span>
+        <h2 style="margin: 0;">Active SIPs</h2>
+      </div>
+      <span class="hint">Automated recurring investments</span>
+    </div>
     <div class="sip-grid">${sipCardsHtml}</div>
     <div style="margin-top: 20px;">
       ${!isSipFormOpen ? `<button class="pill-btn active" id="open-sip-form" type="button">+ Add New SIP</button>` : ''}
@@ -178,7 +190,20 @@ async function renderSips() {
 
   ${pausedSips.length > 0 ? `
   <div class="section" style="margin-top: 40px; border-top: 1px solid var(--hair); padding-top: 30px;">
-    <div class="section-title"><h2>Paused SIPs</h2><span class="hint">Currently on hold</span></div>
+    <div class="section-title" style="margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="2 17 8.5 10.5 13.5 15.5 22 7"></polyline>
+            <polyline points="16 7 22 7 22 13"></polyline>
+            <rect x="15" y="15" width="2" height="7" fill="currentColor" stroke="none"></rect>
+            <rect x="19" y="15" width="2" height="7" fill="currentColor" stroke="none"></rect>
+          </svg>
+        </span>
+        <h2 style="margin: 0;">Paused SIPs</h2>
+      </div>
+      <span class="hint">Currently on hold</span>
+    </div>
     <div class="sip-grid">${pausedCardsHtml}</div>
   </div>` : ''}
   `;

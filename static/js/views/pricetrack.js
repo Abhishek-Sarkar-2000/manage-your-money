@@ -238,7 +238,19 @@ async function renderPriceTrack() {
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Track an item</h2><span class="hint">Add anything you want to watch the price of</span></div>
+    <div class="section-title" style="margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none">
+            <path d="M9 2H3a1 1 0 0 0-1 1v6a1 1 0 0 0 .29.71l7.59 7.59a2 2 0 0 0 2.83 0l4.59-4.59a2 2 0 0 0 0-2.83L9.71 2.29A1 1 0 0 0 9 2zm-3.5 5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z" fill="currentColor" fill-rule="evenodd"></path>
+            <line x1="19" y1="2" x2="19" y2="8" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>
+            <line x1="16" y1="5" x2="22" y2="5" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>
+          </svg>
+        </span>
+        <h2 style="margin: 0;">Track new item</h2>
+      </div>
+      <span class="hint">Add anything you want to watch the price of</span>
+    </div>
     <div class="pill-grid">
       <button class="pill-btn ${priceFormOpen ? 'active' : ''}" data-price-form-toggle type="button">+ Add New Item</button>
     </div>
@@ -246,7 +258,19 @@ async function renderPriceTrack() {
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Tracked items</h2><span class="hint">Tap a card for its full price history</span></div>
+    <div class="section-title" style="margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <path d="M16 10a4 4 0 0 1-8 0"></path>
+          </svg>
+        </span>
+        <h2 style="margin: 0;">Tracked items</h2>
+      </div>
+      <span class="hint">Tap a card for its full price history</span>
+    </div>
     ${categoriesHtml}
   </div>
   `;

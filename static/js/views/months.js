@@ -256,7 +256,15 @@ function renderMonthlyChartsSection(bulkData, allMonthKeys) {
   const pillsHtml = selectedTags.length ? `<div class="pill-grid" style="margin-top: 12px; margin-bottom: 4px;">${selectedTags.map(t => `<div class="pill-btn sub-pill active chart-tag-pill">${escapeHtml(t)} <button class="icon-btn chart-tag-remove" data-remove-tag="${escapeHtml(t)}" aria-label="Remove tag">✕</button></div>`).join('')}</div>` : '';
 
   return `
-  <div class="section-title"><h2>Monthly Charts</h2><span class="hint">Tag spend over time</span></div>
+  <div class="section-title" style="margin-bottom: 12px;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="color: var(--blue); display: flex;">
+        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="14" width="4" height="8"></rect><rect x="10" y="8" width="4" height="14"></rect><rect x="17" y="2" width="4" height="20"></rect></svg>
+      </span>
+      <h2 style="margin: 0;">Monthly Charts</h2>
+    </div>
+    <span class="hint">Tag spend over time</span>
+  </div>
   <div class="chart-card">
     <div class="chart-toolbar chart-toolbar--split">
       <div style="display:flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; width: 100%;">
@@ -397,7 +405,15 @@ async function renderMonths() {
   markRendered(root);
   root.innerHTML = `
   <div class="section">
-    <div class="section-title"><h2>Previous months</h2><span class="hint">Tap a month to open it</span></div>
+    <div class="section-title" style="margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+        </span>
+        <h2 style="margin: 0;">Previous months</h2>
+      </div>
+      <span class="hint">Tap a month to open it</span>
+    </div>
     <div class="months-list">${rows}</div>
   </div>
   ${chartHtml}
