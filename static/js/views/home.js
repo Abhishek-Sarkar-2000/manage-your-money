@@ -75,7 +75,7 @@ async function renderCurrentMonthCard(domain) {
     <div class="current-month-mini">
       <div class="cm-stat income"><div class="cm-label">Income</div><div class="cm-value">${fmtINR(totals.income)}</div></div>
       <div class="cm-stat spend"><div class="cm-label">Spends</div><div class="cm-value">${fmtINR(totals.totalConsumption)}</div></div>
-      <div class="cm-stat invest"><div class="cm-label">Invested</div><div class="cm-value">${fmtINR(totals.invest)}</div></div>
+      <div class="cm-stat invest"><div class="cm-label">Invested</div><div class="cm-value">${fmtINR(totals.invest + totals.sip)}</div></div>
     </div>
   </a>`;
 }

@@ -332,7 +332,12 @@ function renderSplitDetailsPanel(group) {
   return `
   <div class="split-details-panel" data-split-details="${group.id}" style="margin-top: 2px;">
     <div class="section-title">
-      <h2>${escapeHtml(group.description)} - Ledger</h2>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+        </span>
+        <h2>${escapeHtml(group.description)} - Ledger</h2>
+      </div>
       <span class="hint">Total Spends: ${fmtINR(totalSpends)} · ${group.people.length} people</span>
     </div>
     ${addBtnHtml}
@@ -411,17 +416,33 @@ async function renderSplit() {
   let settleCardsHtml = `<div class="empty-chart" style="flex:1 0 100%;">Tap a group card above to see settlement options.</div>`;
   let groupChartsHtml = `
   <div class="section">
-    <div class="section-title"><h2>Group charts</h2><span class="hint">Outstanding balances and group shares</span></div>
+    <div class="section-title" style="margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="14" width="4" height="8"></rect><rect x="10" y="8" width="4" height="14"></rect><rect x="17" y="2" width="4" height="20"></rect></svg>
+        </span>
+        <h2 style="margin: 0;">Group charts</h2>
+      </div>
+      <span class="hint">Outstanding balances and group shares</span>
+    </div>
     <div class="charts-grid shared-split-charts">
       <div class="empty-chart" style="grid-column: 1 / -1;">Tap a group card above to see its charts.</div>
     </div>
   </div>`;
   let sharesTableHtml = `
   <div class="section">
-    <div class="section-title"><h2>Shares</h2><span class="hint">Total spent per person</span></div>
+    <div class="section-title" style="margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="12" width="2.5" height="10"></rect><rect x="7.5" y="6" width="2.5" height="16"></rect><rect x="13" y="15" width="2.5" height="7"></rect><rect x="18.5" y="4" width="2.5" height="18"></rect></svg>
+        </span>
+        <h2 style="margin: 0;">Shares</h2>
+      </div>
+      <span class="hint">Total spent per person</span>
+    </div>
     <div class="table-wrap">
       <table style="width: 100%;">
-        <thead><tr><th>Person</th><th>Total Paid</th><th>Total Share (Owed)</th></tr></thead>
+        <thead><tr><th>Person</th><th class="table-numeric">Total Paid</th><th class="table-numeric">Total Share (Owed)</th></tr></thead>
         <tbody><tr class="empty-row"><td colspan="3">Tap a group card above to see shares.</td></tr></tbody>
       </table>
     </div>
@@ -436,7 +457,15 @@ async function renderSplit() {
 
     groupChartsHtml = `
     <div class="section">
-      <div class="section-title"><h2>Group charts</h2><span class="hint">Outstanding balances and group shares</span></div>
+      <div class="section-title" style="margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="color: var(--blue); display: flex;">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="14" width="4" height="8"></rect><rect x="10" y="8" width="4" height="14"></rect><rect x="17" y="2" width="4" height="20"></rect></svg>
+          </span>
+          <h2 style="margin: 0;">Group charts</h2>
+        </div>
+        <span class="hint">Outstanding balances and group shares</span>
+      </div>
       <div class="charts-grid shared-split-charts">
         <div class="chart-card shared-chart-card">
           <h4>Who owes how much</h4>
@@ -463,10 +492,18 @@ async function renderSplit() {
     }).join('');
     sharesTableHtml = `
     <div class="section">
-      <div class="section-title"><h2>Shares</h2><span class="hint">Total spent per person</span></div>
+      <div class="section-title" style="margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="color: var(--blue); display: flex;">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="12" width="2.5" height="10"></rect><rect x="7.5" y="6" width="2.5" height="16"></rect><rect x="13" y="15" width="2.5" height="7"></rect><rect x="18.5" y="4" width="2.5" height="18"></rect></svg>
+          </span>
+          <h2 style="margin: 0;">Shares</h2>
+        </div>
+        <span class="hint">Total spent per person</span>
+      </div>
       <div class="table-wrap">
         <table style="width: 100%;">
-          <thead><tr><th>Person</th><th>Total Paid</th><th>Total Share (Owed)</th></tr></thead>
+          <thead><tr><th>Person</th><th class="table-numeric">Total Paid</th><th class="table-numeric">Total Share (Owed)</th></tr></thead>
           <tbody>${shareRows}</tbody>
         </table>
       </div>
@@ -483,7 +520,15 @@ async function renderSplit() {
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Start a new split</h2><span class="hint">Track a group of people sharing expenses</span></div>
+    <div class="section-title" style="margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+        </span>
+        <h2 style="margin: 0;">Start a new split</h2>
+      </div>
+      <span class="hint">Track a group of people sharing expenses</span>
+    </div>
     <div class="pill-grid">
       <button class="pill-btn ${splitFormOpen ? 'active' : ''}" data-split-form-toggle type="button">+ New split group</button>
     </div>
@@ -491,7 +536,18 @@ async function renderSplit() {
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Overview</h2><span class="hint">Across every split group</span></div>
+    <div class="section-title" style="margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+            <path d="M21.21 15.89A10 10 0 1 1 8 2.83L12 12z"></path>
+            <path d="M22 12A10 10 0 0 0 12 2v10z" transform="translate(1.5, -1.5)"></path>
+          </svg>
+        </span>
+        <h2 style="margin: 0;">Overview</h2>
+      </div>
+      <span class="hint">Across every split group</span>
+    </div>
     <div class="charts-grid">
       <div class="chart-card">
         <h4>Who I owe how much</h4>
@@ -505,7 +561,15 @@ async function renderSplit() {
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Groups</h2><span class="hint">Newest first · tap a card for details</span></div>
+    <div class="section-title" style="margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        </span>
+        <h2 style="margin: 0;">Groups</h2>
+      </div>
+      <span class="hint">Newest first · tap a card for details</span>
+    </div>
     ${scrollWrapper(groupCardsHtml)}
     ${expandedGroup ? `
     <div id="split-details-anim-inner" class="${splitSlideDirection || ''}">
@@ -517,7 +581,15 @@ async function renderSplit() {
   ${sharesTableHtml}
 
   <div class="section">
-    <div class="section-title"><h2>Settle up</h2><span class="hint">Greedy debt-minimized transfers</span></div>
+    <div class="section-title" style="margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        </span>
+        <h2 style="margin: 0;">Settle up</h2>
+      </div>
+      <span class="hint">Greedy debt-minimized transfers</span>
+    </div>
     ${scrollWrapper(settleCardsHtml)}
   </div>
   `;

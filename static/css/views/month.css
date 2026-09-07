@@ -245,109 +245,181 @@
     color: var(--blue);
 }
 
-/* ---------- Add transaction panel ---------- */
-.add-entry-panel {
-  background: linear-gradient(155deg, #fff, var(--ice-2));
-  border: 1px solid var(--hair);
-  border-radius: var(--radius);
-  padding: 16px;
+/* ---------- Quick Actions Panel ---------- */
+.quick-actions-container {
+  margin-bottom: 24px;
+  container-type: inline-size;
+  container-name: qa;
 }
 
-.add-entry-trigger {
-  width: 100%;
+.qa-buttons-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(5, 1fr);
+  margin-bottom: 8px;
+}
+
+.qa-card {
   display: flex;
   align-items: center;
-  gap: 14px;
-  text-align: left;
-  background: #fff;
+  gap: 8px;
+  padding: 10px;
+  background: linear-gradient(155deg, #fff, var(--ice-2));
   border: 1px solid var(--hair);
   border-radius: var(--radius-sm);
-  padding: 14px 16px;
   cursor: pointer;
+  text-decoration: none;
+  text-align: left;
+  width: 100%;
+  min-width: 0;
+  transition: all 0.2s ease;
   font-family: inherit;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
-.add-entry-trigger:hover {
+
+.qa-card:hover {
   border-color: var(--blue);
   box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
-.add-entry-trigger.active {
+.qa-card.active {
   border-color: var(--blue);
   background: var(--ice);
+  box-shadow: 0 0 0 1px var(--blue);
 }
 
-.add-entry-trigger-icon {
-  flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: var(--blue);
-  color: #fff;
+.qa-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.3rem;
-  font-weight: 700;
-  line-height: 1;
+  flex-shrink: 0;
 }
 
-.add-entry-trigger-text {
-  flex: 1;
-  min-width: 0;
+.qa-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.qa-text {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.add-entry-trigger-title {
+.qa-title {
   font-family: 'Fraunces', serif;
   font-weight: 600;
-  font-size: 1.02rem;
+  font-size: 0.82rem;
   color: var(--navy);
+  line-height: 1.1;
 }
 
-.add-entry-trigger-sub {
-  font-size: 0.8rem;
+.qa-desc {
+  font-size: 0.7rem;
   color: var(--muted);
+  white-space: normal;
+  line-height: 1.2;
 }
 
-.add-entry-trigger-chevron {
-  flex: 0 0 auto;
-  font-size: 1.5rem;
-  line-height: 1;
-  color: var(--muted);
-  transition: transform 0.2s ease, color 0.2s ease;
-}
-
-.add-entry-trigger.active .add-entry-trigger-chevron {
-  transform: rotate(180deg);
-  color: var(--blue);
-}
-
-/* Menu wrap: grid-row-based collapse/expand, mirroring .mr-metrics-wrap
-   on the months page. The wrap owns the 0fr -> 1fr transition, the inner
-   clips overflow so nothing peeks out while collapsed, and spacing/margin
-   live on the innermost element so they collapse away with the content
-   instead of leaving a stray gap. */
-.txn-menu-wrap {
+.qa-sub-wrap {
   display: grid;
   grid-template-rows: 0fr;
   transition: grid-template-rows 0.25s ease;
 }
 
-.add-entry-panel.expanded .txn-menu-wrap {
+.qa-sub-wrap.expanded {
   grid-template-rows: 1fr;
 }
 
-.txn-menu-inner {
+.qa-sub-inner {
   overflow: hidden;
   min-height: 0;
 }
 
-.txn-menu {
+.qa-sub-menu {
   margin-top: 14px;
+  padding: 16px;
+  border: 1px dashed var(--sky);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(155deg, #fff, var(--ice-2));
+}
+
+:root[data-theme="dark"] .qa-header-row {
+  background: linear-gradient(180deg, var(--hair) 0%, transparent 75%);
+}
+
+:root[data-theme="dark"] .qa-card {
+  background: linear-gradient(135deg, var(--hair) 0%, var(--ice) 100%);
+  border-color: var(--sky);
+}
+
+:root[data-theme="dark"] .qa-card:hover,
+:root[data-theme="dark"] .qa-card.active {
+  border-color: var(--blue-soft);
+  background: var(--hair);
+}
+
+:root[data-theme="dark"] .qa-sub-menu {
+  background: var(--ice-2);
+  border-color: var(--sky);
+}
+
+:root[data-theme="dark"] .qa-title {
+  color: var(--navy);
+}
+
+:root[data-theme="hi-contrast"] .qa-card {
+  background: #FFFFFF;
+  border: 1px solid #000000;
+}
+
+:root[data-theme="hi-contrast"] .qa-card:hover,
+:root[data-theme="hi-contrast"] .qa-card.active {
+  border: 2px solid #000000;
+}
+
+:root[data-theme="hi-contrast"] .qa-sub-menu {
+  background: #FFFFFF;
+  border: 1px solid #000000;
+}
+
+:root[data-theme="hi-contrast"] .qa-title {
+  color: #000000;
+}
+
+@container qa (max-width: 900px) {
+  .qa-buttons-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+}
+
+@container qa (max-width: 400px) {
+  .qa-buttons-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .qa-card {
+    padding: 8px;
+    gap: 6px;
+  }
+  .qa-title {
+    font-size: 0.7rem;
+  }
+  .qa-desc {
+    font-size: 0.6rem;
+  }
+  .qa-icon {
+    width: 28px;
+    height: 28px;
+  }
+  .qa-icon svg {
+    width: 14px;
+    height: 14px;
+  }
 }
 
 .txn-option-grid {
@@ -542,7 +614,7 @@
 }
 
 @media (max-width: 480px) {
-  .add-entry-trigger-sub,
+  .qa-desc,
   .txn-option-desc {
     white-space: normal;
   }

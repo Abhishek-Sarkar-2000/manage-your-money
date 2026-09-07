@@ -32,8 +32,8 @@ let priceItems = [];
 let existingInvestments = 0;
 let splitsIndex = [];
 let openForm = null;
-let isMenuOpen = false;
-let isMoreOpen = false;
+let expenseMenuOpen = false;
+let isExpenseMenuOpening = false;
 let isFormOpening = false;
 let animTimeout = null;
 let domainLoaded = false;
@@ -179,7 +179,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
         </div>
       `;
     }
-    dateCell = `<td class="dv-date num" rowspan="${rowspan}">${dateContent}</td>`;
+    dateCell = `<td class="dv-date" rowspan="${rowspan}">${dateContent}</td>`;
   }
 
   let metaHtml = '';
@@ -456,7 +456,6 @@ function renderForm(kind) {
         <span>Money spent on credit — adds to that card's dues. Doesn't touch your cash balance until you pay it off via a "Spend" entry with mode "Credit card".</span>
         <a class="pill-btn sub-pill active hyperlink" href="/subscriptions">Manage Credit Cards</a>
       </div>
-      <div class="form-note" style="margin-top:0;margin-bottom:14px;"></div>
       <div class="form-row">
         <div class="field"><label>Spend</label><input id="f-desc" type="text" placeholder="e.g. Dinner out" /></div>
         <div class="field"><label>Amount (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
@@ -668,7 +667,7 @@ const TXN_TYPES = {
   },
   recurring:   { 
     icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>`, 
-    title: 'Recurring Expense', desc: 'Subscriptions, bills', tone: 'amber' 
+    title: 'Recurring', desc: 'Subscriptions, bills', tone: 'amber' 
   },
   invest:      { 
     icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>`, 
@@ -684,25 +683,6 @@ const TXN_TYPES = {
   },
 };
 
-const TXN_PRIMARY_ORDER = ['spend', 'income', 'cardcharge', 'cashpayment', 'recurring', 'invest'];
-const TXN_MORE_ORDER = ['owed', 'emi'];
-
-// On mobile, move cardcharge & cashpayment to the "More" section to reduce clutter
-const TXN_PRIMARY_MOBILE = ['spend', 'cardcharge', 'income'];
-const TXN_MORE_MOBILE = ['cashpayment', 'recurring', 'invest', 'owed', 'emi'];
-
-function isMobileViewport() {
-  return window.innerWidth < 640;
-}
-
-function getTxnPrimaryOrder() {
-  return isMobileViewport() ? TXN_PRIMARY_MOBILE : TXN_PRIMARY_ORDER;
-}
-
-function getTxnMoreOrder() {
-  return isMobileViewport() ? TXN_MORE_MOBILE : TXN_MORE_ORDER;
-}
-
 function renderTxnOptionCard(kind) {
   const meta = TXN_TYPES[kind];
   return `
@@ -716,44 +696,80 @@ function renderTxnOptionCard(kind) {
 }
 
 function renderAddEntryPanel() {
-  const primaryOrder = getTxnPrimaryOrder();
-  const moreOrder = getTxnMoreOrder();
-  const primaryHtml = primaryOrder.map(renderTxnOptionCard).join('');
-  const moreHtml = moreOrder.map(renderTxnOptionCard).join('');
-  const isMobile = isMobileViewport();
-  const moreToggleHtml = `
-    <button class="txn-option-card txn-option-more" data-toggle-more type="button">
-      <span class="txn-option-icon txn-option-icon--muted">⋯</span>
-      <span class="txn-option-text">
-        <span class="txn-option-title">${isMoreOpen ? 'Show less' : 'More…'}</span>
-        <span class="txn-option-desc">${isMoreOpen ? 'Hide extra options' : isMobile ? 'Cash, invest & more' : 'Owed, EMI & more'}</span>
-      </span>
-    </button>`;
+  const svgs = {
+    bolt: `<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M13 10V3L4 14h7v8l9-11h-7z"/></svg>`,
+    plus: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`,
+    income: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg>`,
+    invest: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>`,
+    lent: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`,
+    split: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`
+  };
+
+  const expenseSubTypes = ['spend', 'cardcharge', 'cashpayment', 'recurring', 'emi'];
+  const subOptionsHtml = expenseSubTypes.map(renderTxnOptionCard).join('');
 
   return `
-  <div class="add-entry-panel ${isMenuOpen ? 'expanded' : ''}">
-    <button class="add-entry-trigger ${isMenuOpen ? 'active' : ''}" id="add-entry-trigger" type="button" aria-expanded="${isMenuOpen}">
-      <span class="add-entry-trigger-icon">+</span>
-      <span class="add-entry-trigger-text">
-        <span class="add-entry-trigger-title">Add transaction</span>
-        <span class="add-entry-trigger-sub">Log any income, expense or payment</span>
-      </span>
-      <span class="add-entry-trigger-chevron">›</span>
-    </button>
-    <div class="txn-menu-wrap">
-      <div class="txn-menu-inner">
-        <div class="txn-menu">
+  <div class="quick-actions-container">
+    
+    <div class="section-title" style="margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">${svgs.bolt}</span>
+        <h2 style="margin: 0;">Quick actions</h2>
+      </div>
+      <span class="hint">Get things done, faster</span>
+    </div>
+
+    <div class="qa-buttons-grid">
+      <button class="qa-card ${expenseMenuOpen ? 'active' : ''}" data-qa-toggle="expense" type="button">
+        <span class="qa-icon" style="background: var(--blue); color: #fff;">${svgs.plus}</span>
+        <span class="qa-text">
+          <span class="qa-title">Add expense</span>
+          <span class="qa-desc">Track spending</span>
+        </span>
+      </button>
+      <button class="qa-card ${openForm === 'income' ? 'active' : ''}" data-form="income" type="button">
+        <span class="qa-icon" style="background: var(--credit-bg); color: var(--credit);">${svgs.income}</span>
+        <span class="qa-text">
+          <span class="qa-title">Log income</span>
+          <span class="qa-desc">Salary & more</span>
+        </span>
+      </button>
+      <button class="qa-card ${openForm === 'invest' ? 'active' : ''}" data-form="invest" type="button">
+        <span class="qa-icon" style="background: var(--royal-bg); color: var(--royal);">${svgs.invest}</span>
+        <span class="qa-text">
+          <span class="qa-title">Log investment</span>
+          <span class="qa-desc">Build wealth</span>
+        </span>
+      </button>
+      <button class="qa-card ${openForm === 'owed' ? 'active' : ''}" data-form="owed" type="button">
+        <span class="qa-icon" style="background: var(--amber-bg); color: var(--amber);">${svgs.lent}</span>
+        <span class="qa-text">
+          <span class="qa-title">Add lent</span>
+          <span class="qa-desc">Owed to you</span>
+        </span>
+      </button>
+      <a class="qa-card" href="/split">
+        <span class="qa-icon" style="background: var(--ice); color: var(--blue);">${svgs.split}</span>
+        <span class="qa-text">
+          <span class="qa-title">Split bill</span>
+          <span class="qa-desc">Group spends</span>
+        </span>
+      </a>
+    </div>
+
+    <div id="qa-sub-anim-inner" class="qa-sub-wrap ${expenseMenuOpen && !isExpenseMenuOpening ? 'expanded' : ''}">
+      <div class="qa-sub-inner">
+        <div class="qa-sub-menu">
           <div class="txn-option-grid">
-            ${primaryHtml}
-            ${isMoreOpen ? moreHtml : ''}
-            ${moreToggleHtml}
-          </div>
-          <div id="form-panel-anim-inner" class="form-panel-wrap ${openForm && !isFormOpening ? 'expanded' : ''}">
-            <div class="form-panel-inner">
-              ${openForm ? renderForm(openForm) : ''}
-            </div>
+            ${subOptionsHtml}
           </div>
         </div>
+      </div>
+    </div>
+
+    <div id="form-panel-anim-inner" class="form-panel-wrap ${openForm && !isFormOpening ? 'expanded' : ''}">
+      <div class="form-panel-inner">
+        ${openForm ? renderForm(openForm) : ''}
       </div>
     </div>
   </div>`;
@@ -1243,15 +1259,40 @@ async function renderMonth() {
     </div>
 
     <div class="section">
-      <div class="section-title"><h2>Add an entry</h2><span class="hint">Log every credit and debit</span></div>
       ${renderAddEntryPanel()}
     </div>
     <div class="section">
-      <div class="section-title"><h2>This month's finances, at a glance</h2><span class="hint">Hover a card for the breakdown</span></div>
+      <div class="section-title" style="margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="color: var(--blue); display: flex;">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 17 9 11 13 15 21 7"></polyline>
+              <circle cx="3" cy="17" r="1.5" fill="currentColor"></circle>
+              <circle cx="9" cy="11" r="1.5" fill="currentColor"></circle>
+              <circle cx="13" cy="15" r="1.5" fill="currentColor"></circle>
+              <circle cx="21" cy="7" r="1.5" fill="currentColor"></circle>
+            </svg>
+          </span>
+          <h2 style="margin: 0;">This month's finances, at a glance</h2>
+        </div>
+        <span class="hint">Hover a card for the breakdown</span>
+      </div>
       ${renderStatCards(stats)}
     </div>
     <div class="section">
-      <div class="section-title"><h2>This month's charts</h2><span class="hint">${monthKeyLabel(monthKey)} only</span></div>
+      <div class="section-title" style="margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="color: var(--blue); display: flex;">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="16" width="4" height="6"></rect>
+              <rect x="10" y="10" width="4" height="12"></rect>
+              <rect x="18" y="4" width="4" height="18"></rect>
+            </svg>
+          </span>
+          <h2 style="margin: 0;">This month's charts</h2>
+        </div>
+        <span class="hint">${monthKeyLabel(monthKey)} only</span>
+      </div>
       <div class="charts-grid">
         <div class="chart-card" style="min-width: 0; overflow-x: auto;">
           <h4>Spending Breakdown</h4>
@@ -1292,8 +1333,7 @@ async function renderMonth() {
           <h4>Running balance through the month</h4>
           ${lineChart(displayedStarting, data, emiRowsFiltered.concat(sipRowsFiltered))}
         </div>
-        <div style="grid-column: 1 / -1; margin-top: 8px;">
-          <h3 style="font-size: 1.15rem; margin-bottom: 12px; font-weight: 600; font-family: 'Fraunces', serif;">Spends by Tags</h3>
+        <div style="grid-column: 1 / -1;">
           ${(() => {
             const TAG_WIDE_THRESHOLD = 5;
             const tagCharts = [
@@ -1313,8 +1353,18 @@ async function renderMonth() {
     </div>
 
     <div class="section">
-      <div class="section-title">
-        <h2>Transactions</h2>
+      <div class="section-title" style="margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="color: var(--blue); display: flex;">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 8h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4V8z"></path>
+              <path d="M20 12h-5a2 2 0 0 0 0 4h5"></path>
+              <rect x="14" y="13" width="2" height="2" fill="currentColor" stroke="none"></rect>
+              <path d="M6 8L11 3l5 5"></path>
+            </svg>
+          </span>
+          <h2 style="margin: 0;">Transactions</h2>
+        </div>
         <span class="hint">
           ${
             activeTypeFilters.length || activeTagFilters.length
@@ -1330,7 +1380,7 @@ async function renderMonth() {
       ${tableControlsHtml}
 
       <div class="table-wrap">
-        <table class="table-body-sticky" ${filteredRows.length ? '' : 'style="width: 100%;"'}>
+        <table class="divisions-table table-body-sticky" ${filteredRows.length ? '' : 'style="width: 100%;"'}>
           ${tableColgroupHtml}
           <tbody>
             ${
@@ -1575,8 +1625,7 @@ async function handleSubmit(kind) {
     await Store.set('recurringseries', recurringSeries);
     await saveMonth(monthKey);
     openForm = null;
-    isMenuOpen = false;
-    isMoreOpen = false;
+    expenseMenuOpen = false;
     await renderMonth();
     showToast(`Recurring spend will be deducted on the ${dayOfMonth}${ordinalSuffix(dayOfMonth)} of every month`);
     return;
@@ -1584,8 +1633,7 @@ async function handleSubmit(kind) {
 
   await saveMonth(monthKey);
   openForm = null;
-  isMenuOpen = false;
-  isMoreOpen = false;
+  expenseMenuOpen = false;
   await renderMonth();
   showToast('Added');
 }
@@ -1643,33 +1691,45 @@ root.addEventListener('click', async (ev) => {
     return;
   }
 
-  const addEntryTrigger = ev.target.closest('#add-entry-trigger');
-  if (addEntryTrigger) {
+  const qaToggle = ev.target.closest('[data-qa-toggle="expense"]');
+  if (qaToggle) {
     if (animTimeout) clearTimeout(animTimeout);
-    isMenuOpen = !isMenuOpen;
-    const panel = addEntryTrigger.closest('.add-entry-panel');
-    if (panel) {
-      panel.classList.toggle('expanded', isMenuOpen);
-      addEntryTrigger.classList.toggle('active', isMenuOpen);
-      addEntryTrigger.setAttribute('aria-expanded', String(isMenuOpen));
-    }
-    if (!isMenuOpen) {
-      // Closing the menu also closes any open form. Collapse the form's
-      // own grid row immediately so both animate shut together instead
-      // of the form snapping to nothing right before the menu closes.
-      openForm = null;
-      isMoreOpen = false;
-      const formWrap = $('#form-panel-anim-inner');
-      if (formWrap) formWrap.classList.remove('expanded');
-    }
-    return;
-  }
+    
+    const expenseSubTypes = ['spend', 'cardcharge', 'cashpayment', 'recurring', 'emi'];
+    const wasOtherActionOpen = openForm && !expenseSubTypes.includes(openForm);
 
-  const toggleMoreBtn = ev.target.closest('[data-toggle-more]');
-  if (toggleMoreBtn) {
-    isMoreOpen = !isMoreOpen;
-    await renderMonth();
-    return;
+    expenseMenuOpen = !expenseMenuOpen;
+    
+    if (!expenseMenuOpen) {
+      if (expenseSubTypes.includes(openForm)) {
+        openForm = null;
+        const formWrap = $('#form-panel-anim-inner');
+        if (formWrap) formWrap.classList.remove('expanded');
+      }
+      const qaWrap = $('#qa-sub-anim-inner');
+      if (qaWrap) qaWrap.classList.remove('expanded');
+      
+      qaToggle.classList.remove('active');
+      animTimeout = setTimeout(async () => { await renderMonth(); }, 250);
+      return;
+    } else {
+      if (wasOtherActionOpen) {
+        openForm = null;
+        await renderMonth();
+        return;
+      }
+      
+      isExpenseMenuOpening = true;
+      await renderMonth();
+      isExpenseMenuOpening = false;
+
+      const qaWrap = $('#qa-sub-anim-inner');
+      if (qaWrap) {
+        void qaWrap.offsetWidth;
+        qaWrap.classList.add('expanded');
+      }
+      return;
+    }
   }
 
   const toggleManualBtn = ev.target.closest('#toggle-manual-balance-btn');
@@ -1750,11 +1810,19 @@ root.addEventListener('click', async (ev) => {
   if (formBtn) {
     const newForm = formBtn.dataset.form;
     const oldForm = openForm;
+
+    const expenseSubTypes = ['spend', 'cardcharge', 'cashpayment', 'recurring', 'emi'];
+    const isExpenseSubForm = expenseSubTypes.includes(newForm);
+    const wasExpenseMenuOpen = expenseMenuOpen;
+
+    if (!isExpenseSubForm) {
+      expenseMenuOpen = false;
+    } else {
+      expenseMenuOpen = true;
+    }
+
     if (animTimeout) clearTimeout(animTimeout);
     if (oldForm === newForm) {
-      // Same type clicked again: collapse the form-panel-wrap back to
-      // 0fr, then clear the form markup once the transition has finished
-      // so the content doesn't disappear before it's done animating.
       openForm = null;
       formBtn.classList.remove('active');
       const wrap = $('#form-panel-anim-inner');
@@ -1762,14 +1830,13 @@ root.addEventListener('click', async (ev) => {
       animTimeout = setTimeout(async () => { await renderMonth(); }, 250);
       return;
     }
-    if (oldForm) {
-      // Switching type: switch immediately without intermediate collapse
+    
+    if (oldForm || (wasExpenseMenuOpen && !isExpenseSubForm)) {
       openForm = newForm;
       await renderMonth();
       return;
     }
     
-    // Opening from closed state
     isFormOpening = true;
     openForm = newForm;
     await renderMonth();
@@ -1777,7 +1844,6 @@ root.addEventListener('click', async (ev) => {
     
     const wrap = $('#form-panel-anim-inner');
     if (wrap) {
-      // Force reflow to ensure the non-expanded state is applied before transitioning
       void wrap.offsetWidth;
       wrap.classList.add('expanded');
     }
@@ -1790,6 +1856,10 @@ root.addEventListener('click', async (ev) => {
     openForm = null;
     const wrap = $('#form-panel-anim-inner');
     if (wrap) wrap.classList.remove('expanded');
+    
+    document.querySelectorAll('[data-form], [data-qa-toggle]').forEach(btn => btn.classList.remove('active'));
+    
+    animTimeout = setTimeout(async () => { await renderMonth(); }, 250);
     return;
   }
 

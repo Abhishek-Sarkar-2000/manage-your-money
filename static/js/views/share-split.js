@@ -93,6 +93,9 @@ let sharedOwnerData = null;
 let sharedYouLabel = null;
 let importDuplicateState = null; // { clonedGroup, splitsIndex, existingId, existingDescription } while awaiting a replace/new-copy decision
 
+let activePayeeFilters = [];
+let currentSort = { key: 'date', asc: false };
+
 function renderSplitGroupCardReadOnly(group, youLabel) {
   const paid = computeGroupPaid(group);
   const dateLabel = group.createdAt ? new Date(group.createdAt + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
@@ -131,31 +134,153 @@ function renderSplitShareCallout(group, s, youLabel) {
     amount: Number((s.shares || {})[p]) || 0,
   }));
   const dataAttr = escapeHtml(JSON.stringify(shares));
-  return `<span class="split-spend-cell" tabindex="0" data-spend-toggle data-spend-shares="${dataAttr}">${escapeHtml(s.description)}</span>`;
+  return `<strong class="split-spend-cell" tabindex="0" data-spend-toggle data-spend-shares="${dataAttr}">${escapeHtml(s.description)}</strong>`;
 }
 
 function renderSplitDetailsPanelReadOnly(group, youLabel) {
-  const sortedSpends = [...group.spends].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  const dateCounts = {};
-  for (const s of sortedSpends) dateCounts[s.date] = (dateCounts[s.date] || 0) + 1;
-  const seenDates = new Set();
-  const rowsHtml = sortedSpends.map(s => {
-    const dateLabel = s.date ? new Date(s.date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—';
+  // 1. Extract Payees
+  const payees = [...new Set((group.spends || []).map(s => s.payee))].filter(Boolean).sort();
+  
+  // 2. Filter & Sort
+  let filteredSpends = (group.spends || []).filter(s => {
+    if (activePayeeFilters.length > 0 && !activePayeeFilters.includes(s.payee)) return false;
+    return true;
+  });
+
+  filteredSpends.sort((a, b) => {
+    if (currentSort.key === 'date') {
+      const aDate = Number.isFinite(Date.parse(a.date || '')) ? Date.parse(a.date || '') : -Infinity;
+      const bDate = Number.isFinite(Date.parse(b.date || '')) ? Date.parse(b.date || '') : -Infinity;
+      const cmp = aDate - bDate;
+      return currentSort.asc ? cmp : -cmp;
+    } else if (currentSort.key === 'amount') {
+      const cmp = (Number(a.amount) || 0) - (Number(b.amount) || 0);
+      return currentSort.asc ? cmp : -cmp;
+    }
+    return 0;
+  });
+
+  const dateStreakCounts = new Map();
+  const firstDateRows = new Set();
+
+  for (let i = 0; i < filteredSpends.length;) {
+    let j = i + 1;
+    while (j < filteredSpends.length && filteredSpends[j].date === filteredSpends[i].date) {
+      j++;
+    }
+    dateStreakCounts.set(i, j - i);
+    firstDateRows.add(i);
+    i = j;
+  }
+
+  const rowsHtml = filteredSpends.map((s, index) => {
+    let dateContent = '—';
+    if (s.date) {
+      const dt = new Date(s.date + 'T00:00:00');
+      const day = dt.toLocaleDateString('en-IN', { day: '2-digit' });
+      const month = dt.toLocaleDateString('en-IN', { month: 'short' });
+      const weekday = dt.toLocaleDateString('en-IN', { weekday: 'short' });
+      dateContent = `
+        <div class="dv-date-badge" style="display: inline-flex; flex-wrap: wrap; flex-direction: column;">
+          <div class="dv-date-top" style="white-space: nowrap;">
+            <strong class="dv-date-day" style="display: inline-block; font-size: 1.2rem; font-weight: 600;">${day}</strong>
+            <span class="dv-date-month">${month}</span>
+          </div>
+          <div class="dv-date-weekday" style="color: var(--muted);">${weekday}</div>
+        </div>
+      `;
+    }
     let dateCell = '';
-    if (!seenDates.has(s.date)) { seenDates.add(s.date); dateCell = `<td class="dv-date" rowspan="${dateCounts[s.date]}">${dateLabel}</td>`; }
+    if (firstDateRows.has(index)) {
+      dateCell = `<td class="dv-date" rowspan="${dateStreakCounts.get(index)}">${dateContent}</td>`;
+    }
     const payeeLabel = s.payee === SPLIT_YOU ? youLabel() : escapeHtml(String(s.payee).toUpperCase());
     return `<tr>${dateCell}<td class="desc-cell">${renderSplitShareCallout(group, s, youLabel)}<span class="src-badge">${payeeLabel}</span></td><td class="num">${fmtINR(s.amount)}</td></tr>`;
   }).join('');
 
+  const filteredTotal = filteredSpends.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+
+  // 3. UI Controls
+  const tablePayeeOptions = payees.map(p => `<option value="${escapeHtml(p)}" ${activePayeeFilters.includes(p) ? 'disabled' : ''}>${escapeHtml(p)}</option>`).join('');
+  const activeTableFilterPills = activePayeeFilters.map(p => `
+    <div class="pill-btn sub-pill active chart-tag-pill">
+      ${escapeHtml(p)}
+      <button class="icon-btn chart-tag-remove" data-remove-table-filter="payee|${escapeHtml(p)}" aria-label="Remove filter">✕</button>
+    </div>`).join('');
+
+  const sortDirectionLabel = currentSort.key === 'date' 
+    ? (currentSort.asc ? 'Oldest first' : 'Newest first')
+    : (currentSort.asc ? 'Low to High' : 'High to Low');
+
+  const tableControlsHtml = `
+    <div class="sticky-controls-wrap">
+      <div class="table-controls" style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+        <select id="table-payee-filter" aria-label="Filter by payee">
+          <option value="">All Payees</option>
+          ${tablePayeeOptions}
+        </select>
+        <select id="table-sort-control" aria-label="Sort transactions">
+          <option value="date" ${currentSort.key === 'date' ? 'selected' : ''}>Date</option>
+          <option value="amount" ${currentSort.key === 'amount' ? 'selected' : ''}>Amount</option>
+        </select>
+        <button id="table-sort-direction" class="btn small" type="button" aria-label="Toggle sort direction" style="min-height: 0px;">
+          ${currentSort.asc ? '↑' : '↓'} ${sortDirectionLabel}
+        </button>
+      </div>
+      ${activeTableFilterPills ? `<div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; margin-bottom: 12px; padding: 0 14px;">${activeTableFilterPills}</div>` : ''}
+
+      <div class="table-header-wrap">
+        <table class="table-header-sticky" style="min-width: 500px;">
+          <colgroup>
+            <col style="width: 95px;">
+            <col style="width: auto;">
+            <col style="width: 120px;">
+            <col style="width: 10px;">
+          </colgroup>
+          <thead><tr><th>Date</th><th>Details</th><th class="table-numeric">Amount</th><th></th></tr></thead>
+        </table>
+      </div>
+    </div>`;
+
   return `
   <div class="split-details-panel" data-split-details="${group.id}" style="margin-top: 2px;">
-    <div class="section-title"><h2>${escapeHtml(group.description)} - Ledger</h2><span class="hint">${group.people.length} people</span></div>
+    <div class="section-title" style="margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+        </span>
+        <h2 style="margin: 0;">${escapeHtml(group.description)} - Ledger</h2>
+      </div>
+      <span class="hint">${group.people.length} people</span>
+    </div>
     <div class="form-note" style="margin-top:8px; margin-bottom:8px; border: none;">All group spends are listed here. Click a spend name to view share divisions.</div>
-    <div class="table-wrap">
-      <table class="divisions-table" ${rowsHtml ? '' : `style="width: 100%;"`}>
-        <thead><tr><th>Date</th><th>Details</th><th ${rowsHtml ? `class="num"` : ''}>Amount</th><th></th></tr></thead>
-        <tbody>${rowsHtml || `<tr class="empty-row"><td colspan="4">No spends logged in this group yet.</td></tr>`}</tbody>
-      </table>
+    
+    <div class="transactions-container">
+      ${tableControlsHtml}
+      <div class="table-wrap">
+        <table class="divisions-table table-body-sticky" ${filteredSpends.length ? 'style="min-width: 500px;"' : `style="width: 100%;"`}>
+          <colgroup>
+            <col style="width: 95px;">
+            <col style="width: auto;">
+            <col style="width: 120px;">
+          </colgroup>
+          <tbody>
+            ${rowsHtml || (group.spends.length ? `<tr class="empty-row"><td colspan="3">No spends match the selected filter.</td></tr>` : `<tr class="empty-row"><td colspan="3">No spends logged in this group yet.</td></tr>`)}
+            ${filteredSpends.length ? `
+              <tr class="table-total-row">
+                <td colspan="2">
+                  <div style="font-family: 'Source Serif 4', Georgia, serif; font-size:1rem; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                    Total <span style="font-size:0.78rem; color: var(--muted);"> [Filtered Spends]</span>
+                  </div>
+                </td>
+                <td class="num table-total-amount">
+                  ${fmtINR(Math.abs(filteredTotal))}
+                </td>
+              </tr>
+            ` : ''}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>`;
 }
@@ -205,20 +330,31 @@ function renderImportSection(group, youLabel) {
   if (importDuplicateState) {
     return `
     <div class="section shared-import-section" data-import-section>
-      <div class="section-title"><h2>Import this group</h2><span class="hint">Copy it into your own Split Money dashboard</span></div>
+      <div class="section-title" style="margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="color: var(--blue); display: flex;">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          </span>
+          <h2 style="margin: 0;">Import this group</h2>
+        </div>
+        <span class="hint">Copy it into your own Split Money dashboard</span>
+      </div>
       ${renderImportDuplicatePanel()}
     </div>`;
   }
 
   return `
   <div class="section shared-import-section" data-import-section>
-    <div class="section-title"><h2>Import this group</h2><span class="hint">Copy it into your own Split Money dashboard</span></div>
-    <div class="form-row" style="margin-bottom: 8px;">
-      <div class="field">
-        <label>Who are you in this group?</label>
+    <div class="section-title" style="margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        </span>
+        <h2 style="margin: 0;">Import this group</h2>
       </div>
+      <span class="hint">Copy it into your own Split Money dashboard</span>
     </div>
-    <div class="form-row" style="align-items: end;">
+    <div class="form-row" style="margin-bottom: 8px;">
       <div class="field">
         <select id="import-who-am-i">
           ${renderImportMemberOptions(group, youLabel)}
@@ -409,12 +545,28 @@ async function renderSharedSplitPage() {
   <div id="import-section-slot">${currentUser ? renderImportSection(group, youLabel) : ''}</div>
 
   <div class="section">
-    <div class="section-title"><h2>Group</h2><span class="hint">Shared view</span></div>
+    <div class="section-title" style="margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        </span>
+        <h2 style="margin: 0;">Group</h2>
+      </div>
+      <span class="hint">Shared view</span>
+    </div>
     ${groupCardHtml}
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Split charts</h2><span class="hint">Outstanding balances and group shares</span></div>
+    <div class="section-title" style="margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="14" width="4" height="8"></rect><rect x="10" y="8" width="4" height="14"></rect><rect x="17" y="2" width="4" height="20"></rect></svg>
+        </span>
+        <h2 style="margin: 0;">Split charts</h2>
+      </div>
+      <span class="hint">Outstanding balances and group shares</span>
+    </div>
     <div class="charts-grid shared-split-charts">
       <div class="chart-card shared-chart-card">
         <h4>Who owes how much</h4>
@@ -434,7 +586,15 @@ async function renderSharedSplitPage() {
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Shares</h2><span class="hint">Total share per member</span></div>
+    <div class="section-title" style="margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="12" width="2.5" height="10"></rect><rect x="7.5" y="6" width="2.5" height="16"></rect><rect x="13" y="15" width="2.5" height="7"></rect><rect x="18.5" y="4" width="2.5" height="18"></rect></svg>
+        </span>
+        <h2 style="margin: 0;">Shares</h2>
+      </div>
+      <span class="hint">Total share per member</span>
+    </div>
     <div class="table-wrap">
       <table class="shared-shares-table">
         <thead><tr><th>Person</th><th class="table-numeric">Total Paid</th><th class="table-numeric">Total Share</th></tr></thead>
@@ -444,8 +604,13 @@ async function renderSharedSplitPage() {
   </div>
 
   <div class="section">
-    <div class="section-title">
-      <h2>Settle up</h2>
+    <div class="section-title" style="margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        </span>
+        <h2 style="margin: 0;">Settlements</h2>
+      </div>
       <span class="hint">${outstandingCards.length ? `${outstandingCards.length} outstanding transfer${outstandingCards.length === 1 ? '' : 's'}` : 'All outstanding transfers settled'}</span>
     </div>
     ${scrollWrapper(settlementHtml)}
@@ -455,9 +620,53 @@ async function renderSharedSplitPage() {
   appendPageChrome(root, { isShared: true });
   setupScrollWrappers(root);
   setupTableScrollIndicators(root);
+
+  // Sync horizontal scrolling and EXACT table widths between the body and sticky header
+  const tableWrapEl = root.querySelector('.transactions-container .table-wrap');
+  const headerWrapEl = root.querySelector('.transactions-container .table-header-wrap');
+  
+  if (tableWrapEl && headerWrapEl) {
+    const bodyTable = tableWrapEl.querySelector('table');
+    const headerTable = headerWrapEl.querySelector('table');
+
+    if (bodyTable && headerTable) {
+      const syncTableWidth = () => {
+        if (headerTable && bodyTable) {
+          headerTable.style.width = bodyTable.offsetWidth + 'px';
+        }
+      };
+      
+      setTimeout(syncTableWidth, 10);
+      
+      let resizeTimer;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(syncTableWidth, 150);
+      });
+    }
+
+    tableWrapEl.addEventListener('scroll', () => {
+      headerWrapEl.scrollLeft = tableWrapEl.scrollLeft;
+    }, { passive: true });
+  }
 }
 
 root.addEventListener('click', async (ev) => {
+  const removeTableFilter = ev.target.closest('[data-remove-table-filter]');
+  if (removeTableFilter) {
+    const filterVal = removeTableFilter.dataset.removeTableFilter.split('|')[1];
+    activePayeeFilters = activePayeeFilters.filter(p => p !== filterVal);
+    await renderSharedSplitPage();
+    return;
+  }
+
+  const sortDirectionBtn = ev.target.closest('#table-sort-direction');
+  if (sortDirectionBtn) {
+    currentSort.asc = !currentSort.asc;
+    await renderSharedSplitPage();
+    return;
+  }
+
   const confirmBtn = ev.target.closest('[data-confirm-import]');
   if (confirmBtn) {
     confirmBtn.disabled = true;
@@ -489,6 +698,30 @@ root.addEventListener('click', async (ev) => {
   if (cancelImportBtn) {
     importDuplicateState = null;
     refreshImportSection();
+  }
+});
+
+root.addEventListener('change', async (ev) => {
+  if (ev.target.id === 'table-payee-filter') {
+    const value = ev.target.value;
+    if (value && !activePayeeFilters.includes(value)) {
+      activePayeeFilters.push(value);
+    }
+    ev.target.value = '';
+    await renderSharedSplitPage();
+    return;
+  }
+
+  if (ev.target.id === 'table-sort-control') {
+    const key = ev.target.value;
+    if (!key) return;
+    if (key === currentSort.key) {
+      currentSort.asc = !currentSort.asc;
+    } else {
+      currentSort.key = key;
+    }
+    await renderSharedSplitPage();
+    return;
   }
 });
 
