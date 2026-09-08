@@ -241,12 +241,7 @@
 .budget-row.is-sub {
   width: calc(100% - 32px);
   margin-left: 32px;
-  background: var(--ice-2);
   grid-template-columns: minmax(68px, 288px) minmax(90px, 1fr) minmax(140px, 1.5fr) 110px 70px;
-}
-
-:root[data-theme="dark"] .budget-row.is-sub {
-  background: var(--hair);
 }
 
 /* ---------- Subcategory slide-down wrapper ---------- */

@@ -10,7 +10,7 @@ import { allSpendTags } from '../core/domain.js';
 import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
 
 const root = document.getElementById('budget-root');
-const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Transport', 'Rent', 'Utility', 'Shopping', 'Recharge', 'Medicine', 'Gift', 'EMI', 'SIP', 'RECURRING'];
+const DEFAULT_TAGS = ['Groceries', 'Food', 'Fuel', 'Transport', 'Rent', 'Utility', 'Shopping', 'Recharge', 'Medicine', 'Gift', 'EMI', 'SIP', 'RECURRING'];
 
 let budgetData = [];
 let customTags = [];

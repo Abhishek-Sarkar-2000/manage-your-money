@@ -442,8 +442,29 @@ function renderTagField() {
 }
 
 function renderInlineEdit(entry, mk) {
-  const allTags = allSpendTags(DEFAULT_TAGS, customTags);
-  const tagOpts = allTags.map(t => `<option value="${escapeHtml(t)}" ${(entry.tag || '').toLowerCase() === t.toLowerCase() ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('');
+  const isIncome = entry.type === 'income';
+  const isInvest = entry.type === 'investment';
+
+  let tagOpts = '';
+  let showCustomTag = true;
+  let showSubcat = true;
+
+  if (isIncome) {
+    const currentCat = (entry.category || entry.tag || '').toLowerCase();
+    const incomeCats = ['Salary', 'Investments', 'Friends'];
+    tagOpts = `<option value="">No category</option>` + incomeCats.map(c => `<option value="${c}" ${currentCat === c.toLowerCase() ? 'selected' : ''}>${c}</option>`).join('');
+    showCustomTag = false;
+    showSubcat = false;
+  } else if (isInvest) {
+    const currentCat = (entry.category || entry.tag || '').toLowerCase();
+    const investCats = ['Fixed Deposit', 'Bond', 'Lump-sum MF', 'Stock'];
+    tagOpts = investCats.map(c => `<option value="${c}" ${currentCat === c.toLowerCase() ? 'selected' : ''}>${c}</option>`).join('');
+    showCustomTag = false;
+    showSubcat = false;
+  } else {
+    const allTags = allSpendTags(DEFAULT_TAGS, customTags);
+    tagOpts = `<option value="">No tag</option>` + allTags.map(t => `<option value="${escapeHtml(t)}" ${(entry.tag || '').toLowerCase() === t.toLowerCase() ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('') + `<option value="__custom__">+ Add custom</option>`;
+  }
 
   const nameSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><defs><mask id="pin-hole"><rect width="24" height="24" fill="white"/><circle cx="12" cy="8.5" r="3" fill="black"/></mask></defs><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" mask="url(#pin-hole)"/><rect x="5" y="21" width="14" height="2"/></svg>`;
   const amtSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><defs><mask id="cash-hole"><rect width="24" height="24" fill="white"/><circle cx="12" cy="12" r="3" fill="black"/></mask></defs><rect x="2" y="6" width="20" height="12" rx="2" mask="url(#cash-hole)"/></svg>`;
@@ -452,26 +473,29 @@ function renderInlineEdit(entry, mk) {
   const meta1Svg = `<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="currentColor"/><text x="12" y="16.5" font-size="12" font-family="sans-serif" font-weight="bold" fill="var(--paper)" text-anchor="middle">1</text></svg>`;
   const meta2Svg = `<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="currentColor"/><text x="12" y="16.5" font-size="12" font-family="sans-serif" font-weight="bold" fill="var(--paper)" text-anchor="middle">2</text></svg>`;
 
-  let subcatHtml = `<button class="pill-btn sub-pill ie-add-subcat-btn" type="button" ${!entry.tag ? 'disabled' : ''} style="border: 1px dashed var(--sky); padding: 5px 12px; font-size: 0.72rem; background: transparent; color: var(--muted); cursor: pointer; text-transform: uppercase; ${!entry.tag ? 'opacity: 0.5; cursor: not-allowed;' : ''} margin-top: 2px;">+ Add Subcategory</button>`;
-  
-  if (entry.subCategory && entry.tag) {
-    const cat = budgetData.find(c => c.name.toLowerCase() === entry.tag.toLowerCase());
-    const subs = cat && cat.subcategories ? cat.subcategories.map(s => s.name) : [];
-    if (!subs.some(s => s.toLowerCase() === entry.subCategory.toLowerCase())) subs.push(entry.subCategory);
+  let subcatHtml = '';
+  if (showSubcat) {
+    subcatHtml = `<button class="pill-btn sub-pill ie-add-subcat-btn" type="button" ${!entry.tag ? 'disabled' : ''} style="border: 1px dashed var(--sky); padding: 5px 12px; font-size: 0.72rem; background: transparent; color: var(--muted); cursor: pointer; text-transform: uppercase; ${!entry.tag ? 'opacity: 0.5; cursor: not-allowed;' : ''} margin-top: 2px;">+ Add Subcategory</button>`;
     
-    const subOpts = subs.map(s => `<option value="${escapeHtml(s)}" ${s.toLowerCase() === entry.subCategory.toLowerCase() ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('');
-    
-    subcatHtml = `
-      <div class="ie-input-group" style="flex:1; min-width:140px;">
-        ${subcatSvg}
-        <select class="ie-subcat-select field-input">
-          <option value="" disabled>Subcategory...</option>
-          ${subOpts}
-          <option value="__custom__">+ Add custom</option>
-        </select>
-        <input type="text" class="ie-subcat-custom field-input" style="display:none;" placeholder="Name">
-      </div>
-    `;
+    if (entry.subCategory && entry.tag) {
+      const cat = budgetData.find(c => c.name.toLowerCase() === entry.tag.toLowerCase());
+      const subs = cat && cat.subcategories ? cat.subcategories.map(s => s.name) : [];
+      if (!subs.some(s => s.toLowerCase() === entry.subCategory.toLowerCase())) subs.push(entry.subCategory);
+      
+      const subOpts = subs.map(s => `<option value="${escapeHtml(s)}" ${s.toLowerCase() === entry.subCategory.toLowerCase() ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('');
+      
+      subcatHtml = `
+        <div class="ie-input-group" style="flex:1; min-width:140px;">
+          ${subcatSvg}
+          <select class="ie-subcat-select field-input">
+            <option value="" disabled>Subcategory...</option>
+            ${subOpts}
+            <option value="__custom__">+ Add custom</option>
+          </select>
+          <input type="text" class="ie-subcat-custom field-input" style="display:none;" placeholder="Name">
+        </div>
+      `;
+    }
   }
 
   let metaHtml = '';
@@ -557,7 +581,7 @@ function renderInlineEdit(entry, mk) {
   }
 
   return `
-  <div class="inline-edit-container" data-entry-id="${entry.id}">
+  <div class="inline-edit-container" data-entry-id="${entry.id}" data-entry-type="${entry.type}">
     <div style="display: flex; gap: 16px; align-items: stretch;">
       <div style="width: 120px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding-right: 16px; border-right: 1px dashed var(--sky);">
         <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; justify-content: center;">
@@ -585,15 +609,14 @@ function renderInlineEdit(entry, mk) {
           <div class="ie-input-group" style="width:160px; flex-shrink: 0;">
             ${tagSvg}
             <select class="ie-tag field-input">
-              <option value="">No tag</option>
               ${tagOpts}
-              <option value="__custom__">+ Add custom</option>
             </select>
-            <input type="text" class="ie-tag-custom field-input" style="display:none;" placeholder="New Tag">
+            ${showCustomTag ? `<input type="text" class="ie-tag-custom field-input" style="display:none;" placeholder="New Tag">` : ''}
           </div>
+          ${showSubcat ? `
           <div class="ie-subcat-zone" style="display:flex; gap:8px; align-items:center; flex:1;">
             ${subcatHtml}
-          </div>
+          </div>` : ''}
         </div>
 
         <div class="ie-meta-zone" style="display: ${metaHtml ? 'flex' : 'none'}; gap:10px; flex-wrap: wrap;">
@@ -2145,9 +2168,9 @@ root.addEventListener('click', async (ev) => {
       return;
     }
 
-    let newTag = container.querySelector('.ie-tag').value;
+    let newTag = container.querySelector('.ie-tag')?.value || '';
     if (newTag === '__custom__') {
-        newTag = container.querySelector('.ie-tag-custom').value.trim();
+        newTag = container.querySelector('.ie-tag-custom')?.value.trim() || '';
         if (newTag && !allSpendTags(DEFAULT_TAGS, customTags).some(t => t.toLowerCase() === newTag.toLowerCase())) {
             customTags.push(newTag);
             await Store.set('custom-spend-tags', customTags);
@@ -2159,7 +2182,7 @@ root.addEventListener('click', async (ev) => {
     if (subcatSel) {
         newSubcat = subcatSel.value;
         if (newSubcat === '__custom__') {
-            newSubcat = container.querySelector('.ie-subcat-custom').value.trim();
+            newSubcat = container.querySelector('.ie-subcat-custom')?.value.trim() || '';
         }
         if (newSubcat && newTag) {
             const catIdx = budgetData.findIndex(c => c.name.toLowerCase() === newTag.toLowerCase());
@@ -2204,8 +2227,14 @@ root.addEventListener('click', async (ev) => {
       entryToEdit.description = newDesc;
       entryToEdit.amount = newAmt;
       entryToEdit.tag = newTag;
-      entryToEdit.subCategory = newSubcat;
-      entryToEdit.meta = meta;
+      if (entryToEdit.type === 'income' || entryToEdit.type === 'investment') {
+        entryToEdit.category = newTag;
+        entryToEdit.subCategory = '';
+        entryToEdit.meta = null;
+      } else {
+        entryToEdit.subCategory = newSubcat;
+        entryToEdit.meta = meta;
+      }
       await saveMonth(mk);
       await renderMonth();
       showToast("Entry updated");
@@ -2620,38 +2649,43 @@ root.addEventListener('change', async (ev) => {
   }
 
   if (ev.target.classList.contains('ie-tag')) {
-     const val = ev.target.value;
-     const container = ev.target.closest('.inline-edit-container');
-     const customTag = container.querySelector('.ie-tag-custom');
-     if (customTag) customTag.style.display = val === '__custom__' ? 'inline-block' : 'none';
-     
-     const zone = container.querySelector('.ie-subcat-zone');
-     if (val) {
-         zone.innerHTML = `<button class="pill-btn sub-pill ie-add-subcat-btn" type="button" style="border: 1px dashed var(--sky); padding: 5px 12px; font-size: 0.72rem; background: transparent; color: var(--muted); cursor: pointer; text-transform: uppercase; margin-top: 2px;">+ Add Subcategory</button>`;
-     } else {
-         zone.innerHTML = `<button class="pill-btn sub-pill ie-add-subcat-btn" type="button" disabled style="border: 1px dashed var(--sky); padding: 5px 12px; font-size: 0.72rem; background: transparent; color: var(--muted); cursor: not-allowed; opacity: 0.5; text-transform: uppercase; margin-top: 2px;">+ Add Subcategory</button>`;
-     }
-     
-     const meta1Svg = `<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="currentColor"/><text x="12" y="16.5" font-size="12" font-family="sans-serif" font-weight="bold" fill="var(--paper)" text-anchor="middle">1</text></svg>`;
-     const meta2Svg = `<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="currentColor"/><text x="12" y="16.5" font-size="12" font-family="sans-serif" font-weight="bold" fill="var(--paper)" text-anchor="middle">2</text></svg>`;
+    const val = ev.target.value;
+    const container = ev.target.closest('.inline-edit-container');
+    const entryType = container?.dataset.entryType;
+    if (entryType === 'income' || entryType === 'investment') {
+      return;
+    }
 
-     const metaZone = container.querySelector('.ie-meta-zone');
-     let metaHtml = '';
-     const tLow = val.toLowerCase();
-     if (tLow === 'transport') {
-         metaHtml = `<div class="ie-input-group" style="flex:1; min-width:120px;">${meta1Svg}<input type="text" class="ie-meta-1 field-input" placeholder="Source"></div><div class="ie-input-group" style="flex:1; min-width:120px;">${meta2Svg}<input type="text" class="ie-meta-2 field-input" placeholder="Destination"></div>`;
-     } else if (tLow === 'groceries') {
-         metaHtml = `<div class="ie-input-group" style="flex:1; min-width:120px;">${meta1Svg}<input type="text" class="ie-meta-1 field-input" placeholder="Quantity"></div>`;
-     } else if (tLow === 'fuel') {
-         metaHtml = `<div class="ie-input-group" style="flex:1; min-width:120px;">${meta1Svg}<input type="text" class="ie-meta-1 field-input" placeholder="Quantity"></div><div class="ie-input-group" style="flex:1; min-width:120px;">${meta2Svg}<input type="text" class="ie-meta-2 field-input" placeholder="Location"></div>`;
-     } else if (tLow === 'rent') {
-         metaHtml = `<div class="ie-input-group" style="flex:1; min-width:120px;">${meta2Svg}<input type="text" class="ie-meta-1 field-input" placeholder="Location"></div>`;
-     }
-     if (metaZone) {
-       metaZone.innerHTML = metaHtml;
-       metaZone.style.display = metaHtml ? 'flex' : 'none';
-     }
-     return;
+    const customTag = container.querySelector('.ie-tag-custom');
+    if (customTag) customTag.style.display = val === '__custom__' ? 'inline-block' : 'none';
+    
+    const zone = container.querySelector('.ie-subcat-zone');
+    if (val) {
+        zone.innerHTML = `<button class="pill-btn sub-pill ie-add-subcat-btn" type="button" style="border: 1px dashed var(--sky); padding: 5px 12px; font-size: 0.72rem; background: transparent; color: var(--muted); cursor: pointer; text-transform: uppercase; margin-top: 2px;">+ Add Subcategory</button>`;
+    } else {
+        zone.innerHTML = `<button class="pill-btn sub-pill ie-add-subcat-btn" type="button" disabled style="border: 1px dashed var(--sky); padding: 5px 12px; font-size: 0.72rem; background: transparent; color: var(--muted); cursor: not-allowed; opacity: 0.5; text-transform: uppercase; margin-top: 2px;">+ Add Subcategory</button>`;
+    }
+    
+    const meta1Svg = `<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="currentColor"/><text x="12" y="16.5" font-size="12" font-family="sans-serif" font-weight="bold" fill="var(--paper)" text-anchor="middle">1</text></svg>`;
+    const meta2Svg = `<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="currentColor"/><text x="12" y="16.5" font-size="12" font-family="sans-serif" font-weight="bold" fill="var(--paper)" text-anchor="middle">2</text></svg>`;
+
+    const metaZone = container.querySelector('.ie-meta-zone');
+    let metaHtml = '';
+    const tLow = val.toLowerCase();
+    if (tLow === 'transport') {
+        metaHtml = `<div class="ie-input-group" style="flex:1; min-width:120px;">${meta1Svg}<input type="text" class="ie-meta-1 field-input" placeholder="Source"></div><div class="ie-input-group" style="flex:1; min-width:120px;">${meta2Svg}<input type="text" class="ie-meta-2 field-input" placeholder="Destination"></div>`;
+    } else if (tLow === 'groceries') {
+        metaHtml = `<div class="ie-input-group" style="flex:1; min-width:120px;">${meta1Svg}<input type="text" class="ie-meta-1 field-input" placeholder="Quantity"></div>`;
+    } else if (tLow === 'fuel') {
+        metaHtml = `<div class="ie-input-group" style="flex:1; min-width:120px;">${meta1Svg}<input type="text" class="ie-meta-1 field-input" placeholder="Quantity"></div><div class="ie-input-group" style="flex:1; min-width:120px;">${meta2Svg}<input type="text" class="ie-meta-2 field-input" placeholder="Location"></div>`;
+    } else if (tLow === 'rent') {
+        metaHtml = `<div class="ie-input-group" style="flex:1; min-width:120px;">${meta2Svg}<input type="text" class="ie-meta-1 field-input" placeholder="Location"></div>`;
+    }
+    if (metaZone) {
+      metaZone.innerHTML = metaHtml;
+      metaZone.style.display = metaHtml ? 'flex' : 'none';
+    }
+    return;
   }
 
   if (ev.target.id === 'deduct-cc-cash-toggle') {
