@@ -113,6 +113,11 @@
   white-space: nowrap;
 }
 
+.status-pill.status-unassigned {
+  color: #ffffff;
+  background: var(--muted);
+}
+
 .status-pill.status-ontrack {
   color: var(--credit);
   background: var(--credit-bg);
@@ -159,8 +164,9 @@
 }
 
 :root[data-theme="hi-contrast"] .budget-header {
-  background: #FFFFFF;
+  background: #000000;
   border-color: #000000;
+  color: #ffffff;
 }
 
 .b-budget-header {

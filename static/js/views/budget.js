@@ -58,6 +58,7 @@ function calculateUsed(name, isSub, parentName) {
 function getStatusInfo(pct) {
   if (pct > 100) return { label: 'Over budget', cls: 'status-over' };
   if (pct > 70) return { label: 'High spend', cls: 'status-high' };
+  if (pct == 0) return { label: 'Unassigned', cls: 'status-unassigned' };
   return { label: 'On track', cls: 'status-ontrack' };
 }
 

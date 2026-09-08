@@ -19,7 +19,7 @@ import { markRendered } from '../components/render-guard.js';
 const root = document.getElementById('month-root');
 const monthKey = root.dataset.monthKey;
 
-const DEFAULT_TAGS = ['Groceries', 'Dining', 'Food', 'Fuel', 'Transport', 'Rent', 'Utility', 'Shopping', 'Recharge', 'Medicine'];
+const DEFAULT_TAGS = ['Groceries', 'Food', 'Fuel', 'Transport', 'Rent', 'Utility', 'Shopping', 'Recharge', 'Medicine'];
 
 let cards = [];
 let emiSeries = [];
