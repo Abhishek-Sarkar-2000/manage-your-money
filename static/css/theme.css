@@ -340,11 +340,17 @@
   border-color: var(--ice-2) !important;
 }
 
+:root[data-theme="dark"] .btn,
+:root[data-theme="dark"] .pill-btn.active {
+  background-color: var(--blue-soft);
+  border-color: var(--blue-soft);
+}
 :root[data-theme="dark"] .btn.secondary {
   color: var(--sky);
 }
 :root[data-theme="dark"] .btn.ghost {
   background: white;
+  border-color: white;
   color: var(--sky);
 }
 
@@ -509,8 +515,8 @@
 @media (hover: hover) and (pointer: fine) {
   :root[data-theme="dark"] .btn:hover,
   :root[data-theme="dark"] .pill-btn.active:not(.sub-pill):hover {
-    background: var(--blue-soft);
-    border-color: var(--blue-soft);
+    background: var(--sky);
+    border-color: var(--sky);
   }
   :root[data-theme="dark"] .btn.ghost:hover {
     background: var(--text-light);

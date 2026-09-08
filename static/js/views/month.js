@@ -430,9 +430,6 @@ function renderTagField() {
     <label>New tag name</label>
     <input id="f-tag-custom" type="text" placeholder="e.g. Pets" />
   </div>
-  <div class="field" id="f-subcat-btn-wrap" style="display: flex; align-items: flex-end;">
-    <button class="pill-btn sub-pill dashed-subcat-btn" id="f-add-subcat-btn" type="button" disabled style="border: 1px dashed var(--sky); padding: 7px 12px; font-size: 0.72rem; background: transparent; color: var(--muted); opacity: 0.5; cursor: not-allowed; height: 36px; text-transform: uppercase;">+ Add Subcategory</button>
-  </div>
   <div class="field" id="f-subcat-select-wrap" style="display:none;">
     <label>Subcategory</label>
     <div style="display:flex; gap:8px;">
@@ -648,8 +645,9 @@ function renderForm(kind) {
         ${renderTagField()}
       </div>
       <div class="form-row" id="spend-dynamic-fields" style="display:none; margin-top: 14px;"></div>
-      <div id="f-price-track-wrap" style="margin-bottom: 14px;">
+      <div id="f-price-track-wrap" style="margin-bottom: 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <button class="pill-btn sub-pill" id="f-price-track-btn" type="button">+ Add to Price Tracker</button>
+        <button class="pill-btn sub-pill dashed-subcat-btn" id="f-add-subcat-btn" type="button" disabled>+ Add Subcategory</button>
       </div>
       <label class="checkline" id="f-lent-container"><input type="checkbox" id="f-lent-toggle" /> Lent — someone owes me part of this</label>
       <div id="f-lent-wrap" style="display:none;">
@@ -688,6 +686,7 @@ function renderForm(kind) {
       </div>
       <div id="f-price-track-wrap" style="margin-bottom: 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <button class="pill-btn sub-pill" id="f-price-track-btn" type="button">+ Add to Price Tracker</button>
+        <button class="pill-btn sub-pill dashed-subcat-btn" id="f-add-subcat-btn" type="button" disabled>+ Add Subcategory</button>
       </div>
       <label class="checkline"><input type="checkbox" id="f-lent-toggle" /> Lent — someone owes me part of this</label>
       <div id="f-lent-wrap" style="display:none;">
@@ -716,8 +715,9 @@ function renderForm(kind) {
       <div class="form-row" style="align-items: flex-end;">
         ${renderTagField()}
       </div>
-      <div id="f-price-track-wrap" style="margin-bottom: 14px;">
+      <div id="f-price-track-wrap" style="margin-bottom: 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <button class="pill-btn sub-pill" id="f-price-track-btn" type="button">+ Add to Price Tracker</button>
+        <button class="pill-btn sub-pill dashed-subcat-btn" id="f-add-subcat-btn" type="button" disabled>+ Add Subcategory</button>
       </div>
       <label class="checkline"><input type="checkbox" id="f-lent-toggle" /> Lent — someone owes me part of this</label>
       <div id="f-lent-wrap" style="display:none;">
@@ -2292,22 +2292,46 @@ root.addEventListener('click', async (ev) => {
      return;
   }
 
-  if (ev.target.id === 'f-add-subcat-btn') {
-     let catName = $('#f-tag').value;
-     if (catName === '__custom__') catName = $('#f-tag-custom').value.trim();
+  const addSubcatBtn = ev.target.closest('#f-add-subcat-btn');
+  if (addSubcatBtn) {
+     if (addSubcatBtn.disabled) return;
+     
+     addSubcatBtn.classList.toggle('active');
+     const selectWrap = $('#f-subcat-select-wrap');
+     const customInput = $('#f-subcat-custom');
+     
+     if (addSubcatBtn.classList.contains('active')) {
+         addSubcatBtn.textContent = '- Subcategory';
+         addSubcatBtn.style.color = '#fff';
+         addSubcatBtn.style.background = 'var(--blue)';
+         addSubcatBtn.style.borderColor = 'var(--blue)';
+         
+         let catName = $('#f-tag').value;
+         if (catName === '__custom__') catName = $('#f-tag-custom').value.trim();
 
-     let existingSubs = [];
-     if (catName) {
-       const cat = budgetData.find(c => c.name.toLowerCase() === catName.toLowerCase());
-       if (cat && cat.subcategories) existingSubs = cat.subcategories.map(s => s.name);
+         let existingSubs = [];
+         if (catName) {
+           const cat = budgetData.find(c => c.name.toLowerCase() === catName.toLowerCase());
+           if (cat && cat.subcategories) existingSubs = cat.subcategories.map(s => s.name);
+         }
+         
+         const subOptions = existingSubs.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+         const sel = $('#f-subcat-select');
+         if (sel) sel.innerHTML = `<option value="" disabled selected>Select...</option>${subOptions}<option value="__custom__">+ Add custom</option>`;
+         
+         if (selectWrap) selectWrap.style.display = 'block';
+     } else {
+         addSubcatBtn.textContent = '+ Add Subcategory';
+         addSubcatBtn.style.color = 'var(--blue)';
+         addSubcatBtn.style.background = 'transparent';
+         if (selectWrap) selectWrap.style.display = 'none';
+         const sel = $('#f-subcat-select');
+         if (sel) sel.value = '';
+         if (customInput) {
+             customInput.style.display = 'none';
+             customInput.value = '';
+         }
      }
-     
-     const subOptions = existingSubs.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
-     const sel = $('#f-subcat-select');
-     sel.innerHTML = `<option value="" disabled selected>Select...</option>${subOptions}<option value="__custom__">+ Add sub-category</option>`;
-     
-     $('#f-subcat-btn-wrap').style.display = 'none';
-     $('#f-subcat-select-wrap').style.display = 'block';
      return;
   }
 
@@ -2692,19 +2716,28 @@ root.addEventListener('change', async (ev) => {
     if (customWrap) customWrap.style.display = val === '__custom__' ? 'block' : 'none';
 
     const subcatBtn = $('#f-add-subcat-btn');
-    const subcatBtnWrap = $('#f-subcat-btn-wrap');
     const subcatSelWrap = $('#f-subcat-select-wrap');
     const customInput = $('#f-subcat-custom');
     
     if (subcatBtn) {
        subcatBtn.disabled = !val;
-       subcatBtn.style.color = val ? 'var(--blue)' : 'var(--muted)';
-       subcatBtn.style.borderColor = val ? 'var(--blue)' : 'var(--sky)';
        subcatBtn.style.opacity = val ? '1' : '0.5';
        subcatBtn.style.cursor = val ? 'pointer' : 'not-allowed';
-       if (subcatBtnWrap) subcatBtnWrap.style.display = 'flex';
+       subcatBtn.style.color = val ? 'var(--blue)' : 'var(--muted)';
+       subcatBtn.style.borderColor = val ? 'var(--blue)' : 'var(--sky)';
+       subcatBtn.style.background = 'transparent';
+       subcatBtn.style.display = 'inline-block';
+       
+       subcatBtn.classList.remove('active');
+       subcatBtn.textContent = '+ Add Subcategory';
+       
        if (subcatSelWrap) subcatSelWrap.style.display = 'none';
-       if (customInput) customInput.style.display = 'none';
+       if (customInput) {
+           customInput.style.display = 'none';
+           customInput.value = '';
+       }
+       const sel = $('#f-subcat-select');
+       if (sel) sel.value = '';
     }
 
     const ptDynamicWrap = $('#pt-dynamic-fields');
