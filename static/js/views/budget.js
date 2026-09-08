@@ -58,7 +58,6 @@ function calculateUsed(name, isSub, parentName) {
 function getStatusInfo(pct) {
   if (pct > 100) return { label: 'Over budget', cls: 'status-over' };
   if (pct > 70) return { label: 'High spend', cls: 'status-high' };
-  if (pct == 0) return { label: 'Unassigned', cls: 'status-unassigned' };
   return { label: 'On track', cls: 'status-ontrack' };
 }
 
@@ -145,9 +144,9 @@ function renderBudgetRow(item, isSub, parentId) {
     if (parent) parentName = parent.name;
   }
   const used = calculateUsed(item.name, isSub, parentName);
-  const pct = item.budget > 0 ? (used / item.budget) * 100 : (used > 0 ? 100 : 0);
+  const pct = item.budget > 0 ? (used / item.budget) * 100 : 0;
   const isDanger = pct > 100;
-  const status = getStatusInfo(pct);
+  const status = item.budget > 0 ? getStatusInfo(pct) : { label: 'Unassigned', cls: 'status-unassigned' };
 
   const dragHandleSvg = `<svg class="drag-handle" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"></circle><circle cx="15" cy="6" r="1.6"></circle><circle cx="9" cy="12" r="1.6"></circle><circle cx="15" cy="12" r="1.6"></circle><circle cx="9" cy="18" r="1.6"></circle><circle cx="15" cy="18" r="1.6"></circle></svg>`;
 
@@ -170,7 +169,7 @@ function renderBudgetRow(item, isSub, parentId) {
       ${fmtINR(item.budget)}
     </div>
     <div class="budget-progress">
-      <div style="text-align: right;">${fmtINR(used)} (${Math.round(pct)}%)</div>
+      <div style="text-align: right;">${fmtINR(used)} (${status.cls === 'status-unassigned' ? '--' : Math.round(pct)}%)</div>
       <div class="bp-bar"><div class="bp-fill ${isDanger ? 'danger' : ''}" style="width: ${Math.min(pct, 100)}%;"></div></div>
     </div>
     <div class="status-col">
