@@ -202,6 +202,10 @@ def split_view():
 def pricetrack_view():
     return render_template("pricetrack.html", **_shell_context("pricetrack"))
 
+@app.route("/budget")
+def budget_view():
+    return render_template("budget.html", **_shell_context("budget"))
+
 @app.route("/share/split/<share_id>")
 def public_split_page(share_id):
     return render_template(

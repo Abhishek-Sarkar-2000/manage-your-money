@@ -27,6 +27,7 @@ let sipSeries = [];
 let recurringSeries = [];
 let monthsIndex = [];
 let customTags = [];
+let budgetData = [];
 let priceTrackDictionary = {};
 let priceItems = [];
 let existingInvestments = 0;
@@ -127,12 +128,13 @@ function compareTableRows(a, b, key) {
 // stays correct without a refetch.
 async function loadDomain() {
   if (domainLoaded) return;
-  [cards, emiSeries, sipSeries, monthsIndex, customTags, priceTrackDictionary, priceItems, existingInvestments, splitsIndex, recurringSeries] = await Promise.all([
+  [cards, emiSeries, sipSeries, monthsIndex, customTags, budgetData, priceTrackDictionary, priceItems, existingInvestments, splitsIndex, recurringSeries] = await Promise.all([
     Store.get('creditcards', []),
     Store.get('emiseries', []),
     Store.get('sipseries', []),
     Store.get('months-index', []),
     Store.get('custom-spend-tags', []),
+    Store.get('budget-data', []),
     Store.get('price-track-dict', {}),
     Store.get('price-items', []),
     Store.get('existinginvestments', 0),
@@ -197,6 +199,14 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   const hasLent = Array.isArray(e.lent) && e.lent.length > 0;
   const lentTypeHtml = hasLent ? `<div style="margin-top: 6px;"><span class="tag owed">LENT</span></div>` : '';
 
+  let tagHtml = '';
+  if (e.tag) {
+    tagHtml = ` <span class="src-badge">${escapeHtml(e.tag)}</span>`;
+  }
+  if (e.subCategory) {
+    tagHtml += ` <span class="src-badge subcat">${escapeHtml(e.subCategory)}</span>`;
+  }
+
   if (e.type === 'spend') {
     const isNegative = e.amount < 0;
     const displayAmount = isNegative ? Math.abs(e.amount) : e.amount;
@@ -212,7 +222,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
         ${dateCell}
         <td class="type-cell"><span class="tag payback">Payback</span>${lentTypeHtml}</td>
         <td class="desc-cell">
-          <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
+          <strong>${escapeHtml(e.description)}</strong><span class="tags-area">${tagHtml}</span>${metaHtml}
           <div class="subnote">Cash / debit</div>
           ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
         </td>
@@ -230,7 +240,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       ${dateCell}
       <td class="type-cell"><span class="tag spend">Spend</span>${lentTypeHtml}</td>
       <td class="desc-cell">
-        <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
+        <strong>${escapeHtml(e.description)}</strong><span class="tags-area">${tagHtml}</span>${metaHtml}
         <div class="subnote">${card ? 'Paid for ' + escapeHtml(card.name) + ' — reduces card dues' : 'Cash / debit'}</div>
         ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
@@ -249,7 +259,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       ${dateCell}
       <td class="type-cell"><span class="tag cardcharge">Card spend</span>${lentTypeHtml}</td>
       <td class="desc-cell">
-        <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
+        <strong>${escapeHtml(e.description)}</strong><span class="tags-area">${tagHtml}</span>${metaHtml}
         <div class="subnote">On ${card ? escapeHtml(card.name) : 'a removed card'} — adds to card dues</div>
         ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
@@ -267,7 +277,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       ${dateCell}
       <td class="type-cell"><span class="tag cashpayment">Cash spend</span>${lentTypeHtml}</td>
       <td class="desc-cell">
-        <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}${metaHtml}
+        <strong>${escapeHtml(e.description)}</strong><span class="tags-area">${tagHtml}</span>${metaHtml}
         <div class="subnote">Physical cash spent — already accounted for via withdrawal</div>
         ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
@@ -384,6 +394,34 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   return '';
 }
 
+async function resolveSubCategoryFromForm(tag) {
+    if (!tag) return null;
+    const subcatSelWrap = $('#f-subcat-select-wrap');
+    if (subcatSelWrap && subcatSelWrap.style.display !== 'none') {
+       let sVal = $('#f-subcat-select').value;
+       if (sVal === '__custom__') sVal = $('#f-subcat-custom').value.trim();
+       if (sVal) {
+          const catIdx = budgetData.findIndex(c => c.name.toLowerCase() === tag.toLowerCase());
+          if (catIdx > -1) {
+            const cat = budgetData[catIdx];
+            cat.subcategories = cat.subcategories || [];
+            if (!cat.subcategories.some(s => s.name.toLowerCase() === sVal.toLowerCase())) {
+              cat.subcategories.push({ id: uid(), name: sVal, budget: 0 });
+              await Store.set('budget-data', budgetData);
+            }
+          } else {
+             budgetData.push({
+               id: uid(), name: tag, budget: 0, expanded: true,
+               subcategories: [{ id: uid(), name: sVal, budget: 0 }]
+             });
+             await Store.set('budget-data', budgetData);
+          }
+          return sVal;
+       }
+    }
+    return null;
+}
+
 function renderTagField() {
   const tags = allSpendTags(DEFAULT_TAGS, customTags);
   const options = tags.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
@@ -399,6 +437,116 @@ function renderTagField() {
   <div class="field" id="f-tag-custom-wrap" style="display:none;">
     <label>New tag name</label>
     <input id="f-tag-custom" type="text" placeholder="e.g. Pets" />
+  </div>
+  <div class="field" id="f-subcat-btn-wrap" style="display: flex; align-items: flex-end;">
+    <button class="pill-btn sub-pill dashed-subcat-btn" id="f-add-subcat-btn" type="button" disabled style="border: 1px dashed var(--sky); padding: 7px 12px; font-size: 0.72rem; background: transparent; color: var(--muted); cursor: pointer; height: 36px; text-transform: uppercase;">+ Add Subcategory</button>
+  </div>
+  <div class="field" id="f-subcat-select-wrap" style="display:none;">
+    <label>Subcategory</label>
+    <div style="display:flex; gap:8px;">
+      <select id="f-subcat-select" style="flex:1;">
+        <option value="" disabled selected>Select...</option>
+      </select>
+      <input id="f-subcat-custom" type="text" placeholder="Name" style="display:none; flex:1;" />
+    </div>
+  </div>`;
+}
+
+function renderInlineEdit(entry, mk) {
+  const allTags = allSpendTags(DEFAULT_TAGS, customTags);
+  const tagOpts = allTags.map(t => `<option value="${escapeHtml(t)}" ${(entry.tag || '').toLowerCase() === t.toLowerCase() ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('');
+
+  const nameSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 21h18v-2H3v2zm4-5l10-10-4-4-10 10v4h4zm11.41-11.41a2 2 0 0 0 0-2.83l-1.17-1.17a2 2 0 0 0-2.83 0l-1.41 1.41 4 4 1.41-1.41z"/></svg>`;
+  const amtSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M4 6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H4zm8 10a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm-6-6a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm14 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg>`;
+  const tagSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4v2h12V8H6zm0 4v2h12v-2H6zm0 4v2h12v-2H6z"/></svg>`;
+  const subcatSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4v2h12V8H6zm3 4v2h9v-2H9zm0 4v2h9v-2H9z"/></svg>`;
+  const meta1Svg = `<svg viewBox="0 0 24 24" width="14" height="14"><defs><mask id="m1-hole"><rect width="24" height="24" fill="white"/><text x="12" y="17" font-size="14" font-family="sans-serif" font-weight="bold" fill="black" text-anchor="middle">1</text></mask></defs><circle cx="12" cy="12" r="10" fill="currentColor" mask="url(#m1-hole)"/></svg>`;
+  const meta2Svg = `<svg viewBox="0 0 24 24" width="14" height="14"><defs><mask id="m2-hole"><rect width="24" height="24" fill="white"/><text x="12" y="17" font-size="14" font-family="sans-serif" font-weight="bold" fill="black" text-anchor="middle">2</text></mask></defs><circle cx="12" cy="12" r="10" fill="currentColor" mask="url(#m2-hole)"/></svg>`;
+
+  let subcatHtml = `<button class="pill-btn sub-pill ie-add-subcat-btn" type="button" ${!entry.tag ? 'disabled' : ''} style="${!entry.tag ? 'opacity: 0.5; cursor: not-allowed;' : ''} margin-top: 2px;">+ Add Subcategory</button>`;
+  
+  if (entry.subCategory && entry.tag) {
+    const cat = budgetData.find(c => c.name.toLowerCase() === entry.tag.toLowerCase());
+    const subs = cat && cat.subcategories ? cat.subcategories.map(s => s.name) : [];
+    if (!subs.some(s => s.toLowerCase() === entry.subCategory.toLowerCase())) subs.push(entry.subCategory);
+    
+    const subOpts = subs.map(s => `<option value="${escapeHtml(s)}" ${s.toLowerCase() === entry.subCategory.toLowerCase() ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('');
+    
+    subcatHtml = `
+      <div class="ie-input-group" style="flex:1; min-width:140px;">
+        ${subcatSvg}
+        <select class="ie-subcat-select field-input">
+          <option value="" disabled>Subcategory...</option>
+          ${subOpts}
+          <option value="__custom__">+ Add custom</option>
+        </select>
+        <input type="text" class="ie-subcat-custom field-input" style="display:none;" placeholder="Name">
+      </div>
+    `;
+  }
+
+  let metaHtml = '';
+  const tLow = (entry.tag || '').toLowerCase();
+  if (tLow === 'transport') {
+    metaHtml = `
+      <div class="ie-input-group" style="flex:1; min-width:120px;">${meta1Svg}<input type="text" class="ie-meta-1 field-input" placeholder="Source" value="${escapeHtml(entry.meta?.source || '')}"></div>
+      <div class="ie-input-group" style="flex:1; min-width:120px;">${meta2Svg}<input type="text" class="ie-meta-2 field-input" placeholder="Destination" value="${escapeHtml(entry.meta?.destination || '')}"></div>`;
+  } else if (tLow === 'groceries') {
+    metaHtml = `<div class="ie-input-group" style="flex:1; min-width:120px;">${meta1Svg}<input type="text" class="ie-meta-1 field-input" placeholder="Quantity" value="${escapeHtml(entry.meta?.quantity || '')}"></div>`;
+  } else if (tLow === 'fuel') {
+    metaHtml = `
+      <div class="ie-input-group" style="flex:1; min-width:120px;">${meta1Svg}<input type="text" class="ie-meta-1 field-input" placeholder="Quantity" value="${escapeHtml(entry.meta?.quantity || '')}"></div>
+      <div class="ie-input-group" style="flex:1; min-width:120px;">${meta2Svg}<input type="text" class="ie-meta-2 field-input" placeholder="Location" value="${escapeHtml(entry.meta?.location || '')}"></div>`;
+  } else if (tLow === 'rent') {
+    metaHtml = `<div class="ie-input-group" style="flex:1; min-width:120px;">${meta2Svg}<input type="text" class="ie-meta-1 field-input" placeholder="Location" value="${escapeHtml(entry.meta?.location || '')}"></div>`;
+  }
+
+  const delSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
+  const saveSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>`;
+
+  return `
+  <div class="inline-edit-container" data-entry-id="${entry.id}">
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+      <div class="ie-input-group" style="flex:1; min-width: 150px;">
+        ${nameSvg}
+        <input type="text" class="ie-desc field-input" value="${escapeHtml(entry.description)}" placeholder="Name">
+      </div>
+      <div class="ie-input-group" style="width:120px;">
+        ${amtSvg}
+        <input type="number" class="ie-amount field-input" value="${entry.amount}" placeholder="Amount">
+      </div>
+    </div>
+    
+    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+      <div class="ie-input-group" style="width:160px; flex-shrink: 0;">
+        ${tagSvg}
+        <select class="ie-tag field-input">
+          <option value="">No tag</option>
+          ${tagOpts}
+          <option value="__custom__">+ Add custom</option>
+        </select>
+        <input type="text" class="ie-tag-custom field-input" style="display:none;" placeholder="New Tag">
+      </div>
+      <div class="ie-subcat-zone" style="display:flex; gap:8px; align-items:center; flex:1;">
+        ${subcatHtml}
+      </div>
+    </div>
+
+    <div class="ie-meta-zone" style="display: ${metaHtml ? 'flex' : 'none'}; gap:10px; flex-wrap: wrap;">
+      ${metaHtml}
+    </div>
+
+    <div style="display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-top: 4px;">
+      <button class="btn danger small" style="padding: 4px 4px; font-size: 0.75rem; gap: 0px;" data-del-entry="${mk}|${entry.id}" type="button" style="display:flex; align-items:center; padding:4px 8px;">
+        ${delSvg} Delete
+      </button>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; align-items: center; margin-top: 4px;">
+        <button class="btn ghost small" style="padding: 4px 16px; font-size: 0.75rem;" data-cancel-edit type="button">Cancel</button>
+        <button class="btn primary small" style="padding: 4px 16px; font-size: 0.75rem; gap: 0px;" data-save-entry="${mk}|${entry.id}" type="button" style="display:flex; align-items:center;">
+          ${saveSvg} Save
+        </button>
+      <div>
+    </div>
   </div>`;
 }
 
@@ -1335,11 +1483,17 @@ async function renderMonth() {
         </div>
         <div style="grid-column: 1 / -1;">
           ${(() => {
+            const subCategoryMap = {};
+            for (const cat of budgetData) {
+              for (const sub of (cat.subcategories || [])) {
+                subCategoryMap[sub.name.toLowerCase()] = cat.name;
+              }
+            }
             const TAG_WIDE_THRESHOLD = 5;
             const tagCharts = [
-              { title: 'Debit by tag', data: tagsBarChart(data.entries, 'spend') },
-              { title: 'Credit card spends by tag', data: tagsBarChart(data.entries, 'cardcharge') },
-              { title: 'Cash spends by tag', data: tagsBarChart(data.entries, 'cashpayment') },
+              { title: 'Debit by tag', data: tagsBarChart(data.entries, 'spend', { subCategoryMap }) },
+              { title: 'Credit card spends by tag', data: tagsBarChart(data.entries, 'cardcharge', { subCategoryMap }) },
+              { title: 'Cash spends by tag', data: tagsBarChart(data.entries, 'cashpayment', { subCategoryMap }) },
             ];
             const cardsHtml = tagCharts.map(({ title, data: { html, count } }) => `
               <div class="chart-card tag-chart-card ${count > TAG_WIDE_THRESHOLD ? 'tag-chart-card--wide' : ''}">
@@ -1543,6 +1697,8 @@ async function handleSubmit(kind) {
     }
     if (!spendDesc || !amount || amount <= 0) { showToast('Enter a spend description and amount'); return; }
 
+    const subCategory = await resolveSubCategoryFromForm(tag);
+
     let meta = null;
     if (uimode === 'regular') {
       const catLower = (tag || '').toLowerCase();
@@ -1573,20 +1729,22 @@ async function handleSubmit(kind) {
         await Store.set('price-items', priceItems);
       }
     }
-    data.entries.push({ id: uid(), type: 'spend', description: spendDesc, amount, date, paymentMode: mode, cardId, tag, lent: collectLent(), meta });
+    data.entries.push({ id: uid(), type: 'spend', description: spendDesc, amount, date, paymentMode: mode, cardId, tag, subCategory, lent: collectLent(), meta });
  } else if (kind === 'cardcharge') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a spend description and amount'); return; }
     const cardId = $('#f-card').value;
     const c = cardById(cards, cardId);
     if (!c) { showToast('Add a credit card first'); return; }
     const tag = await resolveTagFromForm();
+    const subCategory = await resolveSubCategoryFromForm(tag);
     await syncToPriceTracker(desc, amount, date, tag);
-    data.entries.push({ id: uid(), type: 'cardcharge', description: desc, amount, date, cardId, tag, lent: collectLent() });
+    data.entries.push({ id: uid(), type: 'cardcharge', description: desc, amount, date, cardId, tag, subCategory, lent: collectLent() });
   } else if (kind === 'cashpayment') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a spend description and amount'); return; }
     const tag = await resolveTagFromForm();
+    const subCategory = await resolveSubCategoryFromForm(tag);
     await syncToPriceTracker(desc, amount, date, tag);
-    data.entries.push({ id: uid(), type: 'cashpayment', description: desc, amount, date, tag, lent: collectLent() });
+    data.entries.push({ id: uid(), type: 'cashpayment', description: desc, amount, date, tag, subCategory, lent: collectLent() });
   } else if (kind === 'income') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a source and amount'); return; }
     const category = $('#f-income-category')?.value || '';
@@ -1894,32 +2052,84 @@ root.addEventListener('click', async (ev) => {
     if (!entryToEdit) return;
 
     const tr = editEntry.closest('tr');
-    const descStrong = tr.querySelector('.desc-cell strong');
-    const amountTd = tr.querySelector('td.num:not(.dv-date)');
-    const actionsSpan = tr.querySelector('.row-actions');
-
-    descStrong.innerHTML = `<input type="text" class="inline-edit-desc" value="${escapeHtml(entryToEdit.description)}" style="width: 100%; padding: 4px 6px; border: 1px solid var(--sky); border-radius: 4px; background: var(--ice); font-family: 'Source Serif 4', Georgia, serif; font-size: 0.9rem;" />`;
-    amountTd.innerHTML = `<input type="number" step="0.01" class="inline-edit-amount" value="${entryToEdit.amount}" style="width: 85px; padding: 4px 6px; border: 1px solid var(--sky); border-radius: 4px; background: var(--ice); font-family: 'Source Serif 4', Georgia, serif; font-size: 0.9rem;" />`;
     
-    actionsSpan.innerHTML = `
-      <button class="icon-btn" data-save-entry="${mk}|${id}" title="Save" style="color: var(--credit);">✓</button>
-      <button class="icon-btn" data-cancel-edit title="Cancel" style="color: var(--debit);">✕</button>
-    `;
+    const tds = Array.from(tr.children);
+    tds.forEach(td => { if (!td.classList.contains('dv-date')) td.style.display = 'none'; });
     
-    tr.querySelector('.inline-edit-desc').focus();
+    const editTd = document.createElement('td');
+    editTd.colSpan = tds.length - (tr.querySelector('.dv-date') ? 1 : 0);
+    editTd.className = 'edit-td';
+    editTd.style.padding = '0';
+    editTd.innerHTML = renderInlineEdit(entryToEdit, mk);
+    
+    tr.appendChild(editTd);
+    tr.classList.add('is-editing');
     return;
   }
 
   const saveEntry = ev.target.closest('[data-save-entry]');
   if (saveEntry) {
     const [mk, id] = saveEntry.dataset.saveEntry.split('|');
-    const tr = saveEntry.closest('tr');
-    const newDesc = tr.querySelector('.inline-edit-desc').value.trim();
-    const newAmt = Number(tr.querySelector('.inline-edit-amount').value);
+    const container = saveEntry.closest('.inline-edit-container');
+    const newDesc = container.querySelector('.ie-desc').value.trim();
+    const newAmt = Number(container.querySelector('.ie-amount').value);
 
     if (!newDesc || isNaN(newAmt) || newAmt <= 0) {
       showToast("Invalid description or amount.");
       return;
+    }
+
+    let newTag = container.querySelector('.ie-tag').value;
+    if (newTag === '__custom__') {
+        newTag = container.querySelector('.ie-tag-custom').value.trim();
+        if (newTag && !allSpendTags(DEFAULT_TAGS, customTags).some(t => t.toLowerCase() === newTag.toLowerCase())) {
+            customTags.push(newTag);
+            await Store.set('custom-spend-tags', customTags);
+        }
+    }
+    
+    let newSubcat = '';
+    const subcatSel = container.querySelector('.ie-subcat-select');
+    if (subcatSel) {
+        newSubcat = subcatSel.value;
+        if (newSubcat === '__custom__') {
+            newSubcat = container.querySelector('.ie-subcat-custom').value.trim();
+        }
+        if (newSubcat && newTag) {
+            const catIdx = budgetData.findIndex(c => c.name.toLowerCase() === newTag.toLowerCase());
+            if (catIdx > -1) {
+                const cat = budgetData[catIdx];
+                cat.subcategories = cat.subcategories || [];
+                if (!cat.subcategories.some(s => s.name.toLowerCase() === newSubcat.toLowerCase())) {
+                    cat.subcategories.push({ id: uid(), name: newSubcat, budget: 0 });
+                    await Store.set('budget-data', budgetData);
+                }
+            } else {
+                budgetData.push({
+                    id: uid(), name: newTag, budget: 0, expanded: true,
+                    subcategories: [{ id: uid(), name: newSubcat, budget: 0 }]
+                });
+                await Store.set('budget-data', budgetData);
+            }
+        }
+    }
+
+    let meta = null;
+    const tLow = (newTag || '').toLowerCase();
+    if (tLow === 'transport') {
+        meta = {
+            source: container.querySelector('.ie-meta-1')?.value || '',
+            destination: container.querySelector('.ie-meta-2')?.value || ''
+        };
+    } else if (tLow === 'groceries' || tLow === 'rent') {
+        meta = {
+            [tLow === 'rent' ? 'location' : 'quantity']: container.querySelector('.ie-meta-1')?.value || ''
+        };
+    } else if (tLow === 'fuel') {
+        meta = {
+            quantity: container.querySelector('.ie-meta-1')?.value || '',
+            location: container.querySelector('.ie-meta-2')?.value || ''
+        };
     }
 
     const data = await loadMonth(mk);
@@ -1927,6 +2137,9 @@ root.addEventListener('click', async (ev) => {
     if (entryToEdit) {
       entryToEdit.description = newDesc;
       entryToEdit.amount = newAmt;
+      entryToEdit.tag = newTag;
+      entryToEdit.subCategory = newSubcat;
+      entryToEdit.meta = meta;
       await saveMonth(mk);
       await renderMonth();
       showToast("Entry updated");
@@ -1984,6 +2197,52 @@ root.addEventListener('click', async (ev) => {
   if (cancelEditEmi) {
     await renderMonth();
     return;
+  }
+
+  const ieAddSubcatBtn = ev.target.closest('.ie-add-subcat-btn');
+  if (ieAddSubcatBtn) {
+     const container = ieAddSubcatBtn.closest('.inline-edit-container');
+     const tag = container.querySelector('.ie-tag').value;
+     let existingSubs = [];
+     if (tag && tag !== '__custom__') {
+       const cat = budgetData.find(c => c.name.toLowerCase() === tag.toLowerCase());
+       if (cat && cat.subcategories) existingSubs = cat.subcategories.map(s => s.name);
+     }
+     const subOpts = existingSubs.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+     
+     const subcatSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4v2h12V8H6zm3 4v2h9v-2H9zm0 4v2h9v-2H9z"/></svg>`;
+     const zone = container.querySelector('.ie-subcat-zone');
+     zone.innerHTML = `
+       <div class="ie-input-group" style="flex:1; min-width:140px;">
+         ${subcatSvg}
+         <select class="ie-subcat-select field-input">
+             <option value="" disabled selected>Subcategory...</option>
+             ${subOpts}
+             <option value="__custom__">+ Add custom</option>
+         </select>
+         <input type="text" class="ie-subcat-custom field-input" style="display:none;" placeholder="Name">
+       </div>
+     `;
+     return;
+  }
+
+  if (ev.target.id === 'f-add-subcat-btn') {
+     let catName = $('#f-tag').value;
+     if (catName === '__custom__') catName = $('#f-tag-custom').value.trim();
+
+     let existingSubs = [];
+     if (catName) {
+       const cat = budgetData.find(c => c.name.toLowerCase() === catName.toLowerCase());
+       if (cat && cat.subcategories) existingSubs = cat.subcategories.map(s => s.name);
+     }
+     
+     const subOptions = existingSubs.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+     const sel = $('#f-subcat-select');
+     sel.innerHTML = `<option value="" disabled selected>Select...</option>${subOptions}<option value="__custom__">+ Add sub-category</option>`;
+     
+     $('#f-subcat-btn-wrap').style.display = 'none';
+     $('#f-subcat-select-wrap').style.display = 'block';
+     return;
   }
 
   const delEntry = ev.target.closest('[data-del-entry]');
@@ -2260,6 +2519,51 @@ root.addEventListener('click', async (ev) => {
 });
 
 root.addEventListener('change', async (ev) => {
+  if (ev.target.classList.contains('ie-subcat-select')) {
+     const val = ev.target.value;
+     const customInput = ev.target.nextElementSibling;
+     if (customInput && customInput.classList.contains('ie-subcat-custom')) {
+       customInput.style.display = val === '__custom__' ? 'inline-block' : 'none';
+       if (val === '__custom__') customInput.focus();
+     }
+     return;
+  }
+
+  if (ev.target.classList.contains('ie-tag')) {
+     const val = ev.target.value;
+     const container = ev.target.closest('.inline-edit-container');
+     const customTag = container.querySelector('.ie-tag-custom');
+     if (customTag) customTag.style.display = val === '__custom__' ? 'inline-block' : 'none';
+     
+     const zone = container.querySelector('.ie-subcat-zone');
+     if (val) {
+         zone.innerHTML = `<button class="pill-btn sub-pill ie-add-subcat-btn" type="button" style="margin-top: 2px;">+ Add Subcategory</button>`;
+     } else {
+         zone.innerHTML = `<button class="pill-btn sub-pill ie-add-subcat-btn" type="button" disabled style="opacity: 0.5; cursor: not-allowed; margin-top: 2px;">+ Add Subcategory</button>`;
+     }
+     
+     const meta1Svg = `<svg viewBox="0 0 24 24" width="14" height="14"><defs><mask id="m1-hole-dyn"><rect width="24" height="24" fill="white"/><text x="12" y="17" font-size="14" font-family="sans-serif" font-weight="bold" fill="black" text-anchor="middle">1</text></mask></defs><circle cx="12" cy="12" r="10" fill="currentColor" mask="url(#m1-hole-dyn)"/></svg>`;
+     const meta2Svg = `<svg viewBox="0 0 24 24" width="14" height="14"><defs><mask id="m2-hole-dyn"><rect width="24" height="24" fill="white"/><text x="12" y="17" font-size="14" font-family="sans-serif" font-weight="bold" fill="black" text-anchor="middle">2</text></mask></defs><circle cx="12" cy="12" r="10" fill="currentColor" mask="url(#m2-hole-dyn)"/></svg>`;
+
+     const metaZone = container.querySelector('.ie-meta-zone');
+     let metaHtml = '';
+     const tLow = val.toLowerCase();
+     if (tLow === 'transport') {
+         metaHtml = `<div class="ie-input-group" style="flex:1; min-width:120px;">${meta1Svg}<input type="text" class="ie-meta-1 field-input" placeholder="Source"></div><div class="ie-input-group" style="flex:1; min-width:120px;">${meta2Svg}<input type="text" class="ie-meta-2 field-input" placeholder="Destination"></div>`;
+     } else if (tLow === 'groceries') {
+         metaHtml = `<div class="ie-input-group" style="flex:1; min-width:120px;">${meta1Svg}<input type="text" class="ie-meta-1 field-input" placeholder="Quantity"></div>`;
+     } else if (tLow === 'fuel') {
+         metaHtml = `<div class="ie-input-group" style="flex:1; min-width:120px;">${meta1Svg}<input type="text" class="ie-meta-1 field-input" placeholder="Quantity"></div><div class="ie-input-group" style="flex:1; min-width:120px;">${meta2Svg}<input type="text" class="ie-meta-2 field-input" placeholder="Location"></div>`;
+     } else if (tLow === 'rent') {
+         metaHtml = `<div class="ie-input-group" style="flex:1; min-width:120px;">${meta2Svg}<input type="text" class="ie-meta-1 field-input" placeholder="Location"></div>`;
+     }
+     if (metaZone) {
+       metaZone.innerHTML = metaHtml;
+       metaZone.style.display = metaHtml ? 'flex' : 'none';
+     }
+     return;
+  }
+
   if (ev.target.id === 'deduct-cc-cash-toggle') {
     deductCcCash = ev.target.checked;
     setTimeout(async () => {
@@ -2307,10 +2611,29 @@ root.addEventListener('change', async (ev) => {
     return;
   }
 
+  if (ev.target.id === 'f-subcat-select') {
+    const val = ev.target.value;
+    const customWrap = $('#f-subcat-custom-wrap');
+    if (customWrap) customWrap.style.display = val === '__custom__' ? 'block' : 'none';
+  }
+
   if (ev.target.id === 'f-tag') {
-    const val = ev.target.value.toLowerCase();
+    const val = ev.target.value;
     const customWrap = $('#f-tag-custom-wrap');
     if (customWrap) customWrap.style.display = val === '__custom__' ? 'block' : 'none';
+
+    const subcatBtn = $('#f-add-subcat-btn');
+    const subcatBtnWrap = $('#f-subcat-btn-wrap');
+    const subcatSelWrap = $('#f-subcat-select-wrap');
+    const subcatCustWrap = $('#f-subcat-custom-wrap');
+    if (subcatBtn) {
+       subcatBtn.disabled = !val;
+       subcatBtn.style.color = val ? 'var(--blue)' : 'var(--muted)';
+       subcatBtn.style.borderColor = val ? 'var(--blue)' : 'var(--sky)';
+       if (subcatBtnWrap) subcatBtnWrap.style.display = 'flex';
+       if (subcatSelWrap) subcatSelWrap.style.display = 'none';
+       if (subcatCustWrap) subcatCustWrap.style.display = 'none';
+    }
 
     const ptDynamicWrap = $('#pt-dynamic-fields');
     if (ptDynamicWrap) {

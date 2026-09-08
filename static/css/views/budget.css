@@ -1,0 +1,226 @@
+.budget-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+
+.budget-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px 8px;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  border-bottom: 1px solid var(--hair);
+  margin-bottom: 4px;
+}
+
+.budget-row {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-sm);
+  transition: background 0.2s ease, border-color 0.2s ease;
+  cursor: grab;
+  position: relative;
+}
+
+:root[data-theme="dark"] .budget-row {
+  background: var(--ice-2);
+  border-color: var(--sky);
+}
+
+:root[data-theme="hi-contrast"] .budget-row {
+  background: #FFFFFF;
+  border-color: #000000;
+}
+
+.budget-row:active {
+  cursor: grabbing;
+}
+
+.budget-row.drop-above::before,
+.budget-row.drop-below::before {
+  content: '';
+  position: absolute;
+  left: 0; 
+  right: 0;
+  height: 2px;
+  background: var(--blue);
+  z-index: 10;
+  pointer-events: none;
+}
+.budget-row.drop-above::before { top: -4px; }
+.budget-row.drop-below::before { bottom: -4px; }
+
+.budget-row.drop-above::after,
+.budget-row.drop-below::after {
+  content: '';
+  position: absolute;
+  left: -4px;
+  width: 8px; 
+  height: 8px;
+  border-radius: 50%;
+  background: var(--blue);
+  z-index: 10;
+  pointer-events: none;
+}
+.budget-row.drop-above::after { top: -7px; }
+.budget-row.drop-below::after { bottom: -7px; }
+
+.budget-row.is-sub {
+  width: calc(100% - 32px);
+  margin-left: 32px;
+  background: var(--ice-2);
+}
+
+:root[data-theme="dark"] .budget-row.is-sub {
+  background: var(--hair);
+}
+
+.cat-name-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--navy);
+  font-family: 'Source Serif 4', Georgia, serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toggle-sub {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  transition: transform 0.2s ease;
+}
+
+.toggle-sub.expanded {
+  transform: rotate(90deg);
+}
+
+.budget-amt-col {
+  width: 130px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.95rem;
+}
+
+.edit-budget-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+}
+
+.edit-budget-btn:hover {
+  background: var(--ice);
+  color: var(--blue);
+}
+
+.inline-edit-input {
+  width: 100%;
+  max-width: 90px;
+  padding: 4px 6px;
+  border: 1px solid var(--sky);
+  border-radius: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.85rem;
+}
+
+.budget-progress {
+  width: 140px;
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  font-family: 'IBM Plex Mono', monospace;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bp-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--hair);
+  overflow: hidden;
+  display: flex;
+}
+
+.bp-fill {
+  height: 100%;
+  background: var(--budget-safe);
+  transition: width 0.3s ease;
+}
+
+.bp-fill.danger {
+  background: var(--budget-danger);
+}
+
+.actions-col {
+  width: 30px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.b-budget-header {
+    width: 130px;
+    text-align: left;
+}
+
+.b-used-header {
+    width: 140px;
+    text-align: center;
+}
+
+@media (max-width: 600px) {
+  .budget-header, .budget-row {
+    padding: 10px;
+    gap: 8px;
+  }
+  .budget-row.is-sub {
+    width: calc(100% - 20px);
+    margin-left: 20px;
+  }
+  .budget-amt-col {
+    width: 120px;
+    font-size: 0.8rem;
+  }
+  .budget-progress {
+    width: 120px;
+    font-size: 0.75rem;
+  }
+  .b-budget-header {
+    text-align: right;
+  }
+  .b-used-header {
+    text-align: right;
+  }
+  .actions-col {
+    width: 25px;
+  }
+  .inline-edit-input {
+    max-width: 60px;
+  }
+}

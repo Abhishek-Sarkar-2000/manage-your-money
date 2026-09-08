@@ -1,4 +1,65 @@
 /* ---------- Month header ---------- */
+.inline-edit-container {
+  background: linear-gradient(90deg, var(--ice-2), var(--paper)) padding-box, linear-gradient(90deg, var(--blue-soft) 0%, transparent 60%) border-box;
+  border: 1px solid transparent;
+  border-left: 6px solid var(--blue-soft);
+  border-radius: 16px 0px 0px 16px;
+  padding: 14px;
+  margin-left: -14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+:root[data-theme="dark"] .inline-edit-container {
+  background: linear-gradient(90deg, var(--ice), var(--ice-2)) padding-box, linear-gradient(90deg, var(--blue-soft) 0%, transparent 60%) border-box;
+}
+:root[data-theme="hi-contrast"] .inline-edit-container {
+  background: #fff padding-box, #000 border-box;
+  border-color: #000;
+}
+.ie-input-group {
+  display: inline-flex;
+  align-items: center;
+  background: var(--ice);
+  border: 1px solid var(--hair);
+  border-radius: 6px;
+  padding: 0 10px;
+  min-width: 0;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ie-input-group:focus-within {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(47, 111, 176, 0.15);
+}
+:root[data-theme="dark"] .ie-input-group {
+  background: var(--paper);
+  border-color: var(--sky);
+}
+.ie-input-group svg {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.field-input {
+  border: none;
+  background: transparent !important;
+  padding: 8px 0px;
+  font-family: 'Source Serif 4', serif;
+  font-size: 0.9rem;
+  color: var(--ink);
+  outline: none;
+  width: 100%;
+  min-width: 0;
+  box-shadow: none !important;
+}
+.ie-input-group > * + * {
+  border-left: 1px dashed var(--sky) !important;
+  margin-left: 12px;
+  padding-left: 8px;
+}
+:root[data-theme="dark"] .ie-input-group > * + * {
+  border-left-color: var(--hair) !important;
+}
+
 .month-header {
   display: flex;
   align-items: baseline;

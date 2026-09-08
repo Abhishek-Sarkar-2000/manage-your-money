@@ -34,7 +34,7 @@ export function barChart(pairs) {
 }
 
 export function tagsBarChart(entries, targetType, options = {}) {
-  const { splitAdjustment = 0, splitTagName = 'Split' } = options;
+  const { splitAdjustment = 0, splitTagName = 'Split', subCategoryMap = {} } = options;
   const personalTotals = {};
   const lentTotals = {};
   const settledLentTotals = {};
@@ -42,10 +42,12 @@ export function tagsBarChart(entries, targetType, options = {}) {
   for (const e of entries) {
     if (e.type !== targetType) continue;
     const rawTag = (e.tag && String(e.tag).trim()) ? e.tag : 'Untagged';
+    const mappedTag = subCategoryMap[rawTag.toLowerCase()] || rawTag;
+    
     // Group case-insensitively — "split" and "Split" (e.g. a manually
     // tagged spend vs. the Split page's tag) should land in the same
     // bar, not fork into two differently-colored ones.
-    const key = rawTag.toLowerCase();
+    const key = mappedTag.toLowerCase();
     if (!displayLabels[key]) displayLabels[key] = rawTag;
     const amount = Number(e.amount) || 0;
     const lentArr = Array.isArray(e.lent) ? e.lent : [];

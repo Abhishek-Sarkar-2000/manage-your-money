@@ -157,13 +157,13 @@ a {
 }
 
 .btn.danger {
-  background: #fff;
+  background: transparent !important;
+  border: none;
   color: var(--debit);
-  border-color: var(--debit-bg);
 }
 
-.btn.danger:hover {
-  background: var(--debit-bg);
+.btn.danger:hover{
+  color: var(--debit-bd) !important;
 }
 
 .btn:disabled {

@@ -1,5 +1,8 @@
 :root {
   --navy: #0B2545;
+  --drag-highlight: rgba(47, 111, 176, 0.1);
+  --budget-danger: #AD4358;
+  --budget-safe: #2E7D6B;
   --royal: #13315C;
   --blue: #2F6FB0;
   --blue-soft: #5C8FC4;
@@ -33,6 +36,9 @@
 /* ---------- High Contrast Theme ---------- */
 :root[data-theme="hi-contrast"] {
   --navy: #000000;
+  --drag-highlight: rgba(0, 0, 0, 0.1);
+  --budget-danger: #b20f0c;
+  --budget-safe: #66ae0d;
   --royal: #000000;
   --blue: #0000EE;
   --blue-soft: #0000EE;
@@ -158,11 +164,16 @@
   color: var(--yellow) !important;
 }
 
-:root[data-theme="hi-contrast"] .src-badge:not(.sip),
+:root[data-theme="hi-contrast"] .src-badge:not(.sip):not(.subcat),
 :root[data-theme="hi-contrast"] .fab-home,
 :root[data-theme="hi-contrast"] .action-card .ac-icon {
   background: var(--blue);
   color: #fff;
+}
+
+:root[data-theme="hi-contrast"] .src-badge.subcat {
+  background: #411561 !important;
+  color: #FFFFFF !important;
 }
 
 :root[data-theme="hi-contrast"] .price-category-title {
@@ -197,19 +208,22 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
   --navy: #EAEBFB;
+  --drag-highlight: rgba(111, 159, 247, 0.15);
+  --budget-danger: #e93354;
+  --budget-safe: #5CE0B8;
   --royal: #c2c3f3;
   --blue: #6f9ff7;
-  --blue-soft: #757ce3;
-  --sky: #424982;
+  --blue-soft: #6e76e2;
+  --sky: #333c86;
   --text-sky: #A8B1FF;
   --text-light: #D4D8FB;
   --text-white: #FFFFFF;
-  --ice: #0F111E;
-  --ice-2: #171A2E; 
-  --paper: #0f1016;
+  --ice: #0c0f22;
+  --ice-2: #11163b; 
+  --paper: #0a0c16;
   --ink: #D8DAF5;
   --muted: #888EB8;
-  --hair: #252458;
+  --hair: #1e1d4d;
   
   --credit: #5CE0B8;
   --credit-bg: rgba(92, 224, 184, 0.15);
@@ -246,6 +260,8 @@
 :root[data-theme="dark"] .profile-menu,
 :root[data-theme="dark"] tbody td,
 :root[data-theme="dark"] .field select,
+:root[data-theme="dark"] select option,
+:root[data-theme="dark"] .ie-input-group select,
 :root[data-theme="dark"] .burger-menu-panel,
 :root[data-theme="dark"] .donut::after,
 :root[data-theme="dark"] .tag-select,
@@ -253,6 +269,17 @@
   background: var(--ice-2) !important;
   color: var(--navy);
   border-color: var(--sky) !important;
+}
+
+:root[data-theme="dark"] .ie-input-group select {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+:root[data-theme="dark"] .ie-input-group select option,
+:root[data-theme="dark"] .field select option {
+  background: var(--ice-2) !important;
+  color: var(--navy) !important;
 }
 
 :root[data-theme="dark"] .chart-card,

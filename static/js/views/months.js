@@ -20,6 +20,7 @@ let emiSeries = [];
 let sipSeries = [];
 let recurringSeries = [];
 let customTags = [];
+let budgetData = [];
 let domainLoaded = false;
 let bulkDataCache = null;
 let chartRangeMonths = 6;
@@ -30,12 +31,13 @@ let currentKeysAsc = [];
 // and persists it, so later re-renders never need to refetch it.
 async function loadDomain() {
   if (domainLoaded) return;
-  [monthsIndex, emiSeries, sipSeries, recurringSeries, customTags] = await Promise.all([
+  [monthsIndex, emiSeries, sipSeries, recurringSeries, customTags, budgetData] = await Promise.all([
     Store.get('months-index', []),
     Store.get('emiseries', []),
     Store.get('sipseries', []),
     Store.get('recurringseries', []),
     Store.get('custom-spend-tags', []),
+    Store.get('budget-data', []),
   ]);
   domainLoaded = true;
 }
@@ -183,6 +185,13 @@ function renderMonthlyChartsSection(bulkData, allMonthKeys) {
           let monthTotal = 0;
           const tagSums = {};
           selectedTags.forEach(t => tagSums[t] = 0);
+          
+          const subCategoryMap = {};
+          for (const cat of budgetData) {
+            for (const sub of (cat.subcategories || [])) {
+              subCategoryMap[sub.name.toLowerCase()] = cat.name;
+            }
+          }
 
           for (const e of allRows) {
               let tagValue = null;
@@ -197,7 +206,8 @@ function renderMonthlyChartsSection(bulkData, allMonthKeys) {
               }
 
               if (tagValue) {
-                  const matchedTag = selectedTags.find(st => st.toLowerCase() === tagValue.toLowerCase());
+                  const mappedTag = subCategoryMap[tagValue.toLowerCase()] || tagValue;
+                  const matchedTag = selectedTags.find(st => st.toLowerCase() === mappedTag.toLowerCase());
                   if (matchedTag) {
                       const amt = Number(e.amount) || 0;
                       tagSums[matchedTag] += amt;
