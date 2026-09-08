@@ -227,15 +227,10 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
           ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
         </td>
         <td class="num amt-credit">+${fmtINR(displayAmount)}</td>
-        <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+        <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">${editSvg}</button></span></td>
       </tr>`;
     }
 
-    // A split settlement (paid to a friend from Split Money) is a
-    // system-generated ledger mirror, not a freeform spend — editing its
-    // description/amount would desync it from the settlement record it
-    // came from, so only deletion (which reverses the settlement) is offered.
-    const isSplitSettlement = e.tag === 'split' || e.isSplitSettlement || (e.description || '').startsWith('Settled to ');
     return `<tr>
       ${dateCell}
       <td class="type-cell"><span class="tag spend">Spend</span>${lentTypeHtml}</td>
@@ -245,7 +240,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
         ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
       <td class="num amt-debit">-${fmtINR(displayAmount)}</td>
-      <td class="actions-cell"><span class="row-actions">${isSplitSettlement ? '' : `<button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">${editSvg}</button>`}<button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">${editSvg}</button></span></td>
     </tr>`;
   }
   if (e.type === 'cardcharge') {
@@ -264,7 +259,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
         ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
       <td class="num amt-neutral">${fmtINR(e.amount)}</td>
-      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">${editSvg}</button><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">${editSvg}</button></span></td>
     </tr>`;
   }
   if (e.type === 'cashpayment') {
@@ -282,18 +277,16 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
         ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
       <td class="num amt-neutral">${fmtINR(e.amount)}</td>
-      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">${editSvg}</button><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">${editSvg}</button></span></td>
     </tr>`;
   }
   if (e.type === 'income') {
-    const isCrossMonthPayback = (e.description || '').startsWith('Payback @');
-    const editBtnHtml = isCrossMonthPayback ? '' : `<button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">${editSvg}</button>`;
     return `<tr>
       ${dateCell}
       <td class="type-cell"><span class="tag income">Income</span></td>
       <td class="desc-cell"><strong>${escapeHtml(e.description)}</strong>${e.category ? ` <span class="src-badge">${escapeHtml(e.category)}</span>` : ''}</td>
       <td class="num amt-credit">+${fmtINR(e.amount)}</td>
-      <td class="actions-cell"><span class="row-actions">${editBtnHtml}<button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">${editSvg}</button></span></td>
     </tr>`;
   }
   if (e.type === 'payback') {
@@ -305,7 +298,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
         <div class="subnote">Settlement of lent amount</div>
       </td>
       <td class="num amt-credit">+${fmtINR(e.amount)}</td>
-      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">${editSvg}</button></span></td>
     </tr>`;
   }
   if (e.type === 'owed') {
@@ -321,7 +314,6 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
         <span class="row-actions">
           ${!e.settled ? `<button class="icon-btn" data-settle-owed="${key}|${e.id}" title="Mark as paid back">✓</button>` : ''}
           <button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">${editSvg}</button>
-          <button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button>
         </span>
       </td>
     </tr>`;
@@ -339,7 +331,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       <td class="type-cell"><span class="tag invest">Investment</span></td>
       <td class="desc-cell"><strong>${escapeHtml(e.description)}</strong> <span class="src-badge ${cat.cls}">${cat.label}</span></td>
       <td class="num amt-debit">-${fmtINR(e.amount)}</td>
-      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">${editSvg}</button><button class="icon-btn" data-del-entry="${key}|${e.id}" title="Delete">✕</button></span></td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">${editSvg}</button></span></td>
     </tr>`;
   }
   if (e.type === 'sip') {
@@ -439,7 +431,7 @@ function renderTagField() {
     <input id="f-tag-custom" type="text" placeholder="e.g. Pets" />
   </div>
   <div class="field" id="f-subcat-btn-wrap" style="display: flex; align-items: flex-end;">
-    <button class="pill-btn sub-pill dashed-subcat-btn" id="f-add-subcat-btn" type="button" disabled style="border: 1px dashed var(--sky); padding: 7px 12px; font-size: 0.72rem; background: transparent; color: var(--muted); cursor: pointer; height: 36px; text-transform: uppercase;">+ Add Subcategory</button>
+    <button class="pill-btn sub-pill dashed-subcat-btn" id="f-add-subcat-btn" type="button" disabled style="border: 1px dashed var(--sky); padding: 7px 12px; font-size: 0.72rem; background: transparent; color: var(--muted); opacity: 0.5; cursor: not-allowed; height: 36px; text-transform: uppercase;">+ Add Subcategory</button>
   </div>
   <div class="field" id="f-subcat-select-wrap" style="display:none;">
     <label>Subcategory</label>
@@ -456,14 +448,14 @@ function renderInlineEdit(entry, mk) {
   const allTags = allSpendTags(DEFAULT_TAGS, customTags);
   const tagOpts = allTags.map(t => `<option value="${escapeHtml(t)}" ${(entry.tag || '').toLowerCase() === t.toLowerCase() ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('');
 
-  const nameSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 21h18v-2H3v2zm4-5l10-10-4-4-10 10v4h4zm11.41-11.41a2 2 0 0 0 0-2.83l-1.17-1.17a2 2 0 0 0-2.83 0l-1.41 1.41 4 4 1.41-1.41z"/></svg>`;
-  const amtSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M4 6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H4zm8 10a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm-6-6a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm14 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg>`;
-  const tagSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4v2h12V8H6zm0 4v2h12v-2H6zm0 4v2h12v-2H6z"/></svg>`;
-  const subcatSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4v2h12V8H6zm3 4v2h9v-2H9zm0 4v2h9v-2H9z"/></svg>`;
-  const meta1Svg = `<svg viewBox="0 0 24 24" width="14" height="14"><defs><mask id="m1-hole"><rect width="24" height="24" fill="white"/><text x="12" y="17" font-size="14" font-family="sans-serif" font-weight="bold" fill="black" text-anchor="middle">1</text></mask></defs><circle cx="12" cy="12" r="10" fill="currentColor" mask="url(#m1-hole)"/></svg>`;
-  const meta2Svg = `<svg viewBox="0 0 24 24" width="14" height="14"><defs><mask id="m2-hole"><rect width="24" height="24" fill="white"/><text x="12" y="17" font-size="14" font-family="sans-serif" font-weight="bold" fill="black" text-anchor="middle">2</text></mask></defs><circle cx="12" cy="12" r="10" fill="currentColor" mask="url(#m2-hole)"/></svg>`;
+  const nameSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><defs><mask id="pin-hole"><rect width="24" height="24" fill="white"/><circle cx="12" cy="8.5" r="3" fill="black"/></mask></defs><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" mask="url(#pin-hole)"/><rect x="5" y="21" width="14" height="2"/></svg>`;
+  const amtSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><defs><mask id="cash-hole"><rect width="24" height="24" fill="white"/><circle cx="12" cy="12" r="3" fill="black"/></mask></defs><rect x="2" y="6" width="20" height="12" rx="2" mask="url(#cash-hole)"/></svg>`;
+  const tagSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><defs><mask id="tag-hole"><rect width="24" height="24" fill="white"/><rect x="6" y="7" width="12" height="2" fill="black"/><rect x="6" y="11" width="12" height="2" fill="black"/><rect x="6" y="15" width="12" height="2" fill="black"/></mask></defs><rect x="3" y="3" width="18" height="18" rx="2" mask="url(#tag-hole)"/></svg>`;
+  const subcatSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><defs><mask id="subtag-hole"><rect width="24" height="24" fill="white"/><rect x="6" y="7" width="12" height="2" fill="black"/><rect x="10" y="11" width="8" height="2" fill="black"/><rect x="10" y="15" width="8" height="2" fill="black"/></mask></defs><rect x="3" y="3" width="18" height="18" rx="2" mask="url(#subtag-hole)"/></svg>`;
+  const meta1Svg = `<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="currentColor"/><text x="12" y="16.5" font-size="12" font-family="sans-serif" font-weight="bold" fill="var(--paper)" text-anchor="middle">1</text></svg>`;
+  const meta2Svg = `<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="currentColor"/><text x="12" y="16.5" font-size="12" font-family="sans-serif" font-weight="bold" fill="var(--paper)" text-anchor="middle">2</text></svg>`;
 
-  let subcatHtml = `<button class="pill-btn sub-pill ie-add-subcat-btn" type="button" ${!entry.tag ? 'disabled' : ''} style="${!entry.tag ? 'opacity: 0.5; cursor: not-allowed;' : ''} margin-top: 2px;">+ Add Subcategory</button>`;
+  let subcatHtml = `<button class="pill-btn sub-pill ie-add-subcat-btn" type="button" ${!entry.tag ? 'disabled' : ''} style="border: 1px dashed var(--sky); padding: 5px 12px; font-size: 0.72rem; background: transparent; color: var(--muted); cursor: pointer; text-transform: uppercase; ${!entry.tag ? 'opacity: 0.5; cursor: not-allowed;' : ''} margin-top: 2px;">+ Add Subcategory</button>`;
   
   if (entry.subCategory && entry.tag) {
     const cat = budgetData.find(c => c.name.toLowerCase() === entry.tag.toLowerCase());
@@ -504,48 +496,128 @@ function renderInlineEdit(entry, mk) {
   const delSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
   const saveSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>`;
 
+  let dateContent = '—';
+  if (entry.date) {
+    const dt = new Date(entry.date + 'T00:00:00');
+    const day = dt.toLocaleDateString('en-IN', { day: '2-digit' });
+    const month = dt.toLocaleDateString('en-IN', { month: 'short' });
+    const weekday = dt.toLocaleDateString('en-IN', { weekday: 'short' });
+    dateContent = `
+      <div style="display: flex; flex-direction: column; line-height: 1.2;">
+        <div style="white-space: nowrap;">
+          <strong style="font-size: 1.1rem; font-weight: 600; color: var(--navy);">${day} ${month}</strong>
+        </div>
+        <div style="color: var(--muted); font-size: 0.8rem; margin-top: 2px;">${weekday}</div>
+      </div>
+    `;
+  }
+
+  let typePill = '';
+  if (entry.type === 'spend' && entry.amount < 0) {
+      typePill = `<span class="tag payback">Payback</span>`;
+  } else if (entry.type === 'spend') {
+      typePill = `<span class="tag spend">Spend</span>`;
+  } else if (entry.type === 'cardcharge') {
+      typePill = `<span class="tag cardcharge">Card spend</span>`;
+  } else if (entry.type === 'cashpayment') {
+      typePill = `<span class="tag cashpayment">Cash spend</span>`;
+  } else if (entry.type === 'income') {
+      typePill = `<span class="tag income">Income</span>`;
+  } else if (entry.type === 'payback') {
+      typePill = `<span class="tag payback">Payback</span>`;
+  } else if (entry.type === 'owed') {
+      typePill = `<span class="tag owed">Owed to you</span>`;
+  } else if (entry.type === 'investment' || entry.type === 'sip') {
+      typePill = `<span class="tag invest">Investment</span>`;
+  } else if (entry.type === 'recurring') {
+      typePill = `<span class="tag" style="background: #FCE8E6; color: #B0556F;">RECURRING</span>`;
+  } else if (entry.type === 'emi') {
+      typePill = `<span class="tag emi">EMI</span>`;
+  }
+
+  const hasLent = Array.isArray(entry.lent) && entry.lent.length > 0;
+  const lentTypeHtml = hasLent ? `<span class="tag owed">LENT</span>` : '';
+
+  let dispClass = 'amt-debit';
+  let dispSign = '-';
+  let dispStyle = 'font-size: 1.05rem; font-weight: 600; margin-left: 8px;';
+  const rawAmt = Number(entry.amount) || 0;
+  let displayAmount = Math.abs(rawAmt);
+
+  if (entry.type === 'income' || entry.type === 'payback' || (entry.type === 'spend' && rawAmt < 0)) {
+      dispClass = 'amt-credit';
+      dispSign = '+';
+  } else if (entry.type === 'cardcharge' || entry.type === 'cashpayment') {
+      dispClass = 'amt-neutral';
+      dispSign = '';
+  } else if (entry.type === 'owed') {
+      dispClass = '';
+      dispSign = '';
+      dispStyle += ' color: var(--amber);';
+  } else {
+      dispClass = 'amt-debit';
+      dispSign = '-';
+  }
+
   return `
   <div class="inline-edit-container" data-entry-id="${entry.id}">
-    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-      <div class="ie-input-group" style="flex:1; min-width: 150px;">
-        ${nameSvg}
-        <input type="text" class="ie-desc field-input" value="${escapeHtml(entry.description)}" placeholder="Name">
+    <div style="display: flex; gap: 16px; align-items: stretch;">
+      <div style="width: 120px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding-right: 16px; border-right: 1px dashed var(--sky);">
+        <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; justify-content: center;">
+          ${typePill}
+          ${lentTypeHtml}
+        </div>
       </div>
-      <div class="ie-input-group" style="width:120px;">
-        ${amtSvg}
-        <input type="number" class="ie-amount field-input" value="${entry.amount}" placeholder="Amount">
-      </div>
-    </div>
-    
-    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-      <div class="ie-input-group" style="width:160px; flex-shrink: 0;">
-        ${tagSvg}
-        <select class="ie-tag field-input">
-          <option value="">No tag</option>
-          ${tagOpts}
-          <option value="__custom__">+ Add custom</option>
-        </select>
-        <input type="text" class="ie-tag-custom field-input" style="display:none;" placeholder="New Tag">
-      </div>
-      <div class="ie-subcat-zone" style="display:flex; gap:8px; align-items:center; flex:1;">
-        ${subcatHtml}
-      </div>
-    </div>
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; padding-left: 4px;">
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+          <div class="ie-input-group" style="flex:1; min-width: 150px;">
+            ${nameSvg}
+            <input type="text" class="ie-desc field-input" value="${escapeHtml(entry.description)}" placeholder="Name">
+          </div>
+          <div style="display: flex; flex-wrap: nowrap; align-items: center;">
+            <div class="ie-input-group" style="width:140px;">
+              ${amtSvg}
+              <input type="number" class="ie-amount field-input" value="${entry.amount}" placeholder="Amount">
+            </div>
+            <div class="num ${dispClass}" style="${dispStyle}">
+              ${dispSign}${fmtINR(displayAmount)}
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <div class="ie-input-group" style="width:160px; flex-shrink: 0;">
+            ${tagSvg}
+            <select class="ie-tag field-input">
+              <option value="">No tag</option>
+              ${tagOpts}
+              <option value="__custom__">+ Add custom</option>
+            </select>
+            <input type="text" class="ie-tag-custom field-input" style="display:none;" placeholder="New Tag">
+          </div>
+          <div class="ie-subcat-zone" style="display:flex; gap:8px; align-items:center; flex:1;">
+            ${subcatHtml}
+          </div>
+        </div>
 
-    <div class="ie-meta-zone" style="display: ${metaHtml ? 'flex' : 'none'}; gap:10px; flex-wrap: wrap;">
-      ${metaHtml}
-    </div>
+        <div class="ie-meta-zone" style="display: ${metaHtml ? 'flex' : 'none'}; gap:10px; flex-wrap: wrap;">
+          ${metaHtml}
+        </div>
 
-    <div style="display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-top: 4px;">
-      <button class="btn danger small" style="padding: 4px 4px; font-size: 0.75rem; gap: 0px;" data-del-entry="${mk}|${entry.id}" type="button" style="display:flex; align-items:center; padding:4px 8px;">
-        ${delSvg} Delete
-      </button>
-      <div style="display: flex; justify-content: flex-end; gap: 10px; align-items: center; margin-top: 4px;">
-        <button class="btn ghost small" style="padding: 4px 16px; font-size: 0.75rem;" data-cancel-edit type="button">Cancel</button>
-        <button class="btn primary small" style="padding: 4px 16px; font-size: 0.75rem; gap: 0px;" data-save-entry="${mk}|${entry.id}" type="button" style="display:flex; align-items:center;">
-          ${saveSvg} Save
-        </button>
-      <div>
+        <div style="display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-top: 4px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+             <!-- mode or chips if needed -->
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 10px; align-items: center;">
+            <button class="btn ghost small" style="padding: 4px 16px; font-size: 0.75rem;" data-cancel-edit type="button">Cancel</button>
+            <button class="btn primary small" style="padding: 4px 16px; font-size: 0.75rem; gap: 0px;" data-save-entry="${mk}|${entry.id}" type="button" style="display:flex; align-items:center;">
+              ${saveSvg} Save
+            </button>
+            <button class="btn danger small" style="padding: 4px 8px; font-size: 0.75rem; gap: 0px;" data-del-entry="${mk}|${entry.id}" type="button" style="display:flex; align-items:center;">
+              ${delSvg} Delete
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>`;
 }
@@ -568,16 +640,14 @@ function renderForm(kind) {
         <div class="field"><label>Amount (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
         <div class="field"><label>Date</label><input id="f-date" type="date" value="${todayStr()}" /></div>
       </div>
-      <div class="form-row">
+      <div class="form-row" style="align-items: flex-end;">
         <div class="field" id="f-card-wrap" style="display:none;">
           <label>Card being paid off</label>
           <select id="f-card">${cardOptions || '<option value="">No cards added</option>'}</select>
         </div>
-        <div id="f-tag-row" style="display:contents;">
-          ${renderTagField()}
-        </div>
-        <div id="spend-dynamic-fields" style="display:contents;"></div>
+        ${renderTagField()}
       </div>
+      <div class="form-row" id="spend-dynamic-fields" style="display:none; margin-top: 14px;"></div>
       <div id="f-price-track-wrap" style="margin-bottom: 14px;">
         <button class="pill-btn sub-pill" id="f-price-track-btn" type="button">+ Add to Price Tracker</button>
       </div>
@@ -609,14 +679,12 @@ function renderForm(kind) {
         <div class="field"><label>Amount (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
         <div class="field"><label>Date</label><input id="f-date" type="date" value="${todayStr()}" /></div>
       </div>
-      <div class="form-row">
+      <div class="form-row" style="align-items: flex-end;">
         <div class="field">
           <label>Card</label>
           <select id="f-card">${cardOptions || '<option value="">No cards added — add one first</option>'}</select>
         </div>
-        <div id="f-tag-row" style="display:contents;">
-          ${renderTagField()}
-        </div>
+        ${renderTagField()}
       </div>
       <div id="f-price-track-wrap" style="margin-bottom: 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <button class="pill-btn sub-pill" id="f-price-track-btn" type="button">+ Add to Price Tracker</button>
@@ -645,10 +713,8 @@ function renderForm(kind) {
         <div class="field"><label>Amount (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
         <div class="field"><label>Date</label><input id="f-date" type="date" value="${todayStr()}" /></div>
       </div>
-      <div class="form-row">
-        <div id="f-tag-row" style="display:contents;">
-          ${renderTagField()}
-        </div>
+      <div class="form-row" style="align-items: flex-end;">
+        ${renderTagField()}
       </div>
       <div id="f-price-track-wrap" style="margin-bottom: 14px;">
         <button class="pill-btn sub-pill" id="f-price-track-btn" type="button">+ Add to Price Tracker</button>
@@ -1116,7 +1182,7 @@ async function renderMonth() {
         <col style="width: 120px;">
         <col style="width: auto;">
         <col style="width: 155px;">
-        <col style="width: 110px;">
+        <col style="width: 72px;">
       </colgroup>
     `;
 
@@ -2210,7 +2276,7 @@ root.addEventListener('click', async (ev) => {
      }
      const subOpts = existingSubs.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
      
-     const subcatSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4v2h12V8H6zm3 4v2h9v-2H9zm0 4v2h9v-2H9z"/></svg>`;
+     const subcatSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><defs><mask id="subtag-hole"><rect width="24" height="24" fill="white"/><rect x="6" y="7" width="12" height="2" fill="black"/><rect x="10" y="11" width="8" height="2" fill="black"/><rect x="10" y="15" width="8" height="2" fill="black"/></mask></defs><rect x="3" y="3" width="18" height="18" rx="2" mask="url(#subtag-hole)"/></svg>`;
      const zone = container.querySelector('.ie-subcat-zone');
      zone.innerHTML = `
        <div class="ie-input-group" style="flex:1; min-width:140px;">
@@ -2537,13 +2603,13 @@ root.addEventListener('change', async (ev) => {
      
      const zone = container.querySelector('.ie-subcat-zone');
      if (val) {
-         zone.innerHTML = `<button class="pill-btn sub-pill ie-add-subcat-btn" type="button" style="margin-top: 2px;">+ Add Subcategory</button>`;
+         zone.innerHTML = `<button class="pill-btn sub-pill ie-add-subcat-btn" type="button" style="border: 1px dashed var(--sky); padding: 5px 12px; font-size: 0.72rem; background: transparent; color: var(--muted); cursor: pointer; text-transform: uppercase; margin-top: 2px;">+ Add Subcategory</button>`;
      } else {
-         zone.innerHTML = `<button class="pill-btn sub-pill ie-add-subcat-btn" type="button" disabled style="opacity: 0.5; cursor: not-allowed; margin-top: 2px;">+ Add Subcategory</button>`;
+         zone.innerHTML = `<button class="pill-btn sub-pill ie-add-subcat-btn" type="button" disabled style="border: 1px dashed var(--sky); padding: 5px 12px; font-size: 0.72rem; background: transparent; color: var(--muted); cursor: not-allowed; opacity: 0.5; text-transform: uppercase; margin-top: 2px;">+ Add Subcategory</button>`;
      }
      
-     const meta1Svg = `<svg viewBox="0 0 24 24" width="14" height="14"><defs><mask id="m1-hole-dyn"><rect width="24" height="24" fill="white"/><text x="12" y="17" font-size="14" font-family="sans-serif" font-weight="bold" fill="black" text-anchor="middle">1</text></mask></defs><circle cx="12" cy="12" r="10" fill="currentColor" mask="url(#m1-hole-dyn)"/></svg>`;
-     const meta2Svg = `<svg viewBox="0 0 24 24" width="14" height="14"><defs><mask id="m2-hole-dyn"><rect width="24" height="24" fill="white"/><text x="12" y="17" font-size="14" font-family="sans-serif" font-weight="bold" fill="black" text-anchor="middle">2</text></mask></defs><circle cx="12" cy="12" r="10" fill="currentColor" mask="url(#m2-hole-dyn)"/></svg>`;
+     const meta1Svg = `<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="currentColor"/><text x="12" y="16.5" font-size="12" font-family="sans-serif" font-weight="bold" fill="var(--paper)" text-anchor="middle">1</text></svg>`;
+     const meta2Svg = `<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="currentColor"/><text x="12" y="16.5" font-size="12" font-family="sans-serif" font-weight="bold" fill="var(--paper)" text-anchor="middle">2</text></svg>`;
 
      const metaZone = container.querySelector('.ie-meta-zone');
      let metaHtml = '';
@@ -2613,8 +2679,11 @@ root.addEventListener('change', async (ev) => {
 
   if (ev.target.id === 'f-subcat-select') {
     const val = ev.target.value;
-    const customWrap = $('#f-subcat-custom-wrap');
-    if (customWrap) customWrap.style.display = val === '__custom__' ? 'block' : 'none';
+    const customInput = $('#f-subcat-custom');
+    if (customInput) {
+       customInput.style.display = val === '__custom__' ? 'block' : 'none';
+       if (val === '__custom__') customInput.focus();
+    }
   }
 
   if (ev.target.id === 'f-tag') {
@@ -2625,32 +2694,41 @@ root.addEventListener('change', async (ev) => {
     const subcatBtn = $('#f-add-subcat-btn');
     const subcatBtnWrap = $('#f-subcat-btn-wrap');
     const subcatSelWrap = $('#f-subcat-select-wrap');
-    const subcatCustWrap = $('#f-subcat-custom-wrap');
+    const customInput = $('#f-subcat-custom');
+    
     if (subcatBtn) {
        subcatBtn.disabled = !val;
        subcatBtn.style.color = val ? 'var(--blue)' : 'var(--muted)';
        subcatBtn.style.borderColor = val ? 'var(--blue)' : 'var(--sky)';
+       subcatBtn.style.opacity = val ? '1' : '0.5';
+       subcatBtn.style.cursor = val ? 'pointer' : 'not-allowed';
        if (subcatBtnWrap) subcatBtnWrap.style.display = 'flex';
        if (subcatSelWrap) subcatSelWrap.style.display = 'none';
-       if (subcatCustWrap) subcatCustWrap.style.display = 'none';
+       if (customInput) customInput.style.display = 'none';
     }
 
     const ptDynamicWrap = $('#pt-dynamic-fields');
     if (ptDynamicWrap) {
-      if (val === 'groceries') ptDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="pt-quantity" type="text" placeholder="e.g. 1kg or 1L" /></div>`;
-      else if (val === 'transport') ptDynamicWrap.innerHTML = `<div class="field"><label>Source</label><input id="pt-source" type="text" placeholder="e.g. Home" /></div><div class="field"><label>Destination</label><input id="pt-destination" type="text" placeholder="e.g. Office" /></div>`;
-      else if (val === 'fuel') ptDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="pt-quantity" type="text" placeholder="e.g. 5L" /></div><div class="field"><label>Location</label><input id="pt-location" type="text" placeholder="e.g. IOCL Bengaluru" /></div>`;
-      else if (val === 'rent') ptDynamicWrap.innerHTML = `<div class="field"><label>Location</label><input id="pt-location" type="text" placeholder="e.g. Sunflower Heights Whitefield" /></div>`;
+      const vLow = val.toLowerCase();
+      if (vLow === 'groceries') ptDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="pt-quantity" type="text" placeholder="e.g. 1kg or 1L" /></div>`;
+      else if (vLow === 'transport') ptDynamicWrap.innerHTML = `<div class="field"><label>Source</label><input id="pt-source" type="text" placeholder="e.g. Home" /></div><div class="field"><label>Destination</label><input id="pt-destination" type="text" placeholder="e.g. Office" /></div>`;
+      else if (vLow === 'fuel') ptDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="pt-quantity" type="text" placeholder="e.g. 5L" /></div><div class="field"><label>Location</label><input id="pt-location" type="text" placeholder="e.g. IOCL Bengaluru" /></div>`;
+      else if (vLow === 'rent') ptDynamicWrap.innerHTML = `<div class="field"><label>Location</label><input id="pt-location" type="text" placeholder="e.g. Sunflower Heights Whitefield" /></div>`;
       else ptDynamicWrap.innerHTML = '';
+      
+      ptDynamicWrap.style.display = ptDynamicWrap.innerHTML ? 'grid' : 'none';
     }
 
     const spendDynamicWrap = $('#spend-dynamic-fields');
     if (spendDynamicWrap) {
-      if (val === 'groceries') spendDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="sp-quantity" type="text" placeholder="e.g. 1kg or 1L" /></div>`;
-      else if (val === 'transport') spendDynamicWrap.innerHTML = `<div class="field"><label>Source</label><input id="sp-source" type="text" placeholder="e.g. Home" /></div><div class="field"><label>Destination</label><input id="sp-destination" type="text" placeholder="e.g. Office" /></div>`;
-      else if (val === 'fuel') spendDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="sp-quantity" type="text" placeholder="e.g. 5L" /></div><div class="field"><label>Location</label><input id="sp-location" type="text" placeholder="e.g. IOCL Bengaluru" /></div>`;
-      else if (val === 'rent') spendDynamicWrap.innerHTML = `<div class="field"><label>Location</label><input id="sp-location" type="text" placeholder="e.g. Sunflower Heights Whitefield" /></div>`;
+      const vLow = val.toLowerCase();
+      if (vLow === 'groceries') spendDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="sp-quantity" type="text" placeholder="e.g. 1kg or 1L" /></div>`;
+      else if (vLow === 'transport') spendDynamicWrap.innerHTML = `<div class="field"><label>Source</label><input id="sp-source" type="text" placeholder="e.g. Home" /></div><div class="field"><label>Destination</label><input id="sp-destination" type="text" placeholder="e.g. Office" /></div>`;
+      else if (vLow === 'fuel') spendDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="sp-quantity" type="text" placeholder="e.g. 5L" /></div><div class="field"><label>Location</label><input id="sp-location" type="text" placeholder="e.g. IOCL Bengaluru" /></div>`;
+      else if (vLow === 'rent') spendDynamicWrap.innerHTML = `<div class="field"><label>Location</label><input id="sp-location" type="text" placeholder="e.g. Sunflower Heights Whitefield" /></div>`;
       else spendDynamicWrap.innerHTML = '';
+      
+      spendDynamicWrap.style.display = spendDynamicWrap.innerHTML ? 'grid' : 'none';
     }
   }
   if (ev.target.id === 'f-lent-toggle') {

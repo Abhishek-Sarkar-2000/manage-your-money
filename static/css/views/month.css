@@ -1,17 +1,21 @@
+#app {
+  container-type: inline-size;
+  container-name: app;
+}
+
 /* ---------- Month header ---------- */
 .inline-edit-container {
-  background: linear-gradient(90deg, var(--ice-2), var(--paper)) padding-box, linear-gradient(90deg, var(--blue-soft) 0%, transparent 60%) border-box;
-  border: 1px solid transparent;
+  background: linear-gradient(90deg, var(--ice-2), var(--paper));
   border-left: 6px solid var(--blue-soft);
+  padding: 12px 40px 12px 14px;
   border-radius: 16px 0px 0px 16px;
-  padding: 14px;
   margin-left: -14px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 :root[data-theme="dark"] .inline-edit-container {
-  background: linear-gradient(90deg, var(--ice), var(--ice-2)) padding-box, linear-gradient(90deg, var(--blue-soft) 0%, transparent 60%) border-box;
+  background: linear-gradient(90deg, var(--ice), var(--ice-2));
 }
 :root[data-theme="hi-contrast"] .inline-edit-container {
   background: #fff padding-box, #000 border-box;
@@ -131,7 +135,7 @@
   font-family: 'IBM Plex Mono', monospace;
 }
 
-@media (max-width: 680px) {
+@container app (max-width: 680px) {
   .balance-set {
     flex-direction: column;
     align-items: stretch;
@@ -489,13 +493,13 @@
   gap: 10px;
 }
 
-@media (min-width: 640px) {
+@container app (min-width: 640px) {
   .txn-option-grid {
     grid-template-columns: repeat(3, 1fr);
   }
 }
 
-@media (min-width: 960px) {
+@container app (min-width: 960px) {
   .txn-option-grid {
     grid-template-columns: repeat(4, 1fr);
   }
@@ -729,5 +733,35 @@
   }
   .month-sip-card h4 {
     font-size: 1.05rem !important;
+  }
+}
+
+/* ---------- Inline edit container: mobile sizing ---------- */
+@container app (max-width: 760px) {
+  .inline-edit-container {
+    padding: 8px 24px 8px 10px;
+    border-radius: 12px 0px 0px 12px;
+    margin-left: -10px;
+    gap: 6px;
+  }
+
+  .ie-input-group {
+    padding: 0 7px;
+    border-radius: 5px;
+  }
+
+  .ie-input-group svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .field-input {
+    padding: 6px 0px;
+    font-size: 0.78rem;
+  }
+
+  .ie-input-group > * + * {
+    margin-left: 8px;
+    padding-left: 6px;
   }
 }

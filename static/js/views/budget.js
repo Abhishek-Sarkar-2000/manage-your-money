@@ -54,6 +54,89 @@ function calculateUsed(name, isSub, parentName) {
   }, 0);
 }
 
+// pct -> { label, cls } used for both row status pills and the KPI overall pill
+function getStatusInfo(pct) {
+  if (pct > 100) return { label: 'Over budget', cls: 'status-over' };
+  if (pct > 70) return { label: 'High spend', cls: 'status-high' };
+  return { label: 'On track', cls: 'status-ontrack' };
+}
+
+function computeSummary() {
+  let totalBudget = 0;
+  let totalUsed = 0;
+
+  // Only top-level categories are counted: subcategory budgets/spend are
+  // subsets of their parent category and would otherwise be double counted.
+  budgetData.forEach(cat => {
+    totalBudget += Number(cat.budget) || 0;
+    totalUsed += calculateUsed(cat.name, false, null);
+  });
+
+  const totalRemaining = totalBudget - totalUsed;
+  const usedPct = totalBudget > 0 ? (totalUsed / totalBudget) * 100 : (totalUsed > 0 ? 100 : 0);
+  const remainingPct = totalBudget > 0 ? Math.max(0, (totalRemaining / totalBudget) * 100) : 0;
+
+  return { totalBudget, totalUsed, totalRemaining, usedPct, remainingPct };
+}
+
+function renderSummaryCards() {
+  const { totalBudget, totalUsed, totalRemaining, usedPct, remainingPct } = computeSummary();
+  const status = getStatusInfo(usedPct);
+
+  const briefcaseSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"></path><path d="M2 13h20"></path></svg>`;
+  const coinsSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"></ellipse><path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6"></path><path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"></path></svg>`;
+  const clockSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 15"></polyline></svg>`;
+
+  const remainingClass = totalRemaining < 0 ? 'negative' : '';
+  const remainingPctDisplay = totalRemaining < 0 ? '0%' : `${remainingPct.toFixed(1)}%`;
+
+  const radius = 20;
+  const circumference = 2 * Math.PI * radius;
+  const clampedPct = Math.min(Math.max(usedPct, 0), 100);
+  const dashOffset = circumference - (clampedPct / 100) * circumference;
+  const ringColor = usedPct > 100 ? 'var(--debit)' : 'var(--credit)';
+
+  return `
+  <div class="budget-summary-grid">
+    <div class="kpi-card">
+      <div class="kpi-icon">${briefcaseSvg}</div>
+      <div class="kpi-body">
+        <div class="kpi-label">Total Budget</div>
+        <div class="kpi-value">${fmtINR(totalBudget)}</div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">${coinsSvg}</div>
+      <div class="kpi-body">
+        <div class="kpi-label">Used</div>
+        <div class="kpi-value">${fmtINR(totalUsed)}</div>
+        <div class="kpi-sub blue">${usedPct.toFixed(1)}%</div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">${clockSvg}</div>
+      <div class="kpi-body">
+        <div class="kpi-label">Remaining</div>
+        <div class="kpi-value ${remainingClass}">${fmtINR(totalRemaining)}</div>
+        <div class="kpi-sub green">${remainingPctDisplay}</div>
+      </div>
+    </div>
+    <div class="kpi-card status-card">
+      <svg width="48" height="48" viewBox="0 0 48 48">
+        <circle cx="24" cy="24" r="${radius}" fill="none" stroke="var(--hair)" stroke-width="5"></circle>
+        <circle cx="24" cy="24" r="${radius}" fill="none" stroke="${ringColor}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${circumference.toFixed(2)}" stroke-dashoffset="${dashOffset.toFixed(2)}" transform="rotate(-90 24 24)"></circle>
+        <text x="24" y="28" text-anchor="middle" font-size="11" font-family="'IBM Plex Mono', monospace" fill="var(--navy)">${Math.round(usedPct)}%</text>
+      </svg>
+      <div class="kpi-body">
+        <div class="kpi-label">Overall</div>
+        <div class="kpi-sub">${usedPct.toFixed(1)}% used</div>
+        <span class="kpi-status-pill status-pill ${status.cls}">${status.label}</span>
+      </div>
+    </div>
+  </div>
+  `;
+}
+
 function renderBudgetRow(item, isSub, parentId) {
   let parentName = null;
   if (isSub && parentId) {
@@ -63,31 +146,38 @@ function renderBudgetRow(item, isSub, parentId) {
   const used = calculateUsed(item.name, isSub, parentName);
   const pct = item.budget > 0 ? (used / item.budget) * 100 : (used > 0 ? 100 : 0);
   const isDanger = pct > 100;
+  const status = getStatusInfo(pct);
 
-  let toggleHtml = '';
-  if (!isSub && item.subcategories && item.subcategories.length > 0) {
-    toggleHtml = `<button class="toggle-sub ${item.expanded ? 'expanded' : ''}" data-toggle-sub="${item.id}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></button>`;
-  } else if (!isSub) {
-    toggleHtml = `<div style="width:22px;"></div>`;
-  }
+  const dragHandleSvg = `<svg class="drag-handle" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"></circle><circle cx="15" cy="6" r="1.6"></circle><circle cx="9" cy="12" r="1.6"></circle><circle cx="15" cy="12" r="1.6"></circle><circle cx="9" cy="18" r="1.6"></circle><circle cx="15" cy="18" r="1.6"></circle></svg>`;
 
   const pencilSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`;
+
+  const warnSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>`;
+
+  let chevronHtml = '';
+  if (!isSub && item.subcategories && item.subcategories.length > 0) {
+    chevronHtml = `<button class="toggle-sub ${item.expanded ? 'expanded' : ''}" data-toggle-sub="${item.id}" title="${item.expanded ? 'Collapse' : 'Expand'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>`;
+  }
 
   return `
   <div class="budget-row ${isSub ? 'is-sub' : ''}" data-id="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" ${parentId ? `data-parent-id="${parentId}"` : ''} draggable="true">
     <div class="cat-name-col">
-      ${toggleHtml}
+      ${dragHandleSvg}
       ${escapeHtml(item.name)}
     </div>
     <div class="budget-amt-col">
       ${fmtINR(item.budget)}
-      <button class="edit-budget-btn" data-edit-budget="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" ${parentId ? `data-parent-id="${parentId}"` : ''} title="Edit budget">${pencilSvg}</button>
     </div>
     <div class="budget-progress">
       <div style="text-align: right;">${fmtINR(used)} (${Math.round(pct)}%)</div>
       <div class="bp-bar"><div class="bp-fill ${isDanger ? 'danger' : ''}" style="width: ${Math.min(pct, 100)}%;"></div></div>
     </div>
+    <div class="status-col">
+      <span class="status-pill ${status.cls}">${status.cls === 'status-high' ? warnSvg : ''}${status.label}</span>
+    </div>
     <div class="actions-col">
+      ${chevronHtml}
+      <button class="edit-budget-btn" data-edit-budget="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" ${parentId ? `data-parent-id="${parentId}"` : ''} title="Edit budget">${pencilSvg}</button>
       <button class="icon-btn" data-popover-trigger data-del-budget="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" ${parentId ? `data-parent-id="${parentId}"` : ''} title="Remove">✕</button>
     </div>
   </div>
@@ -100,10 +190,13 @@ async function renderBudget() {
   let tableRows = '';
   budgetData.forEach(cat => {
     tableRows += renderBudgetRow(cat, false, null);
-    if (cat.expanded && cat.subcategories) {
-      cat.subcategories.forEach(sub => {
-        tableRows += renderBudgetRow(sub, true, cat.id);
-      });
+    if (cat.subcategories && cat.subcategories.length > 0) {
+      const subRowsHtml = cat.subcategories.map(sub => renderBudgetRow(sub, true, cat.id)).join('');
+      tableRows += `
+      <div class="subcat-wrap ${cat.expanded ? 'expanded' : ''}" data-subcat-wrap="${cat.id}">
+        <div class="subcat-inner">${subRowsHtml}</div>
+      </div>
+      `;
     }
   });
 
@@ -113,9 +206,9 @@ async function renderBudget() {
 
   const allTags = allSpendTags(DEFAULT_TAGS, customTags);
   const tagOptions = allTags.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
-  
+
   const formHtml = isFormOpen ? `
-  <div class="form-panel slide-down-fade" style="margin-top: 14px;">
+  <div class="form-panel slide-down-fade" style="margin: 14px 0px;">
     <div class="form-row">
       <div class="field">
         <label>Category (Tag)</label>
@@ -156,17 +249,20 @@ async function renderBudget() {
   </div>
 
   <div class="section">
+    ${renderSummaryCards()}
+
     <div class="pill-grid" style="margin-bottom: 16px;">
-      <button class="pill-btn ${isFormOpen ? 'active' : ''}" data-budget-form-toggle type="button">+ Add Budget</button>
+      <button class="pill-btn ${isFormOpen ? '' : 'active'}" data-budget-form-toggle type="button">+ Add Budget</button>
     </div>
     ${formHtml}
     
     <div class="budget-list">
         <div class="budget-header">
-            <div style="flex: 1;">Category</div>
+            <div>Category</div>
             <div class="b-budget-header">Budget</div>
             <div class="b-used-header">Used</div>
-            <div style="width: 30px;"></div>
+            <div class="b-status-header">Status</div>
+            <div></div>
         </div>
       ${tableRows}
     </div>
@@ -331,7 +427,16 @@ root.addEventListener('click', async (ev) => {
     if (cat) {
       cat.expanded = !cat.expanded;
       await Store.set('budget-data', budgetData);
-      await renderBudget();
+      
+      // Toggle the wrapper class for smooth animation without re-render
+      const wrapper = document.querySelector(`[data-subcat-wrap="${cat.id}"]`);
+      if (wrapper) {
+      wrapper.classList.toggle('expanded');
+      }
+      toggleSub.classList.toggle('expanded');
+
+      // Save to store in the background (fire-and-forget)
+      Store.set('budget-data', budgetData);
     }
     return;
   }
@@ -361,8 +466,10 @@ root.addEventListener('click', async (ev) => {
         </select>
         <input type="text" class="sc-name-custom" placeholder="e.g. Meat" style="display:none; margin-top: 6px; padding: 10px 12px; border: 1px solid var(--hair); border-radius: 7px; width: 100%; font-family: 'Source Serif 4', serif; font-size: 0.95rem;" />
       </div>
-      <div class="field"><label>Budget (₹)</label><input type="number" step="0.01" min="0" class="sc-budget" placeholder="0.00" /></div>
-      <button class="icon-btn" data-remove-subcat-row style="align-self: flex-end; margin-bottom: 8px;">✕</button>
+      <div style="display: flex; flex-wrap: nowrap; gap: 10px;">
+        <div class="field" style="width: 100%;"><label>Budget (₹)</label><input type="number" step="0.01" min="0" class="sc-budget" placeholder="0.00" /></div>
+        <button class="icon-btn" data-remove-subcat-row style="align-self: flex-end; margin-bottom: 8px;">✕</button>
+      </div>
     `;
     container.appendChild(row);
     return;
