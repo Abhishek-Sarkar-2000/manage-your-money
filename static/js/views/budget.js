@@ -121,6 +121,90 @@ function computeSummary() {
   return { totalBudget, totalUsed, totalRemaining, usedPct, remainingPct };
 }
 
+// Finds spend that isn't captured under any budgeted top-level category —
+// e.g. a tag the user spent against but never set a budget for. Mirrors
+// the same special-case classification calculateUsed() uses (sip/recurring/
+// emi/tag) so a transaction is never double-counted as both "used" under
+// a category AND "unbudgeted".
+function calculateUnbudgeted() {
+  if (!currentMonthEntries) return { total: 0, tags: [] };
+
+  const budgetedNames = new Set(budgetData.map(c => c.name.toLowerCase().trim()));
+  const byTag = new Map(); // key: lowercase label -> { label, amount, count }
+  let total = 0;
+
+  for (const e of currentMonthEntries) {
+    if (e.type === 'income' || e.type === 'payback') continue;
+    const amt = Number(e.amount) || 0;
+    if (amt <= 0) continue;
+
+    const eType = (e.type || '').toLowerCase();
+    const eTag = (e.tag || '').toLowerCase();
+    const eCat = (e.category || '').toLowerCase();
+
+    let key;
+    let label;
+    if (eType === 'sip' || eTag === 'sip' || eCat === 'sip') {
+      key = 'sip'; label = 'SIP';
+    } else if (eType === 'recurring' || eTag === 'recurring') {
+      key = 'recurring'; label = 'Recurring';
+    } else if (eType === 'emi' || eTag === 'emi') {
+      key = 'emi'; label = 'EMI';
+    } else if (eTag) {
+      key = eTag; label = e.tag;
+    } else if (eCat) {
+      key = eCat; label = e.category;
+    } else {
+      key = 'uncategorized'; label = 'Uncategorized';
+    }
+
+    if (budgetedNames.has(key)) continue; // already accounted for in a category's "used"
+
+    total += amt;
+    const existing = byTag.get(key);
+    if (existing) {
+      existing.amount += amt;
+      existing.count += 1;
+    } else {
+      byTag.set(key, { label: label || 'Uncategorized', amount: amt, count: 1 });
+    }
+  }
+
+  const tags = Array.from(byTag.values()).sort((a, b) => b.amount - a.amount);
+  return { total, tags };
+}
+
+function renderUnbudgetedCallout() {
+  const { total, tags } = calculateUnbudgeted();
+  if (total <= 0 || tags.length === 0) return '';
+
+  const warnSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>`;
+  const chevronSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>`;
+
+  const rows = tags.map(t => `
+    <div class="unbudgeted-row">
+      <span class="unbudgeted-row-label">${escapeHtml(t.label)}</span>
+      <span class="unbudgeted-row-meta">${t.count} ${t.count === 1 ? 'txn' : 'txns'}</span>
+      <span class="unbudgeted-row-amt">${fmtINR(t.amount)}</span>
+    </div>
+  `).join('');
+
+  return `
+  <div class="unbudgeted-callout" data-unbudgeted-callout>
+    <button class="unbudgeted-summary" data-unbudgeted-toggle type="button">
+      <span class="unbudgeted-icon">${warnSvg}</span>
+      <span class="unbudgeted-text"><strong>${fmtINR(total)}</strong> unbudgeted this month across ${tags.length} ${tags.length === 1 ? 'tag' : 'tags'}</span>
+      <span class="unbudgeted-chevron">${chevronSvg}</span>
+    </button>
+    <div class="unbudgeted-wrap" data-unbudgeted-wrap>
+      <div class="unbudgeted-inner">
+        ${rows}
+      </div>
+    </div>
+  </div>
+  `;
+}
+
 function renderSummaryCards() {
   const { totalBudget, totalUsed, totalRemaining, usedPct, remainingPct } = computeSummary();
   const status = getStatusInfo(usedPct);
@@ -324,6 +408,7 @@ async function renderBudget() {
 
   <div class="section">
     ${renderSummaryCards()}
+    ${renderUnbudgetedCallout()}
 
     <div class="pill-grid" style="margin-bottom: 16px;">
       <button class="pill-btn ${isFormOpen ? '' : 'active'}" data-budget-form-toggle type="button">+ Add Budget</button>
@@ -500,6 +585,15 @@ root.addEventListener('click', async (ev) => {
   const closeForm = ev.target.closest('[data-close-budget-form]');
   if (closeForm) { isFormOpen = false; await renderBudget(); return; }
 
+  const unbudgetedToggle = ev.target.closest('[data-unbudgeted-toggle]');
+  if (unbudgetedToggle) {
+    const callout = unbudgetedToggle.closest('[data-unbudgeted-callout]');
+    const wrap = callout ? callout.querySelector('[data-unbudgeted-wrap]') : null;
+    if (wrap) wrap.classList.toggle('expanded');
+    unbudgetedToggle.classList.toggle('expanded');
+    return;
+  }
+  
   const expandAllBtn = ev.target.closest('[data-expand-all]');
   if (expandAllBtn) {
     // Bulk version of the single toggle above: flip in-memory state and

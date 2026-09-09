@@ -39,6 +39,131 @@
   gap: 4px;
 }
 
+/* ---------- Burger Menu Layout & Animations ---------- */
+.burger-menu-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.burger-toggle-btn {
+  background: transparent;
+  border: 1px solid var(--hair);
+  border-radius: 50%;
+  color: var(--royal);
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.burger-toggle-btn:hover,
+.burger-toggle-btn[aria-expanded="true"] {
+  background: var(--ice);
+  color: var(--blue);
+}
+
+.burger-menu-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  width: 240px;
+  background: var(--paper);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  z-index: 9999; /* Always above charts and sticky headers */
+  
+  /* Entrance Animation */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-5px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.burger-menu-panel.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/* ---------- Burger Content Styling ---------- */
+.burger-menu-section-title {
+  padding: 14px 16px 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+.burger-link {
+  display: block;
+  padding: 10px 16px;
+  color: var(--navy);
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 0.95rem;
+  text-decoration: none;
+  font-weight: 500;
+  transition: background 0.15s ease, color 0.15s ease;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.burger-link:hover {
+  background: var(--ice);
+  color: var(--blue);
+}
+
+.burger-divider {
+  border: none;
+  border-top: 1px dashed var(--hair);
+  margin: 6px 0;
+}
+
+.burger-user-email {
+  padding: 0 16px 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--blue);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Responsive Theme Logic ---------- */
+/* Desktop */
+@media (min-width: 768px) {
+  .desktop-theme-grid {
+    display: inline-flex;
+  }
+  .mobile-theme-submenu {
+    display: none;
+  }
+}
+
+/* Mobile */
+@media (max-width: 767px) {
+  .desktop-theme-grid {
+    display: none; /* Hide topbar theme pills */
+  }
+  .mobile-theme-submenu {
+    display: block; /* Show them inside burger */
+  }
+  .burger-menu-panel {
+    width: 260px; /* Slightly wider on mobile to fit pills */
+  }
+}
+
 /* ---------- Burger (mobile only) ---------- */
 .burger-menu-btn {
   display: none;

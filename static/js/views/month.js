@@ -1202,7 +1202,7 @@ async function renderMonth() {
     const tableColgroupHtml = `
       <colgroup>
         <col style="width: 110px;">
-        <col style="width: 160px;">
+        <col style="width: 120px;">
         <col style="width: auto;">
         <col style="width: 155px;">
         <col style="width: 72px;">
