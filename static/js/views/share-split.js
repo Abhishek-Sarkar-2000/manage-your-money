@@ -39,26 +39,33 @@ function initPublicThemeSelector() {
 
       syncActiveStates();
       
-      const profileMenu = document.getElementById('profile-menu');
-      const burgerBtn = document.getElementById('burger-menu-btn');
-      if (profileMenu) profileMenu.classList.remove('show');
+      const burgerPanel = document.getElementById('burger-menu-panel');
+      const burgerBtn = document.getElementById('burger-toggle-btn');
+      if (burgerPanel) burgerPanel.classList.remove('open');
       if (burgerBtn) burgerBtn.setAttribute('aria-expanded', 'false');
       return;
     }
 
-    const burgerBtn = ev.target.closest('#burger-menu-btn');
-    const profileMenu = document.getElementById('profile-menu');
+    const burgerBtn = ev.target.closest('#burger-toggle-btn');
+    const burgerPanel = document.getElementById('burger-menu-panel');
+    const burgerWrap = document.getElementById('burger-menu-wrap');
     
-    if (burgerBtn && profileMenu) {
-      const willOpen = !profileMenu.classList.contains('show');
-      profileMenu.classList.toggle('show', willOpen);
+    if (burgerBtn && burgerPanel) {
+      const willOpen = !burgerPanel.classList.contains('open');
+      burgerPanel.classList.toggle('open', willOpen);
       burgerBtn.setAttribute('aria-expanded', String(willOpen));
       return;
     }
 
-    if (profileMenu && profileMenu.classList.contains('show') && !ev.target.closest('.auth-controls')) {
-      profileMenu.classList.remove('show');
-      const bBtn = document.getElementById('burger-menu-btn');
+    if (burgerPanel && burgerPanel.classList.contains('open') && (!burgerWrap || !burgerWrap.contains(ev.target))) {
+      burgerPanel.classList.remove('open');
+      const bBtn = document.getElementById('burger-toggle-btn');
+      if (bBtn) bBtn.setAttribute('aria-expanded', 'false');
+    }
+    
+    if (burgerPanel && (ev.target.closest('.burger-link') || ev.target.closest('.theme-opt'))) {
+      burgerPanel.classList.remove('open');
+      const bBtn = document.getElementById('burger-toggle-btn');
       if (bBtn) bBtn.setAttribute('aria-expanded', 'false');
     }
   });

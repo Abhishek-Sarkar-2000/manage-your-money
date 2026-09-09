@@ -47,45 +47,52 @@
       <a class="brand" href="/home"><span class="mark"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><rect x="6" y="6" width="4" height="4" rx="1"></rect><path d="M12 6h4a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-4V6z"></path><path d="M6 12v5a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-7v-2H6z"></path></svg></span><span id="brand-name">LedgerNote</span></a>
       {% block auth_bar %}
       <div id="auth-bar" class="auth-bar">
-        <div id="theme-selector" class="range-toggle">
-          <button class="range-btn" data-theme-btn="default" type="button">Default</button>
+        <!-- Desktop Theme Pill Grid -->
+        <div id="desktop-theme-selector" class="range-toggle desktop-theme-grid">
+          <button class="range-btn" data-theme-btn="default" type="button">Light</button>
           <button class="range-btn" data-theme-btn="hi-contrast" type="button">Hi-Contrast</button>
           <button class="range-btn" data-theme-btn="dark" type="button">Dark</button>
         </div>
 
-        <div id="auth-controls" class="auth-controls">
-          <button id="burger-menu-btn" class="burger-menu-btn" type="button"
-                  aria-haspopup="true" aria-expanded="false" aria-label="Theme options">
-            <span class="burger-line"></span><span class="burger-line"></span><span class="burger-line"></span>
+        <!-- Burger Menu Wrapper -->
+        <div class="burger-menu-wrap" id="burger-menu-wrap">
+          <button class="burger-toggle-btn" id="burger-toggle-btn" type="button" aria-label="Menu" aria-expanded="false">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
           </button>
 
-          <div id="google-signin-btn" class="google-signin-btn"></div>
-          
-          <button id="mobile-login-btn" class="profile-badge-btn" style="display: none; padding: 4px 6px 4px 4px;" type="button" aria-label="Sign in" title="Sign in">
-            <div class="profile-avatar" style="display: flex; align-items: center; justify-content: center; color: var(--muted); background: var(--ice-2);">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-            </div>
-          </button>
+          <!-- Dropdown Panel -->
+          <div class="burger-menu-panel" id="burger-menu-panel">
+            <!-- Navigation -->
+            <div class="burger-menu-section-title">MONEY MATTERS</div>
+            <a href="/home" class="burger-link">Dashboard</a>
+            <a href="/months" class="burger-link">Previous Months</a>
+            <a href="/budget" class="burger-link">Budget</a>
+            <a href="/split" class="burger-link">Split Money</a>
+            <a href="/sips" class="burger-link">SIPs</a>
+            <a href="/subscriptions" class="burger-link">Subscriptions</a>
+            <a href="/cards" class="burger-link">Credit Cards</a>
+            <a href="/pricetrack" class="burger-link">Price Tracker</a>
 
-          <div id="profile-badge" class="profile-badge" hidden>
-            <button id="profile-badge-btn" class="profile-badge-btn" type="button" aria-haspopup="true" aria-expanded="false">
-              <img id="profile-avatar" class="profile-avatar" alt="" referrerpolicy="no-referrer"/>
-              <span id="profile-name" class="profile-name"></span>
-            </button>
-          </div>
-
-          <!-- Unified Dropdown Menu -->
-          <div id="profile-menu" class="profile-menu" role="menu">
-            <div class="mobile-theme-group">
-              <div class="pm-group-label">Theme <span style="font-size: 0.55rem; margin-top: 3px;">▾</span></div>
-              <button class="profile-menu-item theme-opt" data-theme-btn="default" type="button">Light</button>
-              <button class="profile-menu-item theme-opt" data-theme-btn="hi-contrast" type="button">Hi-contrast</button>
-              <button class="profile-menu-item theme-opt" data-theme-btn="dark" type="button">Dark</button>
-              <div class="pm-divider" id="pm-theme-divider"></div>
+            <!-- Mobile Theme Sub-menu -->
+            <div class="mobile-theme-submenu">
+              <hr class="burger-divider">
+              <div class="burger-menu-section-title">THEME</div>
+              <button class="burger-link theme-opt" data-theme-btn="default" type="button" style="position: relative;">Light</button>
+              <button class="burger-link theme-opt" data-theme-btn="hi-contrast" type="button" style="position: relative;">Hi-Contrast</button>
+              <button class="burger-link theme-opt" data-theme-btn="dark" type="button" style="position: relative;">Dark</button>
             </div>
-            <div id="profile-menu-email" class="profile-menu-email"></div>
-            <button id="profile-signin-btn" class="profile-menu-item" type="button" role="menuitem" style="display: none;">Sign in</button>
-            <button id="profile-signout-btn" class="profile-menu-item" type="button" role="menuitem">Sign out</button>
+
+            <hr class="burger-divider">
+
+            <!-- Auth Section -->
+            <div class="burger-menu-section-title">ACCOUNT</div>
+            <div id="burger-user-email" class="burger-user-email" style="display: none;"></div>
+            <div id="google-signin-btn" class="google-signin-btn"></div>
+            <button id="profile-signout-btn" class="burger-link auth-link" type="button" style="display: none;">Sign out</button>
           </div>
         </div>
       </div>

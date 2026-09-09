@@ -208,15 +208,9 @@ export function mountHeroGoogleButton(heroSlot) {
 
 function updateProfileBadge() {
   const signinEl = document.getElementById('google-signin-btn');
-  const badgeEl = document.getElementById('profile-badge');
-  const menuEl = document.getElementById('profile-menu');
-  const brandNameEl = document.getElementById('brand-name');
-  if (!signinEl || !badgeEl) return;
-
-  const burgerBtn = document.getElementById('burger-menu-btn');
-  const emailEl = document.getElementById('profile-menu-email');
   const signoutBtn = document.getElementById('profile-signout-btn');
-  const themeDivider = document.getElementById('pm-theme-divider');
+  const emailEl = document.getElementById('burger-user-email');
+  const brandNameEl = document.getElementById('brand-name');
 
   if (currentUser) {
     if (brandNameEl) {
@@ -228,94 +222,50 @@ function updateProfileBadge() {
         brandNameEl.textContent = 'LedgerNote';
       }
     }
-    const isMobile = window.matchMedia('(max-width: 639px)').matches;
-    const mobileLoginBtn = document.getElementById('mobile-login-btn');
-    if (isMobile) {
-      signinEl.style.display = 'none';
-      if (mobileLoginBtn) mobileLoginBtn.style.display = 'none';
-    } else {
-      signinEl.hidden = true;
-      signinEl.style.display = 'none';
-    }
-    badgeEl.hidden = false;
-    if (burgerBtn) burgerBtn.hidden = false;
-    if (emailEl) emailEl.style.display = 'block';
+    if (signinEl) signinEl.style.display = 'none';
     if (signoutBtn) signoutBtn.style.display = 'block';
-    const signinBtn = document.getElementById('profile-signin-btn');
-    if (signinBtn) signinBtn.style.display = 'none';
-    if (themeDivider) themeDivider.style.display = 'block';
-    const avatar = document.getElementById('profile-avatar');
-    if (avatar) {
-      avatar.onerror = () => { avatar.style.display = 'none'; };
-      avatar.style.visibility = 'visible';
-      if (currentUser.picture) {
-        avatar.style.display = '';
-        avatar.src = currentUser.picture;
-      } else {
-        avatar.style.display = 'none';
-      }
-      avatar.alt = currentUser.name || '';
+    if (emailEl) {
+      emailEl.style.display = 'block';
+      emailEl.textContent = currentUser.email || '';
     }
-    if (emailEl) emailEl.textContent = currentUser.email || '';
   } else {
     if (brandNameEl) {
       brandNameEl.textContent = 'LedgerNote';
     }
-    const isMobile = window.matchMedia('(max-width: 639px)').matches;
-    const mobileLoginBtn = document.getElementById('mobile-login-btn');
-    if (isMobile) {
-      signinEl.style.display = 'none';
-      if (mobileLoginBtn) mobileLoginBtn.style.display = 'flex';
-    } else {
-      signinEl.hidden = false;
-      signinEl.style.display = 'inline-block';
-      if (mobileLoginBtn) mobileLoginBtn.style.display = 'none';
-    }
-    badgeEl.hidden = true;
-    if (burgerBtn) burgerBtn.hidden = false;
-    if (emailEl) emailEl.style.display = 'none';
+    if (signinEl) signinEl.style.display = 'block';
     if (signoutBtn) signoutBtn.style.display = 'none';
-    const signinBtn = document.getElementById('profile-signin-btn');
-    if (signinBtn) signinBtn.style.display = 'block';
-    if (themeDivider) themeDivider.style.display = 'none';
-    if (menuEl) menuEl.classList.remove('show');
+    if (emailEl) emailEl.style.display = 'none';
   }
 }
 
-function wireAuthBar() {
-  const badgeBtn = document.getElementById('profile-badge-btn');
-  const burgerBtn = document.getElementById('burger-menu-btn');
-  const menuEl = document.getElementById('profile-menu');
+function wireBurgerMenu() {
+  const burgerBtn = document.getElementById('burger-toggle-btn');
+  const burgerPanel = document.getElementById('burger-menu-panel');
+  const burgerWrap = document.getElementById('burger-menu-wrap');
   const signoutBtn = document.getElementById('profile-signout-btn');
-  const signinBtn = document.getElementById('profile-signin-btn');
-  const mobileLoginBtn = document.getElementById('mobile-login-btn');
+  
+  if (!burgerBtn || !burgerPanel) return;
 
-  if (signinBtn) {
-    signinBtn.addEventListener('click', () => {
-      window.location.href = '/home';
-    });
-  }
+  // 1. Toggle Logic
+  burgerBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = burgerPanel.classList.toggle('open');
+    burgerBtn.setAttribute('aria-expanded', String(isOpen));
+  });
 
-  const toggleMenu = (ev) => {
-    ev.stopPropagation();
-    if (!menuEl) return;
-    const willOpen = !menuEl.classList.contains('show');
-    menuEl.classList.toggle('show', willOpen);
-    if (badgeBtn) badgeBtn.setAttribute('aria-expanded', String(willOpen));
-    if (burgerBtn) burgerBtn.setAttribute('aria-expanded', String(willOpen));
-    if (mobileLoginBtn) mobileLoginBtn.setAttribute('aria-expanded', String(willOpen));
-  };
+  // 2. Click-Outside to Close
+  document.addEventListener('click', (e) => {
+    if (burgerPanel.classList.contains('open') && (!burgerWrap || !burgerWrap.contains(e.target))) {
+      burgerPanel.classList.remove('open');
+      burgerBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
 
-  if (badgeBtn) badgeBtn.addEventListener('click', toggleMenu);
-  if (burgerBtn) burgerBtn.addEventListener('click', toggleMenu);
-  if (mobileLoginBtn) mobileLoginBtn.addEventListener('click', toggleMenu);
-
-  document.addEventListener('click', (ev) => {
-    const authControls = document.getElementById('auth-controls');
-    if (authControls && !authControls.contains(ev.target)) {
-      if (menuEl) menuEl.classList.remove('show');
-      if (badgeBtn) badgeBtn.setAttribute('aria-expanded', 'false');
-      if (burgerBtn) burgerBtn.setAttribute('aria-expanded', 'false');
+  // 3. Link Click to Close
+  burgerPanel.addEventListener('click', (e) => {
+    if (e.target.closest('.burger-link') || e.target.closest('.theme-opt')) {
+      burgerPanel.classList.remove('open');
+      burgerBtn.setAttribute('aria-expanded', 'false');
     }
   });
 
@@ -325,11 +275,10 @@ function wireAuthBar() {
 }
 
 function initThemeSelector() {
-  const allThemeBtns = () => document.querySelectorAll('[data-theme-btn]');
-
+  // Sync UI active states for BOTH the desktop topbar AND the mobile submenu
   function syncActiveStates() {
     const theme = localStorage.getItem('ledger-theme') || 'default';
-    allThemeBtns().forEach(btn => {
+    document.querySelectorAll('[data-theme-btn]').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.themeBtn === theme);
     });
   }
@@ -345,15 +294,8 @@ function initThemeSelector() {
       const meta = document.querySelector('meta[name="theme-color"]');
       if (meta) meta.content = themeColors[theme] || '#FCFDFF';
 
+      // Re-sync all buttons so the desktop pill and mobile burger pill stay identical
       syncActiveStates();
-      
-      const profileMenu = document.getElementById('profile-menu');
-      const profileBtn = document.getElementById('profile-badge-btn');
-      const burgerBtn = document.getElementById('burger-menu-btn');
-      
-      if (profileMenu) profileMenu.classList.remove('show');
-      if (profileBtn) profileBtn.setAttribute('aria-expanded', 'false');
-      if (burgerBtn) burgerBtn.setAttribute('aria-expanded', 'false');
     }
   });
 
@@ -367,4 +309,4 @@ window.addEventListener('auth:required', () => {
 });
 
 initThemeSelector();
-wireAuthBar();
+wireBurgerMenu();

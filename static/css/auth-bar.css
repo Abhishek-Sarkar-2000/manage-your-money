@@ -25,20 +25,6 @@
   display: none !important;
 }
 
-/* ---------- Universal theme selector (>=640px: inline pill) ---------- */
-#theme-selector.range-toggle {
-  display: inline-flex;
-}
-
-/* ---------- Sign-in / profile cluster ---------- */
-.auth-controls {
-  position: relative;
-  display: flex;
-  align-items: center;
-  padding-left: 4px;
-  gap: 4px;
-}
-
 /* ---------- Burger Menu Layout & Animations ---------- */
 .burger-menu-wrap {
   position: relative;
@@ -48,7 +34,7 @@
 
 .burger-toggle-btn {
   background: transparent;
-  border: 1px solid var(--hair);
+  border: 1px solid transparent;
   border-radius: 50%;
   color: var(--royal);
   width: 38px;
@@ -57,12 +43,13 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .burger-toggle-btn:hover,
 .burger-toggle-btn[aria-expanded="true"] {
   background: var(--ice);
+  border-color: var(--hair);
   color: var(--blue);
 }
 
@@ -130,6 +117,10 @@
   margin: 6px 0;
 }
 
+:root[data-theme="dark"] .burger-divider {
+  border-top-color: var(--sky);
+}
+
 .burger-user-email {
   padding: 0 16px 8px;
   font-family: 'IBM Plex Mono', monospace;
@@ -141,215 +132,25 @@
 }
 
 /* ---------- Responsive Theme Logic ---------- */
-/* Desktop */
-@media (min-width: 768px) {
-  .desktop-theme-grid {
-    display: inline-flex;
-  }
-  .mobile-theme-submenu {
-    display: none;
-  }
+#desktop-theme-selector.desktop-theme-grid {
+  display: inline-flex;
 }
 
-/* Mobile */
+.mobile-theme-submenu {
+  display: none;
+}
+
 @media (max-width: 767px) {
+  #desktop-theme-selector,
+  #desktop-theme-selector.range-toggle,
   .desktop-theme-grid {
-    display: none; /* Hide topbar theme pills */
+    display: none !important;
   }
   .mobile-theme-submenu {
-    display: block; /* Show them inside burger */
-  }
-  .burger-menu-panel {
-    width: 260px; /* Slightly wider on mobile to fit pills */
-  }
-}
-
-/* ---------- Burger (mobile only) ---------- */
-.burger-menu-btn {
-  display: none;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 4px;
-  width: 30px;
-  height: 30px;
-  padding-left: 16px;
-  border: none;
-  background: transparent;
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-.burger-line {
-  width: 16px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--royal);
-}
-
-@media (max-width: 639px) {
-  #theme-selector.range-toggle {
-    display: none;                 /* collapses into the burger panel */
-  }
-  .burger-menu-btn {
-    display: flex;
-  }
-  /* Combined pill: burger + signin/profile share ONE border, matching
-     the google-signin-btn's own outline weight/radius. */
-  .auth-controls {
-    border: 1px solid var(--hair);
-    border-radius: 999px;
-    background: var(--paper);
-  }
-}
-
-/* Keep the corner controls truly hidden regardless of rule order —
-   equal-specificity [hidden] vs our display rules below would otherwise
-   depend on source order. */
-.google-signin-btn[hidden],
-.profile-badge[hidden] {
-  display: none !important;
-}
-
-
-/* ---------- Profile badge (signed-in state) ---------- */
-.profile-badge {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.profile-badge-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid transparent;
-  background: transparent;
-  padding: 4px;
-  cursor: pointer;
-  font-family: 'Source Serif 4', serif;
-  color: var(--royal);
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.profile-badge-btn:hover,
-.profile-badge-btn[aria-expanded="true"] {
-  background: var(--ice);
-  border-color: var(--hair);
-  border-radius: 999px;
-}
-
-.profile-avatar {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: var(--ice-2);
-  border: 1px solid var(--hair);
-  display: block;
-}
-
-.profile-name {
-  display: none;
-}
-
-.profile-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  min-width: 200px;
-  background: var(--paper);
-  border: 1px solid var(--hair);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow);
-  padding: 6px;
-  
-  visibility: hidden;
-  opacity: 0;
-  transform: translateY(-8px);
-  transition: opacity 0.15s ease, visibility 0.15s ease, transform 0.15s ease;
-}
-
-.profile-menu.show {
-  visibility: visible;
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.profile-menu-email {
-  padding: 8px 10px 6px;
-  font-size: 0.78rem;
-  color: var(--muted);
-  border-bottom: 1px solid var(--hair);
-  margin-bottom: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.profile-menu-item {
-  width: 100%;
-  text-align: left;
-  border: none;
-  background: transparent;
-  padding: 7px 10px;
-  border-radius: var(--radius-sm);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--ink);
-  cursor: pointer;
-  transition: background 0.15s ease;
-  position: relative;
-}
-
-.profile-menu-item:hover {
-  background: var(--ice-2);
-}
-
-.mobile-theme-group {
-  display: none;
-}
-
-.pm-group-label {
-  padding: 8px 10px 4px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.75rem;
-  color: var(--muted);
-  display: flex;
-  justify-content: space-between;
-}
-
-.pm-divider {
-  height: 1px;
-  background: var(--hair);
-  margin: 4px 0;
-}
-
-.theme-opt {
-  padding-left: 24px;
-  font-weight: 500;
-}
-
-.theme-opt.active {
-  color: var(--blue);
-}
-
-.theme-opt.active::before {
-  content: '✓';
-  position: absolute;
-  left: 8px;
-}
-
-@media (max-width: 639px) {
-  .mobile-theme-group {
     display: block;
   }
-}
-
-@media (max-width: 480px) {
-  .profile-badge-btn {
-    padding: 4px;
+  .burger-menu-panel {
+    width: 260px;
   }
 }
 
