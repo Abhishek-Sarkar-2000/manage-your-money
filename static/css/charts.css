@@ -59,6 +59,10 @@
   gap: 2px;
 }
 
+:root[data-theme="dark"] .range-toggle {
+  background: var(--paper);
+}
+
 .range-btn {
   border: none;
   background: transparent;
@@ -266,6 +270,10 @@
 }
 
 @media (max-width: 480px) {
+  .range-btn {
+    font-size: 0.62rem;
+    padding: 5px 7px;
+  }
   .donut {
     width: 120px;
     height: 120px;

@@ -4,7 +4,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/views/budget.css') }}?v={{ static_version }}" />
 {% endblock %}
 {% block content %}
-  <div id="budget-root" class="budget-view" data-loading="true"></div>
+  <div id="budget-root" class="budget-view" data-loading="true" {% if month_key %}data-month-key="{{ month_key }}"{% endif %}></div>
 {% endblock %}
 {% block page_script %}
   <script type="module" src="{{ url_for('static', filename='js/views/budget.js') }}"></script>

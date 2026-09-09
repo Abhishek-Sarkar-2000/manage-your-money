@@ -206,6 +206,12 @@ def pricetrack_view():
 def budget_view():
     return render_template("budget.html", **_shell_context("budget"))
 
+@app.route("/budget/<month_key>")
+def budget_month_view(month_key):
+    if not re.match(r"^\d{4}-\d{2}$", month_key):
+        return redirect(url_for("budget_view"))
+    return render_template("budget.html", month_key=month_key, **_shell_context("budget"))
+
 @app.route("/share/split/<share_id>")
 def public_split_page(share_id):
     return render_template(

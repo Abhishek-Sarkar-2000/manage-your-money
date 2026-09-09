@@ -201,10 +201,10 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
 
   let tagHtml = '';
   if (e.tag) {
-    tagHtml = ` <span class="src-badge">${escapeHtml(e.tag)}</span>`;
+    tagHtml = ` <button class="src-badge" data-view-budget="${escapeHtml(e.tag)}" title="View in Budget" style="border:none; cursor:pointer;">${escapeHtml(e.tag)}</button>`;
   }
   if (e.subCategory) {
-    tagHtml += ` <span class="src-badge subcat">${escapeHtml(e.subCategory)}</span>`;
+    tagHtml += ` <button class="src-badge subcat" data-view-budget="${escapeHtml(e.subCategory)}" title="View in Budget" style="border:none; cursor:pointer;">${escapeHtml(e.subCategory)}</button>`;
   }
 
   if (e.type === 'spend') {
@@ -1022,6 +1022,20 @@ async function renderMonth() {
     await ensureMonthIndexed(monthKey, monthsIndex);
     const data = await loadMonth(monthKey);
 
+    // Deep link from Budget -> Month
+    let scrollToTransactions = false;
+    const savedFilter = sessionStorage.getItem('budget-to-month-filter');
+    if (savedFilter) {
+      try {
+        const { tag, monthKey: savedMonthKey } = JSON.parse(savedFilter);
+        if (savedMonthKey === monthKey && !activeTagFilters.includes(tag)) {
+          activeTagFilters.push(tag);
+          scrollToTransactions = true;
+        }
+      } catch(e) {}
+      sessionStorage.removeItem('budget-to-month-filter');
+    }
+
     if (!data._touched) {
       const prevKey = addMonths(monthKey, -1);
       data.startingBalanceMode = monthsIndex.includes(prevKey) ? 'auto' : 'manual';
@@ -1094,7 +1108,13 @@ async function renderMonth() {
 
       const tagPass =
         activeTagFilters.length === 0 ||
-        activeTagFilters.includes(getTableTagLabel(e));
+        activeTagFilters.some(t => {
+            const tl = t.toLowerCase();
+            if (tl === 'sip' && e.type === 'sip') return true;
+            if (tl === 'recurring' && e.type === 'recurring') return true;
+            if (tl === 'emi' && e.type === 'emi') return true;
+            return (getTableTagLabel(e).toLowerCase() === tl) || ((e.subCategory || '').toLowerCase() === tl);
+        });
 
       return typePass && tagPass;
     });
@@ -1718,6 +1738,17 @@ async function renderMonth() {
         headerWrapEl.scrollLeft = tableWrapEl.scrollLeft;
       }, { passive: true });
     }
+
+    if (scrollToTransactions) {
+      setTimeout(() => {
+        const txns = root.querySelector('.transactions-container');
+        if (txns) {
+          const yOffset = -70;
+          const y = txns.getBoundingClientRect().top + window.scrollY + yOffset;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        }
+      }, 100);
+    }
   } catch (err) {
     showToast("Oops! We had trouble securely grabbing this month's numbers. Please refresh the page.");
     
@@ -1906,6 +1937,14 @@ function distributeLentShares(amount) {
 
 /* ---------- Event wiring ---------- */
 root.addEventListener('click', async (ev) => {
+  const viewBudgetBtn = ev.target.closest('[data-view-budget]');
+  if (viewBudgetBtn) {
+      const tagName = viewBudgetBtn.dataset.viewBudget;
+      sessionStorage.setItem('month-to-budget-open', JSON.stringify({ tagName, monthKey }));
+      window.location.href = `/budget/${monthKey}`;
+      return;
+  }
+
   const removeTableFilter = ev.target.closest('[data-remove-table-filter]');
 
   if (removeTableFilter) {

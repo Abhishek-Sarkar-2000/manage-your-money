@@ -1,7 +1,7 @@
 /* ---------- /budget ---------- */
 import { Store } from '../core/store.js';
 import { $, $$, uid, escapeHtml } from '../core/dom.js';
-import { fmtINR, currentMonthKey } from '../core/format.js';
+import { fmtINR, currentMonthKey, addMonths, monthKeyLabel } from '../core/format.js';
 import { authReady } from '../core/auth.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
@@ -25,6 +25,9 @@ let domainLoaded = false;
 let isFormOpen = false;
 let monthEntries = [];
 let draggedItem = null;
+
+let currentKey = currentMonthKey();
+let isPastMonth = false;
 
 async function loadDomain() {
   if (domainLoaded) return;
@@ -186,6 +189,9 @@ function renderUnbudgetedCallout() {
       <span class="unbudgeted-row-label">${escapeHtml(t.label)}</span>
       <span class="unbudgeted-row-meta">${t.count} ${t.count === 1 ? 'txn' : 'txns'}</span>
       <span class="unbudgeted-row-amt">${fmtINR(t.amount)}</span>
+      <button class="icon-btn" data-view-txns="${escapeHtml(t.label)}" title="View transactions" style="margin-left: 6px; padding: 2px;">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+      </button>
     </div>
   `).join('');
 
@@ -279,14 +285,24 @@ function renderBudgetRow(item, isSub, parentId) {
   const pencilSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`;
 
   const warnSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>`;
+  const eyeSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+  const dotsSvg = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="12" cy="12" r="2"></circle><circle cx="12" cy="5" r="2"></circle><circle cx="12" cy="19" r="2"></circle></svg>`;
 
   let chevronHtml = '';
   if (!isSub && item.subcategories && item.subcategories.length > 0) {
     chevronHtml = `<button class="toggle-sub ${item.expanded ? 'expanded' : ''}" data-toggle-sub="${item.id}" title="${item.expanded ? 'Collapse' : 'Expand'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>`;
   }
 
+  let actionsContent = '';
+  if (!isPastMonth) {
+    actionsContent = `
+      <button class="edit-budget-btn" data-edit-budget="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" ${parentId ? `data-parent-id="${parentId}"` : ''} title="Edit budget">${pencilSvg}</button>
+      <button class="icon-btn" data-popover-trigger data-del-budget="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" ${parentId ? `data-parent-id="${parentId}"` : ''} title="Remove">✕</button>
+    `;
+  }
+
   return `
-  <div class="budget-row ${isSub ? 'is-sub' : ''}" data-id="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" ${parentId ? `data-parent-id="${parentId}"` : ''} draggable="true">
+  <div class="budget-row ${isSub ? 'is-sub' : ''}" data-id="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" ${parentId ? `data-parent-id="${parentId}"` : ''} draggable="${!isPastMonth}">
     <div class="cat-name-col">
       <div class="drag-circle">${dragHandleSvg}</div>
       ${escapeHtml(item.name)}
@@ -303,8 +319,11 @@ function renderBudgetRow(item, isSub, parentId) {
     </div>
     <div class="actions-col">
       ${chevronHtml}
-      <button class="edit-budget-btn" data-edit-budget="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" ${parentId ? `data-parent-id="${parentId}"` : ''} title="Edit budget">${pencilSvg}</button>
-      <button class="icon-btn" data-popover-trigger data-del-budget="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" ${parentId ? `data-parent-id="${parentId}"` : ''} title="Remove">✕</button>
+      <div class="row-actions-menu">
+        <button class="icon-btn" data-view-txns="${escapeHtml(item.name)}" title="View transactions">${eyeSvg}</button>
+        ${actionsContent}
+      </div>
+      <button class="icon-btn mobile-actions-toggle" data-toggle-row-actions title="Actions">${dotsSvg}</button>
     </div>
   </div>
   `;
@@ -313,7 +332,30 @@ function renderBudgetRow(item, isSub, parentId) {
 async function renderBudget() {
   await loadDomain();
 
-  const currentKey = currentMonthKey();
+  currentKey = root.dataset.monthKey || currentMonthKey();
+  isPastMonth = currentKey < currentMonthKey();
+
+  // Handle deep link from Month -> Budget
+  const openReq = sessionStorage.getItem('month-to-budget-open');
+  let scrollTargetId = null;
+  if (openReq) {
+    try {
+      const { tagName, monthKey: reqMk } = JSON.parse(openReq);
+      if (reqMk === currentKey) {
+        const targetLower = tagName.toLowerCase();
+        for (const cat of budgetData) {
+          if (cat.name.toLowerCase() === targetLower) { scrollTargetId = cat.id; break; }
+          const sub = (cat.subcategories || []).find(s => s.name.toLowerCase() === targetLower);
+          if (sub) { scrollTargetId = sub.id; cat.expanded = true; break; } // auto-expand parent
+        }
+        if (!scrollTargetId) {
+          setTimeout(() => showToast(`No budget set for '${escapeHtml(tagName)}' yet`), 500);
+        }
+      }
+    } catch(e) {}
+    sessionStorage.removeItem('month-to-budget-open');
+  }
+
   const [monthData, freshEmi, freshSip, freshRec] = await Promise.all([
     loadMonth(currentKey),
     Store.get('emiseries', []),
@@ -402,7 +444,14 @@ async function renderBudget() {
   markRendered(root);
   root.innerHTML = `
   <div class="section">
-    <div class="month-header"><h1>Budget</h1></div>
+    <div class="month-header" style="display: flex; justify-content: space-between; gap: 24px;">
+      <h1>Budget</h1>
+      <div class="range-toggle" style="align-self: center;">
+        <a href="/budget/${addMonths(currentKey, -1)}" class="range-btn" style="text-decoration:none;">◀</a>
+        <span class="range-btn active" style="cursor:default;">${monthKeyLabel(currentKey)}</span>
+        <a href="/budget/${addMonths(currentKey, 1)}" class="range-btn" style="text-decoration:none;">▶</a>
+      </div>
+    </div>
     <p style="color:var(--muted); max-width:56ch; margin-top:6px;">Set monthly goals for your tags and track your personal spending. Drag and drop rows to reorder.</p>
   </div>
 
@@ -411,14 +460,14 @@ async function renderBudget() {
     ${renderUnbudgetedCallout()}
 
     <div class="pill-grid" style="margin-bottom: 16px;">
-      <button class="pill-btn ${isFormOpen ? '' : 'active'}" data-budget-form-toggle type="button">+ Add Budget</button>
+      ${!isPastMonth ? `<button class="pill-btn ${isFormOpen ? '' : 'active'}" data-budget-form-toggle type="button">+ Add Budget</button>` : ''}
       ${catsWithSubs.length > 0 ? `
       <button class="pill-btn expand-all-btn ${allExpanded ? 'expanded' : ''}" data-expand-all type="button">
         <svg class="expand-all-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
         <span data-expand-all-label>${allExpanded ? 'Collapse All' : 'Expand All'}</span>
       </button>` : ''}
     </div>
-    ${formHtml}
+    ${!isPastMonth ? formHtml : ''}
     
     <div class="budget-list">
         <div class="budget-header">
@@ -434,10 +483,23 @@ async function renderBudget() {
   `;
 
   appendPageChrome(root);
+
+  if (scrollTargetId) {
+    setTimeout(() => {
+      const targetRow = document.querySelector(`.budget-row[data-id="${scrollTargetId}"]`);
+      if (targetRow) {
+        targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        targetRow.style.transition = 'background 0.5s ease';
+        targetRow.style.background = 'var(--ice)';
+        setTimeout(() => targetRow.style.background = '', 1500);
+      }
+    }, 100);
+  }
 }
 
 // Drag & Drop Handlers
 root.addEventListener('dragstart', (ev) => {
+  if (isPastMonth) return;
   const row = ev.target.closest('.budget-row');
   if (!row) return;
   draggedItem = {
@@ -460,6 +522,7 @@ root.addEventListener('dragend', (ev) => {
 });
 
 root.addEventListener('dragover', (ev) => {
+  if (isPastMonth) return;
   ev.preventDefault();
   const row = ev.target.closest('.budget-row');
   if (!row) return;
@@ -512,6 +575,7 @@ root.addEventListener('dragend', (ev) => {
 });
 
 root.addEventListener('drop', async (ev) => {
+  if (isPastMonth) return;
   ev.preventDefault();
   const row = ev.target.closest('.budget-row');
   if (!row || !draggedItem) return;
@@ -579,6 +643,28 @@ root.addEventListener('drop', async (ev) => {
 
 // Click Handlers
 root.addEventListener('click', async (ev) => {
+  const toggleRowActions = ev.target.closest('[data-toggle-row-actions]');
+  if (toggleRowActions) {
+    const row = toggleRowActions.closest('.budget-row');
+    const wasOpen = row.classList.contains('show-actions');
+    document.querySelectorAll('.budget-row.show-actions').forEach(r => r.classList.remove('show-actions'));
+    if (!wasOpen) row.classList.add('show-actions');
+    ev.stopPropagation();
+    return;
+  }
+
+  if (!ev.target.closest('.actions-col')) {
+    document.querySelectorAll('.budget-row.show-actions').forEach(r => r.classList.remove('show-actions'));
+  }
+
+  const viewTxnsBtn = ev.target.closest('[data-view-txns]');
+  if (viewTxnsBtn) {
+    const tag = viewTxnsBtn.dataset.viewTxns;
+    sessionStorage.setItem('budget-to-month-filter', JSON.stringify({ tag, monthKey: currentKey }));
+    window.location.href = `/month/${currentKey}`;
+    return;
+  }
+
   const formToggle = ev.target.closest('[data-budget-form-toggle]');
   if (formToggle) { isFormOpen = !isFormOpen; await renderBudget(); return; }
   
