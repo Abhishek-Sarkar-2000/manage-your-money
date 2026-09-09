@@ -16,13 +16,15 @@
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  background: var(--paper);
+  background: linear-gradient(155deg, #fff, var(--ice));
   border: 1px solid var(--hair);
-  border-radius: var(--radius-sm);
+  border-radius: 12px;
 }
 
 :root[data-theme="dark"] .kpi-card {
-  background: var(--ice-2);
+  background: linear-gradient(135deg, var(--hair) 0%, var(--ice-2) 100%);
+  color: var(--navy);
+  border-color: var(--sky);
 }
 
 :root[data-theme="hi-contrast"] .kpi-card {
@@ -38,12 +40,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-left: 2px;
   background: var(--ice);
   color: var(--blue);
 }
 
 :root[data-theme="dark"] .kpi-icon {
-  background: var(--hair);
+  background: var(--royal-bg);
 }
 
 .kpi-body {
@@ -242,17 +245,42 @@
   width: calc(100% - 32px);
   margin-left: 32px;
   grid-template-columns: minmax(68px, 288px) minmax(90px, 1fr) minmax(140px, 1.5fr) 110px 70px;
+  background: #fff;
+  position: relative;
+  z-index: 1;
+}
+
+.budget-row.is-sub:hover {
+  background: var(--ice-2);
+}
+
+:root[data-theme="dark"] .budget-row.is-sub {
+  background: var(--ice-2);
+  border-color: var(--sky);
+}
+
+:root[data-theme="dark"] .budget-row.is-sub:hover {
+  background: var(--hair);
 }
 
 /* ---------- Subcategory slide-down wrapper ---------- */
 .subcat-wrap {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 0.25s ease;
+  /* Cancel the flex `gap` on .budget-list while collapsed, so a category
+     WITH subcategories has the same row-to-row spacing as a category
+     WITHOUT any (otherwise the collapsed wrap still consumes an extra
+     gap on both sides of it). Animates back to 0 on expand, in sync
+     with the height transition. */
+  margin-top: -6px;
+  transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              margin-top 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
 }
 
 .subcat-wrap.expanded {
   grid-template-rows: 1fr;
+  margin-top: 0;
 }
 
 .subcat-inner {
@@ -260,6 +288,25 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  position: relative;
+}
+
+/* Vertical tree connector: runs from the parent's drag-circle down
+   through the center of each subcategory's drag-circle. */
+.subcat-inner::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  bottom: 20px;
+  left: 62px; /* 32px row margin + 16px row padding + 14px (half of 28px drag-circle) */
+  width: 1px;
+  background: var(--sky, var(--hair));
+  z-index: 0;
+  pointer-events: none;
+}
+
+:root[data-theme="hi-contrast"] .subcat-inner::before {
+  background: #000000;
 }
 
 .cat-name-col {
@@ -275,14 +322,55 @@
   text-overflow: ellipsis;
 }
 
-.drag-handle {
+.drag-circle {
+  position: relative;
+  z-index: 1;
   flex-shrink: 0;
-  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
   cursor: grab;
+  transition: background 0.2s ease, transform 0.15s ease;
 }
 
-.drag-handle:active {
+.drag-circle:active {
   cursor: grabbing;
+  transform: scale(0.94);
+}
+
+.budget-row:not(.is-sub) .drag-circle {
+  width: 32px;
+  height: 32px;
+  background: var(--blue);
+  color: #ffffff;
+}
+
+.budget-row.is-sub .drag-circle {
+  width: 28px;
+  height: 28px;
+  background: var(--hair);
+}
+
+:root[data-theme="dark"] .budget-row.is-sub .drag-circle {
+  background: var(--sky);
+}
+
+:root[data-theme="hi-contrast"] .budget-row:not(.is-sub) .drag-circle {
+  background: #000000;
+  color: #ffffff;
+}
+
+:root[data-theme="hi-contrast"] .budget-row.is-sub .drag-circle {
+  background: #ffffff;
+  border: 1px solid #000000;
+  color: #000000;
+}
+
+.drag-handle {
+  flex-shrink: 0;
+  color: inherit;
+  pointer-events: none;
 }
 
 .toggle-sub {
@@ -295,10 +383,26 @@
   justify-content: center;
   padding: 2px;
   flex-shrink: 0;
-  transition: transform 0.2s ease;
+  transition: transform 0.3s ease;
 }
 
 .toggle-sub.expanded {
+  transform: rotate(90deg);
+}
+
+/* ---------- Expand All / Collapse All ---------- */
+.expand-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.expand-all-chevron {
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+
+.expand-all-btn.expanded .expand-all-chevron {
   transform: rotate(90deg);
 }
 
@@ -470,6 +574,21 @@
 }
 
 @container app (max-width: 480px) {
+  .kpi-card {
+    padding: 6px 8px;
+  }
+  .kpi-value {
+    font-size: 0.9rem;
+  }
+  .kpi-label {
+    font-size: 0.58rem;
+    letter-spacing: 0.05em;
+    margin-bottom: 1px;
+  }
+  .kpi-sub {
+    font-size: 0.64rem;
+    margin-top: 1px;
+  }
   .cat-name-col {
     font-size: 0.85rem;
   }

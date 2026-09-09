@@ -6,52 +6,94 @@ import { authReady } from '../core/auth.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
-import { allSpendTags } from '../core/domain.js';
 import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
+import {
+  loadMonth, saveMonth, cardById, allSpendTags,
+  emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth,
+} from '../core/domain.js';
 
 const root = document.getElementById('budget-root');
 const DEFAULT_TAGS = ['Groceries', 'Food', 'Fuel', 'Transport', 'Rent', 'Utility', 'Shopping', 'Recharge', 'Medicine', 'Gift', 'EMI', 'SIP', 'RECURRING'];
 
 let budgetData = [];
 let customTags = [];
-let monthEntries = [];
+let emiSeries = [];
+let sipSeries = [];
+let recurringSeries = [];
+let currentMonthEntries = [];
 let domainLoaded = false;
 let isFormOpen = false;
+let monthEntries = [];
 let draggedItem = null;
 
 async function loadDomain() {
   if (domainLoaded) return;
-  [budgetData, customTags] = await Promise.all([
+  [budgetData, customTags, emiSeries, sipSeries, recurringSeries] = await Promise.all([
     Store.get('budget-data', []),
-    Store.get('custom-spend-tags', [])
+    Store.get('custom-spend-tags', []),
+    Store.get('emiseries', []),
+    Store.get('sipseries', []),
+    Store.get('recurringseries', []),
   ]);
-  const monthData = await Store.get('month:' + currentMonthKey(), { entries: [] });
-  monthEntries = monthData.entries || [];
   domainLoaded = true;
 }
 
 function calculateUsed(name, isSub, parentName) {
-  return monthEntries.reduce((sum, e) => {
-    if (['spend', 'cardcharge', 'cashpayment'].includes(e.type)) {
-      let isMatch = false;
-      if (isSub) {
-        isMatch = (e.tag || '').toLowerCase() === (parentName || '').toLowerCase() &&
-                  (e.subCategory || '').toLowerCase() === name.toLowerCase();
-      } else {
-        isMatch = (e.tag || 'Untagged').toLowerCase() === name.toLowerCase();
-      }
+  if (!name || !currentMonthEntries) return 0;
+  const target = name.toLowerCase().trim();
+  const pTarget = parentName ? parentName.toLowerCase().trim() : null;
+  let total = 0;
 
-      if (isMatch) {
-        let lentAmount = 0;
-        if (Array.isArray(e.lent)) {
-          e.lent.forEach(l => { lentAmount += Number(l.amount) || 0; });
+  for (const e of currentMonthEntries) {
+    if (e.type === 'income' || e.type === 'payback') continue;
+    const amt = Number(e.amount) || 0;
+    if (amt <= 0) continue;
+
+    const eType = (e.type || '').toLowerCase();
+    const eTag = (e.tag || '').toLowerCase();
+    const eSub = (e.subCategory || '').toLowerCase();
+    const eCat = (e.category || '').toLowerCase();
+    const eDesc = (e.description || '').toLowerCase();
+
+    if (isSub) {
+      if (pTarget === 'sip') {
+        if ((eType === 'sip' || eTag === 'sip') && (eSub === target || eCat === target || eDesc === target)) {
+          total += amt;
         }
-        const personal = (Number(e.amount) || 0) - lentAmount;
-        return sum + personal;
+      } else if (pTarget === 'recurring') {
+        if ((eType === 'recurring' || eTag === 'recurring') && (eSub === target || eDesc === target)) {
+          total += amt;
+        }
+      } else if (pTarget === 'emi') {
+        if ((eType === 'emi' || eTag === 'emi') && (eSub === target || eDesc === target || eTag === target)) {
+          total += amt;
+        }
+      } else {
+        if (eTag === pTarget && eSub === target) {
+          total += amt;
+        }
+      }
+    } else {
+      if (target === 'sip') {
+        if (eType === 'sip' || eTag === 'sip' || eCat === 'sip') {
+          total += amt;
+        }
+      } else if (target === 'recurring') {
+        if (eType === 'recurring' || eTag === 'recurring') {
+          total += amt;
+        }
+      } else if (target === 'emi') {
+        if (eType === 'emi' || eTag === 'emi') {
+          total += amt;
+        }
+      } else {
+        if (eTag === target) {
+          total += amt;
+        }
       }
     }
-    return sum;
-  }, 0);
+  }
+  return total;
 }
 
 // pct -> { label, cls } used for both row status pills and the KPI overall pill
@@ -123,7 +165,7 @@ function renderSummaryCards() {
     </div>
     <div class="kpi-card status-card">
       <svg width="48" height="48" viewBox="0 0 48 48">
-        <circle cx="24" cy="24" r="${radius}" fill="none" stroke="var(--hair)" stroke-width="5"></circle>
+        <circle cx="24" cy="24" r="${radius}" fill="none" stroke="var(--sky)" stroke-width="5"></circle>
         <circle cx="24" cy="24" r="${radius}" fill="none" stroke="${ringColor}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${circumference.toFixed(2)}" stroke-dashoffset="${dashOffset.toFixed(2)}" transform="rotate(-90 24 24)"></circle>
         <text x="24" y="28" text-anchor="middle" font-size="11" font-family="'IBM Plex Mono', monospace" fill="var(--navy)">${Math.round(usedPct)}%</text>
       </svg>
@@ -162,7 +204,7 @@ function renderBudgetRow(item, isSub, parentId) {
   return `
   <div class="budget-row ${isSub ? 'is-sub' : ''}" data-id="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" ${parentId ? `data-parent-id="${parentId}"` : ''} draggable="true">
     <div class="cat-name-col">
-      ${dragHandleSvg}
+      <div class="drag-circle">${dragHandleSvg}</div>
       ${escapeHtml(item.name)}
     </div>
     <div class="budget-amt-col">
@@ -187,22 +229,54 @@ function renderBudgetRow(item, isSub, parentId) {
 async function renderBudget() {
   await loadDomain();
 
+  const currentKey = currentMonthKey();
+  const [monthData, freshEmi, freshSip, freshRec] = await Promise.all([
+    loadMonth(currentKey),
+    Store.get('emiseries', []),
+    Store.get('sipseries', []),
+    Store.get('recurringseries', []),
+  ]);
+  emiSeries = freshEmi;
+  sipSeries = freshSip;
+  recurringSeries = freshRec;
+
+  const emiRows = emiRowsForMonth(emiSeries, currentKey, monthData.deletedEmi);
+  const sipRows = sipRowsForMonth(sipSeries, currentKey, monthData.deletedSip);
+  const recurringRows = recurringRowsForMonth(recurringSeries, currentKey, monthData.deletedRecurring);
+
+  currentMonthEntries = [
+    ...(monthData.entries || []),
+    ...sipRows,
+    ...recurringRows,
+    ...emiRows,
+  ];
+
+  let totalBudget = 0;
+  let totalUsed = 0;
+
   let tableRows = '';
   budgetData.forEach(cat => {
+    totalBudget += cat.budget;
+    totalUsed += calculateUsed(cat.name, false, null);
     tableRows += renderBudgetRow(cat, false, null);
     if (cat.subcategories && cat.subcategories.length > 0) {
-      const subRowsHtml = cat.subcategories.map(sub => renderBudgetRow(sub, true, cat.id)).join('');
-      tableRows += `
-      <div class="subcat-wrap ${cat.expanded ? 'expanded' : ''}" data-subcat-wrap="${cat.id}">
-        <div class="subcat-inner">${subRowsHtml}</div>
-      </div>
-      `;
+      tableRows += `<div class="subcat-wrap ${cat.expanded ? 'expanded' : ''}" data-subcat-wrap="${cat.id}"><div class="subcat-inner">`;
+      cat.subcategories.forEach(sub => {
+        tableRows += renderBudgetRow(sub, true, cat.id);
+      });
+      tableRows += `</div></div>`;
     }
   });
 
   if (!tableRows) {
     tableRows = `<div class="empty-chart" style="padding: 24px; grid-column: 1/-1;">No budgets set yet. Add one below.</div>`;
   }
+
+  // Aggregate expand/collapse state, purely for the "Expand All" button's
+  // initial label/icon on a full render — the button's own click handler
+  // never re-renders, it just flips classes (see click handler below).
+  const catsWithSubs = budgetData.filter(c => c.subcategories && c.subcategories.length > 0);
+  const allExpanded = catsWithSubs.length > 0 && catsWithSubs.every(c => c.expanded);
 
   const allTags = allSpendTags(DEFAULT_TAGS, customTags);
   const tagOptions = allTags.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
@@ -253,6 +327,11 @@ async function renderBudget() {
 
     <div class="pill-grid" style="margin-bottom: 16px;">
       <button class="pill-btn ${isFormOpen ? '' : 'active'}" data-budget-form-toggle type="button">+ Add Budget</button>
+      ${catsWithSubs.length > 0 ? `
+      <button class="pill-btn expand-all-btn ${allExpanded ? 'expanded' : ''}" data-expand-all type="button">
+        <svg class="expand-all-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        <span data-expand-all-label>${allExpanded ? 'Collapse All' : 'Expand All'}</span>
+      </button>` : ''}
     </div>
     ${formHtml}
     
@@ -421,21 +500,49 @@ root.addEventListener('click', async (ev) => {
   const closeForm = ev.target.closest('[data-close-budget-form]');
   if (closeForm) { isFormOpen = false; await renderBudget(); return; }
 
+  const expandAllBtn = ev.target.closest('[data-expand-all]');
+  if (expandAllBtn) {
+    // Bulk version of the single toggle above: flip in-memory state and
+    // toggle classes on every already-rendered wrap/chevron. No re-render,
+    // no data fetch, no recalculation — each subcat-wrap animates with
+    // its own existing CSS transition, independently and instantly.
+    const shouldExpand = !expandAllBtn.classList.contains('expanded');
+
+    budgetData.forEach(cat => {
+      if (!cat.subcategories || cat.subcategories.length === 0) return;
+      cat.expanded = shouldExpand;
+
+      const wrapper = document.querySelector(`[data-subcat-wrap="${cat.id}"]`);
+      if (wrapper) wrapper.classList.toggle('expanded', shouldExpand);
+
+      const chevron = document.querySelector(`[data-toggle-sub="${cat.id}"]`);
+      if (chevron) chevron.classList.toggle('expanded', shouldExpand);
+    });
+
+    expandAllBtn.classList.toggle('expanded', shouldExpand);
+    const label = expandAllBtn.querySelector('[data-expand-all-label]');
+    if (label) label.textContent = shouldExpand ? 'Collapse All' : 'Expand All';
+
+    // Persist afterwards, fire-and-forget — never block the UI on this.
+    Store.set('budget-data', budgetData);
+    return;
+  }
+
   const toggleSub = ev.target.closest('[data-toggle-sub]');
   if (toggleSub) {
     const cat = budgetData.find(c => c.id === toggleSub.dataset.toggleSub);
     if (cat) {
+      // Flip in-memory state and toggle classes FIRST and SYNCHRONOUSLY —
+      // this is the only work needed to drive the CSS grid-template-rows
+      // transition. No re-render, no recalculation, no awaiting I/O before
+      // the browser can paint the animation.
       cat.expanded = !cat.expanded;
-      await Store.set('budget-data', budgetData);
-      
-      // Toggle the wrapper class for smooth animation without re-render
-      const wrapper = document.querySelector(`[data-subcat-wrap="${cat.id}"]`);
-      if (wrapper) {
-      wrapper.classList.toggle('expanded');
-      }
-      toggleSub.classList.toggle('expanded');
 
-      // Save to store in the background (fire-and-forget)
+      const wrapper = document.querySelector(`[data-subcat-wrap="${cat.id}"]`);
+      if (wrapper) wrapper.classList.toggle('expanded', cat.expanded);
+      toggleSub.classList.toggle('expanded', cat.expanded);
+
+      // Persist afterwards, fire-and-forget — never block the UI on this.
       Store.set('budget-data', budgetData);
     }
     return;
