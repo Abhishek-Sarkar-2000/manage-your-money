@@ -699,7 +699,114 @@
   gap: 10px;
 }
 
+.forecast-report-banner {
+  display: flex;
+  align-items: center;
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--blue); 
+  gap: 12px;
+  padding: 12px 18px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.forecast-report-banner .frb-icon {
+  display: flex;
+}
+.forecast-report-banner .frb-text {
+  font-size: 0.95rem;
+  margin-top: 1px;
+}
+.forecast-report-banner .frb-text strong {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+/* Forecast: Under/On Budget (Blue) */
+.forecast-report-banner.frb-under {
+  background: linear-gradient(135deg, rgb(189 223 241 / 15%) 0%, rgb(94 164 232 / 10%) 100%);
+  box-shadow: inset 0 0 16px rgb(57 123 233 / 15%), inset 0 0 0 1px rgb(48 127 225 / 25%);
+  color: var(--blue); 
+}
+
+:root[data-theme="dark"] .forecast-report-banner.frb-under {
+  color: #38C7C1;
+}
+
+/* Forecast: Over Budget (Reddish-Orange) */
+.forecast-report-banner.frb-over {
+  background: linear-gradient(135deg, rgba(230, 80, 80, 0.15) 0%, rgba(210, 60, 60, 0.1) 100%);
+  box-shadow: inset 0 0 16px rgba(200, 40, 40, 0.15), inset 0 0 0 1px rgba(220, 50, 50, 0.25);
+  color: var(--amber); 
+}
+
+:root[data-theme="dark"] .forecast-report-banner.frb-over { color: #ff6b3d; }
+
+:root[data-theme="hi-contrast"] .forecast-report-banner {
+  background: #fff;
+  box-shadow: none;
+  border: 1px solid #000;
+}
+
+/* ---------- Income Report Banner ---------- */
+.income-report-banner {
+  display: flex;
+  align-items: center;
+  color: rgb(107, 150, 37);
+  gap: 12px;
+  padding: 12px 18px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  /* Translucent orange-yellow gradient */
+  background: linear-gradient(135deg, rgba(176, 255, 50, 0.15) 0%, rgba(166, 255, 0, 0.1) 100%);
+  /* Darker inner glow */
+  box-shadow: inset 0 0 16px rgba(111, 180, 0, 0.15), inset 0 0 0 1px rgba(132, 255, 0, 0.25);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.income-report-banner .irb-icon {
+  display: flex;
+}
+
+.income-report-banner .irb-text {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.95rem;
+  margin-top: 1px;
+}
+
+.income-report-banner .irb-text strong {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+/* Dark mode overrides */
+:root[data-theme="dark"] .income-report-banner {
+  color: rgb(162, 210, 84);
+}
+
+:root[data-theme="hi-contrast"] .income-report-banner {
+  background: #fff;
+  box-shadow: none;
+  border: 1px solid #000;
+}
+
 @container app (max-width: 800px) {
+  .income-report-banner .irb-text {
+    font-size: 0.88rem;
+  }
+  .income-report-banner .irb-text strong {
+    font-size: 0.98rem;
+  }
+  
+  .forecast-report-banner .frb-text {
+    font-size: 0.88rem;
+  }
+  .forecast-report-banner .frb-text strong {
+    font-size: 0.98rem;
+  }
+
   .budget-summary-grid {
     grid-template-columns: 1fr 1fr;
     gap: 12px;
@@ -772,6 +879,20 @@
 }
 
 @container app (max-width: 600px) {
+  .income-report-banner .irb-text {
+    font-size: 0.8rem;
+  }
+  .income-report-banner .irb-text strong {
+    font-size: 0.9rem;
+  }
+  
+  .forecast-report-banner .frb-text {
+    font-size: 0.8rem;
+  }
+  .forecast-report-banner .frb-text strong {
+    font-size: 0.9rem;
+  }
+
   .kpi-card {
     padding: 10px 12px;
   }

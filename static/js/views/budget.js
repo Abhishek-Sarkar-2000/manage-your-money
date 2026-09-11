@@ -111,6 +111,19 @@ function getStatusInfo(pct) {
 function computeSummary() {
   let totalBudget = 0;
   let totalUsed = 0;
+  let totalIncome = 0;
+  let totalSpent = 0;
+
+  if (currentMonthEntries) {
+    for (const e of currentMonthEntries) {
+      const amt = Number(e.amount) || 0;
+      if (e.type === 'income') {
+        totalIncome += amt;
+      } else if (e.type !== 'payback' && amt > 0) {
+        totalSpent += amt;
+      }
+    }
+  }
 
   // Only top-level categories are counted: subcategory budgets/spend are
   // subsets of their parent category and would otherwise be double counted.
@@ -122,8 +135,12 @@ function computeSummary() {
   const totalRemaining = totalBudget - totalUsed;
   const usedPct = totalBudget > 0 ? (totalUsed / totalBudget) * 100 : (totalUsed > 0 ? 100 : 0);
   const remainingPct = totalBudget > 0 ? Math.max(0, (totalRemaining / totalBudget) * 100) : 0;
+  const unallocated = totalIncome - totalBudget;
+  const totalSavings = totalIncome - totalSpent;
+  const savingsPct = totalIncome > 0 ? Math.max(0, (totalSavings / totalIncome) * 100) : 0;
+  const spentPct = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : (totalSpent > 0 ? 100 : 0);
 
-  return { totalBudget, totalUsed, totalRemaining, usedPct, remainingPct };
+  return { totalBudget, totalUsed, totalRemaining, usedPct, remainingPct, totalIncome, unallocated, totalSpent, totalSavings, savingsPct, spentPct };
 }
 
 // Finds spend that isn't captured under any budgeted top-level category —
@@ -214,15 +231,15 @@ function renderUnbudgetedCallout() {
 }
 
 function renderSummaryCards() {
-  const { totalBudget, totalUsed, totalRemaining, usedPct, remainingPct } = computeSummary();
+  const { totalBudget, totalUsed, totalRemaining, usedPct, remainingPct, totalIncome, unallocated, totalSpent, totalSavings, savingsPct, spentPct } = computeSummary();
   const status = getStatusInfo(usedPct);
 
   const briefcaseSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"></path><path d="M2 13h20"></path></svg>`;
   const coinsSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"></ellipse><path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6"></path><path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"></path></svg>`;
   const clockSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 15"></polyline></svg>`;
 
-  const remainingClass = totalRemaining < 0 ? 'negative' : '';
-  const remainingPctDisplay = totalRemaining < 0 ? '0%' : `${remainingPct.toFixed(1)}%`;
+  const savingsClass = totalSavings < 0 ? 'negative' : '';
+  const savingsPctDisplay = totalSavings < 0 ? '0%' : `${savingsPct.toFixed(1)}%`;
 
   const radius = 20;
   const circumference = 2 * Math.PI * radius;
@@ -230,29 +247,98 @@ function renderSummaryCards() {
   const dashOffset = circumference - (clampedPct / 100) * circumference;
   const ringColor = usedPct > 100 ? 'var(--debit)' : 'var(--credit)';
 
+  let incomeReportHtml = '';
+  let forecastReportHtml = '';
+  let budgetCardContent = '';
+
+  if (totalIncome > 0) {
+    const diamondExclamation = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2L22 12L12 22L2 12ZM11 7H13V13H11V7ZM11 15H13V17H11V15Z"/></svg>`;
+    
+    incomeReportHtml = `
+      <div class="income-report-banner">
+        <span class="irb-icon">${diamondExclamation}</span>
+        <span class="irb-text">Income for the month: <strong>${fmtINR(totalIncome)}</strong></span>
+      </div>
+    `;
+
+    const unallocatedClass = unallocated < 0 ? 'negative' : '';
+    const unallocatedDisplay = unallocated < 0 ? `-${fmtINR(Math.abs(unallocated))}` : fmtINR(unallocated);
+    const subTextColor = unallocated < 0 ? 'var(--debit)' : 'var(--muted)';
+    
+    budgetCardContent = `
+      <div class="kpi-label">Left to Budget</div>
+      <div class="kpi-value ${unallocatedClass}">${unallocatedDisplay}</div>
+      <div class="kpi-sub" style="color: ${subTextColor}; font-weight: ${unallocated < 0 ? '600' : 'normal'};">${unallocated < 0 ? 'Over-allocated!' : `${fmtINR(totalBudget)} set`}</div>
+    `;
+  } else {
+    budgetCardContent = `
+      <div class="kpi-label">Total Budget</div>
+      <div class="kpi-value">${fmtINR(totalBudget)}</div>
+    `;
+  }
+
+  if (currentMonthEntries && currentKey === currentMonthKey()) {
+    const today = new Date();
+    if (today.getDate() >= 7) {
+      let totalForecast = 0;
+      let hasForecast = false;
+
+      budgetData.forEach(cat => {
+        const forecast = forecastCategorySpend(cat.name, false, null, cat.budget, currentKey, currentMonthEntries);
+        if (forecast) {
+          totalForecast += forecast.projectedByMonthEnd;
+          hasForecast = true;
+        }
+      });
+
+      if (hasForecast) {
+        const useIncome = totalIncome > 0 && totalIncome < totalBudget;
+        const benchmarkValue = useIncome ? totalIncome : totalBudget;
+        const benchmarkLabel = useIncome ? 'income' : 'budget';
+        const isOver = totalForecast > benchmarkValue;
+        const diffAmount = Math.abs(totalForecast - benchmarkValue);
+        const overUnderText = isOver ? 'over' : 'under';
+
+        const forecastIcon = isOver
+          ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13 8 3 18"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>`
+          : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+
+        const bannerClass = isOver ? 'frb-over' : 'frb-under';
+
+        forecastReportHtml = `
+          <div class="forecast-report-banner ${bannerClass}">
+            <span class="frb-icon">${forecastIcon}</span>
+            <span class="frb-text">On pace to spend <strong>${fmtINR(totalForecast)}</strong> — ${fmtINR(diffAmount)} ${overUnderText} ${benchmarkLabel}</span>
+          </div>
+        `;
+      }
+    }
+  }
+
   return `
+  ${incomeReportHtml}
+  ${forecastReportHtml}
   <div class="budget-summary-grid">
     <div class="kpi-card">
       <div class="kpi-icon">${briefcaseSvg}</div>
       <div class="kpi-body">
-        <div class="kpi-label">Total Budget</div>
-        <div class="kpi-value">${fmtINR(totalBudget)}</div>
+        ${budgetCardContent}
       </div>
     </div>
     <div class="kpi-card">
       <div class="kpi-icon">${coinsSvg}</div>
       <div class="kpi-body">
-        <div class="kpi-label">Used</div>
-        <div class="kpi-value">${fmtINR(totalUsed)}</div>
-        <div class="kpi-sub blue">${usedPct.toFixed(1)}%</div>
+        <div class="kpi-label">Spent</div>
+        <div class="kpi-value">${fmtINR(totalSpent)}</div>
+        <div class="kpi-sub blue">${spentPct.toFixed(1)}% of budget</div>
       </div>
     </div>
     <div class="kpi-card">
       <div class="kpi-icon">${clockSvg}</div>
       <div class="kpi-body">
-        <div class="kpi-label">Remaining</div>
-        <div class="kpi-value ${remainingClass}">${fmtINR(totalRemaining)}</div>
-        <div class="kpi-sub green">${remainingPctDisplay}</div>
+        <div class="kpi-label">Savings</div>
+        <div class="kpi-value ${savingsClass}">${fmtINR(totalSavings)}</div>
+        <div class="kpi-sub green">${savingsPctDisplay} of income</div>
       </div>
     </div>
     <div class="kpi-card status-card">
@@ -262,7 +348,7 @@ function renderSummaryCards() {
         <text x="24" y="28" text-anchor="middle" font-size="11" font-family="'IBM Plex Mono', monospace" fill="var(--navy)">${Math.round(usedPct)}%</text>
       </svg>
       <div class="kpi-body">
-        <div class="kpi-label">Overall</div>
+        <div class="kpi-label">Budget Utilization</div>
         <div class="kpi-sub">${usedPct.toFixed(1)}% used</div>
         <span class="kpi-status-pill status-pill ${status.cls}">${status.label}</span>
       </div>
