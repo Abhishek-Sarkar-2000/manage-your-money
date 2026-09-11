@@ -2123,6 +2123,7 @@ root.addEventListener('click', async (ev) => {
     if (oldForm || (wasExpenseMenuOpen && !isExpenseSubForm)) {
       openForm = newForm;
       await renderMonth();
+      setTimeout(() => $('#form-panel-anim-inner')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
       return;
     }
     
@@ -2135,6 +2136,7 @@ root.addEventListener('click', async (ev) => {
     if (wrap) {
       void wrap.offsetWidth;
       wrap.classList.add('expanded');
+      setTimeout(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
     }
     return;
   }

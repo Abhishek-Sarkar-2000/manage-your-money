@@ -443,7 +443,7 @@ async function renderBudget() {
     }
   } else {
     if (!isPastMonth) {
-      tableRows += `<button class="add-row-btn" data-inline-newcat-btn type="button" style="margin-top: 6px;">+ Add budget for a category</button>`;
+      tableRows += `<button class="add-row-btn" data-inline-newcat-btn type="button">+ Add budget for a category</button>`;
     }
   }
 
