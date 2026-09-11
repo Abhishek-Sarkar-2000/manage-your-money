@@ -221,6 +221,15 @@ a {
   color: #fff;
 }
 
+.pill-btn.dashed-subcat-btn {
+  border: 1px dashed var(--sky);
+  padding: 8px 16px;
+  background: var(--ice-2);
+  color: var(--blue);
+  cursor: pointer;
+  font-weight: 600;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .pill-btn:hover {
     background: var(--ice);

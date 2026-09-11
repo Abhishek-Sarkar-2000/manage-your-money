@@ -134,13 +134,16 @@ async function loadDomain() {
     Store.get('sipseries', []),
     Store.get('months-index', []),
     Store.get('custom-spend-tags', []),
-    Store.get('budget-data', []),
+    Store.get(`budget-data:${monthKey}`, null),
     Store.get('price-track-dict', {}),
     Store.get('price-items', []),
     Store.get('existinginvestments', 0),
     Store.get('splits-index', []),
     Store.get('recurringseries', []),
   ]);
+  if (!budgetData) {
+     budgetData = await Store.get('budget-data', []);
+  }
   domainLoaded = true;
 }
 
@@ -399,14 +402,14 @@ async function resolveSubCategoryFromForm(tag) {
             cat.subcategories = cat.subcategories || [];
             if (!cat.subcategories.some(s => s.name.toLowerCase() === sVal.toLowerCase())) {
               cat.subcategories.push({ id: uid(), name: sVal, budget: 0 });
-              await Store.set('budget-data', budgetData);
+              await Store.set(`budget-data:${monthKey}`, budgetData);
             }
           } else {
              budgetData.push({
                id: uid(), name: tag, budget: 0, expanded: true,
                subcategories: [{ id: uid(), name: sVal, budget: 0 }]
              });
-             await Store.set('budget-data', budgetData);
+             await Store.set(`budget-data:${monthKey}`, budgetData);
           }
           return sVal;
        }
@@ -2230,14 +2233,14 @@ root.addEventListener('click', async (ev) => {
                 cat.subcategories = cat.subcategories || [];
                 if (!cat.subcategories.some(s => s.name.toLowerCase() === newSubcat.toLowerCase())) {
                     cat.subcategories.push({ id: uid(), name: newSubcat, budget: 0 });
-                    await Store.set('budget-data', budgetData);
+                    await Store.set(`budget-data:${mk}`, budgetData);
                 }
             } else {
                 budgetData.push({
                     id: uid(), name: newTag, budget: 0, expanded: true,
                     subcategories: [{ id: uid(), name: newSubcat, budget: 0 }]
                 });
-                await Store.set('budget-data', budgetData);
+                await Store.set(`budget-data:${mk}`, budgetData);
             }
         }
     }

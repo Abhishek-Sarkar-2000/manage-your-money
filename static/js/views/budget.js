@@ -21,6 +21,7 @@ let emiSeries = [];
 let sipSeries = [];
 let recurringSeries = [];
 let currentMonthEntries = [];
+let monthsIndex = [];
 let domainLoaded = false;
 let isFormOpen = false;
 let monthEntries = [];
@@ -31,12 +32,12 @@ let isPastMonth = false;
 
 async function loadDomain() {
   if (domainLoaded) return;
-  [budgetData, customTags, emiSeries, sipSeries, recurringSeries] = await Promise.all([
-    Store.get('budget-data', []),
+  [customTags, emiSeries, sipSeries, recurringSeries, monthsIndex] = await Promise.all([
     Store.get('custom-spend-tags', []),
     Store.get('emiseries', []),
     Store.get('sipseries', []),
     Store.get('recurringseries', []),
+    Store.get('months-index', []),
   ]);
   domainLoaded = true;
 }
@@ -283,28 +284,31 @@ function renderBudgetRow(item, isSub, parentId) {
   const dragHandleSvg = `<svg class="drag-handle" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"></circle><circle cx="15" cy="6" r="1.6"></circle><circle cx="9" cy="12" r="1.6"></circle><circle cx="15" cy="12" r="1.6"></circle><circle cx="9" cy="18" r="1.6"></circle><circle cx="15" cy="18" r="1.6"></circle></svg>`;
 
   const pencilSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`;
-
-  const warnSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>`;
   const eyeSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+  const warnSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>`;
   const dotsSvg = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="12" cy="12" r="2"></circle><circle cx="12" cy="5" r="2"></circle><circle cx="12" cy="19" r="2"></circle></svg>`;
 
   let chevronHtml = '';
-  if (!isSub && item.subcategories && item.subcategories.length > 0) {
+  if (!isSub) {
     chevronHtml = `<button class="toggle-sub ${item.expanded ? 'expanded' : ''}" data-toggle-sub="${item.id}" title="${item.expanded ? 'Collapse' : 'Expand'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>`;
   }
 
   let actionsContent = '';
   if (!isPastMonth) {
     actionsContent = `
-      <button class="edit-budget-btn" data-edit-budget="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" ${parentId ? `data-parent-id="${parentId}"` : ''} title="Edit budget">${pencilSvg}</button>
-      <button class="icon-btn" data-popover-trigger data-del-budget="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" ${parentId ? `data-parent-id="${parentId}"` : ''} title="Remove">✕</button>
+      <button class="edit-budget-btn icon-btn row-menu-btn" data-edit-budget="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" ${parentId ? `data-parent-id="${parentId}"` : ''} title="Edit budget">
+        <span class="row-menu-icon">${pencilSvg}</span><span class="row-menu-text">Edit</span>
+      </button>
+      <button class="icon-btn row-menu-btn" data-popover-trigger data-del-budget="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" ${parentId ? `data-parent-id="${parentId}"` : ''} title="Remove">
+        <span class="row-menu-icon">✕</span><span class="row-menu-text">Delete</span>
+      </button>
     `;
   }
 
   return `
-  <div class="budget-row ${isSub ? 'is-sub' : ''}" data-id="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" ${parentId ? `data-parent-id="${parentId}"` : ''} draggable="${!isPastMonth}">
+  <div class="budget-row ${isSub ? 'is-sub' : ''}" data-id="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" data-parent-id="${parentId ? parentId : ''}" draggable="${!isPastMonth}">
     <div class="cat-name-col">
-      <div class="drag-circle">${dragHandleSvg}</div>
+      ${dragHandleSvg}
       ${escapeHtml(item.name)}
     </div>
     <div class="budget-amt-col">
@@ -320,7 +324,9 @@ function renderBudgetRow(item, isSub, parentId) {
     <div class="actions-col">
       ${chevronHtml}
       <div class="row-actions-menu">
-        <button class="icon-btn" data-view-txns="${escapeHtml(item.name)}" title="View transactions">${eyeSvg}</button>
+        <button class="icon-btn row-menu-btn" data-view-txns="${escapeHtml(item.name)}" title="View transactions">
+          <span class="row-menu-icon">${eyeSvg}</span><span class="row-menu-text">Check</span>
+        </button>
         ${actionsContent}
       </div>
       <button class="icon-btn mobile-actions-toggle" data-toggle-row-actions title="Actions">${dotsSvg}</button>
@@ -334,6 +340,25 @@ async function renderBudget() {
 
   currentKey = root.dataset.monthKey || currentMonthKey();
   isPastMonth = currentKey < currentMonthKey();
+
+  budgetData = await Store.get(`budget-data:${currentKey}`, null);
+  if (!budgetData) {
+    const legacy = await Store.get('budget-data', null);
+    if (legacy && currentKey === currentMonthKey()) {
+      budgetData = legacy;
+      await Store.set(`budget-data:${currentKey}`, budgetData);
+    } else if (currentKey === currentMonthKey()) {
+      const lastLogged = monthsIndex.length ? monthsIndex[monthsIndex.length - 1] : null;
+      if (lastLogged && lastLogged !== currentKey) {
+        budgetData = await Store.get(`budget-data:${lastLogged}`, []) || [];
+      } else {
+        budgetData = [];
+      }
+      await Store.set(`budget-data:${currentKey}`, budgetData);
+    } else {
+      budgetData = [];
+    }
+  }
 
   // Handle deep link from Month -> Budget
   const openReq = sessionStorage.getItem('month-to-budget-open');
@@ -385,17 +410,41 @@ async function renderBudget() {
     totalBudget += cat.budget;
     totalUsed += calculateUsed(cat.name, false, null);
     tableRows += renderBudgetRow(cat, false, null);
+    
+    tableRows += `<div class="subcat-wrap ${cat.expanded ? 'expanded' : ''}" data-subcat-wrap="${cat.id}"><div class="subcat-inner">`;
     if (cat.subcategories && cat.subcategories.length > 0) {
-      tableRows += `<div class="subcat-wrap ${cat.expanded ? 'expanded' : ''}" data-subcat-wrap="${cat.id}"><div class="subcat-inner">`;
       cat.subcategories.forEach(sub => {
         tableRows += renderBudgetRow(sub, true, cat.id);
       });
-      tableRows += `</div></div>`;
     }
+    if (!isPastMonth) {
+      tableRows += `<button class="add-row-btn is-sub" data-inline-add-btn="${cat.id}" type="button">+ Add subcategory for ${escapeHtml(cat.name)}</button>`;
+    }
+    tableRows += `</div></div>`;
   });
 
   if (!tableRows) {
-    tableRows = `<div class="empty-chart" style="padding: 24px; grid-column: 1/-1;">No budgets set yet. Add one below.</div>`;
+    const hasPrevLogged = monthsIndex.some(m => m < currentKey);
+    if (!isPastMonth && hasPrevLogged) {
+      tableRows = `
+        <div class="empty-chart" style="padding: 24px 0; grid-column: 1/-1; display: flex; flex-wrap: wrap; gap: 12px;">
+          <button class="add-row-btn" data-inline-newcat-btn type="button" style="flex: 1 1 250px; margin: 0;">+ Add budget for a category</button>
+          <button class="add-row-btn" id="copy-last-budget-btn" type="button" style="flex: 1 1 250px; margin: 0; border-color: var(--sky); color: var(--blue);">Copy from the last logged month</button>
+        </div>
+      `;
+    } else if (!isPastMonth) {
+      tableRows = `
+        <div class="empty-chart" style="padding: 24px 0; grid-column: 1/-1; display: flex; flex-wrap: wrap;">
+          <button class="add-row-btn" data-inline-newcat-btn type="button" style="flex: 1 1 100%; margin: 0;">+ Add budget for a category</button>
+        </div>
+      `;
+    } else {
+      tableRows = `<div class="empty-chart" style="padding: 24px; grid-column: 1/-1; text-align: center; color: var(--muted);">No budgets set for this month.</div>`;
+    }
+  } else {
+    if (!isPastMonth) {
+      tableRows += `<button class="add-row-btn" data-inline-newcat-btn type="button" style="margin-top: 6px;">+ Add budget for a category</button>`;
+    }
   }
 
   // Aggregate expand/collapse state, purely for the "Expand All" button's
@@ -447,8 +496,12 @@ async function renderBudget() {
     <div class="month-header" style="display: flex; justify-content: space-between; gap: 24px;">
       <h1>Budget</h1>
       <div class="range-toggle" style="align-self: center;">
-        <a href="/budget/${addMonths(currentKey, -1)}" class="range-btn" style="text-decoration:none;">◀</a>
-        <span class="range-btn active" style="cursor:default;">${monthKeyLabel(currentKey)}</span>
+        ${(!monthsIndex.length || currentKey <= monthsIndex[0]) 
+          ? `<span class="range-btn" style="opacity: 0.3; cursor: not-allowed;">◀</span>` 
+          : `<a href="/budget/${addMonths(currentKey, -1)}" class="range-btn" style="text-decoration:none;">◀</a>`}
+        ${monthsIndex.includes(currentKey)
+          ? `<a href="/month/${currentKey}" class="range-btn active" style="text-decoration:none;" title="View Month Transactions">${monthKeyLabel(currentKey)}</a>`
+          : `<span class="range-btn active" style="cursor:default; opacity:0.6;" title="No transactions for this month">${monthKeyLabel(currentKey)}</span>`}
         <a href="/budget/${addMonths(currentKey, 1)}" class="range-btn" style="text-decoration:none;">▶</a>
       </div>
     </div>
@@ -636,7 +689,7 @@ root.addEventListener('drop', async (ev) => {
   document.querySelectorAll('.drop-above, .drop-below').forEach(el => el.classList.remove('drop-above', 'drop-below'));
   draggedItem = null;
 
-  await Store.set('budget-data', budgetData);
+  await Store.set(`budget-data:${currentKey}`, budgetData);
   await renderBudget();
   showToast('Order updated');
 });
@@ -653,8 +706,182 @@ root.addEventListener('click', async (ev) => {
     return;
   }
 
-  if (!ev.target.closest('.actions-col')) {
+  if (!ev.target.closest('.actions-col') || (ev.target.closest('.row-menu-btn') && !ev.target.closest('[data-del-budget]'))) {
     document.querySelectorAll('.budget-row.show-actions').forEach(r => r.classList.remove('show-actions'));
+  }
+
+  const inlineAddSubBtn = ev.target.closest('[data-inline-add-btn]');
+  if (inlineAddSubBtn) {
+    ev.stopPropagation();
+    const existingForm = document.querySelector('.inline-subcat-form, .inline-newcat-form');
+    const parentCatId = inlineAddSubBtn.dataset.inlineAddBtn;
+    const reopenSame = existingForm && existingForm.dataset.inlineFor === parentCatId;
+    
+    if (existingForm) existingForm.remove();
+    if (reopenSame) return;
+
+    const parentCat = budgetData.find(c => c.id === parentCatId);
+    if (!parentCat) return;
+
+    const existingSubs = parentCat.subcategories || [];
+    const datalistId = `inline-add-dl-${parentCatId}`;
+    const datalistOptions = existingSubs.map(s => `<option value="${escapeHtml(s.name)}"></option>`).join('');
+
+    const formEl = document.createElement('div');
+    formEl.className = 'inline-subcat-form form-panel slide-down-fade is-sub';
+    formEl.dataset.inlineFor = parentCatId;
+    formEl.innerHTML = `
+      <div class="inline-add-context">Add subcategory for <strong>${escapeHtml(parentCat.name)}</strong></div>
+      <div class="form-row">
+        <div class="field">
+          <label>Subcategory name</label>
+          <input type="text" class="inline-add-name" list="${datalistId}" placeholder="e.g. Meat" autocomplete="off" />
+          <datalist id="${datalistId}">${datalistOptions}</datalist>
+        </div>
+        <div class="field">
+          <label>Amount (₹)</label>
+          <input type="number" step="0.01" min="0" class="inline-add-amount" placeholder="0.00" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn primary" data-inline-add-save="${parentCatId}" type="button">Save</button>
+        <button class="btn ghost" data-inline-add-cancel type="button">Cancel</button>
+      </div>
+    `;
+    inlineAddSubBtn.insertAdjacentElement('beforebegin', formEl);
+    formEl.querySelector('.inline-add-name').focus();
+    return;
+  }
+
+  const inlineNewCatBtn = ev.target.closest('[data-inline-newcat-btn]');
+  if (inlineNewCatBtn) {
+    ev.stopPropagation();
+    const existingForm = document.querySelector('.inline-subcat-form, .inline-newcat-form');
+    const reopenSame = existingForm && existingForm.classList.contains('inline-newcat-form');
+    
+    if (existingForm) existingForm.remove();
+    if (reopenSame) return;
+
+    const allTags = allSpendTags(DEFAULT_TAGS, customTags);
+    const tagOptions = allTags.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+
+    const formEl = document.createElement('div');
+    formEl.className = 'inline-newcat-form form-panel slide-down-fade';
+    formEl.style.width = '100%';
+    formEl.innerHTML = `
+      <div class="inline-add-context">Add a new category</div>
+      <div class="form-row">
+        <div class="field">
+          <label>Category (Tag)</label>
+          <select class="inline-newcat-name">
+            <option value="" disabled selected>Select tag...</option>
+            ${tagOptions}
+            <option value="__custom__">+ Add custom tag</option>
+          </select>
+        </div>
+        <div class="field inline-newcat-custom-wrap" style="display:none;">
+          <label>New tag name</label>
+          <input type="text" class="inline-newcat-custom" placeholder="e.g. Pets" />
+        </div>
+        <div class="field">
+          <label>Budget (₹)</label>
+          <input type="number" step="0.01" min="0" class="inline-newcat-budget" placeholder="0.00" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn primary" data-inline-newcat-save type="button">Save</button>
+        <button class="btn ghost" data-inline-add-cancel type="button">Cancel</button>
+      </div>
+    `;
+    inlineNewCatBtn.insertAdjacentElement('beforebegin', formEl);
+    return;
+  }
+
+  const inlineCancelBtn = ev.target.closest('[data-inline-add-cancel]');
+  if (inlineCancelBtn) {
+    const formEl = inlineCancelBtn.closest('.inline-subcat-form, .inline-newcat-form');
+    if (formEl) formEl.remove();
+    return;
+  }
+
+  const inlineSaveBtn = ev.target.closest('[data-inline-add-save]');
+  if (inlineSaveBtn) {
+    const parentCatId = inlineSaveBtn.dataset.inlineAddSave;
+    const formEl = inlineSaveBtn.closest('.inline-subcat-form');
+    const nameInput = formEl.querySelector('.inline-add-name');
+    const amountInput = formEl.querySelector('.inline-add-amount');
+    const name = nameInput.value.trim();
+    const amount = Number(amountInput.value) || 0;
+
+    if (!name || amount <= 0) { showToast('Enter a valid name and amount'); return; }
+
+    let isDuplicate = false;
+    for (const c of budgetData) {
+      if (c.name.toLowerCase() === name.toLowerCase()) isDuplicate = true;
+      if (c.subcategories && c.subcategories.some(s => s.name.toLowerCase() === name.toLowerCase())) isDuplicate = true;
+    }
+    if (isDuplicate) { showToast('Name already in use'); return; }
+
+    const parentCat = budgetData.find(c => c.id === parentCatId);
+    if (!parentCat) { showToast('Parent category not found'); return; }
+
+    const sumSubs = (parentCat.subcategories || []).reduce((s, sub) => s + (Number(sub.budget) || 0), 0);
+    if (sumSubs + amount > parentCat.budget) {
+      showToast('Sub-category budgets exceed parent budget');
+      return;
+    }
+
+    parentCat.subcategories = parentCat.subcategories || [];
+    const newSub = { id: uid(), name, budget: amount };
+    parentCat.subcategories.push(newSub);
+    parentCat.expanded = true;
+
+    await Store.set(`budget-data:${currentKey}`, budgetData);
+    await renderBudget();
+    showToast('Subcategory added');
+    return;
+  }
+
+  const inlineNewCatSaveBtn = ev.target.closest('[data-inline-newcat-save]');
+  if (inlineNewCatSaveBtn) {
+    const formEl = inlineNewCatSaveBtn.closest('.inline-newcat-form');
+    const select = formEl.querySelector('.inline-newcat-name');
+    const customInput = formEl.querySelector('.inline-newcat-custom');
+    const budgetInput = formEl.querySelector('.inline-newcat-budget');
+
+    let catName = select.value;
+    if (catName === '__custom__') catName = customInput.value.trim();
+    const catBudget = Number(budgetInput.value) || 0;
+
+    if (!catName || catBudget <= 0) { showToast('Enter valid category name and budget'); return; }
+
+    let isDuplicateSub = false;
+    for (const c of budgetData) {
+      if (c.subcategories && c.subcategories.some(s => s.name.toLowerCase() === catName.toLowerCase())) {
+        isDuplicateSub = true;
+      }
+    }
+    if (isDuplicateSub) { showToast('Name already in use as a subcategory'); return; }
+
+    if (select.value === '__custom__') {
+      if (!allSpendTags(DEFAULT_TAGS, customTags).some(t => t.toLowerCase() === catName.toLowerCase())) {
+        customTags.push(catName);
+        await Store.set('custom-spend-tags', customTags);
+      }
+    }
+
+    const existingIdx = budgetData.findIndex(c => c.name.toLowerCase() === catName.toLowerCase());
+    if (existingIdx > -1) {
+      budgetData[existingIdx].budget = catBudget;
+    } else {
+      const newCat = { id: uid(), name: catName, budget: catBudget, expanded: true, subcategories: [] };
+      budgetData.push(newCat);
+    }
+
+    await Store.set(`budget-data:${currentKey}`, budgetData);
+    await renderBudget();
+    showToast('Budget added');
+    return;
   }
 
   const viewTxnsBtn = ev.target.closest('[data-view-txns]');
@@ -704,7 +931,25 @@ root.addEventListener('click', async (ev) => {
     if (label) label.textContent = shouldExpand ? 'Collapse All' : 'Expand All';
 
     // Persist afterwards, fire-and-forget — never block the UI on this.
-    Store.set('budget-data', budgetData);
+    Store.set(`budget-data:${currentKey}`, budgetData);
+    return;
+  }
+
+  const copyLastBtn = ev.target.closest('#copy-last-budget-btn');
+  if (copyLastBtn) {
+    const prevMonths = monthsIndex.filter(m => m < currentKey);
+    let lastLogged = prevMonths.length ? prevMonths[prevMonths.length - 1] : null;
+    if (lastLogged) {
+        let lastBudget = await Store.get(`budget-data:${lastLogged}`, null);
+        if (!lastBudget) lastBudget = await Store.get('budget-data', []) || [];
+        
+        budgetData = JSON.parse(JSON.stringify(lastBudget));
+        await Store.set(`budget-data:${currentKey}`, budgetData);
+        await renderBudget();
+        showToast('Budget copied');
+    } else {
+        showToast('No logged months found to copy from');
+    }
     return;
   }
 
@@ -723,7 +968,7 @@ root.addEventListener('click', async (ev) => {
       toggleSub.classList.toggle('expanded', cat.expanded);
 
       // Persist afterwards, fire-and-forget — never block the UI on this.
-      Store.set('budget-data', budgetData);
+      Store.set(`budget-data:${currentKey}`, budgetData);
     }
     return;
   }
@@ -774,6 +1019,14 @@ root.addEventListener('click', async (ev) => {
     
     if (!catName || catBudget <= 0) { showToast('Enter valid category name and budget'); return; }
 
+    let isDuplicateCat = false;
+    for (const c of budgetData) {
+      if (c.subcategories && c.subcategories.some(s => s.name.toLowerCase() === catName.toLowerCase())) {
+        isDuplicateCat = true;
+      }
+    }
+    if (isDuplicateCat) { showToast('Category name already in use as a subcategory'); return; }
+
     const subcatRows = Array.from(document.querySelectorAll('.subcat-row'));
     const subcats = [];
     let subcatSum = 0;
@@ -786,6 +1039,16 @@ root.addEventListener('click', async (ev) => {
 
       const sbudg = Number(row.querySelector('.sc-budget').value) || 0;
       if (sname && sbudg > 0) {
+        let isDupSub = false;
+        if (sname.toLowerCase() === catName.toLowerCase()) isDupSub = true;
+        for (const c of budgetData) {
+          if (c.name.toLowerCase() === sname.toLowerCase()) isDupSub = true;
+          if (c.subcategories && c.subcategories.some(s => s.name.toLowerCase() === sname.toLowerCase())) isDupSub = true;
+        }
+        if (subcats.some(s => s.name.toLowerCase() === sname.toLowerCase())) isDupSub = true;
+
+        if (isDupSub) { showToast('Subcategory name already in use'); return; }
+
         subcats.push({ id: uid(), name: sname, budget: sbudg });
         subcatSum += sbudg;
       }
@@ -822,7 +1085,7 @@ root.addEventListener('click', async (ev) => {
       });
     }
 
-    await Store.set('budget-data', budgetData);
+    await Store.set(`budget-data:${currentKey}`, budgetData);
     isFormOpen = false;
     await renderBudget();
     showToast('Budget added');
@@ -881,7 +1144,7 @@ root.addEventListener('click', async (ev) => {
       }
     }
 
-    await Store.set('budget-data', budgetData);
+    await Store.set(`budget-data:${currentKey}`, budgetData);
     await renderBudget();
     showToast('Budget updated');
     return;
@@ -906,7 +1169,7 @@ root.addEventListener('click', async (ev) => {
         parent.subcategories = parent.subcategories.filter(s => s.id !== id);
       }
     }
-    await Store.set('budget-data', budgetData);
+    await Store.set(`budget-data:${currentKey}`, budgetData);
     hideDeleteCallout();
     await renderBudget();
     showToast('Budget removed');
@@ -915,6 +1178,15 @@ root.addEventListener('click', async (ev) => {
 });
 
 root.addEventListener('change', (ev) => {
+  if (ev.target.matches('.inline-newcat-name')) {
+    const wrap = ev.target.closest('.inline-newcat-form').querySelector('.inline-newcat-custom-wrap');
+    if (wrap) {
+      wrap.style.display = ev.target.value === '__custom__' ? 'block' : 'none';
+      if (ev.target.value === '__custom__') wrap.querySelector('.inline-newcat-custom').focus();
+    }
+    return;
+  }
+
   if (ev.target.matches('.sc-name-select')) {
     const customInput = ev.target.nextElementSibling;
     if (customInput && customInput.classList.contains('sc-name-custom')) {
