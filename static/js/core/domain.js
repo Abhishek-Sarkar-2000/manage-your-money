@@ -374,3 +374,139 @@ export function allSpendTags(defaultTags, customTags) {
   }
   return out;
 }
+
+export function forecastCategorySpend(categoryName, isSub, parentName, budget, monthKey, currentMonthEntries) {
+  if (budget <= 0 || !currentMonthEntries) return null;
+  
+  const today = new Date();
+  const currentKey = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+  if (monthKey !== currentKey) return null;
+
+  const dayOfMonth = today.getDate();
+  if (dayOfMonth < 7) return null;
+  
+  const [y, m] = monthKey.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const todayStrVal = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+  
+  const sevenDaysAgoDt = new Date(today);
+  sevenDaysAgoDt.setDate(today.getDate() - 7);
+  const sevenDaysAgoStr = sevenDaysAgoDt.getFullYear() + '-' + String(sevenDaysAgoDt.getMonth() + 1).padStart(2, '0') + '-' + String(sevenDaysAgoDt.getDate()).padStart(2, '0');
+
+  const target = categoryName.toLowerCase().trim();
+  const pTarget = parentName ? parentName.toLowerCase().trim() : null;
+
+  let variableSpentSoFar = 0;
+  let recurringPosted = 0;
+  let recurringRemaining = 0;
+  let variableLast7Days = 0;
+  let maxRecurringDate = null;
+  let totalEntries = 0;
+  let autoEntries = 0;
+
+  for (const e of currentMonthEntries) {
+    if (e.type === 'income' || e.type === 'payback') continue;
+    const amt = Number(e.amount) || 0;
+    if (amt <= 0) continue;
+
+    const eType = (e.type || '').toLowerCase();
+    const eTag = (e.tag || '').toLowerCase();
+    const eSub = (e.subCategory || '').toLowerCase();
+    const eCat = (e.category || '').toLowerCase();
+    const eDesc = (e.description || '').toLowerCase();
+
+    let isMatch = false;
+    if (isSub) {
+      if (pTarget === 'sip') isMatch = ((eType === 'sip' || eTag === 'sip') && (eSub === target || eCat === target || eDesc === target));
+      else if (pTarget === 'recurring') isMatch = ((eType === 'recurring' || eTag === 'recurring') && (eSub === target || eDesc === target));
+      else if (pTarget === 'emi') isMatch = ((eType === 'emi' || eTag === 'emi') && (eSub === target || eDesc === target || eTag === target));
+      else isMatch = (eTag === pTarget && eSub === target);
+    } else {
+      if (target === 'sip') isMatch = (eType === 'sip' || eTag === 'sip' || eCat === 'sip');
+      else if (target === 'recurring') isMatch = (eType === 'recurring' || eTag === 'recurring');
+      else if (target === 'emi') isMatch = (eType === 'emi' || eTag === 'emi');
+      else isMatch = (eTag === target);
+    }
+
+    if (!isMatch) continue;
+    
+    totalEntries++;
+    const isAuto = (eType === 'emi' || eType === 'sip' || eType === 'recurring');
+    if (isAuto) autoEntries++;
+
+    if (isAuto) {
+      if (!e.date || e.date <= todayStrVal) recurringPosted += amt;
+      else recurringRemaining += amt;
+      
+      if (e.date && (!maxRecurringDate || e.date > maxRecurringDate)) {
+        maxRecurringDate = e.date;
+      }
+    } else {
+      if (!e.date || e.date <= todayStrVal) {
+        variableSpentSoFar += amt;
+        if (e.date && e.date > sevenDaysAgoStr) {
+          variableLast7Days += amt;
+        }
+      }
+    }
+  }
+
+  const isAutoOnly = (target === 'emi' || target === 'sip' || target === 'recurring') || (totalEntries > 0 && autoEntries === totalEntries);
+  let projectedByMonthEnd = 0;
+  let projectedOverBudget = 0;
+  let message = '';
+  let severity = 'ok';
+
+  const fmtAmt = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Math.round(val));
+
+  if (isAutoOnly) {
+    projectedByMonthEnd = recurringPosted + recurringRemaining;
+    if (projectedByMonthEnd === 0) return null;
+    projectedOverBudget = Math.max(0, projectedByMonthEnd - budget);
+    
+    let dateDisplay = 'month-end';
+    if (maxRecurringDate) {
+      const [,, d] = maxRecurringDate.split('-');
+      const dt = new Date(maxRecurringDate + 'T00:00:00');
+      dateDisplay = parseInt(d) + ' ' + dt.toLocaleDateString('en-IN', { month: 'short' });
+    }
+
+    if (projectedOverBudget <= 0) {
+      message = `<span>${fmtAmt(projectedByMonthEnd)} in automatic charges by ${dateDisplay}</span>`;
+      severity = 'ok';
+    } else {
+      message = `<span>${fmtAmt(projectedByMonthEnd)} in automatic charges by ${dateDisplay}</span><span style="font-size: 0.9em; margin-top: 2px; color: var(--debit); display: block;">Budget ${fmtAmt(budget)} is insufficient. Consider increasing to ${fmtAmt(projectedByMonthEnd)}.</span>`;
+      severity = 'auto-over';
+    }
+  } else {
+    const recentDayRange = Math.min(dayOfMonth, 7);
+    const variableDailyAvg = variableLast7Days / recentDayRange;
+    const daysRemaining = daysInMonth - dayOfMonth;
+    const variableProjectedRemaining = variableDailyAvg * daysRemaining;
+
+    projectedByMonthEnd = variableSpentSoFar + recurringPosted + recurringRemaining + variableProjectedRemaining;
+    projectedOverBudget = Math.max(0, projectedByMonthEnd - budget);
+
+    if (variableSpentSoFar === 0 && recurringPosted === 0 && variableLast7Days === 0) {
+      return null;
+    } else if (projectedOverBudget <= 0) {
+      const under = budget - projectedByMonthEnd;
+      message = `<span>On pace to spend ${fmtAmt(projectedByMonthEnd)} — ${fmtAmt(under)} under budget</span>`;
+      severity = 'ok';
+    } else {
+      message = `<span>On pace to spend ${fmtAmt(projectedByMonthEnd)} — ${fmtAmt(projectedOverBudget)} over budget</span>`;
+      severity = 'warning';
+    }
+  }
+
+  return {
+    projectedByMonthEnd,
+    projectedOverBudget,
+    variableSpentSoFar,
+    recurringRemaining,
+    maxRecurringDate,
+    isAutoOnly,
+    message,
+    severity
+  };
+}

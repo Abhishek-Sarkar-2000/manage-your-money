@@ -641,6 +641,33 @@
   background: var(--budget-danger);
 }
 
+.budget-forecast {
+  display: block;
+  margin-top: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.74rem;
+  line-height: 1.3;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  text-align: left;
+}
+
+.budget-forecast.ok { color: var(--credit); }
+.budget-forecast.warning { color: var(--amber); }
+.budget-forecast.auto-over { color: #ff9800; }
+
+.budget-forecast svg {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  vertical-align: -1px;
+}
+
+.bf-text {
+  display: inline;
+}
+
 .status-col {
   display: flex;
   align-items: center;
@@ -739,6 +766,9 @@
   }
   .inline-edit-input {
     max-width: 60px;
+  }
+  .budget-forecast {
+    font-size: 0.7rem;
   }
 }
 

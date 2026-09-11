@@ -10,6 +10,7 @@ import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '
 import {
   loadMonth, saveMonth, cardById, allSpendTags,
   emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth,
+  forecastCategorySpend
 } from '../core/domain.js';
 
 const root = document.getElementById('budget-root');
@@ -281,6 +282,21 @@ function renderBudgetRow(item, isSub, parentId) {
   const isDanger = pct > 100;
   const status = item.budget > 0 ? getStatusInfo(pct) : { label: 'Unassigned', cls: 'status-unassigned' };
 
+  let forecastHtml = '';
+  const forecast = forecastCategorySpend(item.name, isSub, parentName, item.budget, currentKey, currentMonthEntries);
+  if (forecast) {
+    const svgs = {
+      'ok': `<svg viewBox="0 0 24 24"><polyline points="23 6 9 20 1 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>`,
+      'warning': `<svg viewBox="0 0 24 24"><path d="M12 2L2 20h20L12 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>`,
+      'auto-over': `<svg viewBox="0 0 24 24"><path d="M12 2L2 20h20L12 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>`
+    };
+    forecastHtml = `
+      <div class="budget-forecast ${forecast.severity}">
+        ${svgs[forecast.severity]}<span class="bf-text">${forecast.message}</span>
+      </div>
+    `;
+  }
+
   const dragHandleSvg = `<svg class="drag-handle" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"></circle><circle cx="15" cy="6" r="1.6"></circle><circle cx="9" cy="12" r="1.6"></circle><circle cx="15" cy="12" r="1.6"></circle><circle cx="9" cy="18" r="1.6"></circle><circle cx="15" cy="18" r="1.6"></circle></svg>`;
 
   const pencilSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`;
@@ -317,6 +333,7 @@ function renderBudgetRow(item, isSub, parentId) {
     <div class="budget-progress">
       <div style="text-align: right;">${fmtINR(used)} (${status.cls === 'status-unassigned' ? '--' : Math.round(pct)}%)</div>
       <div class="bp-bar"><div class="bp-fill ${isDanger ? 'danger' : ''}" style="width: ${Math.min(pct, 100)}%;"></div></div>
+      ${forecastHtml}
     </div>
     <div class="status-col">
       <span class="status-pill ${status.cls}">${status.cls === 'status-high' ? warnSvg : ''}${status.label}</span>
