@@ -286,9 +286,9 @@ function renderBudgetRow(item, isSub, parentId) {
   const forecast = forecastCategorySpend(item.name, isSub, parentName, item.budget, currentKey, currentMonthEntries);
   if (forecast) {
     const svgs = {
-      'ok': `<svg viewBox="0 0 24 24"><polyline points="23 6 9 20 1 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>`,
-      'warning': `<svg viewBox="0 0 24 24"><path d="M12 2L2 20h20L12 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>`,
-      'auto-over': `<svg viewBox="0 0 24 24"><path d="M12 2L2 20h20L12 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>`
+      'ok': `<svg class="forecast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
+      'warning': `<svg class="forecast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13 8 3 18"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>`,
+      'auto-over': `<svg class="forecast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 20h20L12 2z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`
     };
     forecastHtml = `
       <div class="budget-forecast ${forecast.severity}">
@@ -331,7 +331,7 @@ function renderBudgetRow(item, isSub, parentId) {
       ${fmtINR(item.budget)}
     </div>
     <div class="budget-progress">
-      <div style="text-align: right;">${fmtINR(used)} (${status.cls === 'status-unassigned' ? '--' : Math.round(pct)}%)</div>
+      <div class="budget-text">${fmtINR(used)} (${status.cls === 'status-unassigned' ? '--' : Math.round(pct)}%)</div>
       <div class="bp-bar"><div class="bp-fill ${isDanger ? 'danger' : ''}" style="width: ${Math.min(pct, 100)}%;"></div></div>
       ${forecastHtml}
     </div>

@@ -472,10 +472,10 @@ export function forecastCategorySpend(categoryName, isSub, parentName, budget, m
     }
 
     if (projectedOverBudget <= 0) {
-      message = `<span>${fmtAmt(projectedByMonthEnd)} in automatic charges by ${dateDisplay}</span>`;
+      message = `<span>${fmtAmt(projectedByMonthEnd)} auto-spent by ${dateDisplay}</span>`;
       severity = 'ok';
     } else {
-      message = `<span>${fmtAmt(projectedByMonthEnd)} in automatic charges by ${dateDisplay}</span><span style="font-size: 0.9em; margin-top: 2px; color: var(--debit); display: block;">Budget ${fmtAmt(budget)} is insufficient. Consider increasing to ${fmtAmt(projectedByMonthEnd)}.</span>`;
+      message = `<span>${fmtAmt(projectedByMonthEnd)} auto-spent by ${dateDisplay}. </span><span style="font-size: 0.9em; margin-top: 2px; color: var(--debit);">Consider increasing budget to ${fmtAmt(projectedByMonthEnd)}.</span>`;
       severity = 'auto-over';
     }
   } else {
