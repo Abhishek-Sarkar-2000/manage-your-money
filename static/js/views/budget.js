@@ -237,6 +237,7 @@ function renderSummaryCards() {
   const briefcaseSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"></path><path d="M2 13h20"></path></svg>`;
   const coinsSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"></ellipse><path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6"></path><path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"></path></svg>`;
   const clockSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 15"></polyline></svg>`;
+  const alertIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--debit)" style="position: absolute; top: -4px; right: -4px; z-index: 2; border-radius: 50%; background: var(--sky); box-shadow: 0 0 0 1px var(--sky);"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM11 15V17H13V15H11ZM11 7V13H13V7H11Z"/></svg>`;
 
   const savingsClass = totalSavings < 0 ? 'negative' : '';
   const savingsPctDisplay = totalSavings < 0 ? '0%' : `${savingsPct.toFixed(1)}%`;
@@ -266,9 +267,9 @@ function renderSummaryCards() {
     const subTextColor = unallocated < 0 ? 'var(--debit)' : 'var(--muted)';
     
     budgetCardContent = `
-      <div class="kpi-label">Left to Budget</div>
+      <div class="kpi-label" style="${unallocated < 0 ? 'color: var(--debit);' : ''}">Left to Budget</div>
       <div class="kpi-value ${unallocatedClass}">${unallocatedDisplay}</div>
-      <div class="kpi-sub" style="color: ${subTextColor}; font-weight: ${unallocated < 0 ? '600' : 'normal'};">${unallocated < 0 ? 'Over-allocated!' : `${fmtINR(totalBudget)} set`}</div>
+      <div class="kpi-sub" style="color: ${subTextColor}; font-weight: ${unallocated < 0 ? '600' : 'normal'};">${unallocated < 0 ? 'Over-allocated!' : `Total ${fmtINR(totalBudget)}`}</div>
     `;
   } else {
     budgetCardContent = `
@@ -292,11 +293,12 @@ function renderSummaryCards() {
       });
 
       if (hasForecast) {
-        const useIncome = totalIncome > 0 && totalIncome < totalBudget;
-        const benchmarkValue = useIncome ? totalIncome : totalBudget;
-        const benchmarkLabel = useIncome ? 'income' : 'budget';
-        const isOver = totalForecast > benchmarkValue;
-        const diffAmount = Math.abs(totalForecast - benchmarkValue);
+        const unbudgetedTotal = calculateUnbudgeted().total;
+        const projectedTotalSpend = totalForecast + unbudgetedTotal;
+        const benchmarkValue = totalIncome;
+        const benchmarkLabel = 'income';
+        const isOver = projectedTotalSpend > benchmarkValue;
+        const diffAmount = Math.abs(projectedTotalSpend - benchmarkValue);
         const overUnderText = isOver ? 'over' : 'under';
 
         const forecastIcon = isOver
@@ -308,7 +310,7 @@ function renderSummaryCards() {
         forecastReportHtml = `
           <div class="forecast-report-banner ${bannerClass}">
             <span class="frb-icon">${forecastIcon}</span>
-            <span class="frb-text">On pace to spend <strong>${fmtINR(totalForecast)}</strong> — ${fmtINR(diffAmount)} ${overUnderText} ${benchmarkLabel}</span>
+            <span class="frb-text">On pace to spend <strong>${fmtINR(projectedTotalSpend)}</strong> — ${fmtINR(diffAmount)} ${overUnderText} ${benchmarkLabel}</span>
           </div>
         `;
       }
@@ -320,35 +322,47 @@ function renderSummaryCards() {
   ${forecastReportHtml}
   <div class="budget-summary-grid">
     <div class="kpi-card">
-      <div class="kpi-icon">${briefcaseSvg}</div>
+      <div class="kpi-icon" style="position: relative;">
+        ${briefcaseSvg}
+        ${unallocated < 0 ? alertIcon : ''}
+      </div>
       <div class="kpi-body">
         ${budgetCardContent}
       </div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon">${coinsSvg}</div>
+      <div class="kpi-icon" style="position: relative;">
+        ${coinsSvg}
+        ${spentPct > 100 ? alertIcon : ''}
+      </div>
       <div class="kpi-body">
-        <div class="kpi-label">Spent</div>
-        <div class="kpi-value">${fmtINR(totalSpent)}</div>
-        <div class="kpi-sub blue">${spentPct.toFixed(1)}% of budget</div>
+        <div class="kpi-label" style="${spentPct > 100 ? 'color: var(--debit);' : ''}">Spent</div>
+        <div class="kpi-value ${spentPct > 100 ? 'negative' : ''}">${fmtINR(totalSpent)}</div>
+        <div class="kpi-sub" style="${spentPct > 100 ? 'color: var(--debit);' : 'color: var(--blue);'}">${spentPct.toFixed(1)}% of budget</div>
       </div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon">${clockSvg}</div>
+      <div class="kpi-icon" style="position: relative;">
+        ${clockSvg}
+        ${totalSavings < 0 ? alertIcon : ''}
+      </div>
       <div class="kpi-body">
-        <div class="kpi-label">Savings</div>
+        <div class="kpi-label" style="${totalSavings < 0 ? 'color: var(--debit);' : ''}">Savings</div>
         <div class="kpi-value ${savingsClass}">${fmtINR(totalSavings)}</div>
-        <div class="kpi-sub green">${savingsPctDisplay} of income</div>
+        <div class="kpi-sub" style="${totalSavings < 0 ? 'color: var(--debit);' : 'color: var(--credit);'}">${savingsPctDisplay} of income</div>
       </div>
     </div>
     <div class="kpi-card status-card">
-      <svg width="48" height="48" viewBox="0 0 48 48">
-        <circle cx="24" cy="24" r="${radius}" fill="none" stroke="var(--sky)" stroke-width="5"></circle>
-        <circle cx="24" cy="24" r="${radius}" fill="none" stroke="${ringColor}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${circumference.toFixed(2)}" stroke-dashoffset="${dashOffset.toFixed(2)}" transform="rotate(-90 24 24)"></circle>
-        <text x="24" y="28" text-anchor="middle" font-size="11" font-family="'IBM Plex Mono', monospace" fill="var(--navy)">${Math.round(usedPct)}%</text>
-      </svg>
+      <div style="position: relative; display: flex; flex-shrink: 0;">
+        <svg width="48" height="48" viewBox="0 0 48 48">
+          <circle cx="24" cy="24" r="${radius}" fill="none" stroke="var(--sky)" stroke-width="5"></circle>
+          <circle cx="24" cy="24" r="${radius}" fill="none" stroke="${ringColor}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${circumference.toFixed(2)}" stroke-dashoffset="${dashOffset.toFixed(2)}" transform="rotate(-90 24 24)"></circle>
+          <text x="24" y="28" text-anchor="middle" font-size="11" font-family="'IBM Plex Mono', monospace" fill="var(--navy)">${Math.round(usedPct)}%</text>
+        </svg>
+        ${usedPct > 100 ? alertIcon.replace('top: -4px; right: -4px;', 'top: 0px; right: 0px;') : ''}
+      </div>
       <div class="kpi-body">
-        <div class="kpi-label">Budget Utilization</div>
+        <div class="kpi-label" style="${usedPct > 100 ? 'color: var(--debit);' : ''}">Budget Utilization</div>
         <div class="kpi-sub">${usedPct.toFixed(1)}% used</div>
         <span class="kpi-status-pill status-pill ${status.cls}">${status.label}</span>
       </div>

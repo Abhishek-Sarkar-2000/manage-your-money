@@ -16,13 +16,14 @@
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  background: linear-gradient(155deg, #fff, var(--ice));
+  background: linear-gradient(155deg, var(--ice-2) 0%, var(--paper) 45%, var(--ice-2));
   border: 1px solid var(--hair);
   border-radius: 12px;
 }
 
 :root[data-theme="dark"] .kpi-card {
-  background: linear-gradient(135deg, var(--hair) 0%, var(--ice-2) 100%);
+  background: linear-gradient(135deg, var(--ice-2) 0%, var(--hair) 45%, var(--ice) 100%);
+  box-shadow: inset 0 0 16px rgb(200 182 237 / 11%), inset 0 0 0 1px rgb(179 168 216 / 25%);
   color: var(--navy);
   border-color: var(--sky);
 }
@@ -46,7 +47,7 @@
 }
 
 :root[data-theme="dark"] .kpi-icon {
-  background: var(--royal-bg);
+  background: linear-gradient(215deg, var(--sky) 0%, var(--royal-bg) 45%, var(--sky) 100%);
 }
 
 .kpi-body {
@@ -64,7 +65,7 @@
 }
 
 .kpi-value {
-  font-family: 'Source Serif 4', Georgia, serif;
+  font-family: 'IBM Plex Mono', monospace;
   font-size: 1.2rem;
   font-weight: 700;
   color: var(--navy);
@@ -80,6 +81,7 @@
 .kpi-sub {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.74rem;
+  font-weight: 600;
   margin-top: 2px;
 }
 
