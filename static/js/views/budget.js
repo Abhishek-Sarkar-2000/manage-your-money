@@ -16,7 +16,15 @@ import {
 import { computeGoalRecommendation } from '../core/goal-algorithm.js';
 
 const root = document.getElementById('budget-root');
-const DEFAULT_TAGS = ['Groceries', 'Food', 'Fuel', 'Transport', 'Rent', 'Utility', 'Shopping', 'Recharge', 'Medicine', 'Gift', 'EMI', 'SIP', 'RECURRING'];
+const DEFAULT_TAGS = ['Groceries', 'Food', 'Fuel', 'Transport', 'Rent', 'Utility', 'Shopping', 'Recharge', 'Medicine', 'Gift', 'EMI', 'RECURRING', 'Fund', 'Stock', 'FD', 'Bond', 'MF', 'ETF'];
+
+const INVESTMENT_BUDGET_MAP = { fund: 'Fund', 'lump-sum mf': 'Fund', stock: 'Stock', 'fixed deposit': 'FD', fd: 'FD', bond: 'Bond', 'mutual fund': 'MF', mf: 'MF', etf: 'ETF' };
+
+function investmentBudgetCategory(entry) {
+  const type = String(entry?.type || '').toLowerCase();
+  const raw = String(entry?.category || '').trim().toLowerCase();
+  return (type === 'investment' || type === 'sip') ? (INVESTMENT_BUDGET_MAP[raw] || null) : null;
+}
 
 // Sensible default classification for each built-in tag — used to seed
 // new categories and as a fallback for legacy categories saved before
@@ -25,7 +33,7 @@ const DEFAULT_TAGS = ['Groceries', 'Food', 'Fuel', 'Transport', 'Rent', 'Utility
 const DEFAULT_TAG_CLASSIFICATIONS = {
   groceries: 'essential', food: 'essential', fuel: 'essential', transport: 'essential',
   rent: 'essential', utility: 'essential', medicine: 'essential', emi: 'essential', recurring: 'essential',
-  sip: 'investment', investment: 'investment',
+  sip: 'investment', investment: 'investment', fund: 'investment', stock: 'investment', fd: 'investment', bond: 'investment', mf: 'investment', etf: 'investment',
   shopping: 'discretionary', recharge: 'discretionary', gift: 'discretionary',
 };
 
@@ -86,13 +94,22 @@ async function loadDomain() {
 function calculateUsed(name, isSub, parentName) {
   if (!name || !currentMonthEntries) return 0;
   let total = 0;
+  const target = String(name).trim().toLowerCase();
   for (const e of currentMonthEntries) {
     if (e.type === 'income' || e.type === 'payback' || e.type === 'goal_funding') continue;
     const amt = Number(e.amount) || 0;
     if (amt <= 0) continue;
-    if (matchesCategory(e, name, isSub, parentName)) {
+
+    // Investments are bucketed from Month/SIP asset categories. This makes
+    // Fund/Stock/FD/Bond/MF/ETF usable as Budget categories without changing
+    // the labels stored by the Month and SIP pages.
+    const investmentBucket = investmentBudgetCategory(e);
+    if (!isSub && investmentBucket && investmentBucket.toLowerCase() === target) {
       total += amt;
+      continue;
     }
+
+    if (matchesCategory(e, name, isSub, parentName)) total += amt;
   }
   return total;
 }
@@ -162,10 +179,14 @@ function calculateUnbudgeted() {
     const eType = (e.type || '').toLowerCase();
     const eTag = (e.tag || '').toLowerCase();
     const eCat = (e.category || '').toLowerCase();
+    const investmentBucket = investmentBudgetCategory(e);
 
     let key;
     let label;
-    if (eType === 'sip' || eTag === 'sip' || eCat === 'sip') {
+    if (investmentBucket) {
+      key = investmentBucket.toLowerCase();
+      label = investmentBucket;
+    } else if (eType === 'sip' || eTag === 'sip' || eCat === 'sip') {
       key = 'sip'; label = 'SIP';
     } else if (eType === 'recurring' || eTag === 'recurring') {
       key = 'recurring'; label = 'Recurring';

@@ -71,12 +71,22 @@ export function ensureCategoryForTag(budgetData, tagName) {
 export function matchesCategory(entry, targetName, isSub, parentTargetName) {
   const target = (targetName || '').toLowerCase().trim();
   const pTarget = parentTargetName ? parentTargetName.toLowerCase().trim() : null;
-  
+
   const eType = (entry.type || '').toLowerCase();
   const eTag = (entry.tag || '').toLowerCase();
   const eSub = (entry.subCategory || '').toLowerCase();
   const eCat = (entry.category || '').toLowerCase();
   const eDesc = (entry.description || '').toLowerCase();
+
+  // Budget investment buckets intentionally use concise labels that differ
+  // from the source labels on Month/SIPs. Keep the source data unchanged and
+  // normalize only for budget matching/forecasting.
+  if (!isSub && (eType === 'investment' || eType === 'sip')) {
+    const investmentBucket = eType === 'investment'
+      ? ({ 'lump-sum mf': 'fund', stock: 'stock', 'fixed deposit': 'fd', bond: 'bond' }[eCat] || null)
+      : ({ 'mutual fund': 'mf', etf: 'etf', stock: 'stock' }[eCat] || null);
+    if (investmentBucket) return investmentBucket === target;
+  }
 
   if (isSub) {
     if (pTarget === 'sip') {
