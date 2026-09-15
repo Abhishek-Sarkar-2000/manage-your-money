@@ -512,7 +512,7 @@ function renderGoalsSection() {
     <div class="form-row">
       <div class="field"><label>Goal Name</label><input id="f-goal-name" type="text" placeholder="e.g. Emergency Fund" /></div>
       <div class="field"><label>Target Amount (₹)</label><input id="f-goal-target" type="number" step="1" min="0" placeholder="0" /></div>
-      <div class="field"><label>Expected Completion</label><input id="f-goal-month" type="month" /></div>
+      <div class="field"><label>Expected Completion</label><input id="f-goal-month" type="month" min="${currentMonthKey()}" /></div>
     </div>
     <label class="checkline"><input type="checkbox" id="f-goal-downpayment-toggle" /> Has an earlier funding milestone</label>
     <div class="form-row" id="f-goal-downpayment-wrap" style="display:none;">
@@ -544,6 +544,7 @@ function renderGoalsSection() {
     return `
       <div class="financial-goals-section" style="margin-bottom: 24px;">
         ${sectionHeaderHtml}
+        <div class="empty-chart">Set your first goal by clicking on "Set Goal"</div>
       </div>
     `;
   }

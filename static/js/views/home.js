@@ -137,7 +137,7 @@ function renderFromCache() {
       <div class="scroll-track money-track" data-scroll-track>
         <a class="action-card" href="/budget">
           <div class="ac-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg></div>
-          <h3>Budget</h3>
+          <h3>Budget & Goals</h3>
           <p>Set monthly goals for your tags and track your spending.</p>
         </a>
         <a class="action-card" href="/months">
@@ -157,7 +157,7 @@ function renderFromCache() {
         </a>
         <a class="action-card" href="/sips">
           <div class="ac-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="7" ry="3"></ellipse><path d="M5 5v4c0 1.7 3.1 3 7 3s7-1.3 7-3V5"></path><path d="M5 9v4c0 1.7 3.1 3 7 3s7-1.3 7-3V9"></path><path d="M5 13v4c0 1.7 3.1 3 7 3s7-1.3 7-3v-4"></path></svg></div>
-          <h3>Manage SIPs</h3>
+          <h3>Portfolio & SIPs</h3>
           <p>Set up recurring investments so they're auto-tracked every month until you stop them.</p>
         </a>
         <a class="action-card" href="/subscriptions">

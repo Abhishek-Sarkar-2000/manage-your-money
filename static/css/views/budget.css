@@ -213,6 +213,18 @@
   gap: 6px;
 }
 
+.empty-chart {
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+  background: var(--ice-2);
+  border: 1px dashed var(--hair);
+  border-radius: 12px;
+}
+:root[data-theme="dark"] .empty-chart {
+  border-color: var(--sky);
+}
+
 /* ---------- Group slide-down wrapper (mirrors .subcat-wrap) ----------
    Was previously missing: the JS toggle already flipped these classes,
    but with no matching CSS the group header's expand/collapse chevron
@@ -237,6 +249,7 @@
   flex-direction: column;
   gap: 10px;
   padding: 14px 16px;
+  margin-bottom: 8px;
 }
 
 .goal-card-top {
