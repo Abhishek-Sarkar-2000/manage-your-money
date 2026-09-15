@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
 #app {
   container-type: inline-size;
   container-name: app;
@@ -138,23 +140,292 @@
   background: var(--debit-bg);
 }
 
-/* ---------- Budget List / Table ---------- */
-.unbudgeted-callout {
-  margin-bottom: 20px;
-  border: 1px solid var(--amber-bg);
-  background: var(--amber-bg);
-  border-radius: var(--radius-sm);
+/* ---------- Groups & Goals ---------- */
+.budget-group {
+  margin-bottom: 4px;
+  border-radius: var(--radius);
+  background: var(--ice-2);
+  border: 1px solid var(--hair);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+:root[data-theme="dark"] .budget-group { border-color: var(--sky); }
+:root[data-theme="hi-contrast"] .budget-group { color: #000000; }
+
+.budget-group.drag-target-active {
+  box-shadow: 0 0 0 2px var(--blue);
+  border-color: var(--blue);
+}
+
+.budget-group-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid transparent;
+  font-family: 'Source Serif 4', Georgia, serif;
+  position: relative;
+}
+/* Border only reads as a divider once the categories below are actually
+   showing — a contracted group is just the header, so there's nothing
+   for the line to separate. */
+.budget-group-header.expanded {
+  border-bottom-color: var(--hair);
+}
+:root[data-theme="dark"] .budget-group-header.expanded { border-bottom-color: var(--sky); }
+:root[data-theme="hi-contrast"] .budget-group-header.expanded { border-bottom-color: #ffffff; }
+
+.bgh-name {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--navy);
+  margin-right: auto;
+}
+
+.bgh-progress {
+  flex: 1;
+}
+
+.bgh-amount {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 0 16px;
+}
+:root[data-theme="hi-contrast"] .bgh-amount { color: #ffffff; }
+
+.bgh-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.budget-group-body {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ---------- Group slide-down wrapper (mirrors .subcat-wrap) ----------
+   Was previously missing: the JS toggle already flipped these classes,
+   but with no matching CSS the group header's expand/collapse chevron
+   had no visible effect. */
+.group-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.group-wrap.expanded {
+  grid-template-rows: 1fr;
+}
+
+.group-inner {
   overflow: hidden;
 }
 
-:root[data-theme="dark"] .unbudgeted-callout {
-  background: var(--ice-2);
-  border-color: var(--hair);
+/* ---------- Goal card ---------- */
+.goal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
 }
 
-:root[data-theme="hi-contrast"] .unbudgeted-callout {
-  background: #FFFFFF;
-  border-color: #000000;
+.goal-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.goal-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.goal-name {
+  margin: 0;
+  font-size: 1rem;
+  font-family: 'Source Serif 4', Georgia, serif;
+  color: var(--navy);
+}
+
+.goal-target {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.goal-earlier-funding {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.goal-fund-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.goal-fund-controls .inline-edit-input {
+  width: 90px;
+}
+
+.goal-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.goal-progress-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--hair);
+  display: flex;
+  overflow: hidden;
+}
+
+.goal-seg-saved {
+  height: 100%;
+  background: var(--blue);
+}
+
+.goal-seg-this-month {
+  height: 100%;
+  background: repeating-linear-gradient(45deg, var(--sky), var(--sky) 4px, var(--blue) 4px, var(--blue) 8px);
+}
+
+.goal-progress-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.goal-icon-btn {
+  color: var(--muted);
+}
+.goal-icon-btn:hover:not(:disabled) {
+  color: var(--navy);
+}
+.goal-icon-btn.goal-delete-btn:hover:not(:disabled) {
+  color: var(--debit);
+}
+.goal-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.goal-progress-meta {
+  display: flex;
+  font-size: 0.75rem;
+  color: var(--muted);
+  padding-bottom: 3px;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.goal-deadline-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--navy);
+}
+
+.goal-deadline-row svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.goal-suggestion {
+  border-top: 1px dashed var(--hair);
+  padding-top: 8px;
+}
+
+.goal-suggested-line {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.goal-explanation {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.goal-breakdown-details {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  border-top: 1px dashed var(--hair);
+  padding-top: 8px;
+}
+
+/* Category classification chevrons — small circular toggles pinned to
+   the top-left border of a category row. */
+.cat-classification-toggle {
+  position: absolute;
+  top: -7px;
+  left: 10px;
+  display: flex;
+  gap: 3px;
+  z-index: 2;
+}
+.cat-class-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--hair);
+  background: #fff;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  font-family: 'Press Start 2P', 'IBM Plex Mono', monospace;
+  font-size: 6px;
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.cat-class-dot:hover {
+  border-color: var(--navy);
+}
+.cat-class-dot.cat-class-essential.active {
+  background: var(--credit);
+  border-color: var(--credit);
+  color: #fff;
+}
+.cat-class-dot.cat-class-investment.active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+.cat-class-dot.cat-class-discretionary.active {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: #fff;
+}
+
+@container app (max-width: 600px) {
+  .budget-group-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .bgh-amount {
+    margin: 0 auto 0 0;
+  }
+}
+
+/* ---------- Budget List / Table ---------- */
+.budget-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 24px;
 }
 
 .unbudgeted-summary {
@@ -222,7 +493,7 @@
   align-items: center;
   gap: 10px;
   padding: 8px 16px;
-  border-top: 1px solid var(--hair);
+  border-top: 1px solid var(--amber);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.8rem;
 }
@@ -278,13 +549,6 @@
 }
 
 /* ---------- Budget List / Table ---------- */
-.budget-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 24px;
-}
-
 .budget-header {
   display: grid;
   grid-template-columns: minmax(100px, 240px) minmax(90px, 1fr) minmax(140px, 2.5fr) 120px 70px;
@@ -331,7 +595,8 @@
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  background: #fff;
+  background: radial-gradient(white 0%, var(--paper) 40%, var(--ice-2) 100%);
+  box-shadow: inset 0 0 16px var(--ice-2), inset 0 0 0 1px var(--paper);
   border: 1px solid var(--hair);
   border-radius: 16px;
   transition: background 0.2s ease, border-color 0.2s ease;
@@ -344,8 +609,9 @@
 }
 
 :root[data-theme="dark"] .budget-row {
-  background: var(--ice-2);
+  background: radial-gradient(var(--hair) 0%, var(--ice-2) 70%, var(--ice) 100%);
   border-color: var(--sky);
+  box-shadow: inset 0 0 16px var(--ice), inset 0 0 0 1px var(--paper);
 }
 
 :root[data-theme="hi-contrast"] .budget-row {
@@ -390,14 +656,8 @@
   width: calc(100% - 32px);
   margin-left: 32px;
   grid-template-columns: minmax(68px, 208px) minmax(90px, 1fr) minmax(140px, 2.5fr) 120px 70px;
-  background: #fff;
   position: relative;
   z-index: 1;
-}
-
-:root[data-theme="dark"] .budget-row.is-sub {
-  background: var(--ice-2);
-  border-color: var(--sky);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -446,6 +706,20 @@
   display: none !important;
 }
 
+.alert-svg {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  z-index: 2;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 0 0 1px white;
+}
+
+:root[data-theme="dark"] .alert-svg {
+  background: var(--sky);
+  box-shadow: 0 0 0 1px var(--sky);
+}
 /* ---------- Subcategory slide-down wrapper ---------- */
 .subcat-wrap {
   display: grid;
@@ -1022,6 +1296,12 @@
     z-index: 100;
   }
   .budget-row.show-actions .row-actions-menu {
+    display: flex;
+  }
+  .budget-group-header.show-actions {
+    z-index: 100;
+  }
+  .budget-group-header.show-actions .row-actions-menu {
     display: flex;
   }
 

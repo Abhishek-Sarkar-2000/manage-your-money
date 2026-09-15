@@ -10,6 +10,97 @@ import { computeSplitPageData } from './split-domain.js';
    load now), so there's no cross-route staleness to manage. */
 const monthCache = {};
 
+export function migrateBudgetData(raw) {
+  if (!raw || !Array.isArray(raw) || raw.length === 0) return [];
+  const isLegacy = raw.some(item => !('categories' in item));
+  if (!isLegacy) return raw;
+
+  const totalBudget = raw.reduce((sum, cat) => sum + (Number(cat.budget) || 0), 0);
+  return [{
+    id: 'group-general-migrated',
+    name: 'General',
+    budget: totalBudget,
+    expanded: true,
+    categories: raw
+  }];
+}
+
+export function validateGroupBudget(group, newBudget) {
+  const sumCats = (group.categories || []).reduce((s, cat) => s + (Number(cat.budget) || 0), 0);
+  return newBudget >= sumCats;
+}
+
+export function validateCategoryBudget(category, newBudget) {
+  const sumSubs = (category.subcategories || []).reduce((s, sub) => s + (Number(sub.budget) || 0), 0);
+  return newBudget >= sumSubs;
+}
+
+export function validateCategoryMove(destGroup, categoryToMove, excludeCategoryId = null) {
+  const currentSum = (destGroup.categories || []).reduce((s, cat) => s + (cat.id === excludeCategoryId ? 0 : (Number(cat.budget) || 0)), 0);
+  return destGroup.budget >= currentSum + (Number(categoryToMove.budget) || 0);
+}
+
+export function findCategoryByTag(budgetData, tagName) {
+  if (!tagName) return null;
+  const target = tagName.toLowerCase().trim();
+  for (const group of budgetData) {
+    for (const category of (group.categories || [])) {
+      if (category.name.toLowerCase().trim() === target) {
+        return { group, category };
+      }
+    }
+  }
+  return null;
+}
+
+export function ensureCategoryForTag(budgetData, tagName) {
+  const found = findCategoryByTag(budgetData, tagName);
+  if (found) return found;
+
+  let fallbackGroup = budgetData.find(g => g.name === 'Unsorted');
+  if (!fallbackGroup) {
+    fallbackGroup = { id: 'group-unsorted-' + Date.now(), name: 'Unsorted', budget: 0, expanded: true, categories: [] };
+    budgetData.push(fallbackGroup);
+  }
+
+  const newCategory = { id: 'cat-auto-' + Date.now(), name: tagName, budget: 0, expanded: true, subcategories: [] };
+  fallbackGroup.categories.push(newCategory);
+  return { group: fallbackGroup, category: newCategory };
+}
+
+export function matchesCategory(entry, targetName, isSub, parentTargetName) {
+  const target = (targetName || '').toLowerCase().trim();
+  const pTarget = parentTargetName ? parentTargetName.toLowerCase().trim() : null;
+  
+  const eType = (entry.type || '').toLowerCase();
+  const eTag = (entry.tag || '').toLowerCase();
+  const eSub = (entry.subCategory || '').toLowerCase();
+  const eCat = (entry.category || '').toLowerCase();
+  const eDesc = (entry.description || '').toLowerCase();
+
+  if (isSub) {
+    if (pTarget === 'sip') {
+      return (eType === 'sip' || eTag === 'sip') && (eSub === target || eCat === target || eDesc === target);
+    } else if (pTarget === 'recurring') {
+      return (eType === 'recurring' || eTag === 'recurring') && (eSub === target || eDesc === target);
+    } else if (pTarget === 'emi') {
+      return (eType === 'emi' || eTag === 'emi') && (eSub === target || eDesc === target || eTag === target);
+    } else {
+      return (eTag === pTarget && eSub === target);
+    }
+  } else {
+    if (target === 'sip') {
+      return (eType === 'sip' || eTag === 'sip' || eCat === 'sip');
+    } else if (target === 'recurring') {
+      return (eType === 'recurring' || eTag === 'recurring');
+    } else if (target === 'emi') {
+      return (eType === 'emi' || eTag === 'emi');
+    } else {
+      return (eTag === target);
+    }
+  }
+}
+
 export async function loadMonth(key) {
   if (monthCache[key]) return monthCache[key];
   const data = await Store.get('month:' + key, {
@@ -117,7 +208,7 @@ export function recurringRowsForMonth(recurringSeries, monthKey, deletedRecurrin
 
 export function computeMonthTotals(entries) {
   let income = 0, cashSpend = 0, cardPaymentSpend = 0, cardCharge = 0, invest = 0, emi = 0, sip = 0, payback = 0, recurring = 0, recurringCash = 0;
-  let regularDebit = 0, cashPayments = 0, ccSpends = 0, others = 0;
+  let regularDebit = 0, cashPayments = 0, ccSpends = 0, others = 0, goalFunding = 0;
 
   for (const e of entries) {
     const amt = Number(e.amount) || 0;
@@ -161,6 +252,9 @@ export function computeMonthTotals(entries) {
       cashSpend -= amt;
       regularDebit -= amt;
       payback += amt;
+    } else if (e.type === 'goal_funding') {
+      goalFunding += amt;
+      others += amt;
     }
   }
 
@@ -168,7 +262,7 @@ export function computeMonthTotals(entries) {
 
   return {
     income, cashSpend, cardPaymentSpend, cardCharge, invest, emi, sip, payback, recurring, recurringCash,
-    regularDebit, cashPayments, ccSpends, others, totalConsumption,
+    regularDebit, cashPayments, ccSpends, others, totalConsumption, goalFunding,
   };
 }
 
@@ -405,32 +499,14 @@ export function forecastCategorySpend(categoryName, isSub, parentName, budget, m
   let autoEntries = 0;
 
   for (const e of currentMonthEntries) {
-    if (e.type === 'income' || e.type === 'payback') continue;
+    if (e.type === 'income' || e.type === 'payback' || e.type === 'goal_funding') continue;
     const amt = Number(e.amount) || 0;
     if (amt <= 0) continue;
 
-    const eType = (e.type || '').toLowerCase();
-    const eTag = (e.tag || '').toLowerCase();
-    const eSub = (e.subCategory || '').toLowerCase();
-    const eCat = (e.category || '').toLowerCase();
-    const eDesc = (e.description || '').toLowerCase();
-
-    let isMatch = false;
-    if (isSub) {
-      if (pTarget === 'sip') isMatch = ((eType === 'sip' || eTag === 'sip') && (eSub === target || eCat === target || eDesc === target));
-      else if (pTarget === 'recurring') isMatch = ((eType === 'recurring' || eTag === 'recurring') && (eSub === target || eDesc === target));
-      else if (pTarget === 'emi') isMatch = ((eType === 'emi' || eTag === 'emi') && (eSub === target || eDesc === target || eTag === target));
-      else isMatch = (eTag === pTarget && eSub === target);
-    } else {
-      if (target === 'sip') isMatch = (eType === 'sip' || eTag === 'sip' || eCat === 'sip');
-      else if (target === 'recurring') isMatch = (eType === 'recurring' || eTag === 'recurring');
-      else if (target === 'emi') isMatch = (eType === 'emi' || eTag === 'emi');
-      else isMatch = (eTag === target);
-    }
-
-    if (!isMatch) continue;
+    if (!matchesCategory(e, target, isSub, pTarget)) continue;
     
     totalEntries++;
+    const eType = (e.type || '').toLowerCase();
     const isAuto = (eType === 'emi' || eType === 'sip' || eType === 'recurring');
     if (isAuto) autoEntries++;
 

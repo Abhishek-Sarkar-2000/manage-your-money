@@ -6,6 +6,7 @@ import { authReady } from '../core/auth.js';
 import {
   loadMonth, saveMonth, ensureMonthIndexed, emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth,
   computeMonthTotals, computeGlobalStats, cardById, allSpendTags,
+  findCategoryByTag, ensureCategoryForTag, migrateBudgetData
 } from '../core/domain.js';
 import { renderStatCards, wireStatCardFlip } from '../components/stat-cards.js';
 import { donutChart } from '../components/charts/donut.js';
@@ -144,6 +145,8 @@ async function loadDomain() {
   if (!budgetData) {
      budgetData = await Store.get('budget-data', []);
   }
+  budgetData = migrateBudgetData(budgetData);
+  await Store.set(`budget-data:${monthKey}`, budgetData);
   domainLoaded = true;
 }
 
@@ -396,20 +399,11 @@ async function resolveSubCategoryFromForm(tag) {
        let sVal = $('#f-subcat-select').value;
        if (sVal === '__custom__') sVal = $('#f-subcat-custom').value.trim();
        if (sVal) {
-          const catIdx = budgetData.findIndex(c => c.name.toLowerCase() === tag.toLowerCase());
-          if (catIdx > -1) {
-            const cat = budgetData[catIdx];
-            cat.subcategories = cat.subcategories || [];
-            if (!cat.subcategories.some(s => s.name.toLowerCase() === sVal.toLowerCase())) {
-              cat.subcategories.push({ id: uid(), name: sVal, budget: 0 });
-              await Store.set(`budget-data:${monthKey}`, budgetData);
-            }
-          } else {
-             budgetData.push({
-               id: uid(), name: tag, budget: 0, expanded: true,
-               subcategories: [{ id: uid(), name: sVal, budget: 0 }]
-             });
-             await Store.set(`budget-data:${monthKey}`, budgetData);
+          const { category } = ensureCategoryForTag(budgetData, tag);
+          category.subcategories = category.subcategories || [];
+          if (!category.subcategories.some(s => s.name.toLowerCase() === sVal.toLowerCase())) {
+            category.subcategories.push({ id: uid(), name: sVal, budget: 0 });
+            await Store.set(`budget-data:${monthKey}`, budgetData);
           }
           return sVal;
        }
@@ -481,8 +475,8 @@ function renderInlineEdit(entry, mk) {
     subcatHtml = `<button class="pill-btn sub-pill ie-add-subcat-btn" type="button" ${!entry.tag ? 'disabled' : ''} style="border: 1px dashed var(--sky); padding: 5px 12px; font-size: 0.72rem; background: transparent; color: var(--muted); cursor: pointer; text-transform: uppercase; ${!entry.tag ? 'opacity: 0.5; cursor: not-allowed;' : ''} margin-top: 2px;">+ Add Subcategory</button>`;
     
     if (entry.subCategory && entry.tag) {
-      const cat = budgetData.find(c => c.name.toLowerCase() === entry.tag.toLowerCase());
-      const subs = cat && cat.subcategories ? cat.subcategories.map(s => s.name) : [];
+      const found = findCategoryByTag(budgetData, entry.tag);
+      const subs = found && found.category && found.category.subcategories ? found.category.subcategories.map(s => s.name) : [];
       if (!subs.some(s => s.toLowerCase() === entry.subCategory.toLowerCase())) subs.push(entry.subCategory);
       
       const subOpts = subs.map(s => `<option value="${escapeHtml(s)}" ${s.toLowerCase() === entry.subCategory.toLowerCase() ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('');
@@ -1596,9 +1590,11 @@ async function renderMonth() {
         <div style="grid-column: 1 / -1;">
           ${(() => {
             const subCategoryMap = {};
-            for (const cat of budgetData) {
-              for (const sub of (cat.subcategories || [])) {
-                subCategoryMap[sub.name.toLowerCase()] = cat.name;
+            for (const group of budgetData) {
+              for (const cat of (group.categories || [])) {
+                for (const sub of (cat.subcategories || [])) {
+                  subCategoryMap[sub.name.toLowerCase()] = cat.name;
+                }
               }
             }
             const TAG_WIDE_THRESHOLD = 5;
@@ -1890,6 +1886,18 @@ async function handleSubmit(kind) {
     const tag = await resolveTagFromForm();
     emiSeries.push({ id: uid(), description: desc, monthlyAmount: amount, totalMonths: months, startMonth, dayOfMonth, tag });
     await Store.set('emiseries', emiSeries);
+  } else if (kind === 'goal') {
+    const goalId = $('#f-goal-id')?.value;
+    if (!desc || !amount || amount <= 0 || !goalId) { showToast('Enter description, amount, and select a goal'); return; }
+    data.entries.push({ id: uid(), type: 'goal_funding', description: desc, amount, date, goalId });
+    
+    const goals = await Store.get('goals', []);
+    const goal = goals.find(g => g.id === goalId);
+    if (goal) {
+        goal.fundingHistory = goal.fundingHistory || [];
+        goal.fundingHistory.push({ id: uid(), amount, monthKey, date, entryId: data.entries[data.entries.length - 1].id });
+        await Store.set('goals', goals);
+    }
   } else if (kind === 'recurring') {
     const dayOfMonth = Number($('#f-recurring-day')?.value);
     if (!desc || !amount || amount <= 0 || !dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) { showToast('Fill in details, amount and a valid date of deduction (1-31)'); return; }
@@ -2229,21 +2237,17 @@ root.addEventListener('click', async (ev) => {
             newSubcat = container.querySelector('.ie-subcat-custom')?.value.trim() || '';
         }
         if (newSubcat && newTag) {
-            const catIdx = budgetData.findIndex(c => c.name.toLowerCase() === newTag.toLowerCase());
-            if (catIdx > -1) {
-                const cat = budgetData[catIdx];
-                cat.subcategories = cat.subcategories || [];
-                if (!cat.subcategories.some(s => s.name.toLowerCase() === newSubcat.toLowerCase())) {
-                    cat.subcategories.push({ id: uid(), name: newSubcat, budget: 0 });
-                    await Store.set(`budget-data:${mk}`, budgetData);
-                }
-            } else {
-                budgetData.push({
-                    id: uid(), name: newTag, budget: 0, expanded: true,
-                    subcategories: [{ id: uid(), name: newSubcat, budget: 0 }]
-                });
-                await Store.set(`budget-data:${mk}`, budgetData);
-            }
+          let mkBudgetData = await Store.get(`budget-data:${mk}`, null);
+          if (!mkBudgetData) mkBudgetData = await Store.get('budget-data', []);
+          mkBudgetData = migrateBudgetData(mkBudgetData);
+
+          const { category } = ensureCategoryForTag(mkBudgetData, newTag);
+          category.subcategories = category.subcategories || [];
+          if (!category.subcategories.some(s => s.name.toLowerCase() === newSubcat.toLowerCase())) {
+              category.subcategories.push({ id: uid(), name: newSubcat, budget: 0 });
+              await Store.set(`budget-data:${mk}`, mkBudgetData);
+              if (mk === monthKey) budgetData = mkBudgetData;
+          }
         }
     }
 
@@ -2344,8 +2348,8 @@ root.addEventListener('click', async (ev) => {
      const tag = container.querySelector('.ie-tag').value;
      let existingSubs = [];
      if (tag && tag !== '__custom__') {
-       const cat = budgetData.find(c => c.name.toLowerCase() === tag.toLowerCase());
-       if (cat && cat.subcategories) existingSubs = cat.subcategories.map(s => s.name);
+       const found = findCategoryByTag(budgetData, tag);
+       if (found && found.category && found.category.subcategories) existingSubs = found.category.subcategories.map(s => s.name);
      }
      const subOpts = existingSubs.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
      
@@ -2384,8 +2388,8 @@ root.addEventListener('click', async (ev) => {
 
          let existingSubs = [];
          if (catName) {
-           const cat = budgetData.find(c => c.name.toLowerCase() === catName.toLowerCase());
-           if (cat && cat.subcategories) existingSubs = cat.subcategories.map(s => s.name);
+           const found = findCategoryByTag(budgetData, catName);
+           if (found && found.category && found.category.subcategories) existingSubs = found.category.subcategories.map(s => s.name);
          }
          
          const subOptions = existingSubs.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');

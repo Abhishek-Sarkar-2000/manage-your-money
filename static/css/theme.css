@@ -192,6 +192,11 @@ body {
   background: var(--text-white);
 }
 
+:root[data-theme="hi-contrast"] .unbudgeted-callout {
+  background: #FFFFFF !important;
+  border-color: #000000 !important;
+}
+
 @media (hover: none) {
   :root[data-theme="hi-contrast"] .stat-back {
     box-shadow: none !important;
@@ -552,4 +557,12 @@ body {
 :root[data-theme="dark"] .table-scroll-shell::after,
 :root[data-theme="dark"] .sticky-controls-wrap::after {
   background: linear-gradient(to left, rgba(0, 0, 0, 0.15), transparent) !important;
+}
+
+:root[data-theme="dark"] .unbudgeted-callout {
+  background: linear-gradient(135deg, #365359 0%,#213a3f 100%) !important;
+  border-color: #48646a !important;
+}
+:root[data-theme="dark"] .unbudgeted-row {
+  border-color: #48646a !important;
 }

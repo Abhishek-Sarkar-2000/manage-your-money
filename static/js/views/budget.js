@@ -8,13 +8,37 @@ import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
 import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
 import {
-  loadMonth, saveMonth, cardById, allSpendTags,
+  loadMonth, saveMonth, cardById, allSpendTags, ensureMonthIndexed,
   emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth,
-  forecastCategorySpend
+  forecastCategorySpend, matchesCategory, migrateBudgetData,
+  validateGroupBudget, validateCategoryBudget, validateCategoryMove
 } from '../core/domain.js';
+import { computeGoalRecommendation } from '../core/goal-algorithm.js';
 
 const root = document.getElementById('budget-root');
 const DEFAULT_TAGS = ['Groceries', 'Food', 'Fuel', 'Transport', 'Rent', 'Utility', 'Shopping', 'Recharge', 'Medicine', 'Gift', 'EMI', 'SIP', 'RECURRING'];
+
+// Sensible default classification for each built-in tag — used to seed
+// new categories and as a fallback for legacy categories saved before
+// this field existed. Anything not listed here, including all custom
+// tags, defaults to "discretionary".
+const DEFAULT_TAG_CLASSIFICATIONS = {
+  groceries: 'essential', food: 'essential', fuel: 'essential', transport: 'essential',
+  rent: 'essential', utility: 'essential', medicine: 'essential', emi: 'essential', recurring: 'essential',
+  sip: 'investment', investment: 'investment',
+  shopping: 'discretionary', recharge: 'discretionary', gift: 'discretionary',
+};
+
+function defaultClassificationForTag(name) {
+  const key = String(name || '').toLowerCase().trim();
+  return DEFAULT_TAG_CLASSIFICATIONS[key] || 'discretionary';
+}
+
+function classificationOf(cat) {
+  return cat.classification || defaultClassificationForTag(cat.name);
+}
+
+const dotsSvg = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="12" cy="12" r="2"></circle><circle cx="12" cy="5" r="2"></circle><circle cx="12" cy="19" r="2"></circle></svg>`;
 
 let budgetData = [];
 let customTags = [];
@@ -25,77 +49,49 @@ let currentMonthEntries = [];
 let monthsIndex = [];
 let domainLoaded = false;
 let isFormOpen = false;
+let isGoalFormOpen = false;
 let monthEntries = [];
 let draggedItem = null;
+let goals = [];
+let budgetDataByMonthMemo = {};
+let entriesByMonthMemo = {};
 
 let currentKey = currentMonthKey();
 let isPastMonth = false;
 
 async function loadDomain() {
   if (domainLoaded) return;
-  [customTags, emiSeries, sipSeries, recurringSeries, monthsIndex] = await Promise.all([
+  [customTags, emiSeries, sipSeries, recurringSeries, monthsIndex, goals] = await Promise.all([
     Store.get('custom-spend-tags', []),
     Store.get('emiseries', []),
     Store.get('sipseries', []),
     Store.get('recurringseries', []),
     Store.get('months-index', []),
+    Store.get('goals', []),
   ]);
+  
+  // Pre-fetch past 6 months data for the goal algorithm
+  const past6 = [...monthsIndex].filter(m => m < currentMonthKey()).sort().slice(-6);
+  await Promise.all(past6.map(async mk => {
+    const data = await loadMonth(mk);
+    entriesByMonthMemo[mk] = data.entries || [];
+    let bd = await Store.get(`budget-data:${mk}`, null);
+    if (!bd) bd = await Store.get('budget-data', []);
+    budgetDataByMonthMemo[mk] = migrateBudgetData(bd);
+  }));
+  
   domainLoaded = true;
 }
 
 function calculateUsed(name, isSub, parentName) {
   if (!name || !currentMonthEntries) return 0;
-  const target = name.toLowerCase().trim();
-  const pTarget = parentName ? parentName.toLowerCase().trim() : null;
   let total = 0;
-
   for (const e of currentMonthEntries) {
-    if (e.type === 'income' || e.type === 'payback') continue;
+    if (e.type === 'income' || e.type === 'payback' || e.type === 'goal_funding') continue;
     const amt = Number(e.amount) || 0;
     if (amt <= 0) continue;
-
-    const eType = (e.type || '').toLowerCase();
-    const eTag = (e.tag || '').toLowerCase();
-    const eSub = (e.subCategory || '').toLowerCase();
-    const eCat = (e.category || '').toLowerCase();
-    const eDesc = (e.description || '').toLowerCase();
-
-    if (isSub) {
-      if (pTarget === 'sip') {
-        if ((eType === 'sip' || eTag === 'sip') && (eSub === target || eCat === target || eDesc === target)) {
-          total += amt;
-        }
-      } else if (pTarget === 'recurring') {
-        if ((eType === 'recurring' || eTag === 'recurring') && (eSub === target || eDesc === target)) {
-          total += amt;
-        }
-      } else if (pTarget === 'emi') {
-        if ((eType === 'emi' || eTag === 'emi') && (eSub === target || eDesc === target || eTag === target)) {
-          total += amt;
-        }
-      } else {
-        if (eTag === pTarget && eSub === target) {
-          total += amt;
-        }
-      }
-    } else {
-      if (target === 'sip') {
-        if (eType === 'sip' || eTag === 'sip' || eCat === 'sip') {
-          total += amt;
-        }
-      } else if (target === 'recurring') {
-        if (eType === 'recurring' || eTag === 'recurring') {
-          total += amt;
-        }
-      } else if (target === 'emi') {
-        if (eType === 'emi' || eTag === 'emi') {
-          total += amt;
-        }
-      } else {
-        if (eTag === target) {
-          total += amt;
-        }
-      }
+    if (matchesCategory(e, name, isSub, parentName)) {
+      total += amt;
     }
   }
   return total;
@@ -108,6 +104,7 @@ function getStatusInfo(pct) {
   return { label: 'On track', cls: 'status-ontrack' };
 }
 
+// Goal funding never enters totalBudget, totalUsed, or totalSpent — only the Goals section's own numbers.
 function computeSummary() {
   let totalBudget = 0;
   let totalUsed = 0;
@@ -116,6 +113,7 @@ function computeSummary() {
 
   if (currentMonthEntries) {
     for (const e of currentMonthEntries) {
+      if (e.type === 'goal_funding') continue;
       const amt = Number(e.amount) || 0;
       if (e.type === 'income') {
         totalIncome += amt;
@@ -125,11 +123,11 @@ function computeSummary() {
     }
   }
 
-  // Only top-level categories are counted: subcategory budgets/spend are
-  // subsets of their parent category and would otherwise be double counted.
-  budgetData.forEach(cat => {
-    totalBudget += Number(cat.budget) || 0;
-    totalUsed += calculateUsed(cat.name, false, null);
+  budgetData.forEach(group => {
+    totalBudget += Number(group.budget) || 0;
+    (group.categories || []).forEach(cat => {
+      totalUsed += calculateUsed(cat.name, false, null);
+    });
   });
 
   const totalRemaining = totalBudget - totalUsed;
@@ -151,7 +149,8 @@ function computeSummary() {
 function calculateUnbudgeted() {
   if (!currentMonthEntries) return { total: 0, tags: [] };
 
-  const budgetedNames = new Set(budgetData.map(c => c.name.toLowerCase().trim()));
+  const budgetedNames = new Set();
+  budgetData.forEach(g => (g.categories || []).forEach(c => budgetedNames.add(c.name.toLowerCase().trim())));
   const byTag = new Map(); // key: lowercase label -> { label, amount, count }
   let total = 0;
 
@@ -215,7 +214,7 @@ function renderUnbudgetedCallout() {
   `).join('');
 
   return `
-  <div class="unbudgeted-callout" data-unbudgeted-callout>
+  <div class="unbudgeted-callout" data-unbudgeted-callout style="border: 1px solid var(--amber); border-radius: 12px; background: var(--amber-bg);">
     <button class="unbudgeted-summary" data-unbudgeted-toggle type="button">
       <span class="unbudgeted-icon">${warnSvg}</span>
       <span class="unbudgeted-text"><strong>${fmtINR(total)}</strong> unbudgeted this month across ${tags.length} ${tags.length === 1 ? 'tag' : 'tags'}</span>
@@ -237,7 +236,7 @@ function renderSummaryCards() {
   const briefcaseSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"></path><path d="M2 13h20"></path></svg>`;
   const coinsSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"></ellipse><path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6"></path><path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"></path></svg>`;
   const clockSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 15"></polyline></svg>`;
-  const alertIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--debit)" style="position: absolute; top: -4px; right: -4px; z-index: 2; border-radius: 50%; background: var(--sky); box-shadow: 0 0 0 1px var(--sky);"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM11 15V17H13V15H11ZM11 7V13H13V7H11Z"/></svg>`;
+  const alertIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--debit)" class="alert-svg" "><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM11 15V17H13V15H11ZM11 7V13H13V7H11Z"/></svg>`;
 
   const savingsClass = totalSavings < 0 ? 'negative' : '';
   const savingsPctDisplay = totalSavings < 0 ? '0%' : `${savingsPct.toFixed(1)}%`;
@@ -284,12 +283,14 @@ function renderSummaryCards() {
       let totalForecast = 0;
       let hasForecast = false;
 
-      budgetData.forEach(cat => {
-        const forecast = forecastCategorySpend(cat.name, false, null, cat.budget, currentKey, currentMonthEntries);
-        if (forecast) {
-          totalForecast += forecast.projectedByMonthEnd;
-          hasForecast = true;
-        }
+      budgetData.forEach(group => {
+        (group.categories || []).forEach(cat => {
+          const forecast = forecastCategorySpend(cat.name, false, null, cat.budget, currentKey, currentMonthEntries);
+          if (forecast) {
+            totalForecast += forecast.projectedByMonthEnd;
+            hasForecast = true;
+          }
+        });
       });
 
       if (hasForecast) {
@@ -371,11 +372,13 @@ function renderSummaryCards() {
   `;
 }
 
-function renderBudgetRow(item, isSub, parentId) {
+function renderBudgetRow(item, isSub, parentId, groupId) {
   let parentName = null;
   if (isSub && parentId) {
-    const parent = budgetData.find(c => c.id === parentId);
-    if (parent) parentName = parent.name;
+    for (const g of budgetData) {
+      const parent = (g.categories || []).find(c => c.id === parentId);
+      if (parent) { parentName = parent.name; break; }
+    }
   }
   const used = calculateUsed(item.name, isSub, parentName);
   const pct = item.budget > 0 ? (used / item.budget) * 100 : 0;
@@ -402,11 +405,27 @@ function renderBudgetRow(item, isSub, parentId) {
   const pencilSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`;
   const eyeSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
   const warnSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>`;
-  const dotsSvg = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="12" cy="12" r="2"></circle><circle cx="12" cy="5" r="2"></circle><circle cx="12" cy="19" r="2"></circle></svg>`;
 
   let chevronHtml = '';
   if (!isSub) {
     chevronHtml = `<button class="toggle-sub ${item.expanded ? 'expanded' : ''}" data-toggle-sub="${item.id}" title="${item.expanded ? 'Collapse' : 'Expand'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>`;
+  }
+
+  let classificationHtml = '';
+  if (!isSub) {
+    const currentClass = classificationOf(item);
+    const classDefs = [
+      { key: 'essential', label: 'Essential', letter: 'E' },
+      { key: 'investment', label: 'Investment', letter: 'I' },
+      { key: 'discretionary', label: 'Discretionary (Optional)', letter: 'O' },
+    ];
+    classificationHtml = `
+      <div class="cat-classification-toggle" title="Goal-funding priority classification">
+        ${classDefs.map(c => `
+          <button type="button" class="cat-class-dot cat-class-${c.key} ${currentClass === c.key ? 'active' : ''}" data-set-classification="${c.key}" data-cat-id="${item.id}" title="${c.label}">${c.letter}</button>
+        `).join('')}
+      </div>
+    `;
   }
 
   let actionsContent = '';
@@ -422,16 +441,21 @@ function renderBudgetRow(item, isSub, parentId) {
   }
 
   return `
-  <div class="budget-row ${isSub ? 'is-sub' : ''}" data-id="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" data-parent-id="${parentId ? parentId : ''}" draggable="${!isPastMonth}">
+  <div class="budget-row ${isSub ? 'is-sub' : ''}" data-id="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" data-parent-id="${parentId ? parentId : ''}" data-group-id="${groupId}" draggable="${!isPastMonth}">
     <div class="cat-name-col">
-      ${dragHandleSvg}
-      ${escapeHtml(item.name)}
+      ${classificationHtml}
+      <div class="cat-name-inner" style="display:flex; align-items:center; gap:8px;">
+        ${dragHandleSvg}
+        <span style="font-weight:600; color:var(--navy); font-family:'Source Serif 4', Georgia, serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(item.name)}</span>
+      </div>
     </div>
     <div class="budget-amt-col">
       ${fmtINR(item.budget)}
     </div>
-    <div class="budget-progress">
-      <div class="budget-text">${fmtINR(used)} (${status.cls === 'status-unassigned' ? '--' : Math.round(pct)}%)</div>
+    <div class="budget-progress" style="display:flex; flex-direction:column; gap:6px; width:100%;">
+      <div class="budget-text" style="display:flex; justify-content:flex-end; gap:6px; font-family:'IBM Plex Mono', monospace; font-size:0.8rem; font-weight:600; color:var(--navy);">
+        <span>${fmtINR(used)}</span> <span style="color:var(--muted);">(${status.cls === 'status-unassigned' ? '--' : Math.round(pct)}%)</span>
+      </div>
       <div class="bp-bar"><div class="bp-fill ${isDanger ? 'danger' : ''}" style="width: ${Math.min(pct, 100)}%;"></div></div>
       ${forecastHtml}
     </div>
@@ -452,6 +476,94 @@ function renderBudgetRow(item, isSub, parentId) {
   `;
 }
 
+function renderGoalsSection() {
+  if (!goals || goals.length === 0) return '';
+
+  // Hoisted out of the per-goal map below — these are static per render,
+  // no need to rebuild the markup once per goal.
+  const undoSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 3v6h6"></path></svg>`;
+  const trashSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>`;
+  const calendarSvg = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>`;
+
+  const goalRows = goals.map(goal => {
+    // Solid bar = any earlier funding plus everything funded in prior
+    // months. Striped bar = only this calendar month's contribution.
+    // Recomputed fresh from fundingHistory's monthKey on every render,
+    // so it carries over correctly as the month boundary rolls forward.
+    const earlierFunding = goal.hasDownpayment ? (Number(goal.downpaymentAmount) || 0) : 0;
+    const monthlyFunded = (goal.fundingHistory || []).reduce((s, h) => s + (Number(h.amount) || 0), 0);
+    const totalFunded = earlierFunding + monthlyFunded;
+    const thisMonthFunded = (goal.fundingHistory || []).filter(h => h.monthKey === currentKey).reduce((s, h) => s + (Number(h.amount) || 0), 0);
+    const previouslyFunded = totalFunded - thisMonthFunded;
+
+    const pctPrev = goal.targetAmount > 0 ? Math.min(100, (previouslyFunded / goal.targetAmount) * 100) : 0;
+    const pctThisMonth = goal.targetAmount > 0 ? Math.min(100 - pctPrev, (thisMonthFunded / goal.targetAmount) * 100) : 0;
+
+    const rec = computeGoalRecommendation(goal, { monthsIndex, budgetDataByMonth: budgetDataByMonthMemo, entriesByMonth: entriesByMonthMemo });
+
+    let breakdownHtml = '';
+    if (rec.breakdown && rec.breakdown.length > 0) {
+      breakdownHtml = `
+        <div class="goal-breakdown-details">
+          ${rec.breakdown.map(b => `<div style="display:flex; justify-content: space-between; margin-bottom:4px;"><span>${escapeHtml(b.source)}</span><span class="num">${fmtINR(b.amount)}</span></div>`).join('')}
+        </div>
+      `;
+    }
+
+    const earlierFundingHtml = goal.hasDownpayment ? `<div class="goal-earlier-funding">Earlier Funding: ${fmtINR(goal.downpaymentAmount)}</div>` : '';
+    const canReverse = (goal.fundingHistory || []).length > 0;
+    const monthsLeft = Math.max(0, rec.gapMonths || 0);
+
+    return `
+      <div class="card goal-card" data-goal-id="${goal.id}">
+        <div class="goal-card-top">
+          <div class="goal-card-info">
+            <h4 class="goal-name">${escapeHtml(goal.name)}</h4>
+            <div class="goal-target num">Target: ${fmtINR(goal.targetAmount)}</div>
+          </div>
+          <div class="goal-fund-controls">
+            <input type="number" class="inline-edit-input" value="${rec.suggestedMonthlyContribution}" step="0.01" min="0" />
+            <button class="btn primary small" data-fund-goal="${goal.id}">Fund</button>
+          </div>
+        </div>
+
+        <div class="goal-progress-row" style="display: flex; align-items: flex-end; gap: 16px;">
+          <div style="flex: stretch; flex-direction: column; gap: 8px;">
+            <div class="goal-progress-meta" style="font-size: 0.82rem; font-weight: 600;">
+              <span class="num">${fmtINR(totalFunded)} / ${fmtINR(goal.targetAmount)}</span>
+            </div>
+            <div class="goal-progress-bar">
+              <div class="goal-seg-saved" style="width: ${pctPrev}%;"></div>
+              <div class="goal-seg-this-month" style="width: ${pctThisMonth}%;"></div>
+            </div>
+          </div>
+          <div class="goal-progress-actions" style="display: flex; gap: 4px;">
+            <button class="icon-btn goal-icon-btn" data-popover-trigger data-reverse-funding="${goal.id}" ${canReverse ? '' : 'disabled'} title="Undo the most recent funding action">${undoSvg}</button>
+            <button class="icon-btn goal-icon-btn goal-delete-btn" data-popover-trigger data-delete-goal="${goal.id}" title="Delete this goal">${trashSvg}</button>
+          </div>
+        </div>
+
+        <div class="goal-deadline-row">
+          ${calendarSvg}<span>Target deadline: <strong>${monthKeyLabel(goal.expectedMonth)}</strong> &bull; ${monthsLeft} ${monthsLeft === 1 ? 'month' : 'months'} left</span>
+        </div>
+
+        <div class="goal-suggestion">
+          <div class="goal-suggested-line">Suggested Funding: <span class="num">${fmtINR(rec.suggestedMonthlyContribution)}</span> / month</div>
+          <div class="goal-explanation">${escapeHtml(rec.explanation)}</div>
+          ${breakdownHtml}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="financial-goals-section" style="margin-bottom: 24px;">
+      <h3 style="margin-bottom: 12px;">Financial Goals</h3>
+      ${goalRows}
+    </div>
+  `;
+}
+
 async function renderBudget() {
   await loadDomain();
 
@@ -463,7 +575,6 @@ async function renderBudget() {
     const legacy = await Store.get('budget-data', null);
     if (legacy && currentKey === currentMonthKey()) {
       budgetData = legacy;
-      await Store.set(`budget-data:${currentKey}`, budgetData);
     } else if (currentKey === currentMonthKey()) {
       const lastLogged = monthsIndex.length ? monthsIndex[monthsIndex.length - 1] : null;
       if (lastLogged && lastLogged !== currentKey) {
@@ -471,11 +582,12 @@ async function renderBudget() {
       } else {
         budgetData = [];
       }
-      await Store.set(`budget-data:${currentKey}`, budgetData);
     } else {
       budgetData = [];
     }
   }
+  budgetData = migrateBudgetData(budgetData);
+  await Store.set(`budget-data:${currentKey}`, budgetData);
 
   // Handle deep link from Month -> Budget
   const openReq = sessionStorage.getItem('month-to-budget-open');
@@ -485,10 +597,13 @@ async function renderBudget() {
       const { tagName, monthKey: reqMk } = JSON.parse(openReq);
       if (reqMk === currentKey) {
         const targetLower = tagName.toLowerCase();
-        for (const cat of budgetData) {
-          if (cat.name.toLowerCase() === targetLower) { scrollTargetId = cat.id; break; }
-          const sub = (cat.subcategories || []).find(s => s.name.toLowerCase() === targetLower);
-          if (sub) { scrollTargetId = sub.id; cat.expanded = true; break; } // auto-expand parent
+        for (const group of budgetData) {
+          for (const cat of (group.categories || [])) {
+            if (cat.name.toLowerCase() === targetLower) { scrollTargetId = cat.id; break; }
+            const sub = (cat.subcategories || []).find(s => s.name.toLowerCase() === targetLower);
+            if (sub) { scrollTargetId = sub.id; cat.expanded = true; break; }
+          }
+          if (scrollTargetId) break;
         }
         if (!scrollTargetId) {
           setTimeout(() => showToast(`No budget set for '${escapeHtml(tagName)}' yet`), 500);
@@ -523,21 +638,58 @@ async function renderBudget() {
   let totalUsed = 0;
 
   let tableRows = '';
-  budgetData.forEach(cat => {
-    totalBudget += cat.budget;
-    totalUsed += calculateUsed(cat.name, false, null);
-    tableRows += renderBudgetRow(cat, false, null);
+  budgetData.forEach(group => {
+    let groupAllocated = (group.categories || []).reduce((s, c) => s + (Number(c.budget) || 0), 0);
+    let groupUsed = 0;
+    (group.categories || []).forEach(c => groupUsed += calculateUsed(c.name, false, null));
     
-    tableRows += `<div class="subcat-wrap ${cat.expanded ? 'expanded' : ''}" data-subcat-wrap="${cat.id}"><div class="subcat-inner">`;
-    if (cat.subcategories && cat.subcategories.length > 0) {
-      cat.subcategories.forEach(sub => {
-        tableRows += renderBudgetRow(sub, true, cat.id);
-      });
-    }
+    tableRows += `
+      <div class="budget-group" data-group-id="${group.id}">
+        <div class="budget-group-header ${group.expanded !== false ? 'expanded' : ''}" data-group-drop-target="${group.id}">
+          <div style="display:flex; align-items:center; gap:12px; flex:1;">
+            <button class="toggle-sub ${group.expanded !== false ? 'expanded' : ''}" data-toggle-group="${group.id}" title="${group.expanded !== false ? 'Collapse' : 'Expand'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+            <span class="bgh-name">${escapeHtml(group.name)}</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:16px;">
+            <span class="bgh-amount">${fmtINR(groupUsed)} / ${fmtINR(group.budget)}</span>
+            <div class="bgh-actions">
+              <div class="row-actions-menu">
+                ${!isPastMonth ? `
+                <button class="edit-budget-btn icon-btn row-menu-btn" data-edit-budget="${group.id}" data-type="group" title="Edit budget">
+                  <span class="row-menu-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></span><span class="row-menu-text">Edit</span>
+                </button>
+                <button class="icon-btn row-menu-btn" data-popover-trigger data-del-budget="${group.id}" data-type="group" title="Remove">
+                  <span class="row-menu-icon">✕</span><span class="row-menu-text">Delete</span>
+                </button>
+                ` : ''}
+              </div>
+              ${!isPastMonth ? `<button class="icon-btn mobile-actions-toggle" data-toggle-row-actions title="Actions">${dotsSvg}</button>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="group-wrap ${group.expanded !== false ? 'expanded' : ''}" data-group-wrap="${group.id}">
+          <div class="group-inner">
+          <div class="budget-group-body">
+    `;
+    
+    (group.categories || []).forEach(cat => {
+      tableRows += renderBudgetRow(cat, false, null, group.id);
+      tableRows += `<div class="subcat-wrap ${cat.expanded ? 'expanded' : ''}" data-subcat-wrap="${cat.id}"><div class="subcat-inner">`;
+      if (cat.subcategories && cat.subcategories.length > 0) {
+        cat.subcategories.forEach(sub => {
+          tableRows += renderBudgetRow(sub, true, cat.id, group.id);
+        });
+      }
+      if (!isPastMonth) {
+        tableRows += `<button class="add-row-btn is-sub" data-inline-add-btn="${cat.id}" data-group-id="${group.id}" type="button">+ Add subcategory for ${escapeHtml(cat.name)}</button>`;
+      }
+      tableRows += `</div></div>`;
+    });
+    
     if (!isPastMonth) {
-      tableRows += `<button class="add-row-btn is-sub" data-inline-add-btn="${cat.id}" type="button">+ Add subcategory for ${escapeHtml(cat.name)}</button>`;
+      tableRows += `<div style="padding: 12px 16px;"><button class="add-row-btn dashed-add-btn" data-inline-newcat-btn="${group.id}" type="button">+ Add category</button></div>`;
     }
-    tableRows += `</div></div>`;
+    tableRows += `</div></div></div></div>`;
   });
 
   if (!tableRows) {
@@ -545,61 +697,63 @@ async function renderBudget() {
     if (!isPastMonth && hasPrevLogged) {
       tableRows = `
         <div class="empty-chart" style="padding: 24px 0; grid-column: 1/-1; display: flex; flex-wrap: wrap; gap: 12px;">
-          <button class="add-row-btn" data-inline-newcat-btn type="button" style="flex: 1 1 250px; margin: 0;">+ Add budget for a category</button>
+          <button class="add-row-btn" data-add-group-btn type="button" style="flex: 1 1 250px; margin: 0;">+ Add a Group</button>
           <button class="add-row-btn" id="copy-last-budget-btn" type="button" style="flex: 1 1 250px; margin: 0; border-color: var(--sky); color: var(--blue);">Copy from the last logged month</button>
         </div>
       `;
     } else if (!isPastMonth) {
       tableRows = `
         <div class="empty-chart" style="padding: 24px 0; grid-column: 1/-1; display: flex; flex-wrap: wrap;">
-          <button class="add-row-btn" data-inline-newcat-btn type="button" style="flex: 1 1 100%; margin: 0;">+ Add budget for a category</button>
+          <button class="add-row-btn" data-add-group-btn type="button" style="flex: 1 1 100%; margin: 0;">+ Add a Group</button>
         </div>
       `;
     } else {
       tableRows = `<div class="empty-chart" style="padding: 24px; grid-column: 1/-1; text-align: center; color: var(--muted);">No budgets set for this month.</div>`;
     }
-  } else {
-    if (!isPastMonth) {
-      tableRows += `<button class="add-row-btn" data-inline-newcat-btn type="button">+ Add budget for a category</button>`;
-    }
   }
 
-  // Aggregate expand/collapse state, purely for the "Expand All" button's
-  // initial label/icon on a full render — the button's own click handler
-  // never re-renders, it just flips classes (see click handler below).
-  const catsWithSubs = budgetData.filter(c => c.subcategories && c.subcategories.length > 0);
+  let catsWithSubs = [];
+  budgetData.forEach(g => {
+    (g.categories || []).forEach(c => {
+      if (c.subcategories && c.subcategories.length > 0) catsWithSubs.push(c);
+    });
+  });
   const allExpanded = catsWithSubs.length > 0 && catsWithSubs.every(c => c.expanded);
-
-  const allTags = allSpendTags(DEFAULT_TAGS, customTags);
-  const tagOptions = allTags.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
 
   const formHtml = isFormOpen ? `
   <div class="form-panel slide-down-fade" style="margin: 14px 0px;">
+    <div class="inline-add-context">Create a new top-level Budget Group. Categories and subcategories are added inline underneath the table once the group exists.</div>
     <div class="form-row">
       <div class="field">
-        <label>Category (Tag)</label>
-        <select id="f-cat-name">
-          <option value="" disabled selected>Select tag...</option>
-          ${tagOptions}
-          <option value="__custom__">+ Add custom tag</option>
-        </select>
-      </div>
-      <div class="field" id="f-cat-custom-wrap" style="display:none;">
-        <label>New tag name</label>
-        <input id="f-cat-custom" type="text" placeholder="e.g. Pets" />
+        <label>Group name</label>
+        <input id="f-group-name" type="text" placeholder="e.g. Housing" />
       </div>
       <div class="field">
-        <label>Budget (₹)</label>
-        <input id="f-cat-budget" type="number" step="0.01" min="0" placeholder="0.00" />
+        <label>Group Budget (₹)</label>
+        <input id="f-group-budget" type="number" step="0.01" min="0" placeholder="0.00" />
       </div>
     </div>
-    <div id="subcat-container"></div>
-    <div style="margin-top: 10px; margin-bottom: 14px;">
-      <button class="btn ghost small" id="f-add-subcat" disabled>+ Add subcategory</button>
+    <div class="form-actions">
+      <button class="btn primary" data-submit-budget type="button">Add Group</button>
+      <button class="btn ghost" data-close-budget-form type="button">Cancel</button>
+    </div>
+  </div>
+  ` : '';
+  
+  const goalFormHtml = isGoalFormOpen ? `
+  <div class="form-panel slide-down-fade" style="margin: 14px 0px;">
+    <div class="form-row">
+      <div class="field"><label>Goal Name</label><input id="f-goal-name" type="text" placeholder="e.g. Emergency Fund" /></div>
+      <div class="field"><label>Target Amount (₹)</label><input id="f-goal-target" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+      <div class="field"><label>Expected Completion</label><input id="f-goal-month" type="month" /></div>
+    </div>
+    <label class="checkline"><input type="checkbox" id="f-goal-downpayment-toggle" /> Has an earlier funding milestone</label>
+    <div class="form-row" id="f-goal-downpayment-wrap" style="display:none;">
+      <div class="field"><label>Funding Amount (₹)</label><input id="f-goal-downpayment" type="number" step="0.01" min="0" placeholder="0.00" /></div>
     </div>
     <div class="form-actions">
-      <button class="btn primary" data-submit-budget type="button">Save Budget</button>
-      <button class="btn ghost" data-close-budget-form type="button">Cancel</button>
+      <button class="btn primary" data-submit-goal type="button">Save Goal</button>
+      <button class="btn ghost" data-close-goal-form type="button">Cancel</button>
     </div>
   </div>
   ` : '';
@@ -627,25 +781,29 @@ async function renderBudget() {
 
   <div class="section">
     ${renderSummaryCards()}
+    ${renderGoalsSection()}
     ${renderUnbudgetedCallout()}
 
-    <div class="pill-grid" style="margin-bottom: 16px;">
-      ${!isPastMonth ? `<button class="pill-btn ${isFormOpen ? '' : 'active'}" data-budget-form-toggle type="button">+ Add Budget</button>` : ''}
+    <div class="pill-grid" style="margin: 16px 0px;">
+      ${!isPastMonth ? `<button class="pill-btn ${isFormOpen ? '' : 'active'}" data-budget-form-toggle type="button">+ Add Group</button>` : ''}
+      ${!isPastMonth ? `<button class="pill-btn ${isGoalFormOpen ? '' : 'active'}" data-goal-form-toggle type="button">+ Set Goal</button>` : ''}
       ${catsWithSubs.length > 0 ? `
       <button class="pill-btn expand-all-btn ${allExpanded ? 'expanded' : ''}" data-expand-all type="button">
         <svg class="expand-all-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
         <span data-expand-all-label>${allExpanded ? 'Collapse All' : 'Expand All'}</span>
       </button>` : ''}
     </div>
+    </div>
     ${!isPastMonth ? formHtml : ''}
+    ${!isPastMonth ? goalFormHtml : ''}
     
     <div class="budget-list">
         <div class="budget-header">
             <div>Category</div>
             <div class="b-budget-header">Budget</div>
-            <div class="b-used-header">Used</div>
+            <div class="b-used-header" style="text-align: center;">Used</div>
             <div class="b-status-header">Status</div>
-            <div></div>
+            <div style="text-align: center;">Actions</div>
         </div>
       ${tableRows}
     </div>
@@ -675,7 +833,8 @@ root.addEventListener('dragstart', (ev) => {
   draggedItem = {
     id: row.dataset.id,
     type: row.dataset.type,
-    parentId: row.dataset.parentId || null
+    parentId: row.dataset.parentId || null,
+    groupId: row.dataset.groupId
   };
   ev.dataTransfer.effectAllowed = 'move';
   ev.dataTransfer.setData('text/plain', draggedItem.id);
@@ -685,23 +844,31 @@ root.addEventListener('dragstart', (ev) => {
 root.addEventListener('dragend', (ev) => {
   const row = ev.target.closest('.budget-row');
   if (row) row.style.opacity = '1';
-  document.querySelectorAll('.drag-over, .drag-over-right').forEach(el => {
-    el.classList.remove('drag-over', 'drag-over-right');
+  document.querySelectorAll('.drop-above, .drop-below, .drag-target-active').forEach(el => {
+    el.classList.remove('drop-above', 'drop-below', 'drag-target-active');
   });
   draggedItem = null;
 });
 
 root.addEventListener('dragover', (ev) => {
-  if (isPastMonth) return;
+  if (isPastMonth || !draggedItem) return;
   ev.preventDefault();
+  
+  const groupHeader = ev.target.closest('.budget-group-header');
+  if (groupHeader && draggedItem.type === 'cat') {
+    ev.dataTransfer.dropEffect = 'move';
+    document.querySelectorAll('.drag-target-active').forEach(el => el.classList.remove('drag-target-active'));
+    groupHeader.closest('.budget-group').classList.add('drag-target-active');
+    return;
+  }
+  
   const row = ev.target.closest('.budget-row');
   if (!row) return;
 
   const targetType = row.dataset.type;
   const targetParentId = row.dataset.parentId || null;
-  const targetId = row.dataset.id;
 
-  if (draggedItem && draggedItem.type === 'sub') {
+  if (draggedItem.type === 'sub') {
     if (targetType === 'cat' || targetParentId !== draggedItem.parentId) {
       ev.dataTransfer.dropEffect = 'none';
       document.querySelectorAll('.drop-above, .drop-below').forEach(el => el.classList.remove('drop-above', 'drop-below'));
@@ -709,7 +876,7 @@ root.addEventListener('dragover', (ev) => {
     }
   }
 
-  if (draggedItem && draggedItem.type === 'cat' && targetType === 'sub') {
+  if (draggedItem.type === 'cat' && targetType === 'sub') {
     ev.dataTransfer.dropEffect = 'none';
     document.querySelectorAll('.drop-above, .drop-below').forEach(el => el.classList.remove('drop-above', 'drop-below'));
     return;
@@ -718,8 +885,8 @@ root.addEventListener('dragover', (ev) => {
   const rect = row.getBoundingClientRect();
   const isBottomHalf = ev.clientY > rect.top + rect.height / 2;
 
-  document.querySelectorAll('.drop-above, .drop-below').forEach(el => {
-    if (el !== row) el.classList.remove('drop-above', 'drop-below');
+  document.querySelectorAll('.drop-above, .drop-below, .drag-target-active').forEach(el => {
+    if (el !== row) el.classList.remove('drop-above', 'drop-below', 'drag-target-active');
   });
 
   row.classList.remove('drop-above', 'drop-below');
@@ -728,61 +895,97 @@ root.addEventListener('dragover', (ev) => {
 
 root.addEventListener('dragleave', (ev) => {
   const row = ev.target.closest('.budget-row');
-  if (row) {
-    if (!row.contains(ev.relatedTarget)) {
-      row.classList.remove('drop-above', 'drop-below');
-    }
+  if (row && !row.contains(ev.relatedTarget)) {
+    row.classList.remove('drop-above', 'drop-below');
+  }
+  const group = ev.target.closest('.budget-group');
+  if (group && !group.contains(ev.relatedTarget)) {
+    group.classList.remove('drag-target-active');
   }
 });
 
-root.addEventListener('dragend', (ev) => {
-  const row = ev.target.closest('.budget-row');
-  if (row) row.style.opacity = '1';
-  document.querySelectorAll('.drop-above, .drop-below').forEach(el => {
-    el.classList.remove('drop-above', 'drop-below');
-  });
-  draggedItem = null;
-});
-
 root.addEventListener('drop', async (ev) => {
-  if (isPastMonth) return;
+  if (isPastMonth || !draggedItem) return;
   ev.preventDefault();
+  
+  const groupHeader = ev.target.closest('.budget-group-header');
+  if (groupHeader && draggedItem.type === 'cat') {
+    const destGroupId = groupHeader.dataset.groupDropTarget;
+    if (destGroupId !== draggedItem.groupId) {
+      const sourceGroup = budgetData.find(g => g.id === draggedItem.groupId);
+      const destGroup = budgetData.find(g => g.id === destGroupId);
+      const catToMove = sourceGroup.categories.find(c => c.id === draggedItem.id);
+      
+      if (!validateCategoryMove(destGroup, catToMove)) {
+        showToast('Not enough budget in target group');
+        document.querySelectorAll('.drag-target-active').forEach(el => el.classList.remove('drag-target-active'));
+        return;
+      }
+      
+      const idx = sourceGroup.categories.findIndex(c => c.id === draggedItem.id);
+      sourceGroup.categories.splice(idx, 1);
+      destGroup.categories = destGroup.categories || [];
+      destGroup.categories.push(catToMove);
+      destGroup.expanded = true;
+      
+      await Store.set(`budget-data:${currentKey}`, budgetData);
+      await renderBudget();
+      showToast('Moved to group');
+    }
+    return;
+  }
+
   const row = ev.target.closest('.budget-row');
-  if (!row || !draggedItem) return;
+  if (!row) return;
 
   const targetId = row.dataset.id;
   const targetType = row.dataset.type;
   const targetParentId = row.dataset.parentId || null;
+  const targetGroupId = row.dataset.groupId;
 
   if (draggedItem.type === 'sub') {
     if (targetType === 'cat' || targetParentId !== draggedItem.parentId) {
       document.querySelectorAll('.drop-above, .drop-below').forEach(el => el.classList.remove('drop-above', 'drop-below'));
-      draggedItem = null;
       return;
     }
   }
 
   if (draggedItem.type === 'cat' && targetType === 'sub') {
     document.querySelectorAll('.drop-above, .drop-below').forEach(el => el.classList.remove('drop-above', 'drop-below'));
-    draggedItem = null;
     return;
   }
 
   if (draggedItem.id === targetId) {
      document.querySelectorAll('.drop-above, .drop-below').forEach(el => el.classList.remove('drop-above', 'drop-below'));
-     draggedItem = null;
      return;
   }
 
   let itemToMove;
+  let sourceGroup;
   if (draggedItem.type === 'cat') {
-    const idx = budgetData.findIndex(c => c.id === draggedItem.id);
-    if (idx > -1) itemToMove = budgetData.splice(idx, 1)[0];
+    sourceGroup = budgetData.find(g => g.id === draggedItem.groupId);
+    const idx = sourceGroup.categories.findIndex(c => c.id === draggedItem.id);
+    if (idx > -1) itemToMove = sourceGroup.categories[idx];
+    
+    if (targetGroupId !== draggedItem.groupId) {
+      const destGroup = budgetData.find(g => g.id === targetGroupId);
+      if (!validateCategoryMove(destGroup, itemToMove)) {
+        showToast('Not enough budget in target group');
+        document.querySelectorAll('.drop-above, .drop-below').forEach(el => el.classList.remove('drop-above', 'drop-below'));
+        return;
+      }
+      // Same reasoning as the header-drop path above: dropping into a
+      // collapsed group must not hide the item that was just moved there.
+      destGroup.expanded = true;
+    }
+    if (idx > -1) sourceGroup.categories.splice(idx, 1);
   } else {
-    const parent = budgetData.find(c => c.id === draggedItem.parentId);
-    if (parent && parent.subcategories) {
-      const idx = parent.subcategories.findIndex(s => s.id === draggedItem.id);
-      if (idx > -1) itemToMove = parent.subcategories.splice(idx, 1)[0];
+    for (const g of budgetData) {
+      const parent = (g.categories || []).find(c => c.id === draggedItem.parentId);
+      if (parent && parent.subcategories) {
+        const idx = parent.subcategories.findIndex(s => s.id === draggedItem.id);
+        if (idx > -1) { itemToMove = parent.subcategories.splice(idx, 1)[0]; break; }
+      }
     }
   }
 
@@ -792,20 +995,24 @@ root.addEventListener('drop', async (ev) => {
   const isBottomHalf = ev.clientY > rect.top + rect.height / 2;
 
   if (targetType === 'cat') {
-    const targetIdx = budgetData.findIndex(c => c.id === targetId);
-    budgetData.splice(isBottomHalf ? targetIdx + 1 : targetIdx, 0, itemToMove);
+    const destGroup = budgetData.find(g => g.id === targetGroupId);
+    const targetIdx = destGroup.categories.findIndex(c => c.id === targetId);
+    destGroup.categories.splice(isBottomHalf ? targetIdx + 1 : targetIdx, 0, itemToMove);
   } else if (targetType === 'sub') {
-    const parent = budgetData.find(c => c.id === targetParentId);
-    if (parent && parent.subcategories) {
-      const targetIdx = parent.subcategories.findIndex(s => s.id === targetId);
-      parent.subcategories.splice(isBottomHalf ? targetIdx + 1 : targetIdx, 0, itemToMove);
-      parent.expanded = true;
+    let parentFound;
+    for (const g of budgetData) {
+      parentFound = (g.categories || []).find(c => c.id === targetParentId);
+      if (parentFound) break;
+    }
+    if (parentFound && parentFound.subcategories) {
+      const targetIdx = parentFound.subcategories.findIndex(s => s.id === targetId);
+      parentFound.subcategories.splice(isBottomHalf ? targetIdx + 1 : targetIdx, 0, itemToMove);
+      parentFound.expanded = true;
     }
   }
 
   document.querySelectorAll('.drop-above, .drop-below').forEach(el => el.classList.remove('drop-above', 'drop-below'));
-  draggedItem = null;
-
+  
   await Store.set(`budget-data:${currentKey}`, budgetData);
   await renderBudget();
   showToast('Order updated');
@@ -815,16 +1022,30 @@ root.addEventListener('drop', async (ev) => {
 root.addEventListener('click', async (ev) => {
   const toggleRowActions = ev.target.closest('[data-toggle-row-actions]');
   if (toggleRowActions) {
-    const row = toggleRowActions.closest('.budget-row');
+    const row = toggleRowActions.closest('.budget-row, .budget-group-header');
     const wasOpen = row.classList.contains('show-actions');
-    document.querySelectorAll('.budget-row.show-actions').forEach(r => r.classList.remove('show-actions'));
+    document.querySelectorAll('.budget-row.show-actions, .budget-group-header.show-actions').forEach(r => r.classList.remove('show-actions'));
     if (!wasOpen) row.classList.add('show-actions');
     ev.stopPropagation();
     return;
   }
 
-  if (!ev.target.closest('.actions-col') || (ev.target.closest('.row-menu-btn') && !ev.target.closest('[data-del-budget]'))) {
-    document.querySelectorAll('.budget-row.show-actions').forEach(r => r.classList.remove('show-actions'));
+  if (!ev.target.closest('.actions-col, .bgh-actions') || (ev.target.closest('.row-menu-btn') && !ev.target.closest('[data-del-budget]'))) {
+    document.querySelectorAll('.budget-row.show-actions, .budget-group-header.show-actions').forEach(r => r.classList.remove('show-actions'));
+  }
+
+  const classBtn = ev.target.closest('[data-set-classification]');
+  if (classBtn) {
+    ev.stopPropagation();
+    const catId = classBtn.dataset.catId;
+    const newClass = classBtn.dataset.setClassification;
+    for (const g of budgetData) {
+      const cat = (g.categories || []).find(c => c.id === catId);
+      if (cat) { cat.classification = newClass; break; }
+    }
+    await Store.set(`budget-data:${currentKey}`, budgetData);
+    await renderBudget();
+    return;
   }
 
   const inlineAddSubBtn = ev.target.closest('[data-inline-add-btn]');
@@ -832,12 +1053,14 @@ root.addEventListener('click', async (ev) => {
     ev.stopPropagation();
     const existingForm = document.querySelector('.inline-subcat-form, .inline-newcat-form');
     const parentCatId = inlineAddSubBtn.dataset.inlineAddBtn;
+    const groupId = inlineAddSubBtn.dataset.groupId;
     const reopenSame = existingForm && existingForm.dataset.inlineFor === parentCatId;
     
     if (existingForm) existingForm.remove();
     if (reopenSame) return;
 
-    const parentCat = budgetData.find(c => c.id === parentCatId);
+    const group = budgetData.find(g => g.id === groupId);
+    const parentCat = group ? (group.categories || []).find(c => c.id === parentCatId) : null;
     if (!parentCat) return;
 
     const existingSubs = parentCat.subcategories || [];
@@ -874,7 +1097,8 @@ root.addEventListener('click', async (ev) => {
   if (inlineNewCatBtn) {
     ev.stopPropagation();
     const existingForm = document.querySelector('.inline-subcat-form, .inline-newcat-form');
-    const reopenSame = existingForm && existingForm.classList.contains('inline-newcat-form');
+    const groupId = inlineNewCatBtn.dataset.inlineNewcatBtn;
+    const reopenSame = existingForm && existingForm.classList.contains('inline-newcat-form') && existingForm.dataset.inlineForGroup === groupId;
     
     if (existingForm) existingForm.remove();
     if (reopenSame) return;
@@ -884,6 +1108,7 @@ root.addEventListener('click', async (ev) => {
 
     const formEl = document.createElement('div');
     formEl.className = 'inline-newcat-form form-panel slide-down-fade';
+    formEl.dataset.inlineForGroup = groupId;
     formEl.style.width = '100%';
     formEl.innerHTML = `
       <div class="inline-add-context">Add a new category</div>
@@ -906,7 +1131,7 @@ root.addEventListener('click', async (ev) => {
         </div>
       </div>
       <div class="form-actions">
-        <button class="btn primary" data-inline-newcat-save type="button">Save</button>
+        <button class="btn primary" data-inline-newcat-save="${groupId}" type="button">Save</button>
         <button class="btn ghost" data-inline-add-cancel type="button">Cancel</button>
       </div>
     `;
@@ -933,24 +1158,32 @@ root.addEventListener('click', async (ev) => {
     if (!name || amount <= 0) { showToast('Enter a valid name and amount'); return; }
 
     let isDuplicate = false;
-    for (const c of budgetData) {
-      if (c.name.toLowerCase() === name.toLowerCase()) isDuplicate = true;
-      if (c.subcategories && c.subcategories.some(s => s.name.toLowerCase() === name.toLowerCase())) isDuplicate = true;
+    for (const g of budgetData) {
+      (g.categories || []).forEach(c => {
+        if (c.name.toLowerCase() === name.toLowerCase()) isDuplicate = true;
+        if (c.subcategories && c.subcategories.some(s => s.name.toLowerCase() === name.toLowerCase())) isDuplicate = true;
+      });
     }
     if (isDuplicate) { showToast('Name already in use'); return; }
 
-    const parentCat = budgetData.find(c => c.id === parentCatId);
+    let parentCat;
+    for (const g of budgetData) {
+      parentCat = (g.categories || []).find(c => c.id === parentCatId);
+      if (parentCat) break;
+    }
     if (!parentCat) { showToast('Parent category not found'); return; }
 
-    const sumSubs = (parentCat.subcategories || []).reduce((s, sub) => s + (Number(sub.budget) || 0), 0);
-    if (sumSubs + amount > parentCat.budget) {
+    const newSub = { id: uid(), name, budget: amount };
+    const tempParent = JSON.parse(JSON.stringify(parentCat));
+    tempParent.subcategories = tempParent.subcategories || [];
+    tempParent.subcategories.push(newSub);
+
+    if (!validateCategoryBudget(tempParent, parentCat.budget)) {
       showToast('Sub-category budgets exceed parent budget');
       return;
     }
 
-    parentCat.subcategories = parentCat.subcategories || [];
-    const newSub = { id: uid(), name, budget: amount };
-    parentCat.subcategories.push(newSub);
+    parentCat.subcategories = tempParent.subcategories;
     parentCat.expanded = true;
 
     await Store.set(`budget-data:${currentKey}`, budgetData);
@@ -961,6 +1194,7 @@ root.addEventListener('click', async (ev) => {
 
   const inlineNewCatSaveBtn = ev.target.closest('[data-inline-newcat-save]');
   if (inlineNewCatSaveBtn) {
+    const groupId = inlineNewCatSaveBtn.dataset.inlineNewcatSave;
     const formEl = inlineNewCatSaveBtn.closest('.inline-newcat-form');
     const select = formEl.querySelector('.inline-newcat-name');
     const customInput = formEl.querySelector('.inline-newcat-custom');
@@ -973,10 +1207,10 @@ root.addEventListener('click', async (ev) => {
     if (!catName || catBudget <= 0) { showToast('Enter valid category name and budget'); return; }
 
     let isDuplicateSub = false;
-    for (const c of budgetData) {
-      if (c.subcategories && c.subcategories.some(s => s.name.toLowerCase() === catName.toLowerCase())) {
-        isDuplicateSub = true;
-      }
+    for (const g of budgetData) {
+      (g.categories || []).forEach(c => {
+        if (c.subcategories && c.subcategories.some(s => s.name.toLowerCase() === catName.toLowerCase())) isDuplicateSub = true;
+      });
     }
     if (isDuplicateSub) { showToast('Name already in use as a subcategory'); return; }
 
@@ -986,13 +1220,22 @@ root.addEventListener('click', async (ev) => {
         await Store.set('custom-spend-tags', customTags);
       }
     }
+    
+    const group = budgetData.find(g => g.id === groupId);
+    if (!group) return;
 
-    const existingIdx = budgetData.findIndex(c => c.name.toLowerCase() === catName.toLowerCase());
+    const existingIdx = (group.categories || []).findIndex(c => c.name.toLowerCase() === catName.toLowerCase());
     if (existingIdx > -1) {
-      budgetData[existingIdx].budget = catBudget;
+      group.categories[existingIdx].budget = catBudget;
     } else {
-      const newCat = { id: uid(), name: catName, budget: catBudget, expanded: true, subcategories: [] };
-      budgetData.push(newCat);
+      const newCat = { id: uid(), name: catName, budget: catBudget, expanded: true, subcategories: [], classification: defaultClassificationForTag(catName) };
+      group.categories = group.categories || [];
+      group.categories.push(newCat);
+    }
+    
+    if (!validateGroupBudget(group, group.budget)) {
+      showToast('Sum of categories exceeds group budget');
+      return; // mutation happened but not persisted, UI resets on return
     }
 
     await Store.set(`budget-data:${currentKey}`, budgetData);
@@ -1009,11 +1252,125 @@ root.addEventListener('click', async (ev) => {
     return;
   }
 
+  const addGroupBtn = ev.target.closest('[data-add-group-btn]');
+  if (addGroupBtn) {
+    // Previously fired two blocking prompt() dialogs that could be
+    // cancelled or fail validation without any persistence or re-render
+    // ever happening. Now opens the same Add Budget group form, which
+    // always persists via Store.set and re-renders via renderBudget().
+    isFormOpen = true;
+    isGoalFormOpen = false;
+    await renderBudget();
+    const nameInput = document.getElementById('f-group-name');
+    if (nameInput) nameInput.focus();
+    return;
+  }
+
   const formToggle = ev.target.closest('[data-budget-form-toggle]');
-  if (formToggle) { isFormOpen = !isFormOpen; await renderBudget(); return; }
+  if (formToggle) { isFormOpen = !isFormOpen; isGoalFormOpen = false; await renderBudget(); return; }
   
   const closeForm = ev.target.closest('[data-close-budget-form]');
   if (closeForm) { isFormOpen = false; await renderBudget(); return; }
+  
+  const goalFormToggle = ev.target.closest('[data-goal-form-toggle]');
+  if (goalFormToggle) { isGoalFormOpen = !isGoalFormOpen; isFormOpen = false; await renderBudget(); return; }
+  
+  const closeGoalForm = ev.target.closest('[data-close-goal-form]');
+  if (closeGoalForm) { isGoalFormOpen = false; await renderBudget(); return; }
+  
+  const submitGoal = ev.target.closest('[data-submit-goal]');
+  if (submitGoal) {
+    const name = $('#f-goal-name').value.trim();
+    const targetAmount = Number($('#f-goal-target').value);
+    const expectedMonth = $('#f-goal-month').value;
+    const hasDownpayment = $('#f-goal-downpayment-toggle').checked;
+    const downpaymentAmount = Number($('#f-goal-downpayment').value);
+    
+    if (!name || targetAmount <= 0 || !expectedMonth || expectedMonth.length !== 7) { showToast('Invalid goal details'); return; }
+    if (hasDownpayment && (downpaymentAmount <= 0 || downpaymentAmount > targetAmount)) { showToast('Invalid downpayment'); return; }
+    
+    goals.push({ id: uid(), name, targetAmount, expectedMonth, hasDownpayment, downpaymentAmount, createdAt: new Date().toISOString(), active: true, fundingHistory: [] });
+    await Store.set('goals', goals);
+    isGoalFormOpen = false;
+    await renderBudget();
+    showToast('Goal saved');
+    return;
+  }
+  
+  const fundGoalBtn = ev.target.closest('[data-fund-goal]');
+  if (fundGoalBtn) {
+    const goalId = fundGoalBtn.dataset.fundGoal;
+    const amount = Number(fundGoalBtn.closest('.goal-card').querySelector('.inline-edit-input').value);
+    if (!amount || amount <= 0) { showToast('Invalid amount'); return; }
+    
+    await ensureMonthIndexed(currentKey, monthsIndex);
+    const data = await loadMonth(currentKey);
+    const entryId = uid();
+    data.entries.push({ id: entryId, type: 'goal_funding', amount, date: new Date().toISOString().split('T')[0], description: 'Goal Funding', goalId });
+    await saveMonth(currentKey);
+    
+    const goal = goals.find(g => g.id === goalId);
+    if (goal) {
+        goal.fundingHistory = goal.fundingHistory || [];
+        goal.fundingHistory.push({ id: uid(), amount, monthKey: currentKey, date: new Date().toISOString().split('T')[0], entryId });
+        await Store.set('goals', goals);
+    }
+    
+    await renderBudget();
+    showToast('Goal funded');
+    return;
+  }
+
+  const reverseFundBtn = ev.target.closest('[data-reverse-funding]');
+  if (reverseFundBtn) {
+    ev.stopPropagation();
+    showDeleteCallout(reverseFundBtn, 'confirm-reverse-funding', reverseFundBtn.dataset.reverseFunding, 'Undo funding?');
+    return;
+  }
+
+  const confirmReverseFund = ev.target.closest('[data-confirm-reverse-funding]');
+  if (confirmReverseFund) {
+    ev.stopPropagation();
+    const goalId = confirmReverseFund.dataset.confirmReverseFunding;
+    const goal = goals.find(g => g.id === goalId);
+    hideDeleteCallout();
+    if (!goal || !goal.fundingHistory || goal.fundingHistory.length === 0) { showToast('No funding to reverse'); return; }
+
+    const last = goal.fundingHistory[goal.fundingHistory.length - 1];
+    goal.fundingHistory = goal.fundingHistory.slice(0, -1);
+    await Store.set('goals', goals);
+
+    if (last.entryId) {
+      const targetMonth = last.monthKey || currentKey;
+      const data = await loadMonth(targetMonth);
+      data.entries = (data.entries || []).filter(e => e.id !== last.entryId);
+      await saveMonth(targetMonth);
+      if (targetMonth === currentKey) currentMonthEntries = currentMonthEntries.filter(e => e.id !== last.entryId);
+    }
+
+    await renderBudget();
+    showToast('Last funding reversed');
+    return;
+  }
+
+  const deleteGoalBtn = ev.target.closest('[data-delete-goal]');
+  if (deleteGoalBtn) {
+    ev.stopPropagation();
+    showDeleteCallout(deleteGoalBtn, 'confirm-delete-goal', deleteGoalBtn.dataset.deleteGoal);
+    return;
+  }
+
+  const confirmDeleteGoal = ev.target.closest('[data-confirm-delete-goal]');
+  if (confirmDeleteGoal) {
+    ev.stopPropagation();
+    const goalId = confirmDeleteGoal.dataset.confirmDeleteGoal;
+    goals = goals.filter(g => g.id !== goalId);
+    await Store.set('goals', goals);
+    hideDeleteCallout();
+    await renderBudget();
+    showToast('Goal deleted');
+    return;
+  }
 
   const unbudgetedToggle = ev.target.closest('[data-unbudgeted-toggle]');
   if (unbudgetedToggle) {
@@ -1032,15 +1389,25 @@ root.addEventListener('click', async (ev) => {
     // its own existing CSS transition, independently and instantly.
     const shouldExpand = !expandAllBtn.classList.contains('expanded');
 
-    budgetData.forEach(cat => {
-      if (!cat.subcategories || cat.subcategories.length === 0) return;
-      cat.expanded = shouldExpand;
+    budgetData.forEach(group => {
+      group.expanded = shouldExpand;
+      const gWrapper = document.querySelector(`[data-group-wrap="${group.id}"]`);
+      if (gWrapper) gWrapper.classList.toggle('expanded', shouldExpand);
+      const gChevron = document.querySelector(`[data-toggle-group="${group.id}"]`);
+      if (gChevron) gChevron.classList.toggle('expanded', shouldExpand);
+      const gHeader = document.querySelector(`.budget-group-header[data-group-drop-target="${group.id}"]`);
+      if (gHeader) gHeader.classList.toggle('expanded', shouldExpand);
 
-      const wrapper = document.querySelector(`[data-subcat-wrap="${cat.id}"]`);
-      if (wrapper) wrapper.classList.toggle('expanded', shouldExpand);
+      (group.categories || []).forEach(cat => {
+        if (!cat.subcategories || cat.subcategories.length === 0) return;
+        cat.expanded = shouldExpand;
 
-      const chevron = document.querySelector(`[data-toggle-sub="${cat.id}"]`);
-      if (chevron) chevron.classList.toggle('expanded', shouldExpand);
+        const wrapper = document.querySelector(`[data-subcat-wrap="${cat.id}"]`);
+        if (wrapper) wrapper.classList.toggle('expanded', shouldExpand);
+
+        const chevron = document.querySelector(`[data-toggle-sub="${cat.id}"]`);
+        if (chevron) chevron.classList.toggle('expanded', shouldExpand);
+      });
     });
 
     expandAllBtn.classList.toggle('expanded', shouldExpand);
@@ -1072,7 +1439,11 @@ root.addEventListener('click', async (ev) => {
 
   const toggleSub = ev.target.closest('[data-toggle-sub]');
   if (toggleSub) {
-    const cat = budgetData.find(c => c.id === toggleSub.dataset.toggleSub);
+    let cat;
+    for (const g of budgetData) {
+      cat = (g.categories || []).find(c => c.id === toggleSub.dataset.toggleSub);
+      if (cat) break;
+    }
     if (cat) {
       // Flip in-memory state and toggle classes FIRST and SYNCHRONOUSLY —
       // this is the only work needed to drive the CSS grid-template-rows
@@ -1090,134 +1461,72 @@ root.addEventListener('click', async (ev) => {
     return;
   }
 
-  if (ev.target.closest('#f-add-subcat')) {
-    let catName = $('#f-cat-name').value;
-    if (catName === '__custom__') catName = $('#f-cat-custom').value.trim();
-
-    let existingSubs = [];
-    if (catName) {
-      const cat = budgetData.find(c => c.name.toLowerCase() === catName.toLowerCase());
-      if (cat && cat.subcategories) existingSubs = cat.subcategories.map(s => s.name);
-    }
-    const subOptions = existingSubs.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
-
-    const container = $('#subcat-container');
-    const row = document.createElement('div');
-    row.className = 'form-row subcat-row';
-    row.style.alignItems = 'flex-start';
-    row.innerHTML = `
-      <div class="field">
-        <label>Sub-category Tag</label>
-        <select class="sc-name-select" style="padding: 10px 12px; border: 1px solid var(--hair); border-radius: 7px; width: 100%; font-family: 'Source Serif 4', serif; font-size: 0.95rem; background: #fff;">
-          <option value="" disabled selected>Select...</option>
-          ${subOptions}
-          <option value="__custom__">+ Add sub-category</option>
-        </select>
-        <input type="text" class="sc-name-custom" placeholder="e.g. Meat" style="display:none; margin-top: 6px; padding: 10px 12px; border: 1px solid var(--hair); border-radius: 7px; width: 100%; font-family: 'Source Serif 4', serif; font-size: 0.95rem;" />
-      </div>
-      <div style="display: flex; flex-wrap: nowrap; gap: 10px;">
-        <div class="field" style="width: 100%;"><label>Budget (₹)</label><input type="number" step="0.01" min="0" class="sc-budget" placeholder="0.00" /></div>
-        <button class="icon-btn" data-remove-subcat-row style="align-self: flex-end; margin-bottom: 8px;">✕</button>
-      </div>
-    `;
-    container.appendChild(row);
-    return;
-  }
+  const toggleGroup = ev.target.closest('[data-toggle-group]');
   
-  if (ev.target.closest('[data-remove-subcat-row]')) {
-    ev.target.closest('.subcat-row').remove();
+  if (toggleGroup) {
+    const groupId = toggleGroup.dataset.toggleGroup;
+    const group = budgetData.find(g => g.id === groupId);
+    if (group) {
+      group.expanded = group.expanded === false ? true : false;
+
+      const wrapper = document.querySelector(`[data-group-wrap="${group.id}"]`);
+      if (wrapper) wrapper.classList.toggle('expanded', group.expanded);
+      
+      const btn = document.querySelector(`[data-toggle-group="${group.id}"]`);
+      if (btn) btn.classList.toggle('expanded', group.expanded);
+
+      const header = document.querySelector(`.budget-group-header[data-group-drop-target="${group.id}"]`);
+      if (header) header.classList.toggle('expanded', group.expanded);
+
+      Store.set(`budget-data:${currentKey}`, budgetData);
+    }
     return;
   }
 
   if (ev.target.closest('[data-submit-budget]')) {
-    let catName = $('#f-cat-name').value;
-    if (catName === '__custom__') catName = $('#f-cat-custom').value.trim();
-    const catBudget = Number($('#f-cat-budget').value) || 0;
-    
-    if (!catName || catBudget <= 0) { showToast('Enter valid category name and budget'); return; }
+  const groupName = $('#f-group-name').value.trim();
+  const groupBudget = Number($('#f-group-budget').value);
 
-    let isDuplicateCat = false;
-    for (const c of budgetData) {
-      if (c.subcategories && c.subcategories.some(s => s.name.toLowerCase() === catName.toLowerCase())) {
-        isDuplicateCat = true;
-      }
-    }
-    if (isDuplicateCat) { showToast('Category name already in use as a subcategory'); return; }
+  if (!groupName) { showToast('Enter a group name'); return; }
+  if (isNaN(groupBudget) || groupBudget <= 0) { showToast('Enter a valid group budget'); return; }
 
-    const subcatRows = Array.from(document.querySelectorAll('.subcat-row'));
-    const subcats = [];
-    let subcatSum = 0;
-    
-    for (const row of subcatRows) {
-      const select = row.querySelector('.sc-name-select');
-      const custom = row.querySelector('.sc-name-custom');
-      let sname = select ? select.value : '';
-      if (sname === '__custom__') sname = custom.value.trim();
+  const isDuplicateGroup = budgetData.some(g => g.name.toLowerCase() === groupName.toLowerCase());
+  if (isDuplicateGroup) { showToast('A group with that name already exists'); return; }
 
-      const sbudg = Number(row.querySelector('.sc-budget').value) || 0;
-      if (sname && sbudg > 0) {
-        let isDupSub = false;
-        if (sname.toLowerCase() === catName.toLowerCase()) isDupSub = true;
-        for (const c of budgetData) {
-          if (c.name.toLowerCase() === sname.toLowerCase()) isDupSub = true;
-          if (c.subcategories && c.subcategories.some(s => s.name.toLowerCase() === sname.toLowerCase())) isDupSub = true;
-        }
-        if (subcats.some(s => s.name.toLowerCase() === sname.toLowerCase())) isDupSub = true;
+  budgetData.push({ id: uid(), name: groupName, budget: groupBudget, expanded: true, categories: [] });
 
-        if (isDupSub) { showToast('Subcategory name already in use'); return; }
-
-        subcats.push({ id: uid(), name: sname, budget: sbudg });
-        subcatSum += sbudg;
-      }
-    }
-
-    if (subcatSum > catBudget) {
-      showToast('Sum of sub-category budgets exceeds parent budget');
-      return;
-    }
-
-    if (catName === '__custom__') {
-       const custom = $('#f-cat-custom').value.trim();
-       if (!allSpendTags(DEFAULT_TAGS, customTags).some(t => t.toLowerCase() === custom.toLowerCase())) {
-         customTags.push(custom);
-         await Store.set('custom-spend-tags', customTags);
-       }
-       catName = custom;
-    }
-
-    const existingIdx = budgetData.findIndex(c => c.name.toLowerCase() === catName.toLowerCase());
-    if (existingIdx > -1) {
-      budgetData[existingIdx].budget = catBudget;
-      if (subcats.length > 0) {
-         budgetData[existingIdx].subcategories = budgetData[existingIdx].subcategories || [];
-         budgetData[existingIdx].subcategories.push(...subcats);
-      }
-    } else {
-      budgetData.push({
-        id: uid(),
-        name: catName,
-        budget: catBudget,
-        expanded: true,
-        subcategories: subcats
-      });
-    }
-
-    await Store.set(`budget-data:${currentKey}`, budgetData);
-    isFormOpen = false;
-    await renderBudget();
-    showToast('Budget added');
-    return;
-  }
+  await Store.set(`budget-data:${currentKey}`, budgetData);
+  isFormOpen = false;
+  await renderBudget();
+  showToast('Group added');
+  return;
+}
 
   const editBtn = ev.target.closest('[data-edit-budget]');
   if (editBtn) {
-    const row = editBtn.closest('.budget-row');
-    const amtCol = row.querySelector('.budget-amt-col');
-    const currentAmtText = amtCol.textContent.trim().replace(/[^0-9.]/g, '');
-    
+    const id = editBtn.dataset.editBudget;
+    const type = editBtn.dataset.type;
+    let amtCol;
+    let currentAmount;
+
+    if (type === 'group') {
+      // Group headers have no .budget-row ancestor and their .bgh-amount
+      // shows two numbers ("allocated / budget"), so it can't be text-parsed
+      // like a row's single-number .budget-amt-col — read group.budget directly.
+      amtCol = editBtn.closest('.budget-group-header').querySelector('.bgh-amount');
+      const group = budgetData.find(g => g.id === id);
+      currentAmount = group ? group.budget : 0;
+      amtCol.classList.add('budget-amt-col'); // reuse save/cancel handlers' lookup
+    } else {
+      const row = editBtn.closest('.budget-row');
+      amtCol = row.querySelector('.budget-amt-col');
+      currentAmount = amtCol.textContent.trim().replace(/[^0-9.]/g, '');
+    }
+    if (!amtCol) return;
+
     amtCol.innerHTML = `
-      <input type="number" step="0.01" min="0" class="inline-edit-input" value="${currentAmtText}" />
-      <button class="icon-btn" data-save-edit="${editBtn.dataset.editBudget}" data-type="${editBtn.dataset.type}" data-parent-id="${editBtn.dataset.parentId || ''}" style="color:var(--credit);">✓</button>
+      <input type="number" step="0.01" min="0" class="inline-edit-input" value="${currentAmount}" />
+      <button class="icon-btn" data-save-edit="${id}" data-type="${type}" data-parent-id="${editBtn.dataset.parentId || ''}" style="color:var(--credit);">✓</button>
       <button class="icon-btn" data-cancel-edit style="color:var(--debit);">✕</button>
     `;
     amtCol.querySelector('.inline-edit-input').focus();
@@ -1238,26 +1547,38 @@ root.addEventListener('click', async (ev) => {
 
     if (isNaN(newBudget) || newBudget < 0) { showToast('Invalid amount'); return; }
 
-    if (type === 'cat') {
-      const cat = budgetData.find(c => c.id === id);
-      if (cat) {
-        const sumSubs = (cat.subcategories || []).reduce((s, sub) => s + sub.budget, 0);
-        if (newBudget < sumSubs) {
-          showToast('Budget cannot be less than sum of sub-categories');
+    if (type === 'group') {
+      const group = budgetData.find(g => g.id === id);
+      if (group) {
+        if (!validateGroupBudget(group, newBudget)) {
+          showToast('Group budget cannot be less than sum of categories');
           return;
         }
-        cat.budget = newBudget;
+        group.budget = newBudget;
+      }
+    } else if (type === 'cat') {
+      for (const g of budgetData) {
+        const cat = (g.categories || []).find(c => c.id === id);
+        if (cat) {
+          const tempCat = JSON.parse(JSON.stringify(cat));
+          tempCat.budget = newBudget;
+          if (!validateCategoryBudget(tempCat, newBudget)) { showToast('Budget cannot be less than sum of sub-categories'); return; }
+          cat.budget = newBudget;
+          if (!validateGroupBudget(g, g.budget)) { showToast('Group budget cannot support this increase'); return; }
+          break;
+        }
       }
     } else if (type === 'sub') {
-      const parent = budgetData.find(c => c.id === parentId);
-      if (parent) {
-        const sumOtherSubs = (parent.subcategories || []).reduce((s, sub) => s + (sub.id === id ? 0 : sub.budget), 0);
-        if (sumOtherSubs + newBudget > parent.budget) {
-          showToast('Sub-category budgets exceed parent budget');
-          return;
+      for (const g of budgetData) {
+        const parent = (g.categories || []).find(c => c.id === parentId);
+        if (parent) {
+          const tempParent = JSON.parse(JSON.stringify(parent));
+          const sub = tempParent.subcategories.find(s => s.id === id);
+          if (sub) sub.budget = newBudget;
+          if (!validateCategoryBudget(tempParent, parent.budget)) { showToast('Sub-category budgets exceed parent budget'); return; }
+          parent.subcategories.find(s => s.id === id).budget = newBudget;
+          break;
         }
-        const sub = parent.subcategories.find(s => s.id === id);
-        if (sub) sub.budget = newBudget;
       }
     }
 
@@ -1278,12 +1599,21 @@ root.addEventListener('click', async (ev) => {
   if (confirmDel) {
     ev.stopPropagation();
     const [type, parentId, id] = confirmDel.dataset.confirmDelBudget.split('|');
-    if (type === 'cat') {
-      budgetData = budgetData.filter(c => c.id !== id);
+    if (type === 'group') {
+      budgetData = budgetData.filter(g => g.id !== id);
+    } else if (type === 'cat') {
+      for (const g of budgetData) {
+        if (g.categories && g.categories.some(c => c.id === id)) {
+          g.categories = g.categories.filter(c => c.id !== id);
+          break;
+        }
+      }
     } else {
-      const parent = budgetData.find(c => c.id === parentId);
-      if (parent && parent.subcategories) {
-        parent.subcategories = parent.subcategories.filter(s => s.id !== id);
+      for (const g of budgetData) {
+        const parent = (g.categories || []).find(c => c.id === parentId);
+        if (parent && parent.subcategories) {
+          parent.subcategories = parent.subcategories.filter(s => s.id !== id);
+        }
       }
     }
     await Store.set(`budget-data:${currentKey}`, budgetData);
@@ -1313,23 +1643,9 @@ root.addEventListener('change', (ev) => {
     return;
   }
 
-  if (ev.target.id === 'f-cat-name') {
-    const val = ev.target.value;
-    const customWrap = $('#f-cat-custom-wrap');
-    if (customWrap) customWrap.style.display = val === '__custom__' ? 'block' : 'none';
-    
-    const addSubBtn = $('#f-add-subcat');
-    if (addSubBtn) addSubBtn.disabled = !val;
-
-    $('#subcat-container').innerHTML = '';
-
-    const budgetInput = $('#f-cat-budget');
-    if (budgetInput && val !== '__custom__') {
-      const existingCat = budgetData.find(c => c.name.toLowerCase() === val.toLowerCase());
-      budgetInput.value = existingCat ? existingCat.budget : '';
-    } else if (budgetInput) {
-      budgetInput.value = '';
-    }
+  if (ev.target.id === 'f-goal-downpayment-toggle') {
+    const wrap = $('#f-goal-downpayment-wrap');
+    if (wrap) wrap.style.display = ev.target.checked ? 'block' : 'none';
   }
 });
 
