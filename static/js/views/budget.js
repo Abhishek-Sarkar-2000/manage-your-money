@@ -295,7 +295,7 @@ function renderSummaryCards() {
     budgetCardContent = `
       <div class="kpi-label" style="${unallocated < 0 ? 'color: var(--debit);' : ''}">Left to Budget</div>
       <div class="kpi-value ${unallocatedClass}">${unallocatedDisplay}</div>
-      <div class="kpi-sub" style="color: ${subTextColor}; font-weight: ${unallocated < 0 ? '600' : 'normal'};">${unallocated < 0 ? 'Over-allocated!' : `Total ${fmtINR(totalBudget)}`}</div>
+      <div class="kpi-sub" style="color: ${subTextColor};">${unallocated < 0 ? 'Over-allocated!' : `Total ${fmtINR(totalBudget)}`}</div>
     `;
   } else {
     budgetCardContent = `
@@ -377,7 +377,7 @@ function renderSummaryCards() {
       <div class="kpi-body">
         <div class="kpi-label" style="${totalSavings < 0 ? 'color: var(--debit);' : ''}">Savings</div>
         <div class="kpi-value ${savingsClass}">${fmtINR(totalSavings)}</div>
-        <div class="kpi-sub" style="${totalSavings < 0 ? 'color: var(--debit);' : 'color: var(--credit);'}">${savingsPctDisplay} of income</div>
+        <div class="kpi-sub" style="${totalSavings < 0 ? 'color: var(--debit);' : 'color: var(--credit);'}">${totalSavings < 0 ? 'Spends > Income' : savingsPctDisplay + ' of income'}</div>
       </div>
     </div>
     <div class="kpi-card status-card">
@@ -554,6 +554,8 @@ function renderGoalsSection() {
   const undoSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 3v6h6"></path></svg>`;
   const trashSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>`;
   const calendarSvg = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>`;
+  const infoSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
+  const editSvg = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>`;
 
   const goalRows = goals.map(goal => {
     // Solid bar = any earlier funding plus everything funded in prior
@@ -569,7 +571,10 @@ function renderGoalsSection() {
     const pctPrev = goal.targetAmount > 0 ? Math.min(100, (previouslyFunded / goal.targetAmount) * 100) : 0;
     const pctThisMonth = goal.targetAmount > 0 ? Math.min(100 - pctPrev, (thisMonthFunded / goal.targetAmount) * 100) : 0;
 
-    const rec = computeGoalRecommendation(goal, { monthsIndex, budgetDataByMonth: budgetDataByMonthMemo, entriesByMonth: entriesByMonthMemo });
+    const rec = computeGoalRecommendation(goal, {
+      monthsIndex, budgetDataByMonth: budgetDataByMonthMemo, entriesByMonth: entriesByMonthMemo,
+      currentMonthBudgetData: budgetData, currentMonthEntries
+    });
 
     let breakdownHtml = '';
     if (rec.breakdown && rec.breakdown.length > 0) {
@@ -584,12 +589,19 @@ function renderGoalsSection() {
     const canReverse = (goal.fundingHistory || []).length > 0;
     const monthsLeft = Math.max(0, rec.gapMonths || 0);
 
+    const alertHtml = rec.alert
+      ? `<div class="goal-alert-banner">${escapeHtml(rec.alert.message)}</div>`
+      : '';
+
     return `
       <div class="card goal-card" data-goal-id="${goal.id}">
         <div class="goal-card-top">
           <div class="goal-card-info">
             <h4 class="goal-name">${escapeHtml(goal.name)}</h4>
-            <div class="goal-target num">Target: ${fmtINR(goal.targetAmount)}</div>
+            <div class="goal-target num">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-bottom:1px;"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle><path d="M4 4l7 7"></path><path d="M4 4h4"></path><path d="M4 4v4"></path></svg>
+              ${fmtINR(goal.targetAmount)}
+            </div>
           </div>
           <div class="goal-fund-controls">
             <input type="number" class="inline-edit-input" value="${rec.suggestedMonthlyContribution}" step="0.01" min="0" />
@@ -613,14 +625,26 @@ function renderGoalsSection() {
           </div>
         </div>
 
+        ${alertHtml}
+
         <div class="goal-deadline-row">
           ${calendarSvg}<span>Target deadline: <strong>${monthKeyLabel(goal.expectedMonth)}</strong> &bull; ${monthsLeft} ${monthsLeft === 1 ? 'month' : 'months'} left</span>
+          <button class="icon-btn goal-icon-btn goal-edit-month-btn" data-edit-month-toggle="${goal.id}" title="Edit target month">${editSvg}</button>
+          <div class="goal-edit-month-popover" data-edit-month-popover="${goal.id}">
+            <input type="month" class="goal-edit-month-input" data-edit-month-input="${goal.id}" value="${goal.expectedMonth}" min="${currentMonthKey()}" />
+            <button class="btn primary small" data-save-goal-month="${goal.id}" type="button">Save</button>
+          </div>
         </div>
 
         <div class="goal-suggestion">
-          <div class="goal-suggested-line">Suggested Funding: <span class="num">${fmtINR(rec.suggestedMonthlyContribution)}</span> / month</div>
-          <div class="goal-explanation">${escapeHtml(rec.explanation)}</div>
-          ${breakdownHtml}
+          <div class="goal-suggested-line">
+            Suggested Funding: <span class="num">${fmtINR(rec.suggestedMonthlyContribution)}</span> / mo
+            <button class="icon-btn goal-info-btn" data-info-toggle type="button" title="How this was calculated" aria-label="How this was calculated">${infoSvg}</button>
+            <div class="goal-info-callout">
+              <div class="goal-explanation">${escapeHtml(rec.explanation)}</div>
+              ${breakdownHtml}
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -762,19 +786,19 @@ async function renderBudget() {
     const hasPrevLogged = monthsIndex.some(m => m < currentKey);
     if (!isPastMonth && hasPrevLogged) {
       tableRows = `
-        <div class="empty-chart" style="padding: 24px 0; grid-column: 1/-1; display: flex; flex-wrap: wrap; gap: 12px;">
+        <div style="grid-column: 1/-1; display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px;">
           <button class="add-row-btn" data-add-group-btn type="button" style="flex: 1 1 250px; margin: 0;">+ Add a Group</button>
           <button class="add-row-btn" id="copy-last-budget-btn" type="button" style="flex: 1 1 250px; margin: 0; border-color: var(--sky); color: var(--blue);">Copy from the last logged month</button>
         </div>
       `;
     } else if (!isPastMonth) {
       tableRows = `
-        <div class="empty-chart" style="padding: 24px 0; grid-column: 1/-1; display: flex; flex-wrap: wrap;">
+        <div style="grid-column: 1/-1; display: flex; flex-wrap: wrap; margin-top: 8px;">
           <button class="add-row-btn" data-add-group-btn type="button" style="flex: 1 1 100%; margin: 0;">+ Add a Group</button>
         </div>
       `;
     } else {
-      tableRows = `<div class="empty-chart" style="padding: 24px; grid-column: 1/-1; text-align: center; color: var(--muted);">No budgets set for this month.</div>`;
+      tableRows = `<div class="empty-chart" style="padding: 24px; grid-column: 1/-1; text-align: center; color: var(--muted); border: 1px dashed var(--hair); border-radius: 12px;">No budgets set for this month.</div>`;
     }
   }
 
@@ -1410,6 +1434,46 @@ root.addEventListener('click', async (ev) => {
     return;
   }
 
+  // Info (i) chevron: click-to-toggle so it works on touch devices;
+  // CSS handles the hover-to-open behaviour for desktop separately.
+  const infoToggle = ev.target.closest('[data-info-toggle]');
+  if (infoToggle) {
+    ev.stopPropagation();
+    const callout = infoToggle.nextElementSibling;
+    const wasOpen = callout.classList.contains('open');
+    root.querySelectorAll('.goal-info-callout.open').forEach(el => el.classList.remove('open'));
+    if (!wasOpen) callout.classList.add('open');
+    return;
+  }
+
+  const editMonthToggle = ev.target.closest('[data-edit-month-toggle]');
+  if (editMonthToggle) {
+    ev.stopPropagation();
+    const popover = root.querySelector(`[data-edit-month-popover="${editMonthToggle.dataset.editMonthToggle}"]`);
+    const wasOpen = popover.classList.contains('open');
+    root.querySelectorAll('.goal-edit-month-popover.open').forEach(el => el.classList.remove('open'));
+    if (!wasOpen) popover.classList.add('open');
+    return;
+  }
+
+  const saveGoalMonthBtn = ev.target.closest('[data-save-goal-month]');
+  if (saveGoalMonthBtn) {
+    ev.stopPropagation();
+    const goalId = saveGoalMonthBtn.dataset.saveGoalMonth;
+    const input = root.querySelector(`[data-edit-month-input="${goalId}"]`);
+    const newMonth = input ? input.value : '';
+    if (!newMonth || newMonth.length !== 7) { showToast('Invalid month'); return; }
+
+    const goal = goals.find(g => g.id === goalId);
+    if (goal) {
+      goal.expectedMonth = newMonth;
+      await Store.set('goals', goals);
+    }
+    await renderBudget();
+    showToast('Target month updated');
+    return;
+  }
+
   const unbudgetedToggle = ev.target.closest('[data-unbudgeted-toggle]');
   if (unbudgetedToggle) {
     const callout = unbudgetedToggle.closest('[data-unbudgeted-callout]');
@@ -1688,6 +1752,16 @@ root.addEventListener('change', (ev) => {
 });
 
 wireDeletePopoverDismiss(root);
+
+document.addEventListener('click', (ev) => {
+  if (!ev.target.closest('.goal-info-btn') && !ev.target.closest('.goal-info-callout')) {
+    document.querySelectorAll('.goal-info-callout.open').forEach(el => el.classList.remove('open'));
+  }
+  if (!ev.target.closest('.goal-edit-month-btn') && !ev.target.closest('.goal-edit-month-popover')) {
+    document.querySelectorAll('.goal-edit-month-popover.open').forEach(el => el.classList.remove('open'));
+  }
+});
+
 window.addEventListener('auth:signed-in', renderBudget);
 window.addEventListener('auth:checked', renderBudget);
 authReady.then(renderBudget);

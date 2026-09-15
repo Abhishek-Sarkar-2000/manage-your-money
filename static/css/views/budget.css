@@ -199,6 +199,10 @@
   color: var(--muted);
   margin: 0 16px;
 }
+.budget-group-header .budget-amt-col.bgh-amount {
+  width: auto;
+  margin: 0 16px;
+}
 :root[data-theme="hi-contrast"] .bgh-amount { color: #ffffff; }
 
 .bgh-actions {
@@ -250,6 +254,12 @@
   gap: 10px;
   padding: 14px 16px;
   margin-bottom: 8px;
+  position: relative;
+}
+
+.goal-card:has(.goal-info-callout.open),
+.goal-card:hover {
+  z-index: 10;
 }
 
 .goal-card-top {
@@ -366,7 +376,15 @@
   padding-top: 8px;
 }
 
+:root[data-theme="dark"] .goal-suggestion {
+  border-color: var(--sky);
+}
+
 .goal-suggested-line {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--navy);
@@ -384,6 +402,85 @@
   border-top: 1px dashed var(--hair);
   padding-top: 8px;
 }
+
+/* (i) info chevron: hover-opens on desktop, click-toggles everywhere
+   (including touch, via the `.open` class from budget.js) and is
+   dismissed by the document-level click-outside handler. */
+.goal-info-btn {
+  color: var(--muted);
+  padding: 0;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.goal-info-btn:hover { color: var(--blue); }
+
+.goal-info-callout {
+  display: none;
+  font-weight: 400;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 20;
+  margin-top: 6px;
+  min-width: 240px;
+  max-width: 320px;
+  background: #fff;
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  padding: 10px 12px;
+  text-align: left;
+  white-space: normal;
+}
+:root[data-theme="dark"] .goal-info-callout {
+  background: var(--hair);
+  border-color: var(--sky);
+}
+
+.goal-info-callout.open { display: block; }
+@media (hover: hover) {
+  .goal-info-btn:hover + .goal-info-callout { display: block; }
+}
+
+.goal-alert-banner {
+  font-size: 0.78rem;
+  color: var(--debit);
+  background: var(--debit-bg);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+:root[data-theme="dark"] .goal-alert-banner {
+  color: #ff6b3d;
+}
+
+.goal-deadline-row {
+  position: relative;
+}
+
+.goal-edit-month-btn {
+  color: var(--muted);
+  padding: 0;
+  margin-left: 2px;
+}
+.goal-edit-month-btn:hover { color: var(--blue); }
+
+.goal-edit-month-popover {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 20;
+  margin-top: 6px;
+  gap: 6px;
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  padding: 8px;
+}
+.goal-edit-month-popover.open { display: flex; }
 
 /* Category classification chevrons — small circular toggles pinned to
    the top-left border of a category row. */
@@ -1336,9 +1433,13 @@
   .cat-name-col {
     font-size: 0.85rem;
   }
-  .budget-amt-col {
+  .budget-row .budget-amt-col {
     font-size: 1rem;
     transform: translateX(45px);
+  }
+  .budget-group-header .budget-amt-col {
+    transform: none;
+    margin: 0;
   }
   
   .hide-sm {
