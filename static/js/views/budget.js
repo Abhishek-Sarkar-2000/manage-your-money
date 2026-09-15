@@ -235,6 +235,12 @@ function renderUnbudgetedCallout() {
   `).join('');
 
   return `
+  <div style="display: flex; align-items: center; gap: 8px; margin-top: 32px; margin-bottom: 16px;">
+    <span style="color: var(--blue); display: flex;">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-3.5.9.9-3.5 9.1-9.9z"/><line x1="6" y1="10" x2="10" y2="10"/><line x1="6" y1="14" x2="9" y2="14"/></svg>
+    </span>
+    <h3 style="margin: 0;">Budget Planner</h3>
+  </div>
   <div class="unbudgeted-callout" data-unbudgeted-callout style="border: 1px solid var(--amber); border-radius: 12px; background: var(--amber-bg);">
     <button class="unbudgeted-summary" data-unbudgeted-toggle type="button">
       <span class="unbudgeted-icon">${warnSvg}</span>
@@ -384,7 +390,10 @@ function renderSummaryCards() {
         ${usedPct > 100 ? alertIcon.replace('top: -4px; right: -4px;', 'top: 0px; right: 0px;') : ''}
       </div>
       <div class="kpi-body">
-        <div class="kpi-label" style="${usedPct > 100 ? 'color: var(--debit);' : ''}">Budget Utilization</div>
+        <div class="kpi-label" style="${usedPct > 100 ? 'color: var(--debit);' : ''}">
+          <span class="hide-sm">Budget Utilization</span>
+          <span class="show-sm">Utilization</span>
+        </div>
         <div class="kpi-sub">${usedPct.toFixed(1)}% used</div>
         <span class="kpi-status-pill status-pill ${status.cls}">${status.label}</span>
       </div>
@@ -498,7 +507,46 @@ function renderBudgetRow(item, isSub, parentId, groupId) {
 }
 
 function renderGoalsSection() {
-  if (!goals || goals.length === 0) return '';
+  const goalFormHtml = isGoalFormOpen && !isPastMonth ? `
+  <div class="form-panel slide-down-fade" style="margin: 14px 0px;">
+    <div class="form-row">
+      <div class="field"><label>Goal Name</label><input id="f-goal-name" type="text" placeholder="e.g. Emergency Fund" /></div>
+      <div class="field"><label>Target Amount (₹)</label><input id="f-goal-target" type="number" step="1" min="0" placeholder="0" /></div>
+      <div class="field"><label>Expected Completion</label><input id="f-goal-month" type="month" /></div>
+    </div>
+    <label class="checkline"><input type="checkbox" id="f-goal-downpayment-toggle" /> Has an earlier funding milestone</label>
+    <div class="form-row" id="f-goal-downpayment-wrap" style="display:none;">
+      <div class="field"><label>Funding Amount (₹)</label><input id="f-goal-downpayment" type="number" step="1" min="0" placeholder="0" /></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn primary" data-submit-goal type="button">Save Goal</button>
+      <button class="btn ghost" data-close-goal-form type="button">Cancel</button>
+    </div>
+  </div>
+  ` : '';
+
+  const goalIconSvg = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>`;
+
+  const sectionHeaderHtml = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--blue); display: flex;">
+          ${goalIconSvg}
+        </span>
+        <h3 style="margin: 0;">Financial Goals</h3>
+      </div>
+      ${!isPastMonth ? `<button class="pill-btn ${isGoalFormOpen ? '' : 'active'}" data-goal-form-toggle type="button" style="margin: 0;">+ Set Goal</button>` : ''}
+    </div>
+    ${goalFormHtml}
+  `;
+
+  if (!goals || goals.length === 0) {
+    return `
+      <div class="financial-goals-section" style="margin-bottom: 24px;">
+        ${sectionHeaderHtml}
+      </div>
+    `;
+  }
 
   // Hoisted out of the per-goal map below — these are static per render,
   // no need to rebuild the markup once per goal.
@@ -579,7 +627,7 @@ function renderGoalsSection() {
 
   return `
     <div class="financial-goals-section" style="margin-bottom: 24px;">
-      <h3 style="margin-bottom: 12px;">Financial Goals</h3>
+      ${sectionHeaderHtml}
       ${goalRows}
     </div>
   `;
@@ -667,25 +715,21 @@ async function renderBudget() {
     tableRows += `
       <div class="budget-group" data-group-id="${group.id}">
         <div class="budget-group-header ${group.expanded !== false ? 'expanded' : ''}" data-group-drop-target="${group.id}">
-          <div style="display:flex; align-items:center; gap:12px; flex:1;">
-            <button class="toggle-sub ${group.expanded !== false ? 'expanded' : ''}" data-toggle-group="${group.id}" title="${group.expanded !== false ? 'Collapse' : 'Expand'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
-            <span class="bgh-name">${escapeHtml(group.name)}</span>
-          </div>
-          <div style="display:flex; align-items:center; gap:16px;">
-            <span class="bgh-amount">${fmtINR(groupUsed)} / ${fmtINR(group.budget)}</span>
-            <div class="bgh-actions">
-              <div class="row-actions-menu">
-                ${!isPastMonth ? `
-                <button class="edit-budget-btn icon-btn row-menu-btn" data-edit-budget="${group.id}" data-type="group" title="Edit budget">
-                  <span class="row-menu-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></span><span class="row-menu-text">Edit</span>
-                </button>
-                <button class="icon-btn row-menu-btn" data-popover-trigger data-del-budget="${group.id}" data-type="group" title="Remove">
-                  <span class="row-menu-icon">✕</span><span class="row-menu-text">Delete</span>
-                </button>
-                ` : ''}
-              </div>
-              ${!isPastMonth ? `<button class="icon-btn mobile-actions-toggle" data-toggle-row-actions title="Actions">${dotsSvg}</button>` : ''}
+          <button class="toggle-sub ${group.expanded !== false ? 'expanded' : ''}" data-toggle-group="${group.id}" title="${group.expanded !== false ? 'Collapse' : 'Expand'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+          <span class="bgh-name">${escapeHtml(group.name)}</span>
+          <span class="bgh-amount">${fmtINR(groupUsed)} / ${fmtINR(group.budget)}</span>
+          <div class="bgh-actions">
+            <div class="row-actions-menu">
+              ${!isPastMonth ? `
+              <button class="edit-budget-btn icon-btn row-menu-btn" data-edit-budget="${group.id}" data-type="group" title="Edit budget">
+                <span class="row-menu-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></span><span class="row-menu-text">Edit</span>
+              </button>
+              <button class="icon-btn row-menu-btn" data-popover-trigger data-del-budget="${group.id}" data-type="group" title="Remove">
+                <span class="row-menu-icon">✕</span><span class="row-menu-text">Delete</span>
+              </button>
+              ` : ''}
             </div>
+            ${!isPastMonth ? `<button class="icon-btn mobile-actions-toggle" data-toggle-row-actions title="Actions">${dotsSvg}</button>` : ''}
           </div>
         </div>
         <div class="group-wrap ${group.expanded !== false ? 'expanded' : ''}" data-group-wrap="${group.id}">
@@ -761,24 +805,6 @@ async function renderBudget() {
   </div>
   ` : '';
   
-  const goalFormHtml = isGoalFormOpen ? `
-  <div class="form-panel slide-down-fade" style="margin: 14px 0px;">
-    <div class="form-row">
-      <div class="field"><label>Goal Name</label><input id="f-goal-name" type="text" placeholder="e.g. Emergency Fund" /></div>
-      <div class="field"><label>Target Amount (₹)</label><input id="f-goal-target" type="number" step="0.01" min="0" placeholder="0.00" /></div>
-      <div class="field"><label>Expected Completion</label><input id="f-goal-month" type="month" /></div>
-    </div>
-    <label class="checkline"><input type="checkbox" id="f-goal-downpayment-toggle" /> Has an earlier funding milestone</label>
-    <div class="form-row" id="f-goal-downpayment-wrap" style="display:none;">
-      <div class="field"><label>Funding Amount (₹)</label><input id="f-goal-downpayment" type="number" step="0.01" min="0" placeholder="0.00" /></div>
-    </div>
-    <div class="form-actions">
-      <button class="btn primary" data-submit-goal type="button">Save Goal</button>
-      <button class="btn ghost" data-close-goal-form type="button">Cancel</button>
-    </div>
-  </div>
-  ` : '';
-
   const tb = document.getElementById('global-topbar');
   if (tb) tb.style.display = '';
 
@@ -804,10 +830,9 @@ async function renderBudget() {
     ${renderSummaryCards()}
     ${renderGoalsSection()}
     ${renderUnbudgetedCallout()}
-
+    
     <div class="pill-grid" style="margin: 16px 0px;">
       ${!isPastMonth ? `<button class="pill-btn ${isFormOpen ? '' : 'active'}" data-budget-form-toggle type="button">+ Add Group</button>` : ''}
-      ${!isPastMonth ? `<button class="pill-btn ${isGoalFormOpen ? '' : 'active'}" data-goal-form-toggle type="button">+ Set Goal</button>` : ''}
       ${catsWithSubs.length > 0 ? `
       <button class="pill-btn expand-all-btn ${allExpanded ? 'expanded' : ''}" data-expand-all type="button">
         <svg class="expand-all-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
@@ -816,16 +841,7 @@ async function renderBudget() {
     </div>
     </div>
     ${!isPastMonth ? formHtml : ''}
-    ${!isPastMonth ? goalFormHtml : ''}
-    
     <div class="budget-list">
-        <div class="budget-header">
-            <div>Category</div>
-            <div class="b-budget-header">Budget</div>
-            <div class="b-used-header" style="text-align: center;">Used</div>
-            <div class="b-status-header">Status</div>
-            <div style="text-align: center;">Actions</div>
-        </div>
       ${tableRows}
     </div>
   </div>
