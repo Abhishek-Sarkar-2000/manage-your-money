@@ -169,7 +169,6 @@
   border-bottom: 1px solid var(--hair);
   font-family: 'Source Serif 4', Georgia, serif;
   position: relative;
-  cursor: pointer;
   transition: background 0.2s ease;
 }
 /* Border only reads as a divider once the categories below are actually
@@ -255,6 +254,23 @@
   padding: 14px 16px;
   margin-bottom: 8px;
   position: relative;
+  background: linear-gradient(135deg, var(--paper), var(--ice-2));
+  box-shadow: inset 0 0 0 1px rgba(100, 130, 200, 0.12), 0 2px 8px rgba(50, 80, 140, 0.08);
+}
+:root[data-theme="dark"] .goal-card {
+  background: linear-gradient(45deg, var(--paper) 0%, #111637 20%, #131a4b 45%, #0c1333 65%, var(--ice-2)) !important;
+  box-shadow: inset 0 0 16px rgb(200 182 237 / 11%), inset 0 0 0 1px rgb(179 168 216 / 25%);
+  color: var(--navy);
+  border-color: var(--sky) !important;
+}
+:root[data-theme="dark"] .goal-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(60, 200, 140, 0.12), rgba(60, 200, 140, 0.03));
+  box-shadow: inset 0 0 24px rgb(70 200 130 / 18%);
+  pointer-events: none;
+  border-radius: inherit;
 }
 
 .goal-card:has(.goal-info-callout.open),
@@ -301,8 +317,42 @@
   flex-shrink: 0;
 }
 
+.goal-fund-controls .fund-input-wrapper {
+  position: relative;
+  width: 135px;
+}
+
 .goal-fund-controls .inline-edit-input {
-  width: 90px;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 8px;
+  padding: 6px 58px 6px 8px; /* space for Fund button */
+  border: none;
+  background: var(--ice);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.8rem;
+}
+:root[data-theme="hi-contrast"] .goal-fund-controls .inline-edit-input {
+  border: 1px solid;
+}
+:root[data-theme="dark"] .goal-fund-controls .inline-edit-input {
+  background: #336286;
+}
+
+.inline-edit-input::-webkit-inner-spin-button,
+.inline-edit-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.goal-fund-controls .fund-input-wrapper button {
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  bottom: 3px;
+  padding: 4px 10px !important;
+  border-radius: 6px !important;
+  line-height: 1;
 }
 
 .goal-progress-row {
@@ -314,10 +364,32 @@
 .goal-progress-bar {
   flex: 1;
   height: 8px;
-  border-radius: 4px;
-  background: var(--hair);
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--hair) 85%, #fff 15%),
+    var(--hair)
+  );
   display: flex;
   overflow: hidden;
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.18),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.goal-progress-bar > * {
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    var(--sky),
+    var(--blue),
+    #6ee7b7
+  );
+  box-shadow:
+    0 0 6px rgba(80, 180, 255, 0.35),
+    inset 0 1px 1px rgba(255, 255, 255, 0.25);
+  transition: width 0.4s ease;
 }
 
 .goal-seg-saved {
@@ -474,13 +546,46 @@
   margin-top: 6px;
   gap: 6px;
   align-items: center;
-  background: #fff;
+  background: var(--ice);
   border: 1px solid var(--hair);
   border-radius: 10px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
   padding: 8px;
 }
 .goal-edit-month-popover.open { display: flex; }
+:root[data-theme="dark"] .goal-edit-month-popover {
+  background: var(--ice);
+  border: 1px solid var(--sky);
+}
+
+.goal-edit-month-popover button {
+  padding: 3px 14px !important;
+  border-radius: 16px;
+  background: var(--blue) !important;
+  border: none;
+  font-size: 0.7rem !important;
+}
+.goal-edit-month-popover button:hover {
+  background: var(--blue-soft) !important;
+}
+:root[data-theme="hi-contrast"] .goal-edit-month-popover button {
+  background: var(--blue) !important;
+}
+:root[data-theme="hi-contrast"] .goal-edit-month-popover button:hover {
+  background: var(--navy) !important;
+}
+
+.goal-edit-month-input {
+  border-radius: 4px;
+  border: none;
+  padding: 4px;
+  margin: 2px;
+  width: 150px;
+  background: linear-gradient(135deg, var(--paper) 0%, transparent 100%);
+}
+:root[data-theme="dark"] .goal-edit-month-input {
+  background: linear-gradient(135deg, var(--sky) 0%, transparent 100%);
+}
 
 /* Category classification chevrons — small circular toggles pinned to
    the top-left border of a category row. */
@@ -990,16 +1095,6 @@
   color: var(--blue);
 }
 
-.inline-edit-input {
-  width: 100%;
-  max-width: 90px;
-  padding: 4px 6px;
-  border: 1px solid var(--sky);
-  border-radius: 4px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.85rem;
-}
-
 .budget-progress {
   width: 100%;
   font-size: 0.82rem;
@@ -1287,9 +1382,6 @@
   }
   .b-used-header {
     text-align: right;
-  }
-  .inline-edit-input {
-    max-width: 60px;
   }
   .budget-forecast {
     font-size: 0.7rem;

@@ -604,8 +604,10 @@ function renderGoalsSection() {
             </div>
           </div>
           <div class="goal-fund-controls">
-            <input type="number" class="inline-edit-input" value="${rec.suggestedMonthlyContribution}" step="0.01" min="0" />
-            <button class="btn primary small" data-fund-goal="${goal.id}">Fund</button>
+            <div class="fund-input-wrapper">
+              <input type="number" class="inline-edit-input" value="${rec.suggestedMonthlyContribution}" step="0.01" min="0" />
+              <button class="btn primary small" data-fund-goal="${goal.id}">Fund</button>
+            </div>
           </div>
         </div>
 

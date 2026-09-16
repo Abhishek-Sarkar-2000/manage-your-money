@@ -197,6 +197,20 @@ body {
   border-color: #000000 !important;
 }
 
+:root[data-theme="hi-contrast"] .invest-foundation-card,
+:root[data-theme="hi-contrast"] .total-sip-card {
+  background: var(--blue);
+}
+:root[data-theme="hi-contrast"] .ifc-val,
+:root[data-theme="hi-contrast"] .tsc-val {
+  color: var(--yellow);
+}
+:root[data-theme="hi-contrast"] .ifc-subtitle,
+:root[data-theme="hi-contrast"] .ifc-title,
+:root[data-theme="hi-contrast"] .tsc-mo {
+  color: var(--text-white);
+}
+
 @media (hover: none) {
   :root[data-theme="hi-contrast"] .stat-back {
     box-shadow: none !important;
@@ -305,9 +319,18 @@ body {
 :root[data-theme="dark"] .cc-item,
 :root[data-theme="dark"] .balance-box,
 :root[data-theme="dark"] .sip-card {
-  background: linear-gradient(135deg, var(--hair) 0%, var(--ice-2) 100%) !important;
+  background: linear-gradient(
+    135deg,
+    #151a38 0%,
+    #1b2148 35%,
+    #202653 65%,
+    #151c3d 100%
+  ) !important;
   color: var(--navy);
-  border-color: var(--sky) !important;
+  border-color: rgba(111, 159, 247, 0.45) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(194, 195, 243, 0.08),
+    inset 0 0 20px rgba(111, 159, 247, 0.05);
 }
 
 :root[data-theme="dark"] .amt-debit {
@@ -332,7 +355,7 @@ body {
 
 :root[data-theme="dark"] .cc-item,
 :root[data-theme="dark"] .txn-option-card {
-  background: linear-gradient(135deg, var(--ice-2) 0%, var(--paper) 100%) !important;
+  background: linear-gradient(135deg, var(--ice) 0%, var(--ice-2) 45%, var(--paper) 100%) !important;
   color: var(--navy);
   border-color: var(--sky) !important;
 }
@@ -416,20 +439,6 @@ body {
 :root[data-theme="dark"] .chart-tooltip {
   background: linear-gradient(135deg, var(--blue) 0%, var(--text-sky) 100%);
   color: #fff;
-}
-
-:root[data-theme="hi-contrast"] .invest-foundation-card,
-:root[data-theme="hi-contrast"] .total-sip-card {
-  background: var(--blue);
-}
-:root[data-theme="hi-contrast"] .ifc-val,
-:root[data-theme="hi-contrast"] .tsc-val {
-  color: var(--yellow);
-}
-:root[data-theme="hi-contrast"] .ifc-subtitle,
-:root[data-theme="hi-contrast"] .ifc-title,
-:root[data-theme="hi-contrast"] .tsc-mo {
-  color: var(--text-white);
 }
 
 :root[data-theme="dark"] .invest-foundation-card,
