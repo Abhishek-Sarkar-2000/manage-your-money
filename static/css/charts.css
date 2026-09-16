@@ -461,6 +461,79 @@ svg.linechart {
   r: 4.5;
 }
 
+.linechart-container {
+  width: 100%;
+  position: relative;
+}
+
+.linechart-wrapper {
+  width: 100%;
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior-x: none;
+}
+
+svg.linechart {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.linechart-zoom-hitbox {
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.linechart.is-zooming {
+  cursor: col-resize;
+}
+
+.linechart-selection {
+  pointer-events: none;
+}
+
+.linechart-controls {
+  min-height: 20px;
+  font-family: 'IBM Plex Mono', monospace;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.linechart-hint {
+  margin-right: auto;
+  font-size: 10px;
+  color: var(--muted);
+  opacity: 0.65;
+  user-select: none;
+}
+
+.linechart-reset {
+  font-family: 'IBM Plex Mono', monospace;
+  border: 1px solid var(--sky);
+  background: transparent;
+  color: var(--navy);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.linechart-reset:hover {
+  background: var(--blue-bg);
+}
+
+.linechart text {
+  user-select: none;
+  pointer-events: none;
+}
+
 /* ---------- Responsive SVG chart text scaling ---------- */
 @media (max-width: 820px) {
   .y-tick-dense {

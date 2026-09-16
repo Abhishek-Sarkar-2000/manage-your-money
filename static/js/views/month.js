@@ -1013,11 +1013,19 @@ function renderAddEntryPanel() {
 /* ---------- Main render ---------- */
 async function renderMonth() {
   try {
+    console.log('[renderMonth] before loadDomain');
     await loadDomain();
-    
-    // First-touch: mirrors the old openMonth()'s one-time carry/manual decision.
+    console.log('[renderMonth] after loadDomain');
+
+    console.log('[renderMonth] before ensureMonthIndexed');
     await ensureMonthIndexed(monthKey, monthsIndex);
+    console.log('[renderMonth] after ensureMonthIndexed');
+
+    console.log('[renderMonth] before loadMonth');
     const data = await loadMonth(monthKey);
+    console.log('[renderMonth] after loadMonth');
+
+    console.log('[renderMonth] before computeGlobalStats');
 
     // Deep link from Budget -> Month
     let scrollToTransactions = false;
@@ -1052,7 +1060,7 @@ async function renderMonth() {
     const monthTotals = computeMonthTotals(data.entries.concat(emiRowsFiltered, sipRowsFiltered, recurringRowsFiltered));
 
     const stats = await computeGlobalStats({ cards, emiSeries, sipSeries, recurringSeries, monthsIndex, existingInvestments, isShared: false, sharedSplitId: null, splitsIndex });
-
+    console.log('[renderMonth] after computeGlobalStats');
     const monthInvestList = [];
     for (const e of data.entries) {
       if (e.type === 'investment') monthInvestList.push({ description: e.description, amount: Number(e.amount) || 0, monthKey: null });
@@ -1749,17 +1757,24 @@ async function renderMonth() {
       }, 100);
     }
   } catch (err) {
-    showToast("Oops! We had trouble securely grabbing this month's numbers. Please refresh the page.");
-    
+    console.error('renderMonth failed:', err);
+    console.error('Stack:', err?.stack);
+
+    showToast(
+      "Oops! We had trouble loading this month's numbers. Check the browser console for details."
+    );
+
     root.innerHTML = `
       <div class="section">
-        <div class="empty-chart" style="margin-top: 40px; padding: 40px; border: 1px dashed var(--debit); border-radius: var(--radius); color: var(--debit);">
+        <div class="empty-chart"
+            style="margin-top: 40px; padding: 40px; border: 1px dashed var(--debit); border-radius: var(--radius); color: var(--debit);">
           <strong style="font-size: 1.1rem;">Connection Issue</strong><br/><br/>
           We stopped loading this page to keep your previous data safe.<br/>
-          Please make sure you have internet access and refresh the page.
+          Please check the browser console for the actual error.
         </div>
       </div>
     `;
+
     appendPageChrome(root);
   }
 }

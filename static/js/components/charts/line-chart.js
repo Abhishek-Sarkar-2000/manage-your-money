@@ -2,213 +2,1429 @@
 import { fmtINR } from '../../core/format.js';
 import { yAxisGrid } from './axis-grid.js';
 
-/* Home page: long-range daily balance trend, with 1/3/6-month tick spacing. */
+/* =========================================================
+   Home page: long-range daily balance trend
+   ========================================================= */
+
 export function dailyBalanceChart(series, rangeMonths) {
-  if (!series.length) return `<div class="empty-chart">Add a month to see your balance trend here.</div>`;
-  const w = 900, h = 220, padL = 85, padR = 20, padT = 16, padB = 34;
+  if (!series.length) {
+    return `<div class="empty-chart">Add a month to see your balance trend here.</div>`;
+  }
+
+  const w = 900;
+  const h = 220;
+  const padL = 85;
+  const padR = 20;
+  const padT = 16;
+  const padB = 34;
+
   const vals = series.map(p => p.balance);
-  const rawMin = Math.min(...vals), rawMax = Math.max(...vals);
-  const span = (rawMax - rawMin) || Math.max(Math.abs(rawMax) * 0.1, 1000);
+  const rawMin = Math.min(...vals);
+  const rawMax = Math.max(...vals);
+
+  const span =
+    (rawMax - rawMin) ||
+    Math.max(Math.abs(rawMax) * 0.1, 1000);
+
   const pad = span * 0.18;
-  const minV = rawMin - pad, maxV = rawMax + pad;
+  const minV = rawMin - pad;
+  const maxV = rawMax + pad;
   const range = (maxV - minV) || 1;
-  const stepX = series.length > 1 ? (w - padL - padR) / (series.length - 1) : 0;
+
+  const stepX =
+    series.length > 1
+      ? (w - padL - padR) / (series.length - 1)
+      : 0;
+
   const coords = series.map((p, i) => {
-    const x = series.length > 1 ? padL + i * stepX : (padL + w - padR) / 2;
-    const y = h - padB - ((p.balance - minV) / range) * (h - padT - padB);
+    const x =
+      series.length > 1
+        ? padL + i * stepX
+        : (padL + w - padR) / 2;
+
+    const y =
+      h -
+      padB -
+      ((p.balance - minV) / range) *
+        (h - padT - padB);
+
     return [x, y];
   });
-  const pathD = coords.map((c, i) => (i === 0 ? 'M' : 'L') + c[0].toFixed(1) + ',' + c[1].toFixed(1)).join(' ');
-  const areaD = pathD + ` L${coords[coords.length - 1][0].toFixed(1)},${h - padB} L${coords[0][0].toFixed(1)},${h - padB} Z`;
-  const gridSvg = yAxisGrid(minV, maxV, w, h, padL, padR, padT, padB, 8);
+
+  const pathD = coords
+    .map(
+      (c, i) =>
+        (i === 0 ? 'M' : 'L') +
+        c[0].toFixed(1) +
+        ',' +
+        c[1].toFixed(1)
+    )
+    .join(' ');
+
+  const areaD =
+    pathD +
+    ` L${coords[coords.length - 1][0].toFixed(1)},${h - padB}` +
+    ` L${coords[0][0].toFixed(1)},${h - padB} Z`;
+
+  const gridSvg = yAxisGrid(
+    minV,
+    maxV,
+    w,
+    h,
+    padL,
+    padR,
+    padT,
+    padB,
+    8
+  );
 
   let tickIdxs = [];
+
   if (rangeMonths === 1) {
-    for (let i = 0; i < series.length; i += 7) tickIdxs.push(i);
+    for (let i = 0; i < series.length; i += 7) {
+      tickIdxs.push(i);
+    }
   } else {
     let lastMonth = null;
-    series.forEach((p, i) => { const mk = p.date.slice(0, 7); if (mk !== lastMonth) { tickIdxs.push(i); lastMonth = mk; } });
+
+    series.forEach((p, i) => {
+      const mk = p.date.slice(0, 7);
+
+      if (mk !== lastMonth) {
+        tickIdxs.push(i);
+        lastMonth = mk;
+      }
+    });
   }
+
   const tickLabel = (p) => {
     const d = new Date(p.date + 'T00:00:00');
-    return rangeMonths === 1
-      ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-      : d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
-  };
-  const dots = coords.map(([x, y], i) => `<circle class="linechart-dot" data-val="${fmtINR(series[i].balance)}" data-label="${series[i].date}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--blue)" opacity="${tickIdxs.includes(i) ? 1 : 0}" stroke="transparent" stroke-width="8" style="cursor:pointer;"></circle>`).join('');
-  const labels = tickIdxs.map(i => {
-    const [x] = coords[i];
-    return `<text x="${x.toFixed(1)}" y="${h - 6}" fill="var(--muted)" text-anchor="right" font-family="IBM Plex Mono, monospace">${tickLabel(series[i])}</text>`;
-  }).join('');
-  const lastPoint = series[series.length - 1];
-  return `
-  <svg class="linechart" viewBox="0 0 ${w} ${h}">
-    <defs>
-      <linearGradient id="ofade" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="var(--blue)" stop-opacity="0.22"/>
-        <stop offset="100%" stop-color="var(--blue)" stop-opacity="0"/>
-      </linearGradient>
-    </defs>
-    ${gridSvg}
-    <path d="${areaD}" fill="url(#ofade)" stroke="none"/>
-    <path d="${pathD}" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-    ${dots}
-    ${labels}
-  </svg>
-  <div class="subnote">Latest balance (${lastPoint.date}): <strong class="num">${fmtINR(lastPoint.balance)}</strong></div>`;
-}
 
-/* Month page: running balance across just that month's entries + recurring rows. */
-export function lineChart(startingBalance, data, recurringRows) {
-  const entries = [...data.entries, ...recurringRows]
-    .filter(e => e.type === 'income' || e.type === 'investment' || e.type === 'emi' || e.type === 'sip' || (e.type === 'spend' && e.paymentMode !== 'card') || (e.type === 'spend' && e.paymentMode === 'card'))
-    .filter(e => e.date)
-    .sort((a, b) => a.date.localeCompare(b.date));
-  const start = Number(startingBalance) || 0;
-  if (entries.length === 0) {
-    return `<div class="empty-chart">Balance line will appear once you add entries with dates.</div>`;
-  }
-  let running = start;
-  const points = [{ date: 'start', balance: running }];
-  for (const e of entries) {
-    const amt = Number(e.amount) || 0;
-    if (e.type === 'income') running += amt; else running -= amt;
-    points.push({ date: e.date, balance: running });
-  }
-  const w = 900, h = 170, padL = 85, padR = 20, padT = 16, padB = 30;
-  const vals = points.map(p => p.balance);
-  const minV = Math.min(...vals, start), maxV = Math.max(...vals, start);
-  const range = (maxV - minV) || 1;
-  const stepX = (w - padL - padR) / Math.max(1, (points.length - 1));
-  const coords = points.map((p, i) => {
-    const x = padL + i * stepX;
-    const y = h - padB - ((p.balance - minV) / range) * (h - padT - padB);
-    return [x, y];
-  });
-  const pathD = coords.map((c, i) => (i === 0 ? 'M' : 'L') + c[0].toFixed(1) + ',' + c[1].toFixed(1)).join(' ');
-  const areaD = pathD + ` L${coords[coords.length - 1][0].toFixed(1)},${h - padB} L${coords[0][0].toFixed(1)},${h - padB} Z`;
-  const gridSvg = yAxisGrid(minV, maxV, w, h, padL, padR, padT, padB, 8);
-  const lastVal = points[points.length - 1].balance;
-  const dots = coords.map(([x, y], i) => {
-    const label = points[i].date === 'start' ? 'Start' : points[i].date;
-    return `<circle class="linechart-dot" data-val="${fmtINR(points[i].balance)}" data-label="${label}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--blue)" stroke="transparent" stroke-width="8" style="cursor:pointer;"></circle>`;
-  }).join('');
+    return rangeMonths === 1
+      ? d.toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'short'
+        })
+      : d.toLocaleDateString('en-IN', {
+          month: 'short',
+          year: '2-digit'
+        });
+  };
+
+  const dots = coords
+    .map(([x, y], i) => {
+      return `
+        <circle
+          class="linechart-dot"
+          data-val="${fmtINR(series[i].balance)}"
+          data-label="${series[i].date}"
+          cx="${x.toFixed(1)}"
+          cy="${y.toFixed(1)}"
+          r="3"
+          fill="var(--blue)"
+          opacity="${tickIdxs.includes(i) ? 1 : 0}"
+          stroke="transparent"
+          stroke-width="8"
+          style="cursor:pointer;"
+        ></circle>
+      `;
+    })
+    .join('');
+
+  const labels = tickIdxs
+    .map(i => {
+      const [x] = coords[i];
+
+      return `
+        <text
+          x="${x.toFixed(1)}"
+          y="${h - 6}"
+          fill="var(--muted)"
+          text-anchor="right"
+          font-family="IBM Plex Mono, monospace"
+        >${tickLabel(series[i])}</text>
+      `;
+    })
+    .join('');
+
+  const lastPoint = series[series.length - 1];
+
   return `
-  <svg class="linechart" viewBox="0 0 ${w} ${h}">
-    <defs>
-      <linearGradient id="lineFade" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="var(--blue)" stop-opacity="0.22"/>
-        <stop offset="100%" stop-color="var(--blue)" stop-opacity="0"/>
-      </linearGradient>
-    </defs>
-    ${gridSvg}
-    <path d="${areaD}" fill="url(#lineFade)" stroke="none"/>
-    <path d="${pathD}" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-    ${dots}
-  </svg>
-  <div class="subnote">Latest balance: <strong class="num">${fmtINR(lastVal)}</strong></div>
+    <svg
+      class="linechart"
+      viewBox="0 0 ${w} ${h}"
+    >
+      <defs>
+        <linearGradient
+          id="ofade"
+          x1="0"
+          y1="0"
+          x2="0"
+          y2="1"
+        >
+          <stop
+            offset="0%"
+            stop-color="var(--blue)"
+            stop-opacity="0.22"
+          />
+          <stop
+            offset="100%"
+            stop-color="var(--blue)"
+            stop-opacity="0"
+          />
+        </linearGradient>
+      </defs>
+
+      ${gridSvg}
+
+      <path
+        d="${areaD}"
+        fill="url(#ofade)"
+        stroke="none"
+      />
+
+      <path
+        d="${pathD}"
+        fill="none"
+        stroke="var(--blue)"
+        stroke-width="2"
+        stroke-linejoin="round"
+        stroke-linecap="round"
+      />
+
+      ${dots}
+      ${labels}
+    </svg>
+
+    <div class="subnote">
+      Latest balance (${lastPoint.date}):
+      <strong class="num">${fmtINR(lastPoint.balance)}</strong>
+    </div>
   `;
 }
 
-/* Price Tracker: per-item price-history trend line. */
+
+/* =========================================================
+   Month page: interactive running-balance line chart
+   ========================================================= */
+
+let lineChartIdCounter = 0;
+
+const lineChartStates = new Map();
+
+const LINE_CHART_W = 900;
+const LINE_CHART_H = 170;
+const LINE_PAD_L = 85;
+const LINE_PAD_R = 20;
+const LINE_PAD_T = 16;
+const LINE_PAD_B = 30;
+
+
+/*
+ * Each chart is rendered immediately.
+ *
+ * Drag interaction is delegated to document, so this also
+ * works when the chart is inserted later with innerHTML.
+ */
+export function lineChart(
+  startingBalance,
+  data,
+  recurringRows
+) {
+  const entries = [
+    ...data.entries,
+    ...recurringRows
+  ]
+    .filter(
+      e =>
+        e.type === 'income' ||
+        e.type === 'investment' ||
+        e.type === 'emi' ||
+        e.type === 'sip' ||
+        (e.type === 'spend' &&
+          e.paymentMode !== 'card') ||
+        (e.type === 'spend' &&
+          e.paymentMode === 'card')
+    )
+    .filter(e => e.date)
+    .sort(
+      (a, b) =>
+        a.date.localeCompare(b.date)
+    );
+
+  const start =
+    Number(startingBalance) || 0;
+
+  if (entries.length === 0) {
+    return `
+      <div class="empty-chart">
+        Balance line will appear once you add entries with dates.
+      </div>
+    `;
+  }
+
+  let running = start;
+
+  const points = [
+    {
+      date: 'start',
+      balance: running
+    }
+  ];
+
+  for (const e of entries) {
+    const amt =
+      Number(e.amount) || 0;
+
+    if (e.type === 'income') {
+      running += amt;
+    } else {
+      running -= amt;
+    }
+
+    points.push({
+      date: e.date,
+      balance: running
+    });
+  }
+
+  const id =
+    `linechart-${++lineChartIdCounter}`;
+
+  lineChartStates.set(id, {
+    points,
+    zoomStart: 0,
+    zoomEnd: points.length - 1
+  });
+
+  return renderInteractiveLineChart(
+    id,
+    points,
+    0,
+    points.length - 1
+  );
+}
+
+
+/*
+ * Render the complete current chart state.
+ */
+function renderInteractiveLineChart(
+  id,
+  points,
+  zoomStart,
+  zoomEnd
+) {
+  const visiblePoints =
+    points.slice(
+      zoomStart,
+      zoomEnd + 1
+    );
+
+  let minV = Math.min(
+    ...visiblePoints.map(
+      p => p.balance
+    )
+  );
+
+  let maxV = Math.max(
+    ...visiblePoints.map(
+      p => p.balance
+    )
+  );
+
+  /*
+   * If all visible values are identical,
+   * create a small artificial Y range.
+   */
+  if (minV === maxV) {
+    const padding =
+      Math.max(
+        Math.abs(minV) * 0.05,
+        1
+      );
+
+    minV -= padding;
+    maxV += padding;
+  }
+
+  const range =
+    maxV - minV || 1;
+
+  const stepX =
+    (LINE_CHART_W -
+      LINE_PAD_L -
+      LINE_PAD_R) /
+    Math.max(
+      1,
+      visiblePoints.length - 1
+    );
+
+  const coords =
+    visiblePoints.map((p, i) => {
+      const x =
+        LINE_PAD_L +
+        i * stepX;
+
+      const y =
+        LINE_CHART_H -
+        LINE_PAD_B -
+        ((p.balance - minV) /
+          range) *
+          (LINE_CHART_H -
+            LINE_PAD_T -
+            LINE_PAD_B);
+
+      return [x, y];
+    });
+
+  const pathD =
+    coords
+      .map(
+        ([x, y], i) =>
+          (i === 0
+            ? 'M'
+            : 'L') +
+          x.toFixed(1) +
+          ',' +
+          y.toFixed(1)
+      )
+      .join(' ');
+
+  const areaD =
+    pathD +
+    ` L${coords[
+      coords.length - 1
+    ][0].toFixed(1)},${
+      LINE_CHART_H - LINE_PAD_B
+    }` +
+    ` L${coords[0][0].toFixed(1)},${
+      LINE_CHART_H - LINE_PAD_B
+    } Z`;
+
+  /*
+   * Recalculate Y-axis ONLY from the
+   * currently visible section.
+   */
+  const gridSvg =
+    yAxisGrid(
+      minV,
+      maxV,
+      LINE_CHART_W,
+      LINE_CHART_H,
+      LINE_PAD_L,
+      LINE_PAD_R,
+      LINE_PAD_T,
+      LINE_PAD_B,
+      8
+    );
+
+  const xTickIndexes = [];
+
+  const uniqueDateIndexes = [];
+  const seenDates = new Set();
+
+  visiblePoints.forEach((point, i) => {
+    const dateKey = point.date;
+
+    if (!seenDates.has(dateKey)) {
+      seenDates.add(dateKey);
+      uniqueDateIndexes.push(i);
+    }
+  });
+
+  // Choose how many date ticks to display.
+  const maxTicks =
+    uniqueDateIndexes.length <= 10
+      ? uniqueDateIndexes.length
+      : uniqueDateIndexes.length <= 20
+        ? 8
+        : 7;
+
+  if (uniqueDateIndexes.length <= maxTicks) {
+    xTickIndexes.push(...uniqueDateIndexes);
+  } else {
+    const step =
+      (uniqueDateIndexes.length - 1) /
+      (maxTicks - 1);
+
+    for (let i = 0; i < maxTicks; i++) {
+      const index =
+        Math.round(i * step);
+
+      const pointIndex =
+        uniqueDateIndexes[index];
+
+      if (!xTickIndexes.includes(pointIndex)) {
+        xTickIndexes.push(pointIndex);
+      }
+    }
+  }
+
+  const xTicks = xTickIndexes
+    .map(i => {
+      const [x] = coords[i];
+      const point = visiblePoints[i];
+
+      let label = 'Start';
+
+      if (point.date !== 'start') {
+        const d = new Date(point.date + 'T00:00:00');
+        label = d.getDate();
+      }
+
+      return `
+        <line
+          x1="${x.toFixed(1)}"
+          y1="${LINE_CHART_H - LINE_PAD_B}"
+          x2="${x.toFixed(1)}"
+          y2="${LINE_CHART_H - LINE_PAD_B + 4}"
+          stroke="var(--muted)"
+          stroke-opacity="0.6"
+          stroke-width="1"
+        ></line>
+
+        <text
+          x="${x.toFixed(1)}"
+          y="${LINE_CHART_H - 6}"
+          fill="var(--muted)"
+          text-anchor="middle"
+          font-family="IBM Plex Mono, monospace"
+          font-size="10"
+        >${label}</text>
+      `;
+    })
+    .join('');
+  const dots = visiblePoints
+    .map((point, i) => {
+      const [x, y] = coords[i];
+
+      const label =
+        point.date === 'start'
+          ? 'Start'
+          : point.date;
+
+      return `
+        <circle
+          class="linechart-dot"
+          data-val="${fmtINR(point.balance)}"
+          data-label="${label}"
+          cx="${x.toFixed(1)}"
+          cy="${y.toFixed(1)}"
+          r="3"
+          fill="var(--blue)"
+          stroke="transparent"
+          stroke-width="8"
+          style="cursor:pointer;"
+        ></circle>
+      `;
+    })
+    .join('');
+
+  const firstX = coords[0][0];
+  const lastX = coords[coords.length - 1][0];
+
+  const isZoomed =
+    zoomStart !== 0 ||
+    zoomEnd !== points.length - 1;
+
+  const lastPoint =
+    visiblePoints[visiblePoints.length - 1];
+
+  return `
+    <div
+      class="linechart-container"
+      data-linechart-id="${id}"
+    >
+
+      <div class="linechart-wrapper">
+        <svg
+          class="linechart"
+          data-linechart-svg="${id}"
+          viewBox="0 0 ${LINE_CHART_W} ${LINE_CHART_H}"
+          preserveAspectRatio="none"
+        >
+          <defs>
+            <linearGradient
+              id="lineFade-${id}"
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="1"
+            >
+              <stop
+                offset="0%"
+                stop-color="var(--blue)"
+                stop-opacity="0.22"
+              />
+              <stop
+                offset="100%"
+                stop-color="var(--blue)"
+                stop-opacity="0"
+              />
+            </linearGradient>
+          </defs>
+
+          <!--
+            IMPORTANT:
+            Put the drag hitbox FIRST so dots can sit above it
+            and remain hover/click interactive.
+          -->
+          <rect
+            class="linechart-zoom-hitbox"
+            x="${LINE_PAD_L}"
+            y="${LINE_PAD_T}"
+            width="${
+              LINE_CHART_W -
+              LINE_PAD_L -
+              LINE_PAD_R
+            }"
+            height="${
+              LINE_CHART_H -
+              LINE_PAD_T -
+              LINE_PAD_B
+            }"
+            fill="transparent"
+          />
+
+          <!-- Chart graphics -->
+          <g pointer-events="none">
+            ${gridSvg}
+
+            <path
+              d="${areaD}"
+              fill="url(#lineFade-${id})"
+              stroke="none"
+            />
+
+            <path
+              d="${pathD}"
+              fill="none"
+              stroke="var(--blue)"
+              stroke-width="2.5"
+              stroke-linejoin="round"
+              stroke-linecap="round"
+            />
+          </g>
+
+          <!-- Interactive dots -->
+          ${dots}
+          ${xTicks}
+
+          <!-- Selection overlay -->
+          <rect
+            class="linechart-selection"
+            x="${firstX}"
+            y="${LINE_PAD_T}"
+            width="${Math.max(
+              0,
+              lastX - firstX
+            )}"
+            height="${
+              LINE_CHART_H -
+              LINE_PAD_T -
+              LINE_PAD_B
+            }"
+            fill="var(--blue)"
+            fill-opacity="0"
+            stroke="none"
+            pointer-events="none"
+            hidden
+          />
+        </svg>
+      </div>
+
+      <div class="linechart-controls">
+        <span class="linechart-hint">
+          Drag to zoom
+        </span>
+
+        ${
+          isZoomed
+            ? `
+              <button
+                type="button"
+                class="linechart-reset"
+                data-linechart-reset="${id}"
+              >
+                Reset
+              </button>
+            `
+            : ''
+        }
+      </div>
+
+      <div class="subnote linechart-subnote">
+        Latest balance:
+        <strong class="num">
+          ${fmtINR(lastPoint.balance)}
+        </strong>
+      </div>
+    </div>
+  `;
+}
+
+
+/* =========================================================
+   Line chart interaction helpers
+   ========================================================= */
+
+function getLineChartSvgX(
+  svg,
+  clientX
+) {
+  const rect =
+    svg.getBoundingClientRect();
+
+  if (!rect.width) {
+    return LINE_PAD_L;
+  }
+
+  return (
+    ((clientX - rect.left) /
+      rect.width) *
+    LINE_CHART_W
+  );
+}
+
+
+function lineChartXToIndex(
+  x,
+  pointCount
+) {
+  const chartWidth =
+    LINE_CHART_W -
+    LINE_PAD_L -
+    LINE_PAD_R;
+
+  const ratio =
+    (x - LINE_PAD_L) /
+    chartWidth;
+
+  const clamped =
+    Math.max(
+      0,
+      Math.min(1, ratio)
+    );
+
+  return Math.round(
+    clamped *
+      (pointCount - 1)
+  );
+}
+
+
+/* =========================================================
+   Pointer drag state
+   ========================================================= */
+
+const lineChartDrag = {
+  id: null,
+  pointerId: null,
+  startX: 0,
+  currentX: 0
+};
+
+
+function clearLineChartDrag() {
+  if (lineChartDrag.id) {
+    const svg =
+      document.querySelector(
+        `[data-linechart-svg="${lineChartDrag.id}"]`
+      );
+
+    if (svg) {
+      svg.classList.remove(
+        'is-zooming'
+      );
+
+      const selection =
+        svg.querySelector(
+          '.linechart-selection'
+        );
+
+      if (selection) {
+        selection.hidden = true;
+      }
+    }
+  }
+
+  lineChartDrag.id = null;
+  lineChartDrag.pointerId = null;
+  lineChartDrag.startX = 0;
+  lineChartDrag.currentX = 0;
+}
+
+
+/* =========================================================
+   Document-level pointer handlers
+   ========================================================= */
+
+/*
+ * POINTER DOWN
+ *
+ * Uses closest() so dynamically created charts work too.
+ */
+document.addEventListener(
+  'pointerdown',
+  e => {
+    const hitbox =
+      e.target.closest(
+        '.linechart-zoom-hitbox'
+      );
+
+    if (!hitbox) return;
+
+    const svg =
+      hitbox.closest('svg');
+
+    if (!svg) return;
+
+    const id =
+      svg.dataset.linechartSvg;
+
+    const state =
+      lineChartStates.get(id);
+
+    if (!state) return;
+
+    lineChartDrag.id = id;
+    lineChartDrag.pointerId =
+      e.pointerId;
+
+    lineChartDrag.startX =
+      getLineChartSvgX(
+        svg,
+        e.clientX
+      );
+
+    lineChartDrag.currentX =
+      lineChartDrag.startX;
+
+    svg.classList.add(
+      'is-zooming'
+    );
+
+    try {
+      hitbox.setPointerCapture(
+        e.pointerId
+      );
+    } catch (_) {}
+
+    const selection =
+      svg.querySelector(
+        '.linechart-selection'
+      );
+
+    if (selection) {
+      selection.hidden = false;
+      selection.setAttribute(
+        'x',
+        lineChartDrag.startX
+      );
+      selection.setAttribute(
+        'width',
+        '0'
+      );
+      selection.setAttribute(
+        'fill-opacity',
+        '0.10'
+      );
+    }
+
+    e.preventDefault();
+  },
+  { passive: false }
+);
+
+
+/*
+ * POINTER MOVE
+ */
+document.addEventListener(
+  'pointermove',
+  e => {
+    if (
+      !lineChartDrag.id ||
+      lineChartDrag.pointerId !==
+        e.pointerId
+    ) {
+      return;
+    }
+
+    const svg =
+      document.querySelector(
+        `[data-linechart-svg="${lineChartDrag.id}"]`
+      );
+
+    if (!svg) return;
+
+    const x =
+      getLineChartSvgX(
+        svg,
+        e.clientX
+      );
+
+    lineChartDrag.currentX = x;
+
+    const left =
+      Math.min(
+        lineChartDrag.startX,
+        x
+      );
+
+    const width =
+      Math.abs(
+        x -
+          lineChartDrag.startX
+      );
+
+    const selection =
+      svg.querySelector(
+        '.linechart-selection'
+      );
+
+    if (selection) {
+      selection.setAttribute(
+        'x',
+        left.toFixed(1)
+      );
+
+      selection.setAttribute(
+        'width',
+        width.toFixed(1)
+      );
+    }
+
+    e.preventDefault();
+  },
+  { passive: false }
+);
+
+
+/*
+ * POINTER UP
+ */
+document.addEventListener(
+  'pointerup',
+  e => {
+    if (
+      !lineChartDrag.id ||
+      lineChartDrag.pointerId !==
+        e.pointerId
+    ) {
+      return;
+    }
+
+    const id =
+      lineChartDrag.id;
+
+    const state =
+      lineChartStates.get(id);
+
+    if (!state) {
+      clearLineChartDrag();
+      return;
+    }
+
+    const startX =
+      lineChartDrag.startX;
+
+    const endX =
+      lineChartDrag.currentX;
+
+    /*
+     * Ignore clicks/taps that are not
+     * actually dragging.
+     */
+    if (
+      Math.abs(
+        endX - startX
+      ) < 10
+    ) {
+      clearLineChartDrag();
+      return;
+    }
+
+    let startIndex =
+      lineChartXToIndex(
+        Math.min(
+          startX,
+          endX
+        ),
+        state.points.length
+      );
+
+    let endIndex =
+      lineChartXToIndex(
+        Math.max(
+          startX,
+          endX
+        ),
+        state.points.length
+      );
+
+    if (
+      startIndex > endIndex
+    ) {
+      [
+        startIndex,
+        endIndex
+      ] = [
+        endIndex,
+        startIndex
+      ];
+    }
+
+    /*
+     * Require at least two points.
+     */
+    if (
+      endIndex -
+        startIndex >=
+      1
+    ) {
+      state.zoomStart =
+        startIndex;
+
+      state.zoomEnd =
+        endIndex;
+
+      redrawLineChart(id);
+    }
+
+    clearLineChartDrag();
+  }
+);
+
+
+/*
+ * POINTER CANCEL
+ */
+document.addEventListener(
+  'pointercancel',
+  e => {
+    if (
+      lineChartDrag.pointerId ===
+      e.pointerId
+    ) {
+      clearLineChartDrag();
+    }
+  }
+);
+
+
+/* =========================================================
+   Redraw after zoom
+   ========================================================= */
+
+function redrawLineChart(id) {
+  const state =
+    lineChartStates.get(id);
+
+  if (!state) return;
+
+  const container =
+    document.querySelector(
+      `[data-linechart-id="${id}"]`
+    );
+
+  if (!container) return;
+
+  const newHtml =
+    renderInteractiveLineChart(
+      id,
+      state.points,
+      state.zoomStart,
+      state.zoomEnd
+    );
+
+  /*
+   * Replace the complete chart container.
+   *
+   * This is safe because interaction is delegated
+   * at document level.
+   */
+  container.outerHTML =
+    newHtml;
+}
+
+
+/* =========================================================
+   Reset zoom
+   ========================================================= */
+
+document.addEventListener(
+  'click',
+  e => {
+    const button =
+      e.target.closest(
+        '[data-linechart-reset]'
+      );
+
+    if (!button) return;
+
+    const id =
+      button.dataset.linechartReset;
+
+    const state =
+      lineChartStates.get(id);
+
+    if (!state) return;
+
+    state.zoomStart = 0;
+
+    state.zoomEnd =
+      state.points.length - 1;
+
+    redrawLineChart(id);
+  }
+);
+
+
+/* =========================================================
+   Price Tracker: per-item price-history trend line
+   ========================================================= */
+
 export function priceLineChart(hist) {
   if (!hist.length) {
-    return `<div class="empty-chart">Log a price to see the trend line.</div>`;
+    return `
+      <div class="empty-chart">
+        Log a price to see the trend line.
+      </div>
+    `;
   }
+
   if (hist.length === 1) {
-    return `<div class="empty-chart">Log one more price to see a trend line. Latest: <strong>${fmtINR(hist[0].price)}</strong></div>`;
+    return `
+      <div class="empty-chart">
+        Log one more price to see a trend line.
+        Latest:
+        <strong>
+          ${fmtINR(hist[0].price)}
+        </strong>
+      </div>
+    `;
   }
-  const w = 900, h = 170, padL = 85, padR = 20, padT = 16, padB = 30;
-  const vals = hist.map(p => p.price);
-  const minV = Math.min(...vals), maxV = Math.max(...vals);
-  const range = (maxV - minV) || 1;
-  const stepX = (w - padL - padR) / Math.max(1, (hist.length - 1));
-  const coords = hist.map((p, i) => {
-    const x = padL + i * stepX;
-    const y = h - padB - ((p.price - minV) / range) * (h - padT - padB);
-    return [x, y];
-  });
-  const pathD = coords.map((c, i) => (i === 0 ? 'M' : 'L') + c[0].toFixed(1) + ',' + c[1].toFixed(1)).join(' ');
-  const areaD = pathD + ` L${coords[coords.length - 1][0].toFixed(1)},${h - padB} L${coords[0][0].toFixed(1)},${h - padB} Z`;
-  const gridSvg = yAxisGrid(minV, maxV, w, h, padL, padR, padT, padB, 4);
-  const dots = coords.map(([x, y], i) => {
-    const dl = new Date(hist[i].date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-    return `<circle class="linechart-dot" data-val="${fmtINR(hist[i].price)}" data-label="${dl}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--blue)" stroke="transparent" stroke-width="8" style="cursor:pointer;"></circle>`;
-  }).join('');
-  const lastVal = hist[hist.length - 1].price;
+
+  const w = 900;
+  const h = 170;
+  const padL = 85;
+  const padR = 20;
+  const padT = 16;
+  const padB = 30;
+
+  const vals =
+    hist.map(p => p.price);
+
+  const minV =
+    Math.min(...vals);
+
+  const maxV =
+    Math.max(...vals);
+
+  const range =
+    (maxV - minV) || 1;
+
+  const stepX =
+    (w - padL - padR) /
+    Math.max(
+      1,
+      hist.length - 1
+    );
+
+  const coords =
+    hist.map((p, i) => {
+      const x =
+        padL + i * stepX;
+
+      const y =
+        h -
+        padB -
+        ((p.price - minV) /
+          range) *
+          (h - padT - padB);
+
+      return [x, y];
+    });
+
+  const pathD =
+    coords
+      .map(
+        (c, i) =>
+          (i === 0 ? 'M' : 'L') +
+          c[0].toFixed(1) +
+          ',' +
+          c[1].toFixed(1)
+      )
+      .join(' ');
+
+  const areaD =
+    pathD +
+    ` L${coords[
+      coords.length - 1
+    ][0].toFixed(1)},${
+      h - padB
+    }` +
+    ` L${coords[0][0].toFixed(1)},${
+      h - padB
+    } Z`;
+
+  const gridSvg =
+    yAxisGrid(
+      minV,
+      maxV,
+      w,
+      h,
+      padL,
+      padR,
+      padT,
+      padB,
+      4
+    );
+
+  const dots =
+    coords
+      .map(([x, y], i) => {
+        const dl =
+          new Date(
+            hist[i].date +
+              'T00:00:00'
+          ).toLocaleDateString(
+            'en-IN',
+            {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric'
+            }
+          );
+
+        return `
+          <circle
+            class="linechart-dot"
+            data-val="${fmtINR(hist[i].price)}"
+            data-label="${dl}"
+            cx="${x.toFixed(1)}"
+            cy="${y.toFixed(1)}"
+            r="3"
+            fill="var(--blue)"
+            stroke="transparent"
+            stroke-width="8"
+            style="cursor:pointer;"
+          ></circle>
+        `;
+      })
+      .join('');
+
+  const lastVal =
+    hist[hist.length - 1].price;
+
   return `
-  <svg class="linechart" viewBox="0 0 ${w} ${h}">
-    <defs>
-      <linearGradient id="priceLineFade" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="var(--blue)" stop-opacity="0.22"/>
-        <stop offset="100%" stop-color="var(--blue)" stop-opacity="0"/>
-      </linearGradient>
-    </defs>
-    ${gridSvg}
-    <path d="${areaD}" fill="url(#priceLineFade)" stroke="none"/>
-    <path d="${pathD}" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-    ${dots}
-  </svg>
-  <div class="subnote">Latest price: <strong class="num">${fmtINR(lastVal)}</strong></div>
+    <svg
+      class="linechart"
+      viewBox="0 0 ${w} ${h}"
+    >
+      <defs>
+        <linearGradient
+          id="priceLineFade"
+          x1="0"
+          y1="0"
+          x2="0"
+          y2="1"
+        >
+          <stop
+            offset="0%"
+            stop-color="var(--blue)"
+            stop-opacity="0.22"
+          />
+          <stop
+            offset="100%"
+            stop-color="var(--blue)"
+            stop-opacity="0"
+          />
+        </linearGradient>
+      </defs>
+
+      ${gridSvg}
+
+      <path
+        d="${areaD}"
+        fill="url(#priceLineFade)"
+        stroke="none"
+      />
+
+      <path
+        d="${pathD}"
+        fill="none"
+        stroke="var(--blue)"
+        stroke-width="2.5"
+        stroke-linejoin="round"
+        stroke-linecap="round"
+      />
+
+      ${dots}
+    </svg>
+
+    <div class="subnote">
+      Latest price:
+      <strong class="num">
+        ${fmtINR(lastVal)}
+      </strong>
+    </div>
   `;
 }
+
+
+/* =========================================================
+   Chart tooltips
+   ========================================================= */
 
 let tooltipEl = null;
 
-export function wireChartTooltips(root = document) {
+export function wireChartTooltips(
+  root = document
+) {
   if (!tooltipEl) {
-    tooltipEl = document.createElement('div');
-    tooltipEl.className = 'chart-tooltip';
-    document.body.appendChild(tooltipEl);
+    tooltipEl =
+      document.createElement('div');
+
+    tooltipEl.className =
+      'chart-tooltip';
+
+    document.body.appendChild(
+      tooltipEl
+    );
   }
 
-  const showTooltip = (ev) => {
-    const dot = ev.target.closest('.linechart-dot, .stacked-segment, .shared-debt-segment');
+  const showTooltip = ev => {
+    const dot =
+      ev.target.closest(
+        '.linechart-dot, .stacked-segment, .shared-debt-segment'
+      );
+
     if (!dot) return;
-    
-    const val = dot.dataset.val;
-    const label = dot.dataset.label || '';
-    
-    tooltipEl.innerHTML = `<div class="ct-val">${val}</div>${label ? `<div class="ct-label">${label}</div>` : ''}`;
-    tooltipEl.classList.add('show');
-    
-    const rect = dot.getBoundingClientRect();
-    const tooltipWidth = tooltipEl.offsetWidth || 120;
-    const halfWidth = tooltipWidth / 2;
-    const padding = 12; // Safety margin from screen edges
-    
-    let centerX = rect.left + window.scrollX + rect.width / 2;
-    
-    // Clamp horizontal position so tooltip stays completely within viewport width
-    const minX = padding + halfWidth;
-    const maxX = window.innerWidth - padding - halfWidth;
-    
-    if (centerX < minX) centerX = minX;
-    if (centerX > maxX) centerX = maxX;
-    
-    tooltipEl.style.left = centerX + 'px';
-    tooltipEl.style.top = (rect.top + window.scrollY - 6) + 'px';
+
+    const val =
+      dot.dataset.val;
+
+    const label =
+      dot.dataset.label || '';
+
+    tooltipEl.innerHTML = `
+      <div class="ct-val">
+        ${val}
+      </div>
+      ${
+        label
+          ? `<div class="ct-label">${label}</div>`
+          : ''
+      }
+    `;
+
+    tooltipEl.classList.add(
+      'show'
+    );
+
+    const rect =
+      dot.getBoundingClientRect();
+
+    const tooltipWidth =
+      tooltipEl.offsetWidth || 120;
+
+    const halfWidth =
+      tooltipWidth / 2;
+
+    const padding = 12;
+
+    let centerX =
+      rect.left +
+      window.scrollX +
+      rect.width / 2;
+
+    const minX =
+      padding + halfWidth;
+
+    const maxX =
+      window.innerWidth -
+      padding -
+      halfWidth;
+
+    if (centerX < minX) {
+      centerX = minX;
+    }
+
+    if (centerX > maxX) {
+      centerX = maxX;
+    }
+
+    tooltipEl.style.left =
+      centerX + 'px';
+
+    tooltipEl.style.top =
+      (
+        rect.top +
+        window.scrollY -
+        6
+      ) + 'px';
   };
 
   const hideTooltip = () => {
-    if (tooltipEl) tooltipEl.classList.remove('show');
+    if (tooltipEl) {
+      tooltipEl.classList.remove(
+        'show'
+      );
+    }
   };
 
-  root.addEventListener('mouseover', showTooltip);
-  root.addEventListener('mouseout', (ev) => {
-    if (ev.target.closest('.linechart-dot, .stacked-segment, .shared-debt-segment')) hideTooltip();
-  });
-  
-  // Touch support for mobile
-  root.addEventListener('touchstart', (ev) => {
-    const dot = ev.target.closest('.linechart-dot, .stacked-segment, .shared-debt-segment');
-    if (dot) {
-      showTooltip(ev);
-    }
-  }, { passive: true });
+  root.addEventListener(
+    'mouseover',
+    showTooltip
+  );
 
-  // Hide tooltip automatically when finger is lifted (unclicked)
-  document.addEventListener('touchend', hideTooltip, { passive: true });
-  document.addEventListener('touchcancel', hideTooltip, { passive: true });
-  document.addEventListener('pointerup', hideTooltip, { passive: true });
+  root.addEventListener(
+    'mouseout',
+    ev => {
+      if (
+        ev.target.closest(
+          '.linechart-dot, .stacked-segment, .shared-debt-segment'
+        )
+      ) {
+        hideTooltip();
+      }
+    }
+  );
+
+  // Touch support for mobile.
+  root.addEventListener(
+    'touchstart',
+    ev => {
+      const dot =
+        ev.target.closest(
+          '.linechart-dot, .stacked-segment, .shared-debt-segment'
+        );
+
+      if (dot) {
+        showTooltip(ev);
+      }
+    },
+    { passive: true }
+  );
+
+  document.addEventListener(
+    'touchend',
+    hideTooltip,
+    { passive: true }
+  );
+
+  document.addEventListener(
+    'touchcancel',
+    hideTooltip,
+    { passive: true }
+  );
+
+  document.addEventListener(
+    'pointerup',
+    hideTooltip,
+    { passive: true }
+  );
 }
