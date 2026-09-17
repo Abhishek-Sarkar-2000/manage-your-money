@@ -214,10 +214,17 @@ const lineChartStates = new Map();
 
 const LINE_CHART_W = 900;
 const LINE_CHART_H = 170;
-const LINE_PAD_L = 85;
-const LINE_PAD_R = 20;
-const LINE_PAD_T = 16;
-const LINE_PAD_B = 30;
+
+/*
+ * Both axes now live outside the SVG.
+ *
+ * The SVG therefore only needs a tiny inset on every side
+ * so line caps and point circles are not clipped.
+ */
+const LINE_PAD_L = 4;
+const LINE_PAD_R = 4;
+const LINE_PAD_T = 4;
+const LINE_PAD_B = 4;
 
 
 /*
@@ -305,6 +312,260 @@ export function lineChart(
   );
 }
 
+function niceYAxisStep(value) {
+  if (
+    !Number.isFinite(value) ||
+    value <= 0
+  ) {
+    return 1;
+  }
+
+  const exponent =
+    Math.floor(
+      Math.log10(value)
+    );
+
+  const magnitude =
+    Math.pow(10, exponent);
+
+  const fraction =
+    value / magnitude;
+
+  let niceFraction;
+
+  /*
+   * Prefer familiar chart intervals:
+   * 1, 2, 2.5, 5, 10 × powers of ten.
+   */
+  if (fraction <= 1) {
+    niceFraction = 1;
+  } else if (fraction <= 2) {
+    niceFraction = 2;
+  } else if (fraction <= 2.5) {
+    niceFraction = 2.5;
+  } else if (fraction <= 5) {
+    niceFraction = 5;
+  } else {
+    niceFraction = 10;
+  }
+
+  return niceFraction * magnitude;
+}
+
+
+function buildYAxisScale(
+  rawMin,
+  rawMax
+) {
+  if (
+    !Number.isFinite(rawMin) ||
+    !Number.isFinite(rawMax)
+  ) {
+    return {
+      min: 0,
+      max: 1,
+      ticks: [1, 0]
+    };
+  }
+
+  let minV = rawMin;
+  let maxV = rawMax;
+
+  if (minV === maxV) {
+    const padding =
+      Math.max(
+        Math.abs(minV) * 0.05,
+        1
+      );
+
+    minV -= padding;
+    maxV += padding;
+  }
+
+  const span =
+    Math.max(
+      maxV - minV,
+      1
+    );
+
+  /*
+   * Aim for roughly 5–7 readable grid levels.
+   * niceYAxisStep() then chooses a sensible monetary interval.
+   */
+  const step =
+    niceYAxisStep(
+      span / 6
+    );
+
+  const niceMin =
+    Math.floor(
+      minV / step
+    ) * step;
+
+  const niceMax =
+    Math.ceil(
+      maxV / step
+    ) * step;
+
+  const ticks = [];
+
+  /*
+   * Build top → bottom because that matches the chart's
+   * vertical coordinate system and external Y-axis markup.
+   */
+  for (
+    let value = niceMax;
+    value >= niceMin - step * 0.001;
+    value -= step
+  ) {
+    /*
+     * Avoid floating-point junk such as
+     * 9999.999999999998.
+     */
+    const cleaned =
+      Math.abs(value) <
+      step * 0.000001
+        ? 0
+        : Number(
+            value.toPrecision(12)
+          );
+
+    ticks.push(cleaned);
+
+    /*
+     * Safety guard.
+     */
+    if (ticks.length >= 9) {
+      break;
+    }
+  }
+
+  return {
+    min: niceMin,
+    max: niceMax,
+    ticks
+  };
+}
+
+
+/*
+ * Compact Indian-number formatter specifically for
+ * chart-axis labels.
+ *
+ * Examples:
+ *   850       → ₹850
+ *   1,250     → ₹1.3K
+ *   18,000    → ₹18K
+ *   1,25,000  → ₹1.3L
+ *   12,50,000 → ₹12.5L
+ *   1,50,00,000 → ₹1.5Cr
+ */
+function formatYAxisTick(value) {
+  const n =
+    Number(value);
+
+  if (!Number.isFinite(n)) {
+    return '';
+  }
+
+  const negative =
+    n < 0;
+
+  const abs =
+    Math.abs(n);
+
+  let scaled;
+  let suffix;
+
+  if (abs >= 10000000) {
+    scaled =
+      abs / 10000000;
+
+    suffix = 'Cr';
+  } else if (abs >= 100000) {
+    scaled =
+      abs / 100000;
+
+    suffix = 'L';
+  } else if (abs >= 1000) {
+    scaled =
+      abs / 1000;
+
+    suffix = 'K';
+  } else {
+    const rounded =
+      Math.round(abs);
+
+    return `${
+      negative ? '-' : ''
+    }₹${rounded}`;
+  }
+
+  /*
+   * Large scaled values do not need a decimal.
+   * Smaller values retain one decimal where useful.
+   */
+  const decimals =
+    scaled >= 100
+      ? 0
+      : scaled >= 10
+        ? 1
+        : 1;
+
+  const formatted =
+    scaled
+      .toFixed(decimals)
+      .replace(/\.0$/, '');
+
+  return `${
+    negative ? '-' : ''
+  }₹${formatted}${suffix}`;
+}
+
+function buildUniqueXTickIndexes(visiblePoints) {
+  const uniqueDateIndexes = [];
+  const seenDates = new Set();
+
+  visiblePoints.forEach((point, i) => {
+    const key = point.date;
+
+    if (!seenDates.has(key)) {
+      seenDates.add(key);
+      uniqueDateIndexes.push(i);
+    }
+  });
+
+  const maxTicks =
+    uniqueDateIndexes.length <= 10
+      ? uniqueDateIndexes.length
+      : uniqueDateIndexes.length <= 20
+        ? 8
+        : 7;
+
+  if (uniqueDateIndexes.length <= maxTicks) {
+    return uniqueDateIndexes;
+  }
+
+  const result = [];
+
+  const step =
+    (uniqueDateIndexes.length - 1) /
+    (maxTicks - 1);
+
+  for (let i = 0; i < maxTicks; i++) {
+    const uniqueIndex =
+      Math.round(i * step);
+
+    const pointIndex =
+      uniqueDateIndexes[uniqueIndex];
+
+    if (!result.includes(pointIndex)) {
+      result.push(pointIndex);
+    }
+  }
+
+  return result;
+}
 
 /*
  * Render the complete current chart state.
@@ -347,6 +608,22 @@ function renderInteractiveLineChart(
     minV -= padding;
     maxV += padding;
   }
+
+  /*
+   * Expand the visible range onto clean monetary boundaries
+   * and derive the grid ticks from that same scale.
+   */
+  const yScale =
+    buildYAxisScale(
+      minV,
+      maxV
+    );
+
+  minV = yScale.min;
+  maxV = yScale.max;
+
+  const yTicks =
+    yScale.ticks;
 
   const range =
     maxV - minV || 1;
@@ -402,99 +679,112 @@ function renderInteractiveLineChart(
       LINE_CHART_H - LINE_PAD_B
     } Z`;
 
-  /*
-   * Recalculate Y-axis ONLY from the
-   * currently visible section.
-   */
-  const gridSvg =
-    yAxisGrid(
-      minV,
-      maxV,
-      LINE_CHART_W,
-      LINE_CHART_H,
-      LINE_PAD_L,
-      LINE_PAD_R,
-      LINE_PAD_T,
-      LINE_PAD_B,
-      8
-    );
+  const plotHeight =
+    LINE_CHART_H -
+    LINE_PAD_T -
+    LINE_PAD_B;
 
-  const xTickIndexes = [];
+  const plotWidth =
+    LINE_CHART_W -
+    LINE_PAD_L -
+    LINE_PAD_R;
 
-  const uniqueDateIndexes = [];
-  const seenDates = new Set();
-
-  visiblePoints.forEach((point, i) => {
-    const dateKey = point.date;
-
-    if (!seenDates.has(dateKey)) {
-      seenDates.add(dateKey);
-      uniqueDateIndexes.push(i);
-    }
-  });
-
-  // Choose how many date ticks to display.
-  const maxTicks =
-    uniqueDateIndexes.length <= 10
-      ? uniqueDateIndexes.length
-      : uniqueDateIndexes.length <= 20
-        ? 8
-        : 7;
-
-  if (uniqueDateIndexes.length <= maxTicks) {
-    xTickIndexes.push(...uniqueDateIndexes);
-  } else {
-    const step =
-      (uniqueDateIndexes.length - 1) /
-      (maxTicks - 1);
-
-    for (let i = 0; i < maxTicks; i++) {
-      const index =
-        Math.round(i * step);
-
-      const pointIndex =
-        uniqueDateIndexes[index];
-
-      if (!xTickIndexes.includes(pointIndex)) {
-        xTickIndexes.push(pointIndex);
-      }
-    }
-  }
-
-  const xTicks = xTickIndexes
-    .map(i => {
-      const [x] = coords[i];
-      const point = visiblePoints[i];
-
-      let label = 'Start';
-
-      if (point.date !== 'start') {
-        const d = new Date(point.date + 'T00:00:00');
-        label = d.getDate();
-      }
+  const horizontalGrid = yTicks
+    .map(value => {
+      const y =
+        LINE_PAD_T +
+        ((maxV - value) /
+          (maxV - minV)) *
+          plotHeight;
 
       return `
         <line
-          x1="${x.toFixed(1)}"
-          y1="${LINE_CHART_H - LINE_PAD_B}"
-          x2="${x.toFixed(1)}"
-          y2="${LINE_CHART_H - LINE_PAD_B + 4}"
-          stroke="var(--muted)"
-          stroke-opacity="0.6"
-          stroke-width="1"
-        ></line>
-
-        <text
-          x="${x.toFixed(1)}"
-          y="${LINE_CHART_H - 6}"
-          fill="var(--muted)"
-          text-anchor="middle"
-          font-family="IBM Plex Mono, monospace"
-          font-size="10"
-        >${label}</text>
+          class="linechart-y-grid"
+          x1="${LINE_PAD_L}"
+          y1="${y.toFixed(1)}"
+          x2="${LINE_CHART_W - LINE_PAD_R}"
+          y2="${y.toFixed(1)}"
+          stroke="var(--sky)"
+          stroke-opacity="0.5"
+          stroke-width="1.5"
+          stroke-dasharray="4 4"
+        />
       `;
     })
     .join('');
+
+  /*
+   * Y-axis labels live outside the SVG.
+   * Their vertical positions match the SVG grid lines.
+   */
+  const yTicksHtml = yTicks
+    .map(value => {
+      const topPct =
+        ((maxV - value) /
+          (maxV - minV)) *
+        100;
+
+      return `
+        <div
+          class="linechart-y-tick"
+          style="top:${topPct}%;"
+          title="${fmtINR(value)}"
+        >
+          ${formatYAxisTick(value)}
+        </div>
+      `;
+    })
+    .join('');
+
+  const xTickIndexes =
+    buildUniqueXTickIndexes(
+      visiblePoints
+    );
+
+  const xTicksHtml = xTickIndexes
+    .map(i => {
+      const point =
+        visiblePoints[i];
+
+      const [x] =
+        coords[i];
+
+      const plotX =
+        (x - LINE_PAD_L) /
+        plotWidth;
+
+      const leftPct =
+        Math.max(
+          0,
+          Math.min(1, plotX)
+        ) * 100;
+
+      let label;
+
+      if (point.date === 'start') {
+        label = 'Day 0';
+      } else {
+        const d =
+          new Date(
+            point.date +
+            'T00:00:00'
+          );
+
+        label =
+          d.getDate();
+      }
+
+      return `
+        <div
+          class="linechart-x-tick ${point.date === 'start' ? 'is-day-zero' : ''}"
+          style="left:${leftPct}%;"
+        >
+          ${label}
+        </div>
+      `;
+    })
+    .join('');
+
   const dots = visiblePoints
     .map((point, i) => {
       const [x, y] = coords[i];
@@ -537,101 +827,106 @@ function renderInteractiveLineChart(
       data-linechart-id="${id}"
     >
 
-      <div class="linechart-wrapper">
-        <svg
-          class="linechart"
-          data-linechart-svg="${id}"
-          viewBox="0 0 ${LINE_CHART_W} ${LINE_CHART_H}"
-          preserveAspectRatio="none"
-        >
-          <defs>
-            <linearGradient
-              id="lineFade-${id}"
-              x1="0"
-              y1="0"
-              x2="0"
-              y2="1"
+      <div class="linechart-layout">
+
+        <!-- Separate Y axis -->
+        <div class="linechart-y-axis">
+          <div class="linechart-y-axis-inner">
+            ${yTicksHtml}
+          </div>
+        </div>
+
+        <!-- Main chart -->
+        <div class="linechart-main">
+
+          <div class="linechart-wrapper">
+            <svg
+              class="linechart"
+              data-linechart-svg="${id}"
+              viewBox="0 0 ${LINE_CHART_W} ${LINE_CHART_H}"
+              preserveAspectRatio="none"
             >
-              <stop
-                offset="0%"
-                stop-color="var(--blue)"
-                stop-opacity="0.22"
+
+              <defs>
+                <linearGradient
+                  id="lineFade-${id}"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop
+                    offset="0%"
+                    stop-color="var(--blue)"
+                    stop-opacity="0.22"
+                  />
+
+                  <stop
+                    offset="100%"
+                    stop-color="var(--blue)"
+                    stop-opacity="0"
+                  />
+                </linearGradient>
+              </defs>
+
+              <!-- Zoom layer below dots -->
+              <rect
+                class="linechart-zoom-hitbox"
+                x="${LINE_PAD_L}"
+                y="${LINE_PAD_T}"
+                width="${plotWidth}"
+                height="${plotHeight}"
+                fill="transparent"
               />
-              <stop
-                offset="100%"
-                stop-color="var(--blue)"
-                stop-opacity="0"
+
+              <g pointer-events="none">
+
+                ${horizontalGrid}
+
+                <path
+                  d="${areaD}"
+                  fill="url(#lineFade-${id})"
+                  stroke="none"
+                />
+
+                <path
+                  d="${pathD}"
+                  fill="none"
+                  stroke="var(--blue)"
+                  stroke-width="2.5"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                />
+
+              </g>
+
+              <!-- Dots remain interactive -->
+              ${dots}
+
+              <rect
+                class="linechart-selection"
+                x="0"
+                y="${LINE_PAD_T}"
+                width="0"
+                height="${plotHeight}"
+                fill="var(--blue)"
+                fill-opacity="0.10"
+                stroke="var(--blue)"
+                stroke-opacity="0.35"
+                pointer-events="none"
+                hidden
               />
-            </linearGradient>
-          </defs>
 
-          <!--
-            IMPORTANT:
-            Put the drag hitbox FIRST so dots can sit above it
-            and remain hover/click interactive.
-          -->
-          <rect
-            class="linechart-zoom-hitbox"
-            x="${LINE_PAD_L}"
-            y="${LINE_PAD_T}"
-            width="${
-              LINE_CHART_W -
-              LINE_PAD_L -
-              LINE_PAD_R
-            }"
-            height="${
-              LINE_CHART_H -
-              LINE_PAD_T -
-              LINE_PAD_B
-            }"
-            fill="transparent"
-          />
+            </svg>
+          </div>
 
-          <!-- Chart graphics -->
-          <g pointer-events="none">
-            ${gridSvg}
+          <!-- Separate X axis -->
+          <div class="linechart-x-axis">
+            ${xTicksHtml}
+          </div>
 
-            <path
-              d="${areaD}"
-              fill="url(#lineFade-${id})"
-              stroke="none"
-            />
+        </div>
 
-            <path
-              d="${pathD}"
-              fill="none"
-              stroke="var(--blue)"
-              stroke-width="2.5"
-              stroke-linejoin="round"
-              stroke-linecap="round"
-            />
-          </g>
-
-          <!-- Interactive dots -->
-          ${dots}
-          ${xTicks}
-
-          <!-- Selection overlay -->
-          <rect
-            class="linechart-selection"
-            x="${firstX}"
-            y="${LINE_PAD_T}"
-            width="${Math.max(
-              0,
-              lastX - firstX
-            )}"
-            height="${
-              LINE_CHART_H -
-              LINE_PAD_T -
-              LINE_PAD_B
-            }"
-            fill="var(--blue)"
-            fill-opacity="0"
-            stroke="none"
-            pointer-events="none"
-            hidden
-          />
-        </svg>
       </div>
 
       <div class="linechart-controls">
@@ -660,6 +955,7 @@ function renderInteractiveLineChart(
           ${fmtINR(lastPoint.balance)}
         </strong>
       </div>
+
     </div>
   `;
 }
@@ -690,7 +986,7 @@ function getLineChartSvgX(
 
 function lineChartXToIndex(
   x,
-  pointCount
+  visiblePointCount
 ) {
   const chartWidth =
     LINE_CHART_W -
@@ -709,7 +1005,7 @@ function lineChartXToIndex(
 
   return Math.round(
     clamped *
-      (pointCount - 1)
+    Math.max(0, visiblePointCount - 1)
   );
 }
 
@@ -859,10 +1155,19 @@ document.addEventListener(
 
     if (!svg) return;
 
-    const x =
+    const rawX =
       getLineChartSvgX(
         svg,
         e.clientX
+      );
+
+    const x =
+      Math.max(
+        LINE_PAD_L,
+        Math.min(
+          LINE_CHART_W - LINE_PAD_R,
+          rawX
+        )
       );
 
     lineChartDrag.currentX = x;
@@ -946,23 +1251,47 @@ document.addEventListener(
       return;
     }
 
-    let startIndex =
+    const visibleStart = state.zoomStart;
+    const visibleEnd = state.zoomEnd;
+
+    const visiblePointCount =
+      visibleEnd -
+      visibleStart +
+      1;
+
+    const localStartIndex =
       lineChartXToIndex(
-        Math.min(
-          startX,
-          endX
-        ),
-        state.points.length
+        Math.min(startX, endX),
+        visiblePointCount
       );
 
-    let endIndex =
+    const localEndIndex =
       lineChartXToIndex(
-        Math.max(
-          startX,
-          endX
-        ),
-        state.points.length
+        Math.max(startX, endX),
+        visiblePointCount
       );
+
+    // Convert indexes relative to the currently visible section
+    // back into indexes in the original points array.
+    let startIndex =
+      visibleStart +
+      localStartIndex;
+
+    let endIndex =
+      visibleStart +
+      localEndIndex;
+
+    if (startIndex > endIndex) {
+      [startIndex, endIndex] =
+        [endIndex, startIndex];
+    }
+
+    if (endIndex - startIndex >= 1) {
+      state.zoomStart = startIndex;
+      state.zoomEnd = endIndex;
+
+      redrawLineChart(id);
+    }
 
     if (
       startIndex > endIndex

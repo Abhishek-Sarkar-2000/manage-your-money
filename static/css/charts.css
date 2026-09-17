@@ -453,39 +453,190 @@ svg.linechart {
   margin-top: 2px;
 }
 
+/* =========================================================
+   Interactive Line Chart
+   ========================================================= */
+
+.linechart-container {
+  width: 100%;
+  position: relative;
+  container-type: inline-size;
+}
+
+
+/* ---------------------------------------------------------
+   Main layout
+   Separate Y-axis from the actual line chart.
+   --------------------------------------------------------- */
+
+.linechart-layout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: stretch;
+
+  width: 100%;
+
+  /* Gap between Y ticks and chart */
+  column-gap: 14px;
+}
+
+
+/* ---------------------------------------------------------
+   Y Axis
+   --------------------------------------------------------- */
+
+.linechart-y-axis {
+  position: relative;
+
+  /*
+   * Match LINE_PAD_T / LINE_PAD_B.
+   *
+   * Axis labels are external now, so the plot itself
+   * fills essentially the full SVG height.
+   */
+  padding: 4px 0px 32px 24px;
+}
+
+.linechart-y-axis-inner {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+}
+
+.linechart-y-tick {
+  position: absolute;
+  right: 0;
+
+  transform: translateY(-50%);
+
+  white-space: nowrap;
+  text-align: right;
+
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  line-height: 1;
+
+  color: var(--muted);
+
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+}
+
+
+/*
+ * On medium-width charts, hide alternating intermediate
+ * Y labels. Grid lines remain available as visual guides.
+ */
+@container (max-width: 620px) {
+  .linechart-y-tick:nth-child(even):not(:last-child) {
+    display: none;
+  }
+}
+
+
+/*
+ * Very narrow charts only need the top, middle-ish,
+ * and bottom labels.
+ */
+@container (max-width: 390px) {
+  .linechart-y-tick {
+    display: none;
+  }
+
+  .linechart-y-tick:first-child,
+  .linechart-y-tick:nth-child(4),
+  .linechart-y-tick:last-child {
+    display: block;
+  }
+}
+
+/* ---------------------------------------------------------
+   Chart body
+   --------------------------------------------------------- */
+
+.linechart-main {
+  min-width: 0;
+  width: 100%;
+}
+
+.linechart-wrapper {
+  width: 100%;
+  min-width: 0;
+
+  /*
+   * Prevent any text-line/baseline space underneath the SVG.
+   */
+  line-height: 0;
+
+  overflow: hidden;
+
+  /*
+   * Prevent scrolling / browser horizontal navigation gestures
+   * while dragging the chart.
+   */
+  touch-action: none;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: contain;
+}
+
+svg.linechart {
+  display: block;
+
+  width: 100%;
+  height: auto;
+
+  /*
+   * Do not leave inline/baseline space around the SVG.
+   * The SVG itself defines the complete chart area.
+   */
+  margin: 0;
+  padding: 0;
+
+  overflow: visible;
+
+  touch-action: none;
+
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+
+/* ---------------------------------------------------------
+   Interactive chart dots
+   --------------------------------------------------------- */
+
 .linechart-dot {
-  transition: r 0.15s ease;
+  cursor: pointer;
+
+  /*
+   * Keep pointer interaction available for tooltip hover/tap.
+   */
+  pointer-events: auto;
+
+  transition:
+    r 0.15s ease,
+    opacity 0.15s ease;
 }
 
 .linechart-dot:hover {
   r: 4.5;
 }
 
-.linechart-container {
-  width: 100%;
-  position: relative;
-}
 
-.linechart-wrapper {
-  width: 100%;
-  overflow: hidden;
-  touch-action: none;
-  overscroll-behavior-x: none;
-}
-
-svg.linechart {
-  width: 100%;
-  height: auto;
-  display: block;
-  overflow: visible;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
+/* ---------------------------------------------------------
+   Drag / zoom interaction
+   --------------------------------------------------------- */
 
 .linechart-zoom-hitbox {
   cursor: crosshair;
+
   touch-action: none;
+
+  /*
+   * Transparent SVG rect still needs pointer events.
+   */
+  pointer-events: all;
 }
 
 .linechart.is-zooming {
@@ -496,84 +647,189 @@ svg.linechart {
   pointer-events: none;
 }
 
+
+/* ---------------------------------------------------------
+   Separate X Axis
+   --------------------------------------------------------- */
+
+.linechart-x-axis {
+  position: relative;
+
+  width: auto;
+  height: 24px;
+
+  /*
+   * Independent gap between chart and X tick labels.
+   */
+  margin-top: 8px;
+
+  /*
+   * The SVG plot now occupies essentially the full width.
+   * 4 / 900 ≈ 0.444%.
+   */
+  margin-left: 0.444%;
+  margin-right: 0.444%;
+
+  overflow: visible;
+}
+
+.linechart-x-tick {
+  position: absolute;
+  top: 0;
+
+  transform: translateX(-50%);
+
+  white-space: nowrap;
+
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  line-height: 1;
+
+  color: var(--muted);
+
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+}
+
+
+/*
+ * Day 0 sits slightly to the left so it doesn't visually
+ * collide with the first plotted point / nearby labels.
+ */
+.linechart-x-tick.is-day-zero {
+  transform: translateX(calc(-50% - 14px));
+}
+
+
+/* ---------------------------------------------------------
+   Line Chart Controls
+   --------------------------------------------------------- */
+
 .linechart-controls {
   min-height: 20px;
-  font-family: 'IBM Plex Mono', monospace;
+
   display: flex;
   align-items: center;
   justify-content: flex-end;
+
   gap: 8px;
-  margin-top: 2px;
+  margin-top: 4px;
+
+  font-family: 'IBM Plex Mono', monospace;
 }
 
 .linechart-hint {
   margin-right: auto;
+
   font-size: 10px;
+
   color: var(--muted);
   opacity: 0.65;
+
   user-select: none;
+  -webkit-user-select: none;
 }
 
 .linechart-reset {
-  font-family: 'IBM Plex Mono', monospace;
+  padding: 2px 8px;
+
   border: 1px solid var(--sky);
+  border-radius: 6px;
+
   background: transparent;
   color: var(--navy);
-  border-radius: 6px;
-  padding: 2px 8px;
+
+  font-family: 'IBM Plex Mono', monospace;
   font-size: 10px;
+
   cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .linechart-reset:hover {
   background: var(--blue-bg);
 }
 
+
+/* ---------------------------------------------------------
+   Prevent SVG internals from interfering with dragging.
+   Dots explicitly override this through .linechart-dot.
+   --------------------------------------------------------- */
+
 .linechart text {
   user-select: none;
+  -webkit-user-select: none;
   pointer-events: none;
 }
 
-/* ---------- Responsive SVG chart text scaling ---------- */
+
+/* =========================================================
+   Responsive Line Chart
+   ========================================================= */
+
 @media (max-width: 820px) {
-  .y-tick-dense {
-    display: none;
+  .linechart-layout {
+    column-gap: 10px;
+  }
+
+  .linechart-y-tick,
+  .linechart-x-tick {
+    font-size: 9px;
+  }
+
+  .linechart-x-axis {
+    margin-top: 7px;
   }
 }
+
 
 @media (max-width: 540px) {
-  .y-tick-med {
-    display: none;
+  .linechart-layout {
+    column-gap: 7px;
+  }
+
+  .linechart-y-tick {
+    font-size: 8px;
+  }
+
+  .linechart-x-tick {
+    font-size: 9px;
+  }
+
+  .linechart-x-axis {
+    height: 22px;
+    margin-top: 6px;
+  }
+
+  .linechart-x-tick.is-day-zero {
+    transform: translateX(calc(-50% - 10px));
+  }
+
+  .linechart-hint,
+  .linechart-reset {
+    font-size: 9px;
   }
 }
 
-/* Counter-scale SVG text so it never becomes unreadably small on mobile */
-svg.linechart text {
-  font-size: 11px;
-}
-
-@media (max-width: 800px) {
-  svg.linechart text {
-    font-size: 14px;
-  }
-}
-
-@media (max-width: 650px) {
-  svg.linechart text {
-    font-size: 18px;
-  }
-}
-
-@media (max-width: 500px) {
-  svg.linechart text {
-    font-size: 23px;
-  }
-}
 
 @media (max-width: 400px) {
-  svg.linechart text {
-    font-size: 28px;
+  .linechart-layout {
+    column-gap: 5px;
+  }
+
+  .linechart-y-tick {
+    font-size: 7.5px;
+  }
+
+  .linechart-x-tick {
+    font-size: 8px;
+  }
+
+  .linechart-x-tick.is-day-zero {
+    transform: translateX(calc(-50% - 8px));
   }
 }
-
-
