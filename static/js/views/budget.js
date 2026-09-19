@@ -10,7 +10,7 @@ import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '
 import {
   loadMonth, saveMonth, cardById, allSpendTags, ensureMonthIndexed,
   emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth,
-  forecastCategorySpend, matchesCategory, migrateBudgetData,
+  forecastCategorySpend, matchesCategory, migrateBudgetData, netSpendAmount,
   validateGroupBudget, validateCategoryBudget, validateCategoryMove
 } from '../core/domain.js';
 import { computeGoalRecommendation } from '../core/goal-algorithm.js';
@@ -97,7 +97,7 @@ function calculateUsed(name, isSub, parentName) {
   const target = String(name).trim().toLowerCase();
   for (const e of currentMonthEntries) {
     if (e.type === 'income' || e.type === 'payback' || e.type === 'goal_funding') continue;
-    const amt = Number(e.amount) || 0;
+    const amt = netSpendAmount(e);
     if (amt <= 0) continue;
 
     // Investments are bucketed from Month/SIP asset categories. This makes
@@ -134,8 +134,9 @@ function computeSummary() {
       const amt = Number(e.amount) || 0;
       if (e.type === 'income') {
         totalIncome += amt;
-      } else if (e.type !== 'payback' && amt > 0) {
-        totalSpent += amt;
+      } else if (e.type !== 'payback') {
+        const spendAmt = netSpendAmount(e);
+        if (spendAmt > 0) totalSpent += spendAmt;
       }
     }
   }
@@ -173,7 +174,7 @@ function calculateUnbudgeted() {
 
   for (const e of currentMonthEntries) {
     if (e.type === 'income' || e.type === 'payback') continue;
-    const amt = Number(e.amount) || 0;
+    const amt = netSpendAmount(e);
     if (amt <= 0) continue;
 
     const eType = (e.type || '').toLowerCase();

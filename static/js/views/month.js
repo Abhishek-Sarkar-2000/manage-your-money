@@ -1436,27 +1436,25 @@ async function renderMonth() {
     // total (stats.owed / computeGlobalOwed), so a past month's chart never
     // gets today's numbers grafted onto it, and the current month's chart
     // never gets debts that actually originated earlier.
-    let unsettledConsumptionLent = 0, settledConsumptionLent = 0, settledCardLent = 0;
+    let unsettledConsumptionLent = 0;
     for (const e of data.entries) {
       if (!Array.isArray(e.lent)) continue;
       if (e.type === 'spend' || e.type === 'cardcharge' || e.type === 'cashpayment') {
-        unsettledConsumptionLent += e.lent.reduce((s, l) => !l.settled ? s + (Number(l.amount) || 0) : s, 0);
-        // Settled lent has been paid back — deduct it entirely, it's no
-        // longer part of this month's spend at all (personal or lent).
-        settledConsumptionLent += e.lent.reduce((s, l) => l.settled ? s + (Number(l.amount) || 0) : s, 0);
-      }
-      if (e.type === 'cardcharge') {
-        // Credit-card dues still need the full charge paid off via the card
-        // bill, but a settled lent portion has already been reimbursed to
-        // you — net it out of Personal Expense so it isn't double-counted
-        // as an out-of-pocket cost in the Cashflow Overview.
-        settledCardLent += e.lent.reduce((s, l) => l.settled ? s + (Number(l.amount) || 0) : s, 0);
+        unsettledConsumptionLent += e.lent.reduce(
+          (s, l) => !l.settled ? s + (Number(l.amount) || 0) : s,
+          0
+        );
       }
     }
+
     const emiTotal = monthTotals.emi || 0;
-    // Personal spend = total consumption minus unsettled lent, settled
-    // credit-card lent, and EMI.
-    const rawPersonalExpense = Math.max(0, monthTotals.totalConsumption - unsettledConsumptionLent - settledCardLent - emiTotal);
+
+    // computeMonthTotals already removes settled lent from the matching spend
+    // bucket. Only unsettled lent remains to be split away from Personal.
+    const rawPersonalExpense = Math.max(
+      0,
+      monthTotals.totalConsumption - unsettledConsumptionLent - emiTotal
+    );
     const personalExpense = rawPersonalExpense;
     const lentSegmentValue = unsettledConsumptionLent;
 

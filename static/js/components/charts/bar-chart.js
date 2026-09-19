@@ -65,7 +65,7 @@ export function tagsBarChart(entries, targetType, options = {}) {
       // Settled lent is paid back — it's fully deducted and never appears
       // here again. Unsettled lent is kept as its own segment so the bar
       // shows exactly how much of this tag's spend is still outstanding.
-      const personal = amount - unsettledLent;
+      const personal = amount - unsettledLent - settledLent;
       personalTotals[key] = (personalTotals[key] || 0) + personal;
     }
     lentTotals[key] = (lentTotals[key] || 0) + unsettledLent;
