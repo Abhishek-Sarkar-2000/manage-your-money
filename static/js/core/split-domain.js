@@ -151,54 +151,49 @@ export function greedySettle(net) {
   return transfers;
 }
 
-/* Returns {rawNet, paid, cards} where cards maintains a stable settlement
-   plan across group members instead of reshuffling remaining debts on every settlement. */
+/* Returns {rawNet, paid, cards}.
+   Settled transfers are first applied against the group's current net balance,
+   then only the still-outstanding balance is converted into fresh settlement
+   cards. Historical settled cards remain visible independently. */
 export function computeGroupSettlementView(group) {
   const rawNet = computeGroupNet(group);
   const paid = computeGroupPaid(group);
-  const baseTransfers = greedySettle(rawNet);
-  const cards = [];
-  const matchedSettlementIds = new Set();
+  const settlements = group.settlements || [];
 
-  for (const t of baseTransfers) {
-    const st = (group.settlements || []).find(
-      s => s.settled && s.from === t.from && s.to === t.to && !matchedSettlementIds.has(s.id)
-    );
-    if (st) {
-      matchedSettlementIds.add(st.id);
-      cards.push({
-        id: st.id,
-        from: t.from,
-        to: t.to,
-        amount: t.amount,
-        settled: true,
-        ledgerEntryId: st.ledgerEntryId,
-        monthKey: st.monthKey,
-      });
-    } else {
-      cards.push({
-        id: 'virtual-' + t.from + '-' + t.to,
-        from: t.from,
-        to: t.to,
-        amount: t.amount,
-        settled: false,
-      });
-    }
+  // A settlement is a payment against the debt that existed when it was
+  // marked settled. Apply all completed payments before calculating what
+  // is currently still owed.
+  const outstandingNet = applySettledAdjustments(rawNet, settlements);
+  const outstandingTransfers = greedySettle(outstandingNet);
+  const cards = [];
+
+  // Current debt is always represented by fresh virtual cards. Therefore,
+  // if somebody settled ₹500 and later incurs another ₹200 share, only
+  // ₹200 appears here as outstanding.
+  for (const t of outstandingTransfers) {
+    cards.push({
+      id: 'virtual-' + t.from + '-' + t.to,
+      from: t.from,
+      to: t.to,
+      amount: t.amount,
+      settled: false,
+    });
   }
 
-  // Preserve any historical settlement records from modified spends
-  for (const st of (group.settlements || [])) {
-    if (st.settled && !matchedSettlementIds.has(st.id)) {
-      cards.push({
-        id: st.id,
-        from: st.from,
-        to: st.to,
-        amount: Number(st.amount) || 0,
-        settled: true,
-        ledgerEntryId: st.ledgerEntryId,
-        monthKey: st.monthKey,
-      });
-    }
+  // Completed settlements remain visible as historical settled cards.
+  // They are deliberately separate from the fresh outstanding transfer.
+  for (const st of settlements) {
+    if (!st.settled) continue;
+
+    cards.push({
+      id: st.id,
+      from: st.from,
+      to: st.to,
+      amount: Number(st.amount) || 0,
+      settled: true,
+      ledgerEntryId: st.ledgerEntryId,
+      monthKey: st.monthKey,
+    });
   }
 
   return { rawNet, paid, cards };
@@ -238,12 +233,31 @@ export async function toggleSplitSettlement(groupId, transferId, from, to, amoun
   const group = await loadSplit(groupId, false);
   if (!group) return;
   group.settlements = group.settlements || [];
-  let record = group.settlements.find(s => s.id === transferId || (s.from === from && s.to === to));
+
+  const isVirtualTransfer = String(transferId || '').startsWith('virtual-');
+
+  // Persisted settlement cards must resolve strictly by their own ID.
+  // A fresh virtual debt must never reuse an older *settled* record simply
+  // because the same two people owe each other money again.
+  let record = group.settlements.find(s => s.id === transferId);
+
+  // If an earlier settlement was explicitly reverted, its record is now
+  // unsettled and may safely be reused for the recombined outstanding debt.
+  if (!record && isVirtualTransfer) {
+    record = group.settlements.find(
+      s => !s.settled && s.from === from && s.to === to
+    );
+  }
 
   if (willSettle) {
     if (record && record.settled) return;
     if (!record) {
-      record = { id: transferId.startsWith('virtual-') ? uid() : transferId, from, to, amount };
+      record = {
+        id: isVirtualTransfer ? uid() : transferId,
+        from,
+        to,
+        amount
+      };
       group.settlements.push(record);
     }
     record.from = from; record.to = to; record.amount = amount;

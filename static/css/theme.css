@@ -313,6 +313,7 @@ body {
 :root[data-theme="dark"] .action-card,
 :root[data-theme="dark"] .split-group-card,
 :root[data-theme="dark"] .split-settle-card,
+:root[data-theme="dark"] .split-inline-member-form,
 :root[data-theme="dark"] .stat-front,
 :root[data-theme="dark"] .price-item-card,
 :root[data-theme="dark"] .add-entry-panel,
@@ -384,7 +385,8 @@ body {
 :root[data-theme="dark"] .btn.secondary {
   color: var(--sky);
 }
-:root[data-theme="dark"] .btn.ghost {
+:root[data-theme="dark"] .btn.ghost,
+:root[data-theme="dark"] .split-inline-member-cancel {
   background: white;
   border-color: white;
   color: var(--sky);
@@ -401,6 +403,7 @@ body {
 }
 
 :root[data-theme="dark"] .field input,
+:root[data-theme="dark"] .split-inline-member-field input,
 :root[data-theme="dark"] .balance-box input[type="number"] {
   background: var(--paper) !important;
   color: var(--ink);
@@ -549,7 +552,8 @@ body {
     background: var(--sky);
     border-color: var(--sky);
   }
-  :root[data-theme="dark"] .btn.ghost:hover {
+  :root[data-theme="dark"] .btn.ghost:hover,
+  :root[data-theme="dark"] .split-inline-member-cancel:hover {
     background: var(--text-light);
     color: var(--ice);
   }

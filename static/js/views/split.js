@@ -27,6 +27,7 @@ let monthsIndex = [];
 let splitFormOpen = false;
 let splitSpendFormOpen = false;
 let splitAddMemberFormOpen = false;
+let splitAddMemberFormSource = null;
 let splitExpandedId = null;
 let splitSlideDirection = '';
 let animTimeout = null;
@@ -304,7 +305,7 @@ function renderSplitDetailsPanel(group) {
       <button class="btn ghost" data-close-split-spend-form type="button">Cancel</button>
     </div>
   </div>` : '';
-  const addMemberFormHtml = splitAddMemberFormOpen ? `
+  const addMemberFormHtml = (splitAddMemberFormOpen && splitAddMemberFormSource !== 'shares') ? `
   <div class="form-panel slide-down-fade" style="margin-top:14px;">
     <div class="form-note" style="margin-top:0; margin-bottom:8px;">Add a new person to this split group.</div>
     <div class="split-member-row">
@@ -324,7 +325,7 @@ function renderSplitDetailsPanel(group) {
   const addBtnHtml = (!splitSpendFormOpen && !splitAddMemberFormOpen) ? `
   <div class="pill-grid" style="margin-top: 14px;">
     <button class="pill-btn" data-open-split-spend-form type="button">+ Add Spend</button>
-    <button class="pill-btn alt" data-open-split-member-form type="button">+ Add Member</button>
+    <button class="pill-btn alt" data-open-split-member-form data-member-form-source="details" type="button">+ Add Member</button>
   </div>` : '';
 
   const totalSpends = (group.spends || []).reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
@@ -484,12 +485,94 @@ async function renderSplit() {
     const shareTotals = {};
     for (const person of expandedGroup.people) shareTotals[person] = 0;
     for (const spend of (expandedGroup.spends || [])) {
-      for (const [person, amount] of Object.entries(spend.shares || {})) shareTotals[person] = (shareTotals[person] || 0) + (Number(amount) || 0);
+      for (const [person, amount] of Object.entries(spend.shares || {})) {
+        shareTotals[person] = (shareTotals[person] || 0) + (Number(amount) || 0);
+      }
     }
+
     const shareRows = expandedGroup.people.map(person => {
       const label = person === SPLIT_YOU ? youLabel() : escapeHtml(String(person).toUpperCase());
-      return `<tr><td>${label}</td><td class="num">${fmtINR(paid[person] || 0)}</td><td class="num">${fmtINR(shareTotals[person] || 0)}</td></tr>`;
+      const totalPaid = Number(paid[person]) || 0;
+      const totalShare = Number(shareTotals[person]) || 0;
+
+      const hasSettlementActivity = cards.some(c =>
+        (c.from === person || c.to === person) &&
+        Number(c.amount || 0) > 0.004
+      );
+
+      const canRemove =
+        person !== SPLIT_YOU &&
+        Math.abs(totalPaid) <= 0.004 &&
+        Math.abs(totalShare) <= 0.004 &&
+        !hasSettlementActivity;
+
+      const removeToken = `${expandedGroup.id}|${encodeURIComponent(person)}`;
+
+      const removeControl = canRemove ? `
+        <button
+          class="split-member-remove-btn"
+          data-popover-trigger
+          data-del-split-member="${escapeHtml(removeToken)}"
+          type="button"
+          title="Remove member"
+          aria-label="Remove ${escapeHtml(person)}"
+        >−</button>
+      ` : '';
+
+      return `
+        <tr>
+          <td>${label}</td>
+          <td class="num">${fmtINR(totalPaid)}</td>
+          <td class="num">
+            <span class="split-share-amount">
+              ${removeControl}
+              <span>${fmtINR(totalShare)}</span>
+            </span>
+          </td>
+        </tr>`;
     }).join('');
+
+    const addMemberShareRow = (splitAddMemberFormOpen && splitAddMemberFormSource === 'shares')
+      ? `
+        <tr class="split-add-member-row split-add-member-row-open">
+          <td colspan="3">
+            <div class="split-inline-member-form">
+              <div class="split-inline-member-field">
+                <label for="sam-name">Name</label>
+                <input
+                  id="sam-name"
+                  type="text"
+                  placeholder="Enter member name"
+                  autocomplete="off"
+                />
+              </div>
+              <div class="split-inline-member-actions">
+                <button
+                  class="btn split-inline-member-btn"
+                  data-submit-new-member="${expandedGroup.id}"
+                  type="button"
+                >Add</button>
+                <button
+                  class="btn ghost split-inline-member-btn"
+                  data-close-split-member-form
+                  type="button"
+                >Cancel</button>
+              </div>
+            </div>
+          </td>
+        </tr>`
+      : `
+        <tr class="split-add-member-row">
+          <td colspan="3">
+            <button
+              class="split-add-member-inline-btn"
+              data-open-split-member-form
+              data-member-form-source="shares"
+              type="button"
+            >+ Add new member</button>
+          </td>
+        </tr>`;
+
     sharesTableHtml = `
     <div class="section">
       <div class="section-title" style="margin-bottom: 12px;">
@@ -502,9 +585,12 @@ async function renderSplit() {
         <span class="hint">Total spent per person</span>
       </div>
       <div class="table-wrap">
-        <table style="width: 100%;">
+        <table class="split-shares-table" style="width: 100%;">
           <thead><tr><th>Person</th><th class="table-numeric">Total Paid</th><th class="table-numeric">Total Share (Owed)</th></tr></thead>
-          <tbody>${shareRows}</tbody>
+          <tbody>
+            ${shareRows}
+            ${addMemberShareRow}
+          </tbody>
         </table>
       </div>
     </div>`;
@@ -697,6 +783,91 @@ root.addEventListener('click', async (ev) => {
     return;
   }
 
+  const delSplitMemberBtn = ev.target.closest('[data-del-split-member]');
+  if (delSplitMemberBtn) {
+    ev.stopPropagation();
+    showDeleteCallout(
+      delSplitMemberBtn,
+      'confirm-del-split-member',
+      delSplitMemberBtn.dataset.delSplitMember,
+      'Remove member?'
+    );
+    return;
+  }
+
+  const confirmDelSplitMember = ev.target.closest('[data-confirm-del-split-member]');
+  if (confirmDelSplitMember) {
+    ev.stopPropagation();
+
+    const token = confirmDelSplitMember.dataset.confirmDelSplitMember || '';
+    const separatorIndex = token.indexOf('|');
+    if (separatorIndex === -1) {
+      hideDeleteCallout();
+      return;
+    }
+
+    const groupId = token.slice(0, separatorIndex);
+    const person = decodeURIComponent(token.slice(separatorIndex + 1));
+    const group = await loadSplit(groupId, false);
+
+    if (!group || !group.people.includes(person)) {
+      hideDeleteCallout();
+      await renderSplit();
+      return;
+    }
+
+    const paid = computeGroupPaid(group);
+    let totalShare = 0;
+
+    for (const spend of (group.spends || [])) {
+      totalShare += Number(spend.shares?.[person]) || 0;
+    }
+
+    const { cards } = computeGroupSettlementView(group);
+    const hasSettlementActivity = cards.some(c =>
+      (c.from === person || c.to === person) &&
+      Number(c.amount || 0) > 0.004
+    );
+
+    const canRemove =
+      person !== SPLIT_YOU &&
+      Math.abs(Number(paid[person]) || 0) <= 0.004 &&
+      Math.abs(totalShare) <= 0.004 &&
+      !hasSettlementActivity;
+
+    if (!canRemove) {
+      hideDeleteCallout();
+      await renderSplit();
+      showToast('Member can only be removed when they have no spends, shares, or debts');
+      return;
+    }
+
+    group.people = group.people.filter(p => p !== person);
+
+    // Remove zero-value share keys left behind by forms/older transactions.
+    for (const spend of (group.spends || [])) {
+      if (spend.shares && Object.prototype.hasOwnProperty.call(spend.shares, person)) {
+        delete spend.shares[person];
+      }
+    }
+
+    // Active debt/settlements were rejected above, so anything involving
+    // this member here can only be an inactive historical placeholder.
+    group.settlements = (group.settlements || []).filter(
+      st => st.from !== person && st.to !== person
+    );
+
+    await saveSplit(groupId);
+    hideDeleteCallout();
+
+    splitAddMemberFormOpen = false;
+    splitAddMemberFormSource = null;
+
+    await renderSplit();
+    showToast('Member removed');
+    return;
+  }
+
   const shareBtn = ev.target.closest('[data-share-split]');
   if (shareBtn) {
     // Public share links are a backend/database concept — a guest's group
@@ -753,14 +924,32 @@ root.addEventListener('click', async (ev) => {
   }
 
   const openSplitSpendForm = ev.target.closest('[data-open-split-spend-form]');
-  if (openSplitSpendForm) { splitSpendFormOpen = true; splitAddMemberFormOpen = false; await renderSplit(); return; }
+  if (openSplitSpendForm) {
+    splitSpendFormOpen = true;
+    splitAddMemberFormOpen = false;
+    splitAddMemberFormSource = null;
+    await renderSplit();
+    return;
+  }
   const closeSplitSpendForm = ev.target.closest('[data-close-split-spend-form]');
   if (closeSplitSpendForm) { splitSpendFormOpen = false; await renderSplit(); return; }
 
   const openSplitMemberForm = ev.target.closest('[data-open-split-member-form]');
-  if (openSplitMemberForm) { splitAddMemberFormOpen = true; splitSpendFormOpen = false; await renderSplit(); return; }
+  if (openSplitMemberForm) {
+    splitAddMemberFormOpen = true;
+    splitAddMemberFormSource = openSplitMemberForm.dataset.memberFormSource || 'details';
+    splitSpendFormOpen = false;
+    await renderSplit();
+    return;
+  }
+
   const closeSplitMemberForm = ev.target.closest('[data-close-split-member-form]');
-  if (closeSplitMemberForm) { splitAddMemberFormOpen = false; await renderSplit(); return; }
+  if (closeSplitMemberForm) {
+    splitAddMemberFormOpen = false;
+    splitAddMemberFormSource = null;
+    await renderSplit();
+    return;
+  }
 
   const submitNewMember = ev.target.closest('[data-submit-new-member]');
   if (submitNewMember) {
@@ -781,6 +970,7 @@ root.addEventListener('click', async (ev) => {
     group.people.push(name);
     await saveSplit(groupId);
     splitAddMemberFormOpen = false;
+    splitAddMemberFormSource = null;
     await renderSplit();
     showToast('Member added');
     return;

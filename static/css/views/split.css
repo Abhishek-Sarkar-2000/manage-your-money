@@ -530,6 +530,167 @@
   margin: 8px 0px;
 }
 
+/* ---------- Split shares member management ---------- */
+
+.split-share-amount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+
+.split-member-remove-btn {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  padding: 0 0 1px 1px;
+  border: 1px solid var(--debit);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--debit);
+  font: 600 16px/18px 'IBM Plex Mono', monospace;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.split-member-remove-btn:hover {
+  background: var(--debit);
+  color: #fff;
+  transform: scale(1.05);
+}
+
+.split-add-member-row td {
+  padding: 11px 14px;
+  border-top: 1px dashed var(--hair);
+}
+
+.split-add-member-inline-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  padding: 6px 8px;
+  margin-left: -8px;
+  color: var(--blue);
+  font: 600 0.8rem/1.25 'IBM Plex Mono', monospace;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.split-add-member-inline-btn:hover {
+  color: var(--royal);
+  background: var(--ice);
+}
+
+.split-add-member-row-open td {
+  padding: 8px 10px;
+}
+
+.split-inline-member-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  background: linear-gradient(155deg, #fff 0%, var(--ice) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.split-inline-member-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.split-inline-member-field label {
+  margin: 0 0 0 2px;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.split-inline-member-field input {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 11px;
+  border: 1px solid var(--hair);
+  border-radius: 8px;
+  outline: none;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  box-shadow: 0 1px 2px rgba(20, 38, 70, 0.04);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.split-inline-member-field input::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.split-inline-member-field input:hover {
+  border-color: var(--sky);
+}
+
+.split-inline-member-field input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(55, 112, 190, 0.1);
+}
+
+.split-inline-member-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.split-inline-member-form .split-inline-member-btn {
+  height: 38px;
+  min-height: 38px;
+  padding: 0 16px;
+}
+
+@media (max-width: 639px) {
+  .split-add-member-row-open td {
+    padding: 8px;
+  }
+
+  .split-inline-member-form {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 9px;
+    padding: 9px;
+  }
+
+  .split-inline-member-actions {
+    width: 100%;
+  }
+
+  .split-inline-member-btn {
+    flex: 1 1 0;
+  }
+}
+
 /* ---------- Shared Read-Only Mode ---------- */
 body.shared-mode .sgc-actions [data-settle-group-toggle],
 body.shared-mode .sgc-actions [data-del-split],
