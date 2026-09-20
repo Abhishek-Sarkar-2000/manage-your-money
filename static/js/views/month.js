@@ -1571,7 +1571,7 @@ async function renderMonth() {
           });
 
           return `
-          <div class="month-sip-card">
+          <div class="month-sip-card ${isSkippedForTarget ? 'is-skipped' : ''}">
             <div class="month-sip-card-header">
               <div style="width: 100%;">
                 <h4 style="margin-bottom: 0; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
@@ -1705,7 +1705,7 @@ async function renderMonth() {
           }
 
           return `
-          <div class="month-sip-card">
+          <div class="month-sip-card ${isSkippedForTarget ? 'is-skipped' : ''}">
             <div class="month-sip-card-header">
               <div style="width: 100%;">
                 <h4 style="margin-bottom: 0; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
@@ -1913,7 +1913,7 @@ async function renderMonth() {
             ...(emiTotal > 0 ? [{ label: 'EMI', value: emiTotal, color: '#5B4B9E' }] : []),
             { label: 'Invested', segments: investSegments.length ? investSegments : [{ label: 'Invested', value: 0, color: 'var(--blue)' }] },
             ...(stats.owed.total > 0 ? [{ label: 'Owed', value: stats.owed.total, color: 'var(--amber)' }] : []),
-          ])}
+          ], { compactValues: true })}
           ${lentSegmentValue > 0 ? `
           <div class="shared-chart-legend" style="border-top: none; padding-top: 0; margin-top: 0;">
             <div class="shared-chart-legend-item"><span class="shared-chart-legend-dot" style="background:var(--debit);"></span><span>Personal Expense</span></div>

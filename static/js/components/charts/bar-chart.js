@@ -2,11 +2,13 @@
 import { escapeHtml } from '../../core/dom.js';
 import { fmtINR, fmtINRShort } from '../../core/format.js';
 
-export function barChart(pairs) {
+export function barChart(pairs, options = {}) {
   // A pair can either be a flat { label, value, color } bar, or a stacked
   // one via { label, segments: [{ label, value, color }, ...] } — segments
   // render bottom-up in array order and carry data-val/data-label so the
   // shared tooltip (wireChartTooltips) picks them up automatically.
+  const { compactValues = false } = options;
+  const formatBarValue = compactValues ? fmtINRShort : fmtINR;
   const totalOf = (p) => (p.segments ? p.segments.reduce((s, seg) => s + (seg.value || 0), 0) : (p.value || 0));
   const max = Math.max(1, ...pairs.map(totalOf));
   const cols = pairs.map(p => {
@@ -16,7 +18,7 @@ export function barChart(pairs) {
         <div class="stacked-segment" data-val="${fmtINR(seg.value)}" data-label="${escapeHtml(seg.label)}" style="height:${total > 0 ? (seg.value / total * 100) : 0}%; background:${seg.color};"></div>`).join('');
       return `
       <div class="bar-col">
-        <div class="bval num">${fmtINR(total)}</div>
+        <div class="bval num">${formatBarValue(total)}</div>
         <div class="bar stacked-bar" style="height:${Math.max(4, (total / max * 130))}px;">
           ${segmentsHtml}
         </div>
@@ -25,7 +27,7 @@ export function barChart(pairs) {
     }
     return `
     <div class="bar-col">
-      <div class="bval num">${fmtINR(p.value)}</div>
+      <div class="bval num">${formatBarValue(p.value)}</div>
       <div class="bar" style="height:${Math.max(4, (p.value / max * 130))}px; background:${p.color};"></div>
       <div class="blabel">${p.label}</div>
     </div>`;

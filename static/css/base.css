@@ -433,6 +433,24 @@ a {
   cursor: not-allowed;
 }
 
+.table-controls select {
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.table-controls select:hover {
+  background: #fff;
+  border-color: var(--blue);
+}
+
+.table-controls select:open {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(66, 118, 255, 0.12);
+}
+
 #table-type-filter,
 #table-tag-filter {
   min-width: 145px;

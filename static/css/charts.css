@@ -572,12 +572,11 @@ svg.linechart {
   overflow: hidden;
 
   /*
-   * Prevent scrolling / browser horizontal navigation gestures
-   * while dragging the chart.
+   * Vertical gestures scroll the page.
+   * Horizontal gestures remain available to the chart.
    */
-  touch-action: none;
+  touch-action: pan-y;
   overscroll-behavior-x: none;
-  overscroll-behavior-y: contain;
 }
 
 svg.linechart {
@@ -586,16 +585,16 @@ svg.linechart {
   width: 100%;
   height: auto;
 
-  /*
-   * Do not leave inline/baseline space around the SVG.
-   * The SVG itself defines the complete chart area.
-   */
   margin: 0;
   padding: 0;
 
   overflow: visible;
 
-  touch-action: none;
+  /*
+   * Keep pointer interaction, but let vertical
+   * touch gestures become normal page scrolling.
+   */
+  touch-action: pan-y;
 
   user-select: none;
   -webkit-user-select: none;
@@ -631,11 +630,11 @@ svg.linechart {
 .linechart-zoom-hitbox {
   cursor: crosshair;
 
-  touch-action: none;
-
   /*
-   * Transparent SVG rect still needs pointer events.
+   * Horizontal pointer movement can drive chart zoom.
+   * Vertical touch movement is reserved for page scrolling.
    */
+  touch-action: pan-y;
   pointer-events: all;
 }
 

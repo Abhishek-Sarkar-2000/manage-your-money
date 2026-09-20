@@ -40,6 +40,17 @@ body {
   background-attachment: scroll, fixed;
 }
 
+:root input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+:root input[type="number"]::-webkit-inner-spin-button,
+:root input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* ---------- High Contrast Theme ---------- */
 :root[data-theme="hi-contrast"] {
   --navy: #000000;
@@ -346,8 +357,58 @@ body {
   color: var(--debit-bd) !important;
 }
 
-:root[data-theme="dark"] .month-sip-card:hover {
-  box-shadow: 0 4px 18px #000;
+:root[data-theme="dark"] .month-sip-card,
+:root[data-theme="dark"] .emi-card {
+  background:
+    radial-gradient(
+      circle at 92% 8%,
+      rgba(91, 126, 220, 0.18) 0%,
+      transparent 40%
+    ),
+    linear-gradient(
+      140deg,
+      var(--hair) 0%,
+      var(--ice-2) 52%,
+      var(--hair) 100%
+    ) !important;
+  border-color: rgba(125, 156, 255, 0.20) !important;
+}
+
+:root[data-theme="dark"] .month-sip-card:hover,
+:root[data-theme="dark"] .emi-card:hover {
+  border-color: rgba(125, 156, 255, 0.38) !important;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.34),
+    0 0 0 1px rgba(125, 156, 255, 0.04) !important;
+}
+
+:root[data-theme="dark"] .month-sip-card.is-skipped {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(218, 132, 37, 0.22) 0%,
+      rgba(173, 94, 27, 0.09) 48%,
+      rgba(234, 151, 55, 0.16) 100%
+    ),
+    radial-gradient(
+      circle at 92% 8%,
+      rgba(91, 126, 220, 0.14) 0%,
+      transparent 40%
+    ),
+    linear-gradient(
+      140deg,
+      rgba(32, 38, 58, 0.98) 0%,
+      rgba(24, 29, 46, 0.98) 52%,
+      rgba(20, 25, 40, 0.98) 100%
+    ) !important;
+  border-color: rgba(230, 151, 61, 0.42) !important;
+}
+
+:root[data-theme="dark"] .month-sip-card.is-skipped:hover {
+  border-color: rgba(240, 163, 70, 0.62) !important;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.38),
+    0 0 18px rgba(211, 127, 36, 0.08) !important;
 }
 
 :root[data-theme="dark"] .form-panel {
@@ -403,23 +464,28 @@ body {
 }
 
 :root[data-theme="dark"] .field input,
+:root[data-theme="dark"] .emi-stats input,
 :root[data-theme="dark"] .split-inline-member-field input,
-:root[data-theme="dark"] .balance-box input[type="number"] {
+:root[data-theme="dark"] .balance-set-input input {
   background: var(--paper) !important;
   color: var(--ink);
   border-color: var(--hair) !important;
 }
 
 :root[data-theme="dark"] .field input:hover,
-:root[data-theme="dark"] .balance-box input[type="number"]:hover,
-:root[data-theme="dark"] .field select:hover {
+:root[data-theme="dark"] .emi-stats input:hover,
+:root[data-theme="dark"] .balance-set-input input:hover,
+:root[data-theme="dark"] .field select:hover,
+:root[data-theme="dark"] .table-controls select:hover {
   background: rgba(31, 36, 55, 0.98) !important;
   border-color: rgba(125, 156, 255, 0.58) !important;
 }
 
 :root[data-theme="dark"] .field input:focus,
-:root[data-theme="dark"] .balance-box input[type="number"]:focus,
-:root[data-theme="dark"] .field select:focus {
+:root[data-theme="dark"] .emi-stats input:focus,
+:root[data-theme="dark"] .balance-set-input input:focus,
+:root[data-theme="dark"] .field select:focus,
+:root[data-theme="dark"] .table-controls select:open  {
   background: rgba(31, 36, 55, 1) !important;
   border-color: var(--blue) !important;
   box-shadow:
