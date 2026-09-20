@@ -1,7 +1,7 @@
 /* ---------- /sips ---------- */
 import { Store } from '../core/store.js';
 import { $, uid, escapeHtml } from '../core/dom.js';
-import { fmtINR, monthKeyLabel, currentMonthKey, ordinalSuffix } from '../core/format.js';
+import { fmtINR, monthKeyLabel, currentMonthKey, ordinalSuffix, addMonths, todayStr } from '../core/format.js';
 import { authReady } from '../core/auth.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
@@ -36,6 +36,30 @@ const ICONS = {
   delete: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`,
   edit: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`
 };
+
+function sipDeductionDate(sip, monthKey) {
+  const [year, month] = monthKey.split('-').map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const targetDay = Math.min(Math.max(Number(sip.dayOfMonth) || 1, 1), daysInMonth);
+  return `${monthKey}-${String(targetDay).padStart(2, '0')}`;
+}
+
+function sipActionMonth(sip, currentMonth, currentMonthData) {
+  const skipMonths = sip.skipMonths || [];
+  const deletedSip = currentMonthData.deletedSip || [];
+
+  // Keep targeting the current month when an existing skip/removal needs
+  // to be cancelled.
+  if (skipMonths.includes(currentMonth) || deletedSip.includes(sip.id)) {
+    return currentMonth;
+  }
+
+  // Once the current deduction has been auto-logged, future controls must
+  // not retroactively remove it.
+  return sipDeductionDate(sip, currentMonth) <= todayStr()
+    ? addMonths(currentMonth, 1)
+    : currentMonth;
+}
 
 async function renderSips() {
   if (!domainLoaded) {
@@ -92,7 +116,12 @@ async function renderSips() {
   `;
 
   const renderCard = (s, isPaused) => {
-    const isSkippedThisMonth = (s.skipMonths && s.skipMonths.includes(currentMonth)) || currentDeletedSips.includes(s.id);
+    const skipTargetMonth = sipActionMonth(s, currentMonth, monthData);
+    const isSkippedTargetMonth =
+      (s.skipMonths && s.skipMonths.includes(skipTargetMonth)) ||
+      (skipTargetMonth === currentMonth && currentDeletedSips.includes(s.id));
+    const skipTargetLabel = monthKeyLabel(skipTargetMonth);
+
     return `
     <div class="sip-card ${isPaused ? 'paused' : ''}">
       <div class="sip-card-header">
@@ -110,7 +139,7 @@ async function renderSips() {
       <div class="sip-card-footer">
         <div class="sip-amount"><strong>${fmtINR(s.amount)}</strong><span class="sip-mo">/ mo</span></div>
         <div class="sip-actions">
-          ${!isPaused ? `<button class="icon-btn ${isSkippedThisMonth ? 'skipped-active' : ''}" data-skip-sip="${s.id}" title="${isSkippedThisMonth ? 'Cancel skip for this month' : 'Skip next deduction'}">${ICONS.skip}</button>` : ''}
+          ${!isPaused ? `<button class="icon-btn ${isSkippedTargetMonth ? 'skipped-active' : ''}" data-skip-sip="${s.id}" title="${isSkippedTargetMonth ? `Cancel skip for ${skipTargetLabel}` : `Skip ${skipTargetLabel} deduction`}">${ICONS.skip}</button>` : ''}
           ${!isPaused ? `<button class="icon-btn" data-pause-sip="${s.id}" title="Pause SIP">${ICONS.pause}</button>` : `<button class="icon-btn restore-active" data-resume-sip="${s.id}" title="Resume SIP">${ICONS.resume}</button>`}
           <button class="icon-btn danger-hover" data-popover-trigger data-del-sip-series="${s.id}" title="Delete SIP">${ICONS.delete}</button>
         </div>
@@ -277,25 +306,42 @@ root.addEventListener('click', async (ev) => {
   if (skipBtn) {
     const sipId = skipBtn.dataset.skipSip;
     const sip = sipSeries.find(s => s.id === sipId);
-    const mKey = currentMonthKey();
-    
-    const monthData = await Store.get('month:' + mKey, { deletedSip: [] });
+    if (!sip) return;
+
+    const currentKey = currentMonthKey();
+    const monthData = await Store.get('month:' + currentKey, { deletedSip: [] });
     monthData.deletedSip = monthData.deletedSip || [];
 
     sip.skipMonths = sip.skipMonths || [];
-    const isSkipped = sip.skipMonths.includes(mKey) || monthData.deletedSip.includes(sipId);
+    const targetKey = sipActionMonth(sip, currentKey, monthData);
+    const isSkipped =
+      sip.skipMonths.includes(targetKey) ||
+      (targetKey === currentKey && monthData.deletedSip.includes(sipId));
 
     if (isSkipped) {
-      sip.skipMonths = sip.skipMonths.filter(m => m !== mKey);
-      monthData.deletedSip = monthData.deletedSip.filter(id => id !== sipId);
-      showToast('Skip cancelled. Deduction restored for this month.');
+      sip.skipMonths = sip.skipMonths.filter(m => m !== targetKey);
+
+      if (targetKey === currentKey) {
+        monthData.deletedSip = monthData.deletedSip.filter(id => id !== sipId);
+      }
+
+      showToast(`Skip cancelled for ${monthKeyLabel(targetKey)}`);
     } else {
-      sip.skipMonths.push(mKey);
-      if (!monthData.deletedSip.includes(sipId)) monthData.deletedSip.push(sipId);
-      showToast(`Skipping deduction for ${monthKeyLabel(mKey)}`);
+      sip.skipMonths.push(targetKey);
+
+      if (targetKey === currentKey && !monthData.deletedSip.includes(sipId)) {
+        monthData.deletedSip.push(sipId);
+      }
+
+      showToast(`Skipping deduction for ${monthKeyLabel(targetKey)}`);
     }
+
     await Store.set('sipseries', sipSeries);
-    await Store.set('month:' + mKey, monthData);
+
+    if (targetKey === currentKey) {
+      await Store.set('month:' + currentKey, monthData);
+    }
+
     await renderSips();
     return;
   }
@@ -304,11 +350,21 @@ root.addEventListener('click', async (ev) => {
   const pauseBtn = ev.target.closest('[data-pause-sip]');
   if (pauseBtn) {
     const sip = sipSeries.find(s => s.id === pauseBtn.dataset.pauseSip);
+    if (!sip) return;
+
+    const currentKey = currentMonthKey();
+    const monthData = await Store.get('month:' + currentKey, { deletedSip: [] });
+    monthData.deletedSip = monthData.deletedSip || [];
+
+    const pauseFromMonth = sipActionMonth(sip, currentKey, monthData);
+
     sip.status = 'paused';
-    sip.pausedMonth = currentMonthKey();
+    sip.pausedMonth = pauseFromMonth;
+
     await Store.set('sipseries', sipSeries);
     await renderSips();
-    showToast('SIP paused');
+
+    showToast(`SIP paused from ${monthKeyLabel(pauseFromMonth)}`);
     return;
   }
 

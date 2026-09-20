@@ -61,8 +61,13 @@ async function renderCurrentMonthCard(domain) {
   }
   const data = await loadMonth(key);
   const emiRows = emiRowsForMonth(domain.emiSeries, key, data.deletedEmi);
-  const sipRows = sipRowsForMonth(domain.sipSeries, key, data.deletedSip);
-  const recurringRows = recurringRowsForMonth(domain.recurringSeries, key);
+  const sipRows = sipRowsForMonth(domain.sipSeries, key, data.deletedSip, data.sipOverrides);
+  const recurringRows = recurringRowsForMonth(
+    domain.recurringSeries,
+    key,
+    data.deletedRecurring,
+    data.recurringOverrides
+  );
   const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows, recurringRows));
   computeMonthTotals(data.entries.concat(emiRows, sipRows, recurringRows)); // parity with original (unused in markup)
   return `

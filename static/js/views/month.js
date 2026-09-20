@@ -355,7 +355,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
         <div class="subnote">Auto-deducted SIP</div>
       </td>
       <td class="num amt-debit">-${fmtINR(e.amount)}</td>
-      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-skip-sip="${key}|${e.seriesId}" title="Skip this month">✕</button></span></td>
+      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-sip-entry="${key}|${e.seriesId}" title="Edit">${editSvg}</button></span></td>
     </tr>`;
   }
   if (e.type === 'recurring') {
@@ -374,7 +374,16 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
         <div class="subnote">${subnote}</div>
       </td>
       <td class="num amt-debit">-${fmtINR(e.amount)}</td>
-      <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-skip-recurring="${key}|${e.seriesId}" title="Skip this month">✕</button></span></td>
+      <td class="actions-cell">
+        <span class="row-actions">
+          <button
+            class="icon-btn"
+            data-edit-recurring-entry="${key}|${e.seriesId}"
+            title="Edit"
+            type="button"
+          >${editSvg}</button>
+        </span>
+      </td>
     </tr>`;
   }
   if (e.type === 'emi') {
@@ -434,6 +443,140 @@ function renderTagField() {
         <option value="" disabled selected>Select...</option>
       </select>
       <input id="f-subcat-custom" type="text" placeholder="Name" style="display:none; flex:1;" />
+    </div>
+  </div>`;
+}
+
+function renderSipInlineEdit(entry, mk) {
+  const catConfig = {
+    'mutual fund': { label: 'MF', cls: 'mf' },
+    'etf': { label: 'ETF', cls: 'etf' },
+    'stock': { label: 'STOCK', cls: 'stock' }
+  };
+  const cat = catConfig[(entry.category || '').toLowerCase()] || { label: 'MF', cls: 'mf' };
+
+  return `
+  <div class="inline-edit-container" data-entry-id="${entry.id}" data-entry-type="sip">
+    <div style="display:flex; gap:16px; align-items:stretch;">
+      <div style="width:120px; flex-shrink:0; display:flex; flex-direction:column; gap:10px; padding-right:16px; border-right:1px dashed var(--sky);">
+        <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:flex-start; justify-content:center;">
+          <span class="tag invest">Investment</span>
+        </div>
+      </div>
+
+      <div style="flex:1; display:flex; flex-direction:column; gap:10px; min-width:0; padding-left:4px;">
+        <div style="display:flex; justify-content:space-between; gap:14px; align-items:center; flex-wrap:wrap;">
+          <div style="min-width:180px; flex:1;">
+            <strong>${escapeHtml(entry.description)}</strong>
+            <span class="src-badge ${cat.cls}">${cat.label}</span>
+            <div class="subnote">Auto-deducted SIP · to change details visit SIP page</div>
+          </div>
+
+          <div class="ie-input-group" style="width:150px;">
+            <input
+              type="number"
+              class="ie-amount field-input"
+              min="0.01"
+              step="0.01"
+              value="${entry.amount}"
+              placeholder="Amount"
+            >
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; align-items:center; margin-top:4px; flex-wrap:wrap;">
+          <button class="btn ghost small" style="padding:4px 16px; font-size:0.75rem;" data-cancel-edit type="button">Cancel</button>
+          <button class="btn primary small" style="padding:4px 16px; font-size:0.75rem;" data-save-sip-entry="${mk}|${entry.seriesId}" type="button">Save</button>
+          <button class="btn danger small" style="padding:4px 8px; font-size:0.75rem;" data-del-sip-entry="${mk}|${entry.seriesId}" type="button">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderRecurringInlineEdit(entry, mk) {
+  let modeText = 'Bank Transfer';
+  let modeBadge = 'SPEND';
+  let modeBadgeStyle = 'background: var(--debit-bg); color: var(--debit);';
+
+  if (entry.paymentMode === 'card') {
+    const card = cardById(cards, entry.cardId);
+    modeText = card ? card.name : 'Credit Card';
+    modeBadge = 'CARD SPEND';
+    modeBadgeStyle = 'background: #FBF0E2; color: #C07A2E;';
+  }
+
+  return `
+  <div
+    class="inline-edit-container"
+    data-entry-id="${entry.id}"
+    data-entry-type="recurring"
+  >
+    <div style="display:flex; gap:16px; align-items:stretch;">
+      <div
+        style="width:120px; flex-shrink:0; display:flex; flex-direction:column; gap:10px; padding-right:16px; border-right:1px dashed var(--sky);"
+      >
+        <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center;">
+          <span
+            class="tag"
+            style="background:#FCE8E6; color:#B0556F;"
+          >RECURRING</span>
+        </div>
+      </div>
+
+      <div
+        style="flex:1; display:flex; flex-direction:column; gap:10px; min-width:0; padding-left:4px;"
+      >
+        <div
+          style="display:flex; justify-content:space-between; gap:14px; align-items:center; flex-wrap:wrap;"
+        >
+          <div style="min-width:180px; flex:1;">
+            <strong>${escapeHtml(entry.description)}</strong>
+            <span class="src-badge" style="${modeBadgeStyle}">
+              ${modeBadge}
+            </span>
+            <div class="subnote">
+              ${escapeHtml(modeText)} ·  to change details visit Subscriptions page
+            </div>
+          </div>
+
+          <div class="ie-input-group" style="width:150px;">
+            <input
+              type="number"
+              class="ie-amount field-input"
+              min="0.01"
+              step="0.01"
+              value="${entry.amount}"
+              placeholder="Amount"
+            >
+          </div>
+        </div>
+
+        <div
+          style="display:flex; justify-content:flex-end; gap:10px; align-items:center; margin-top:4px; flex-wrap:wrap;"
+        >
+          <button
+            class="btn ghost small"
+            style="padding:4px 16px; font-size:0.75rem;"
+            data-cancel-edit
+            type="button"
+          >Cancel</button>
+
+          <button
+            class="btn primary small"
+            style="padding:4px 16px; font-size:0.75rem;"
+            data-save-recurring-entry="${mk}|${entry.seriesId}"
+            type="button"
+          >Save</button>
+
+          <button
+            class="btn danger small"
+            style="padding:4px 8px; font-size:0.75rem;"
+            data-del-recurring-entry="${mk}|${entry.seriesId}"
+            type="button"
+          >Delete</button>
+        </div>
+      </div>
     </div>
   </div>`;
 }
@@ -1049,8 +1192,39 @@ async function renderMonth() {
     }
 
     const emiRows = emiRowsForMonth(emiSeries, monthKey, data.deletedEmi);
-    const sipRows = sipRowsForMonth(sipSeries, monthKey, data.deletedSip);
-    const recurringRows = recurringRowsForMonth(recurringSeries, monthKey, data.deletedRecurring);
+    const sipRows = sipRowsForMonth(sipSeries, monthKey, data.deletedSip, data.sipOverrides);
+
+    const sipCardSeries = sipSeries.map(sip => ({
+      ...sip,
+      skipMonths: []
+    }));
+    const sipCardRows = sipRowsForMonth(
+      sipCardSeries,
+      monthKey,
+      [],
+      data.sipOverrides
+    );
+
+    const recurringRows = recurringRowsForMonth(
+      recurringSeries,
+      monthKey,
+      data.deletedRecurring,
+      data.recurringOverrides
+    );
+
+    const recurringCardSeries = recurringSeries.map(series => ({
+      ...series,
+      skipMonths: [],
+      status: 'active',
+      pausedMonth: null
+    }));
+
+    const recurringCardRows = recurringRowsForMonth(
+      recurringCardSeries,
+      monthKey,
+      [],
+      data.recurringOverrides
+    );
 
     const emiRowsFiltered = emiRows.filter(r => r.date <= todayStr());
     const sipRowsFiltered = sipRows.filter(r => r.date <= todayStr());
@@ -1326,8 +1500,8 @@ async function renderMonth() {
     let sipCardsHtml = '';
     let sipFilterHtml = '';
 
-    if (sipRows.length) {
-      let sortedSips = [...sipRows].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
+    if (sipCardRows.length) {
+      let sortedSips = [...sipCardRows].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
 
       const categories = ['All', 'Mutual Fund', 'ETF', 'Stock'];
       const displayNames = { 'All': 'All', 'Mutual Fund': 'Mutual Funds', 'ETF': 'ETFs', 'Stock': 'Stocks' };
@@ -1355,6 +1529,47 @@ async function renderMonth() {
         const cardsHtml = sortedSips.map(e => {
           const dayNum = new Date(e.date + 'T00:00:00').getDate();
           const cat = catConfig[(e.category || '').toLowerCase()] || { label: 'MF', cls: 'mf' };
+
+          const skipTargetMonth =
+            monthKey === currentMonthKey() && e.date <= todayStr()
+              ? addMonths(monthKey, 1)
+              : monthKey;
+
+          const sipSeriesItem = sipSeries.find(s => s.id === e.seriesId);
+          const isSkippedForTarget =
+            !!sipSeriesItem?.skipMonths?.includes(skipTargetMonth);
+
+          const today = todayStr();
+
+          let nextDeductionMonth = monthKey;
+
+          if (monthKey === currentMonthKey() && e.date < today) {
+            nextDeductionMonth = addMonths(monthKey, 1);
+          }
+
+          if (isSkippedForTarget && nextDeductionMonth === skipTargetMonth) {
+            nextDeductionMonth = addMonths(skipTargetMonth, 1);
+          }
+
+          const [nextYear, nextMonth] = nextDeductionMonth.split('-').map(Number);
+          const daysInNextMonth = new Date(nextYear, nextMonth, 0).getDate();
+
+          const configuredDay = Math.max(
+            1,
+            Number(sipSeriesItem?.dayOfMonth) || dayNum
+          );
+
+          const nextDeductionDay = Math.min(configuredDay, daysInNextMonth);
+
+          const nextDeductionLabel = new Date(
+            nextYear,
+            nextMonth - 1,
+            nextDeductionDay
+          ).toLocaleDateString('en-IN', {
+            month: 'short',
+            year: '2-digit'
+          });
+
           return `
           <div class="month-sip-card">
             <div class="month-sip-card-header">
@@ -1368,16 +1583,41 @@ async function renderMonth() {
                 </h4>
               </div>
             </div>
-            <div class="emi-stats" style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: auto; margin-bottom: 4px;">
-              Next deduction: ${dayNum}${ordinalSuffix(dayNum)}
+            <div
+              class="emi-stats"
+              style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: auto; margin-bottom: 4px;"
+            >
+              Next deduction:
+              ${nextDeductionDay}${ordinalSuffix(nextDeductionDay)}
+              <strong>${escapeHtml(nextDeductionLabel)}</strong>
             </div>
+
             <div class="month-sip-card-footer" style="margin-top: 0;">
               <div class="num recurring-card" style="font-size: 1.15rem; font-weight: 600; color: var(--blue);">
                 -${fmtINR(e.amount)}
               </div>
-              <button class="icon-btn" data-popover-trigger data-skip-sip="${monthKey}|${e.seriesId}" title="Skip this month" style="background: var(--ice-2); border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
-                ⤵
-              </button>
+
+              ${isSkippedForTarget ? `
+                <button
+                  class="btn danger small month-sip-unskip-btn"
+                  data-unskip-sip="${skipTargetMonth}|${e.seriesId}"
+                  type="button"
+                  title="Restore ${escapeHtml(nextDeductionLabel)} deduction"
+                >
+                  Unskip
+                </button>
+              ` : `
+                <button
+                  class="icon-btn"
+                  data-popover-trigger
+                  data-skip-sip="${skipTargetMonth}|${e.seriesId}"
+                  type="button"
+                  title="Skip ${escapeHtml(nextDeductionLabel)}f deduction"
+                  style="background: var(--ice-2); border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;"
+                >
+                  ⤵
+                </button>
+              `}
             </div>
           </div>`;
         }).join('');
@@ -1388,26 +1628,87 @@ async function renderMonth() {
       }
     }
 
-    const recurringCardsHtml = recurringRows.length ? `<div class="month-sip-grid">` + recurringRows.map(e => {
-      const dayNum = new Date(e.date + 'T00:00:00').getDate();
-      let modeText = 'Bank Transfer';
-      let modeBadge = 'SPEND';
-      let modeBadgeBg = 'var(--debit-bg)';
-      let modeBadgeColor = 'var(--debit)';
-      
-      if (e.paymentMode === 'card') {
-        const c = cards.find(card => card.id === e.cardId);
-        modeText = c ? c.name : 'Credit Card';
-        modeBadge = 'CARD SPEND';
-        modeBadgeBg = '#FBF0E2';
-        modeBadgeColor = '#C07A2E';
-      }
+    const recurringCardsHtml = recurringCardRows.length
+      ? `<div class="month-sip-grid">` + recurringCardRows.map(e => {
+          const dayNum = new Date(e.date + 'T00:00:00').getDate();
+          const recurringItem = recurringSeries.find(s => s.id === e.seriesId);
 
-      return `
-      <div class="month-sip-card">
-        <div class="month-sip-card-header">
-          <div style="width: 100%;">
-            <h4 style="margin-bottom: 0; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
+          const deductionPassed =
+            monthKey === currentMonthKey() &&
+            e.date < todayStr();
+
+          const actionMonth = deductionPassed
+            ? addMonths(monthKey, 1)
+            : monthKey;
+
+          const isSkippedForTarget =
+            !!recurringItem?.skipMonths?.includes(actionMonth) ||
+            (
+              actionMonth === monthKey &&
+              (data.deletedRecurring || []).includes(e.seriesId)
+            );
+
+          let nextDeductionMonth = deductionPassed
+            ? addMonths(monthKey, 1)
+            : monthKey;
+
+          if (
+            recurringItem?.skipMonths?.includes(nextDeductionMonth) ||
+            (
+              nextDeductionMonth === monthKey &&
+              (data.deletedRecurring || []).includes(e.seriesId)
+            )
+          ) {
+            nextDeductionMonth = addMonths(nextDeductionMonth, 1);
+          }
+
+          const [nextYear, nextMonth] = nextDeductionMonth
+            .split('-')
+            .map(Number);
+
+          const daysInNextMonth = new Date(
+            nextYear,
+            nextMonth,
+            0
+          ).getDate();
+
+          const configuredDay = Math.max(
+            1,
+            Number(recurringItem?.dayOfMonth) || dayNum
+          );
+
+          const nextDeductionDay = Math.min(
+            configuredDay,
+            daysInNextMonth
+          );
+
+          const nextDeductionLabel = new Date(
+            nextYear,
+            nextMonth - 1,
+            nextDeductionDay
+          ).toLocaleDateString('en-IN', {
+            month: 'short',
+            year: '2-digit'
+          });
+
+          let modeText = 'Bank Transfer';
+          let modeBadge = 'SPEND';
+          let modeBadgeBg = 'var(--debit-bg)';
+          let modeBadgeColor = 'var(--debit)';
+
+          if (e.paymentMode === 'card') {
+            const c = cards.find(card => card.id === e.cardId);
+            modeText = c ? c.name : 'Credit Card';
+            modeBadge = 'CARD SPEND';
+            modeBadgeBg = '#FBF0E2';
+            modeBadgeColor = '#C07A2E';
+          }
+
+          return `
+          <div class="month-sip-card">
+            <div class="month-sip-card-header">
+              <div style="width: 100%;">
+                <h4 style="margin-bottom: 0; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
                   <span style="word-break: break-word;">${escapeHtml(e.description)}</span>
                   <span style="display: inline-flex; gap: 4px; align-items: center; flex-shrink: 0;">
                     <span class="src-badge" style="background: ${modeBadgeBg}; color: ${modeBadgeColor};">${modeBadge}</span>
@@ -1416,19 +1717,49 @@ async function renderMonth() {
                 </h4>
               </div>
             </div>
-            <div class="emi-stats" style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: auto; margin-bottom: 4px;">
-              Next deduction: ${dayNum}${ordinalSuffix(dayNum)} via ${escapeHtml(modeText)}
+
+            <div
+              class="emi-stats"
+              style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: auto; margin-bottom: 4px;"
+            >
+              Next deduction:
+              ${nextDeductionDay}${ordinalSuffix(nextDeductionDay)}
+              <strong>${escapeHtml(nextDeductionLabel)}</strong>
+              via ${escapeHtml(modeText)}
             </div>
+
             <div class="month-sip-card-footer" style="margin-top: 0;">
-          <div class="num recurring-card" style="font-size: 1.15rem; font-weight: 600; color: var(--blue);">
-            -${fmtINR(e.amount)}
-          </div>
-          <button class="icon-btn" data-popover-trigger data-skip-recurring="${monthKey}|${e.seriesId}" title="Skip this month" style="background: var(--ice-2); border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
-            ⤵
-          </button>
-        </div>
-      </div>`;
-    }).join('') + `</div>` : '';
+              <div class="num recurring-card" style="font-size: 1.15rem; font-weight: 600; color: var(--blue);">
+                -${fmtINR(e.amount)}
+              </div>
+
+              <div style="display:flex; align-items:center; gap:6px;">
+                ${isSkippedForTarget ? `
+                  <button
+                    class="btn danger small month-skip-unskip-btn"
+                    data-unskip-recurring="${actionMonth}|${e.seriesId}"
+                    type="button"
+                    title="Restore recurring deduction"
+                  >
+                    Unskip
+                  </button>
+                ` : `
+                  <button
+                    class="icon-btn"
+                    data-popover-trigger
+                    data-skip-recurring="${actionMonth}|${e.seriesId}"
+                    type="button"
+                    title="Skip this deduction"
+                    style="background: var(--ice-2); border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;"
+                  >
+                    ⤵
+                  </button>
+                `}
+              </div>
+            </div>
+          </div>`;
+        }).join('') + `</div>`
+      : '';
 
     // Only debts genuinely incurred THIS month's own entries count towards
     // this month's Lent segment — split-page and historical-month debts are
@@ -2198,6 +2529,76 @@ root.addEventListener('click', async (ev) => {
   const submitBtn = ev.target.closest('[data-submit]');
   if (submitBtn) { await handleSubmit(submitBtn.dataset.submit); return; }
 
+  const editSipEntry = ev.target.closest('[data-edit-sip-entry]');
+  if (editSipEntry) {
+    const [mk, seriesId] = editSipEntry.dataset.editSipEntry.split('|');
+    const data = await loadMonth(mk);
+
+    const entryToEdit = sipRowsForMonth(
+      sipSeries,
+      mk,
+      data.deletedSip,
+      data.sipOverrides
+    ).find(e => e.seriesId === seriesId);
+
+    if (!entryToEdit) return;
+
+    const tr = editSipEntry.closest('tr');
+    const tds = Array.from(tr.children);
+
+    tds.forEach(td => {
+      if (!td.classList.contains('dv-date')) td.style.display = 'none';
+    });
+
+    const editTd = document.createElement('td');
+    editTd.colSpan = tds.length - (tr.querySelector('.dv-date') ? 1 : 0);
+    editTd.className = 'edit-td';
+    editTd.style.padding = '0';
+    editTd.innerHTML = renderSipInlineEdit(entryToEdit, mk);
+
+    tr.appendChild(editTd);
+    tr.classList.add('is-editing');
+    return;
+  }
+
+  const editRecurringEntry = ev.target.closest('[data-edit-recurring-entry]');
+  if (editRecurringEntry) {
+    const [mk, seriesId] =
+      editRecurringEntry.dataset.editRecurringEntry.split('|');
+
+    const data = await loadMonth(mk);
+
+    const entryToEdit = recurringRowsForMonth(
+      recurringSeries,
+      mk,
+      data.deletedRecurring,
+      data.recurringOverrides
+    ).find(e => e.seriesId === seriesId);
+
+    if (!entryToEdit) return;
+
+    const tr = editRecurringEntry.closest('tr');
+    const tds = Array.from(tr.children);
+
+    tds.forEach(td => {
+      if (!td.classList.contains('dv-date')) {
+        td.style.display = 'none';
+      }
+    });
+
+    const editTd = document.createElement('td');
+    editTd.colSpan =
+      tds.length - (tr.querySelector('.dv-date') ? 1 : 0);
+
+    editTd.className = 'edit-td';
+    editTd.style.padding = '0';
+    editTd.innerHTML = renderRecurringInlineEdit(entryToEdit, mk);
+
+    tr.appendChild(editTd);
+    tr.classList.add('is-editing');
+    return;
+  }
+
   const editEntry = ev.target.closest('[data-edit-entry]');
   if (editEntry) {
     const [mk, id] = editEntry.dataset.editEntry.split('|');
@@ -2218,6 +2619,76 @@ root.addEventListener('click', async (ev) => {
     
     tr.appendChild(editTd);
     tr.classList.add('is-editing');
+    return;
+  }
+
+  const saveSipEntry = ev.target.closest('[data-save-sip-entry]');
+  if (saveSipEntry) {
+    const [mk, seriesId] = saveSipEntry.dataset.saveSipEntry.split('|');
+    const container = saveSipEntry.closest('.inline-edit-container');
+    const newAmt = Number(container.querySelector('.ie-amount').value);
+
+    if (!Number.isFinite(newAmt) || newAmt <= 0) {
+      showToast('Enter a valid SIP amount.');
+      return;
+    }
+
+    const data = await loadMonth(mk);
+    data.sipOverrides = data.sipOverrides || {};
+
+    const series = sipSeries.find(s => s.id === seriesId);
+
+    // Avoid storing a redundant override if the user restores the normal
+    // recurring SIP amount.
+    if (series && Math.abs((Number(series.amount) || 0) - newAmt) <= 0.004) {
+      delete data.sipOverrides[seriesId];
+    } else {
+      data.sipOverrides[seriesId] = newAmt;
+    }
+
+    await saveMonth(mk);
+    await renderMonth();
+    showToast('SIP amount updated for this month');
+    return;
+  }
+
+  const saveRecurringEntry = ev.target.closest('[data-save-recurring-entry]');
+  if (saveRecurringEntry) {
+    const [mk, seriesId] =
+      saveRecurringEntry.dataset.saveRecurringEntry.split('|');
+
+    const container =
+      saveRecurringEntry.closest('.inline-edit-container');
+
+    const newAmt = Number(
+      container.querySelector('.ie-amount').value
+    );
+
+    if (!Number.isFinite(newAmt) || newAmt <= 0) {
+      showToast('Enter a valid recurring amount.');
+      return;
+    }
+
+    const data = await loadMonth(mk);
+    data.recurringOverrides = data.recurringOverrides || {};
+
+    const series = recurringSeries.find(
+      s => s.id === seriesId
+    );
+
+    if (
+      series &&
+      Math.abs((Number(series.amount) || 0) - newAmt) <= 0.004
+    ) {
+      delete data.recurringOverrides[seriesId];
+    } else {
+      data.recurringOverrides[seriesId] = newAmt;
+    }
+
+    await saveMonth(mk);
+    await renderMonth();
+
+    showToast('Recurring amount updated for this month');
     return;
   }
 
@@ -2425,6 +2896,49 @@ root.addEventListener('click', async (ev) => {
      return;
   }
 
+  const delSipEntry = ev.target.closest('[data-del-sip-entry]');
+  if (delSipEntry) {
+    const [mk, seriesId] = delSipEntry.dataset.delSipEntry.split('|');
+    const data = await loadMonth(mk);
+
+    data.deletedSip = data.deletedSip || [];
+    data.sipOverrides = data.sipOverrides || {};
+
+    if (!data.deletedSip.includes(seriesId)) {
+      data.deletedSip.push(seriesId);
+    }
+
+    delete data.sipOverrides[seriesId];
+
+    await saveMonth(mk);
+    await renderMonth();
+    showToast('SIP entry removed for this month');
+    return;
+  }
+
+  const delRecurringEntry = ev.target.closest('[data-del-recurring-entry]');
+  if (delRecurringEntry) {
+    const [mk, seriesId] =
+      delRecurringEntry.dataset.delRecurringEntry.split('|');
+
+    const data = await loadMonth(mk);
+
+    data.deletedRecurring = data.deletedRecurring || [];
+    data.recurringOverrides = data.recurringOverrides || {};
+
+    if (!data.deletedRecurring.includes(seriesId)) {
+      data.deletedRecurring.push(seriesId);
+    }
+
+    delete data.recurringOverrides[seriesId];
+
+    await saveMonth(mk);
+    await renderMonth();
+
+    showToast('Recurring entry removed for this month');
+    return;
+  }
+
   const delEntry = ev.target.closest('[data-del-entry]');
   if (delEntry) {
     const [mk, id] = delEntry.dataset.delEntry.split('|');
@@ -2492,6 +3006,38 @@ root.addEventListener('click', async (ev) => {
     return;
   }
 
+  const unskipRecurringBtn = ev.target.closest('[data-unskip-recurring]');
+  if (unskipRecurringBtn) {
+    ev.stopPropagation();
+
+    const [targetMonth, seriesId] =
+      unskipRecurringBtn.dataset.unskipRecurring.split('|');
+
+    const recurring = recurringSeries.find(s => s.id === seriesId);
+
+    if (recurring) {
+      recurring.skipMonths = (recurring.skipMonths || [])
+        .filter(m => m !== targetMonth);
+
+      await Store.set('recurringseries', recurringSeries);
+    }
+
+    if (targetMonth === monthKey) {
+      const data = await loadMonth(targetMonth);
+      data.deletedRecurring = (data.deletedRecurring || [])
+        .filter(id => id !== seriesId);
+
+      await saveMonth(targetMonth);
+    }
+
+    await renderMonth();
+
+    showToast(
+      `Recurring deduction restored for ${monthKeyLabel(targetMonth)}`
+    );
+    return;
+  }
+
   const skipRecurringBtn = ev.target.closest('[data-skip-recurring]');
   if (skipRecurringBtn) {
     ev.stopPropagation();
@@ -2502,15 +3048,40 @@ root.addEventListener('click', async (ev) => {
   const confirmSkipRecurring = ev.target.closest('[data-confirm-skip-recurring]');
   if (confirmSkipRecurring) {
     ev.stopPropagation();
+
     const { hideDeleteCallout } = await import('../components/delete-popover.js');
-    const [mk, seriesId] = confirmSkipRecurring.dataset.confirmSkipRecurring.split('|');
-    const data = await loadMonth(mk);
-    data.deletedRecurring = data.deletedRecurring || [];
-    if (!data.deletedRecurring.includes(seriesId)) data.deletedRecurring.push(seriesId);
-    await saveMonth(mk);
+    const [targetMonth, seriesId] =
+      confirmSkipRecurring.dataset.confirmSkipRecurring.split('|');
+
+    const recurring = recurringSeries.find(s => s.id === seriesId);
+
+    if (recurring) {
+      recurring.skipMonths = recurring.skipMonths || [];
+
+      if (!recurring.skipMonths.includes(targetMonth)) {
+        recurring.skipMonths.push(targetMonth);
+      }
+
+      await Store.set('recurringseries', recurringSeries);
+    }
+
+    if (targetMonth === monthKey) {
+      const data = await loadMonth(targetMonth);
+      data.deletedRecurring = data.deletedRecurring || [];
+
+      if (!data.deletedRecurring.includes(seriesId)) {
+        data.deletedRecurring.push(seriesId);
+      }
+
+      await saveMonth(targetMonth);
+    }
+
     hideDeleteCallout();
     await renderMonth();
-    showToast("Skipped this month's recurring expense — balance updated");
+
+    showToast(
+      `Recurring deduction skipped for ${monthKeyLabel(targetMonth)}`
+    );
     return;
   }
 
@@ -2518,6 +3089,30 @@ root.addEventListener('click', async (ev) => {
   if (sipFilterBtn) {
     currentSipFilter = sipFilterBtn.dataset.sipFilter;
     await renderMonth();
+    return;
+  }
+
+  const unskipSipBtn = ev.target.closest('[data-unskip-sip]');
+  if (unskipSipBtn) {
+    ev.stopPropagation();
+
+    const [targetMonth, seriesId] = unskipSipBtn.dataset.unskipSip.split('|');
+    const sip = sipSeries.find(s => s.id === seriesId);
+
+    if (!sip) return;
+
+    sip.skipMonths = (sip.skipMonths || []).filter(m => m !== targetMonth);
+    await Store.set('sipseries', sipSeries);
+
+    if (targetMonth === monthKey) {
+      const data = await loadMonth(targetMonth);
+      data.deletedSip = data.deletedSip || [];
+      data.deletedSip = data.deletedSip.filter(id => id !== seriesId);
+      await saveMonth(targetMonth);
+    }
+
+    await renderMonth();
+    showToast(`SIP restored for ${monthKeyLabel(targetMonth)}`);
     return;
   }
 
@@ -2532,22 +3127,36 @@ root.addEventListener('click', async (ev) => {
   if (confirmSkipSip) {
     ev.stopPropagation();
     const { hideDeleteCallout } = await import('../components/delete-popover.js');
-    const [mk, seriesId] = confirmSkipSip.dataset.confirmSkipSip.split('|');
-    const data = await loadMonth(mk);
-    data.deletedSip = data.deletedSip || [];
-    if (!data.deletedSip.includes(seriesId)) data.deletedSip.push(seriesId);
-    await saveMonth(mk);
+    const [targetMonth, seriesId] = confirmSkipSip.dataset.confirmSkipSip.split('|');
+
+    // If the current month's deduction already exists, the SIP card passes
+    // the next month here. In that case this month's transaction is untouched.
+    if (targetMonth === monthKey) {
+      const data = await loadMonth(targetMonth);
+      data.deletedSip = data.deletedSip || [];
+
+      if (!data.deletedSip.includes(seriesId)) {
+        data.deletedSip.push(seriesId);
+      }
+
+      await saveMonth(targetMonth);
+    }
 
     const sip = sipSeries.find(s => s.id === seriesId);
+
     if (sip) {
       sip.skipMonths = sip.skipMonths || [];
-      if (!sip.skipMonths.includes(mk)) sip.skipMonths.push(mk);
+
+      if (!sip.skipMonths.includes(targetMonth)) {
+        sip.skipMonths.push(targetMonth);
+      }
+
       await Store.set('sipseries', sipSeries);
     }
 
     hideDeleteCallout();
     await renderMonth();
-    showToast("Skipped this month's SIP — balance updated");
+    showToast(`Skipping SIP deduction for ${monthKeyLabel(targetMonth)}`);
     return;
   }
 

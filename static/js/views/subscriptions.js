@@ -116,7 +116,18 @@ root.addEventListener('click', async (ev) => {
       if (!cardId) { showToast('Add a credit card first'); return; }
     }
 
-    recurringSeries.push({ id: uid(), description: desc, amount, dayOfMonth, paymentMode, cardId, startMonth: currentMonthKey() });
+    recurringSeries.push({ id: uid(), description: desc, amount, dayOfMonth, paymentMode, cardId, startMonth: currentMonthKey() });recurringSeries.push({
+      id: uid(),
+      description: desc,
+      amount,
+      dayOfMonth,
+      paymentMode,
+      cardId,
+      startMonth: currentMonthKey(),
+      status: 'active',
+      pausedMonth: null,
+      skipMonths: []
+    });
     await Store.set('recurringseries', recurringSeries);
     await renderSubscriptions();
     showToast(`Recurring spend will be deducted on the ${dayOfMonth}${ordinalSuffix(dayOfMonth)} of every month`);

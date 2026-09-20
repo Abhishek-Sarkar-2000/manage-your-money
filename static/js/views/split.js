@@ -115,7 +115,13 @@ function renderSplitGroupCard(group) {
       <label class="toggle-switch" title="${isFullySettled ? 'Un-settle all' : 'Settle all'}">
         <input type="checkbox" data-settle-group-toggle="${group.id}" ${isFullySettled ? 'checked' : ''} />
       </label>
-      <button class="icon-btn" data-share-split="${group.id}" title="Share link" type="button">🔗</button>
+      <button
+        class="icon-btn"
+        data-share-split="${group.id}"
+        data-share-group-name="${escapeHtml(group.description || '')}"
+        title="Share link"
+        type="button"
+      >🔗</button>
       <button class="icon-btn" data-popover-trigger data-del-split="${group.id}" title="Delete group" type="button">✕</button>
     </div>`;
 
@@ -886,7 +892,15 @@ root.addEventListener('click', async (ev) => {
       });
       const body = await res.json();
       if (!res.ok) { showToast(body.error || 'Could not create a share link'); return; }
-      await navigator.clipboard.writeText(body.url);
+
+      const shareUrl = new URL(body.url);
+      const groupName = (shareBtn.dataset.shareGroupName || '').trim();
+
+      if (groupName) {
+        shareUrl.searchParams.set('group', groupName);
+      }
+
+      await navigator.clipboard.writeText(shareUrl.toString());
       showToast('Link copied! Anyone with this link can view the split.');
     } catch (e) {
       console.error('share link failed', e);

@@ -127,8 +127,13 @@ function computeMonthlyBreakdownFromBulk(keysAscending, bulkData) {
     if (!data.deletedRecurring) data.deletedRecurring = [];
 
     const emiRows = emiRowsForMonth(emiSeries, k, data.deletedEmi).filter(r => r.date <= todayStr());
-    const sipRows = sipRowsForMonth(sipSeries, k, data.deletedSip).filter(r => r.date <= todayStr());
-    const recurringRows = recurringRowsForMonth(recurringSeries, k, data.deletedRecurring).filter(r => r.date <= todayStr());
+    const sipRows = sipRowsForMonth(sipSeries, k, data.deletedSip, data.sipOverrides).filter(r => r.date <= todayStr());
+    const recurringRows = recurringRowsForMonth(
+      recurringSeries,
+      k,
+      data.deletedRecurring,
+      data.recurringOverrides
+    ).filter(r => r.date <= todayStr());
     const allRows = data.entries.concat(emiRows, sipRows, recurringRows);
     const totals = computeMonthTotals(allRows);
     const cardMetrics = computeMonthCardMetrics(allRows);
@@ -179,8 +184,13 @@ function renderMonthlyChartsSection(bulkData, allMonthKeys) {
           const data = bulkData['month:' + k] || { entries: [], deletedEmi: [], deletedSip: [], deletedRecurring: [] };
           const allRows = data.entries.concat(
                   emiRowsForMonth(emiSeries, k, data.deletedEmi).filter(r => r.date <= todayStr()),
-                  sipRowsForMonth(sipSeries, k, data.deletedSip).filter(r => r.date <= todayStr()),
-                  recurringRowsForMonth(recurringSeries, k, data.deletedRecurring).filter(r => r.date <= todayStr())
+                  sipRowsForMonth(sipSeries, k, data.deletedSip, data.sipOverrides).filter(r => r.date <= todayStr()),
+                  recurringRowsForMonth(
+                    recurringSeries,
+                    k,
+                    data.deletedRecurring,
+                    data.recurringOverrides
+                  ).filter(r => r.date <= todayStr())
           );
           let monthTotal = 0;
           const tagSums = {};

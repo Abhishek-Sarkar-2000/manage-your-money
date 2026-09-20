@@ -721,8 +721,13 @@ async function renderBudget() {
   recurringSeries = freshRec;
 
   const emiRows = emiRowsForMonth(emiSeries, currentKey, monthData.deletedEmi);
-  const sipRows = sipRowsForMonth(sipSeries, currentKey, monthData.deletedSip);
-  const recurringRows = recurringRowsForMonth(recurringSeries, currentKey, monthData.deletedRecurring);
+  const sipRows = sipRowsForMonth(sipSeries, currentKey, monthData.deletedSip, monthData.sipOverrides);
+  const recurringRows = recurringRowsForMonth(
+    recurringSeries,
+    currentKey,
+    monthData.deletedRecurring,
+    monthData.recurringOverrides
+  );
 
   currentMonthEntries = [
     ...(monthData.entries || []),

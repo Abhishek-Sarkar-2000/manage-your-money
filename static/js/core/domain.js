@@ -114,11 +114,19 @@ export function matchesCategory(entry, targetName, isSub, parentTargetName) {
 export async function loadMonth(key) {
   if (monthCache[key]) return monthCache[key];
   const data = await Store.get('month:' + key, {
-    startingBalanceMode: 'manual', startingBalance: 0, entries: [], deletedEmi: [], deletedSip: [], deletedRecurring: [],
+    startingBalanceMode: 'manual', startingBalance: 0, entries: [], deletedEmi: [], deletedSip: [], deletedRecurring: [], sipOverrides: {},
   });
   if (!data.startingBalanceMode) data.startingBalanceMode = 'manual';
   if (!data.deletedSip) data.deletedSip = [];
   if (!data.deletedRecurring) data.deletedRecurring = [];
+  if (
+    !data.recurringOverrides ||
+    typeof data.recurringOverrides !== 'object' ||
+    Array.isArray(data.recurringOverrides)
+  ) {
+    data.recurringOverrides = {};
+  }
+  if (!data.sipOverrides || typeof data.sipOverrides !== 'object' || Array.isArray(data.sipOverrides)) data.sipOverrides = {};
   monthCache[key] = data;
   return data;
 }
@@ -164,7 +172,7 @@ export function emiRowsForMonth(emiSeries, monthKey, deletedEmi) {
   return rows;
 }
 
-export function sipRowsForMonth(sipSeries, monthKey, deletedSip) {
+export function sipRowsForMonth(sipSeries, monthKey, deletedSip, sipOverrides = {}) {
   const rows = [];
   const [y, m] = monthKey.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
@@ -185,9 +193,15 @@ export function sipRowsForMonth(sipSeries, monthKey, deletedSip) {
     const targetDay = Math.min(Math.max(Number(series.dayOfMonth) || 1, 1), 31);
     const day = Math.min(targetDay, daysInMonth);
     const dateStr = monthKey + '-' + String(day).padStart(2, '0');
+
+    const overrideAmount = Number(sipOverrides?.[series.id]);
+    const amount = Number.isFinite(overrideAmount) && overrideAmount > 0
+      ? overrideAmount
+      : series.amount;
+
     rows.push({
       id: 'sip-' + series.id + '-' + monthKey, type: 'sip', date: dateStr,
-      description: series.description, amount: series.amount, seriesId: series.id,
+      description: series.description, amount, seriesId: series.id,
       category: series.category || 'Mutual Fund',
     });
   }
@@ -197,19 +211,36 @@ export function sipRowsForMonth(sipSeries, monthKey, deletedSip) {
 /* Maps a recurring series' "date of deduction" (1-31) onto a real date for
    the given monthKey, clamping to the month's last valid day when the
    chosen date doesn't exist that month (e.g. the 31st in February). */
-export function recurringRowsForMonth(recurringSeries, monthKey, deletedRecurring) {
+export function recurringRowsForMonth(recurringSeries, monthKey, deletedRecurring, recurringOverrides = {}) {
   const rows = [];
   const [y, m] = monthKey.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
+
   for (const series of recurringSeries) {
     if (series.startMonth && series.startMonth > monthKey) continue;
+    if (series.endMonth && monthKey > series.endMonth) continue;
+
+    if (series.skipMonths && series.skipMonths.includes(monthKey)) continue;
+
+    if (
+      series.status === 'paused' &&
+      (!series.pausedMonth || monthKey >= series.pausedMonth)
+    ) continue;
+
     if ((deletedRecurring || []).includes(series.id)) continue;
+
     const targetDay = Math.min(Math.max(Number(series.dayOfMonth) || 1, 1), 31);
     const day = Math.min(targetDay, daysInMonth);
     const dateStr = monthKey + '-' + String(day).padStart(2, '0');
+
+    const overrideAmount = Number(recurringOverrides?.[series.id]);
+    const amount = Number.isFinite(overrideAmount) && overrideAmount > 0
+      ? overrideAmount
+      : series.amount;
+
     rows.push({
       id: 'recurring-' + series.id + '-' + monthKey, type: 'recurring', date: dateStr,
-      description: series.description, amount: series.amount, seriesId: series.id,
+      description: series.description, amount, seriesId: series.id,
       paymentMode: series.paymentMode || 'bank', cardId: series.cardId || null,
     });
   }
@@ -319,8 +350,13 @@ export async function computeMonthlyBreakdown(monthsIndex, emiSeries, sipSeries,
   for (const k of sortedKeys) {
     const data = await loadMonth(k);
     const emiRows = emiRowsForMonth(emiSeries, k, data.deletedEmi).filter(r => r.date <= todayStr());
-    const sipRows = sipRowsForMonth(sipSeries, k, data.deletedSip).filter(r => r.date <= todayStr());
-    const recurringRows = recurringRowsForMonth(recurringSeries || [], k, data.deletedRecurring).filter(r => r.date <= todayStr());
+    const sipRows = sipRowsForMonth(sipSeries, k, data.deletedSip, data.sipOverrides).filter(r => r.date <= todayStr());
+    const recurringRows = recurringRowsForMonth(
+      recurringSeries || [],
+      k,
+      data.deletedRecurring,
+      data.recurringOverrides
+    ).filter(r => r.date <= todayStr());
     const totals = computeMonthTotals(data.entries.concat(emiRows, sipRows, recurringRows));
     let starting;
     if (data.startingBalanceMode === 'auto' && prevEnding !== null) {
@@ -347,7 +383,7 @@ export async function computeDailyBalanceSeries(monthsIndex, emiSeries, sipSerie
   for (const b of breakdown) {
     const data = await loadMonth(b.monthKey);
     const emiRows = emiRowsForMonth(emiSeries, b.monthKey, data.deletedEmi).filter(r => r.date <= todayStr());
-    const sipRows = sipRowsForMonth(sipSeries, b.monthKey, data.deletedSip).filter(r => r.date <= todayStr());
+    const sipRows = sipRowsForMonth(sipSeries, b.monthKey, data.deletedSip, data.sipOverrides).filter(r => r.date <= todayStr());
     const recurringRows = recurringRowsForMonth(recurringSeries || [], b.monthKey, data.deletedRecurring).filter(r => r.date <= todayStr());
     const relevant = [...data.entries, ...emiRows, ...sipRows, ...recurringRows].filter(e =>
       e.type === 'income' || e.type === 'investment' || e.type === 'emi' || e.type === 'sip' || e.type === 'recurring' || e.type === 'spend' || e.type === 'payback'
@@ -438,7 +474,7 @@ export async function computeGlobalInvestments(monthsIndex, sipSeries, existingI
     for (const e of data.entries) {
       if (e.type === 'investment') monthSum += Number(e.amount) || 0;
     }
-    const sipRows = sipRowsForMonth(sipSeries, k, data.deletedSip).filter(r => r.date <= todayStr());
+    const sipRows = sipRowsForMonth(sipSeries, k, data.deletedSip, data.sipOverrides).filter(r => r.date <= todayStr());
     for (const s of sipRows) monthSum += Number(s.amount) || 0;
 
     if (monthSum > 0) {
@@ -463,7 +499,12 @@ export async function computeGlobalCardDues(monthsIndex, cards, recurringSeries)
   for (const c of cards) perCard[c.id] = { card: c, dues: 0 };
   for (const k of monthsIndex) {
     const data = await loadMonth(k);
-    const recRows = recurringRowsForMonth(recurringSeries || [], k, data.deletedRecurring).filter(r => r.date <= todayStr());
+    const recRows = recurringRowsForMonth(
+      recurringSeries || [],
+      k,
+      data.deletedRecurring,
+      data.recurringOverrides
+    ).filter(r => r.date <= todayStr());
     const allEntries = data.entries.concat(recRows);
     for (const e of allEntries) {
       if ((e.type === 'cardcharge' || (e.type === 'recurring' && e.paymentMode === 'card')) && e.cardId) {

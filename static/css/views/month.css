@@ -260,6 +260,22 @@
   margin-top: auto;
 }
 
+.month-sip-skip-status {
+  color: var(--amber) !important;
+}
+
+.month-sip-skip-status strong {
+  font-weight: 600;
+}
+
+.month-sip-unskip-btn,
+.month-skip-unskip-btn {
+  min-width: 72px;
+  height: 34px;
+  justify-content: center;
+  white-space: nowrap;
+}
+
 /* ---------- EMI Cards ---------- */
 .emi-list {
   display: flex;
