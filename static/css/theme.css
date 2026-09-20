@@ -410,6 +410,23 @@ body {
   border-color: var(--hair) !important;
 }
 
+:root[data-theme="dark"] .field input:hover,
+:root[data-theme="dark"] .balance-box input[type="number"]:hover,
+:root[data-theme="dark"] .field select:hover {
+  background: rgba(31, 36, 55, 0.98) !important;
+  border-color: rgba(125, 156, 255, 0.58) !important;
+}
+
+:root[data-theme="dark"] .field input:focus,
+:root[data-theme="dark"] .balance-box input[type="number"]:focus,
+:root[data-theme="dark"] .field select:focus {
+  background: rgba(31, 36, 55, 1) !important;
+  border-color: var(--blue) !important;
+  box-shadow:
+    0 0 0 3px rgba(89, 130, 255, 0.18),
+    0 3px 10px rgba(0, 0, 0, 0.24);
+}
+
 :root[data-theme="dark"] thead th {
   background: var(--hair) !important;
   color: var(--navy);

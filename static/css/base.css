@@ -309,11 +309,18 @@ a {
 
 .field input:focus,
 .field select:focus {
-  outline: 2px solid var(--sky);
-  outline-offset: 1px;
+  outline: none;
   border-color: var(--blue);
+  background: #fff;
+  box-shadow:
+    0 0 0 3px rgba(66, 118, 255, 0.12),
+    0 2px 7px rgba(11, 37, 69, 0.08);
 }
-
+.field input:hover,
+.field select:hover {
+  border-color: var(--blue);
+  background: #fff;
+}
 .checkline {
   display: flex;
   align-items: center;

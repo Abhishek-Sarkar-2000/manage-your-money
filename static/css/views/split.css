@@ -68,12 +68,115 @@
   padding-right: 0; 
 }
 
+.sgc-header-row.editing-name {
+  align-items: center;
+}
+
+.sgc-name-editor {
+  flex: 1;
+  min-width: 0;
+}
+
+.sgc-name-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 26px;
+  padding: 7px 11px;
+  border: 1px solid var(--sky);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--navy);
+  font-family: 'Fraunces', serif;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow:
+    0 1px 2px rgba(11, 37, 69, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+
+.sgc-name-input:hover {
+  border-color: var(--blue);
+  background: #fff;
+}
+
+.sgc-name-input:focus,
+.split-inline-member-field input:focus {
+  outline: none;
+  border-color: var(--blue);
+  background: #fff;
+  box-shadow:
+    0 0 0 3px rgba(66, 118, 255, 0.12),
+    0 2px 7px rgba(11, 37, 69, 0.08);
+}
+
+.sgc-name-input::selection {
+  background: var(--ice);
+  color: var(--navy);
+}
+
 .split-group-card .sgc-actions {
   position: static;
   display: flex;
   gap: 6px;
   align-items: center;
   flex-shrink: 0;
+}
+
+.sgc-name-save-btn {
+  color: var(--credit);
+}
+
+.sgc-name-cancel-btn {
+  color: var(--muted);
+}
+
+.sgc-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--sky);
+}
+
+.sgc-footer-actions .icon-btn {
+  flex-shrink: 0;
+}
+
+:root[data-theme="dark"] .sgc-name-input {
+  background: rgba(25, 29, 45, 0.94);
+  color: #f4f7ff;
+  border-color: rgba(125, 156, 255, 0.34);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+:root[data-theme="dark"] .sgc-name-input:hover,
+:root[data-theme="dark"] .split-inline-member-field input:hover {
+  background: rgba(31, 36, 55, 0.98) !important;
+  border-color: rgba(125, 156, 255, 0.58) !important;
+}
+
+:root[data-theme="dark"] .sgc-name-input:focus,
+:root[data-theme="dark"] .split-inline-member-field input:focus {
+  background: rgba(31, 36, 55, 1) !important;
+  border-color: var(--blue) !important;
+  box-shadow:
+    0 0 0 3px rgba(89, 130, 255, 0.18),
+    0 3px 10px rgba(0, 0, 0, 0.24);
+}
+
+:root[data-theme="dark"] .sgc-name-input::selection {
+  background: rgba(89, 130, 255, 0.32);
+  color: #fff;
 }
 
 .split-settle-card {
@@ -646,15 +749,6 @@
 .split-inline-member-field input::placeholder {
   color: var(--muted);
   opacity: 0.7;
-}
-
-.split-inline-member-field input:hover {
-  border-color: var(--sky);
-}
-
-.split-inline-member-field input:focus {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(55, 112, 190, 0.1);
 }
 
 .split-inline-member-actions {

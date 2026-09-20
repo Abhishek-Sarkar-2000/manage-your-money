@@ -28,6 +28,7 @@ let splitFormOpen = false;
 let splitSpendFormOpen = false;
 let splitAddMemberFormOpen = false;
 let splitAddMemberFormSource = null;
+let splitEditingGroupId = null;
 let splitExpandedId = null;
 let splitSlideDirection = '';
 let animTimeout = null;
@@ -110,33 +111,172 @@ function renderSplitGroupCard(group) {
   const outstanding = cards.filter(c => !c.settled);
   const isFullySettled = cards.length > 0 && outstanding.length === 0;
 
-  const actionsHtml = `
+  const isEditingName = splitEditingGroupId === group.id;
+
+  const editSvg = `
+    <svg
+      viewBox="0 0 24 24"
+      width="15"
+      height="15"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+    </svg>`;
+
+  const tickSvg = `
+    <svg
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.4"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>`;
+
+  const cancelSvg = `
+    <svg
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>`;
+
+  const deleteSvg = `
+    <svg
+      viewBox="0 0 24 24"
+      width="15"
+      height="15"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="3 6 5 6 21 6"></polyline>
+      <path d="M19 6l-1 14H6L5 6"></path>
+      <path d="M8 6V4h8v2"></path>
+      <line x1="10" y1="10" x2="10" y2="17"></line>
+      <line x1="14" y1="10" x2="14" y2="17"></line>
+    </svg>`;
+
+  const headerActionsHtml = `
     <div class="sgc-actions">
-      <label class="toggle-switch" title="${isFullySettled ? 'Un-settle all' : 'Settle all'}">
-        <input type="checkbox" data-settle-group-toggle="${group.id}" ${isFullySettled ? 'checked' : ''} />
+      ${isEditingName ? `
+        <button
+          class="icon-btn sgc-name-save-btn"
+          data-save-split-name="${group.id}"
+          title="Save group name"
+          type="button"
+          aria-label="Save group name"
+        >
+          ${tickSvg}
+        </button>
+        <button
+          class="icon-btn sgc-name-cancel-btn"
+          data-cancel-split-name
+          title="Cancel"
+          type="button"
+          aria-label="Cancel editing group name"
+        >
+          ${cancelSvg}
+        </button>
+      ` : `
+        <button
+          class="icon-btn"
+          data-edit-split-name="${group.id}"
+          title="Edit group name"
+          type="button"
+          aria-label="Edit group name"
+        >
+          ${editSvg}
+        </button>
+        <button
+          class="icon-btn"
+          data-popover-trigger
+          data-del-split="${group.id}"
+          title="Delete group"
+          type="button"
+          aria-label="Delete group"
+        >
+          ${deleteSvg}
+        </button>
+      `}
+    </div>`;
+
+  const footerActionsHtml = `
+    <div class="sgc-footer-actions">
+      <label
+        class="toggle-switch"
+        title="${isFullySettled ? 'Un-settle all' : 'Settle all'}"
+      >
+        <input
+          type="checkbox"
+          data-settle-group-toggle="${group.id}"
+          ${isFullySettled ? 'checked' : ''}
+        />
       </label>
+
       <button
         class="icon-btn"
         data-share-split="${group.id}"
-        data-share-group-name="${escapeHtml(group.description || '')}"
-        title="Share link"
+        title="Copy share link"
         type="button"
-      >🔗</button>
-      <button class="icon-btn" data-popover-trigger data-del-split="${group.id}" title="Delete group" type="button">✕</button>
+        aria-label="Copy share link"
+      >
+        🔗
+      </button>
     </div>`;
+
+  const groupNameHtml = isEditingName
+    ? `
+      <div class="sgc-name-editor" data-split-name-editor>
+        <input
+          class="sgc-name-input"
+          data-split-name-input="${group.id}"
+          type="text"
+          value="${escapeHtml(group.description)}"
+          maxlength="80"
+          autocomplete="off"
+          aria-label="Group name"
+        />
+      </div>`
+    : `<h4>${escapeHtml(group.description)}</h4>`;
 
   return `
   <div class="split-group-card ${active}" data-split-card="${group.id}">
-    <div class="sgc-header-row">
-      <h4>${escapeHtml(group.description)}</h4>
-      ${actionsHtml}
+    <div class="sgc-header-row ${isEditingName ? 'editing-name' : ''}">
+      ${groupNameHtml}
+      ${headerActionsHtml}
     </div>
+
     <div class="sgc-date">${dateLabel}</div>
+
     <div class="sgc-people">
       ${headerRow}
       ${rows}
       ${footerRow}
     </div>
+
+    ${footerActionsHtml}
   </div>`;
 }
 
@@ -874,6 +1014,64 @@ root.addEventListener('click', async (ev) => {
     return;
   }
 
+  const editSplitNameBtn = ev.target.closest('[data-edit-split-name]');
+  if (editSplitNameBtn) {
+    ev.stopPropagation();
+
+    splitEditingGroupId = editSplitNameBtn.dataset.editSplitName;
+    await renderSplit();
+
+    const input = root.querySelector(
+      `[data-split-name-input="${splitEditingGroupId}"]`
+    );
+
+    if (input) {
+      input.focus();
+      input.select();
+    }
+
+    return;
+  }
+
+  const saveSplitNameBtn = ev.target.closest('[data-save-split-name]');
+  if (saveSplitNameBtn) {
+    ev.stopPropagation();
+
+    const groupId = saveSplitNameBtn.dataset.saveSplitName;
+    const input = root.querySelector(
+      `[data-split-name-input="${groupId}"]`
+    );
+
+    const newName = (input?.value || '').trim();
+
+    if (!newName) {
+      showToast('Enter a group name');
+      return;
+    }
+
+    const group = await loadSplit(groupId, false);
+    if (!group) return;
+
+    group.description = newName;
+
+    await saveSplit(groupId);
+
+    splitEditingGroupId = null;
+    await renderSplit();
+
+    showToast('Group name updated');
+    return;
+  }
+
+  const cancelSplitNameBtn = ev.target.closest('[data-cancel-split-name]');
+  if (cancelSplitNameBtn) {
+    ev.stopPropagation();
+
+    splitEditingGroupId = null;
+    await renderSplit();
+    return;
+  }
+
   const shareBtn = ev.target.closest('[data-share-split]');
   if (shareBtn) {
     // Public share links are a backend/database concept — a guest's group
@@ -886,18 +1084,20 @@ root.addEventListener('click', async (ev) => {
     const id = shareBtn.dataset.shareSplit;
     shareBtn.disabled = true;
     try {
+      const group = await loadSplit(id, false);
+
       const res = await fetch('/api/split/share', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: 'split:' + id }),
       });
+
       const body = await res.json();
       if (!res.ok) { showToast(body.error || 'Could not create a share link'); return; }
 
       const shareUrl = new URL(body.url);
-      const groupName = (shareBtn.dataset.shareGroupName || '').trim();
 
-      if (groupName) {
-        shareUrl.searchParams.set('group', groupName);
+      if (group?.description) {
+        shareUrl.searchParams.set('group', group.description);
       }
 
       await navigator.clipboard.writeText(shareUrl.toString());
@@ -912,7 +1112,12 @@ root.addEventListener('click', async (ev) => {
   }
 
   const splitCard = ev.target.closest('[data-split-card]');
-  if (splitCard && !ev.target.closest('.sgc-actions')) {
+  if (
+    splitCard &&
+    !ev.target.closest('.sgc-actions') &&
+    !ev.target.closest('.sgc-footer-actions') &&
+    !ev.target.closest('[data-split-name-editor]')
+  ) {
     const id = splitCard.dataset.splitCard;
     if (animTimeout) clearTimeout(animTimeout);
     if (splitExpandedId === id) { splitExpandedId = null; splitSpendFormOpen = false; splitAddMemberFormOpen = false; await renderSplit(); return; }
