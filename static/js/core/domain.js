@@ -3,7 +3,7 @@
    Each view calls only the pieces it needs — nothing here is invoked at
    boot for every page the way the old loadCore() was. */
 import { Store } from './store.js';
-import { currentMonthKey, diffMonths, todayStr } from './format.js';
+import { currentMonthKey, diffMonths, todayStr, addMonths } from './format.js';
 import { computeSplitPageData } from './split-domain.js';
 
 /* In-memory per-page-load cache. Fresh on every navigation (a real page
@@ -245,6 +245,112 @@ export function recurringRowsForMonth(recurringSeries, monthKey, deletedRecurrin
     });
   }
   return rows;
+}
+
+function dateForMonthDay(monthKey, rawDay) {
+  const [year, month] = monthKey.split('-').map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const day = Math.min(Math.max(Number(rawDay) || 1, 1), daysInMonth);
+  return `${monthKey}-${String(day).padStart(2, '0')}`;
+}
+
+function dayAfter(dateStr) {
+  const date = new Date(`${dateStr}T00:00:00`);
+  date.setDate(date.getDate() + 1);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function creditCardDueDate(statementDate, rawDueDay) {
+  const statementMonthKey = statementDate.slice(0, 7);
+  const billingDay = Number(statementDate.slice(8, 10)) || 1;
+  const dueDay = Math.min(Math.max(Number(rawDueDay) || 1, 1), 31);
+
+  const dueMonthKey = dueDay > billingDay
+    ? statementMonthKey
+    : addMonths(statementMonthKey, 1);
+
+  return dateForMonthDay(dueMonthKey, dueDay);
+}
+
+export function creditCardBillingWindow(card, budgetMonthKey) {
+  const statementMonthKey = budgetMonthKey;
+  const previousStatementMonthKey = addMonths(statementMonthKey, -1);
+  const previousCutoff = dateForMonthDay(previousStatementMonthKey, card?.billingDay);
+  const cycleEnd = dateForMonthDay(statementMonthKey, card?.billingDay);
+
+  return {
+    statementMonthKey,
+    previousStatementMonthKey,
+    cycleStart: dayAfter(previousCutoff),
+    cycleEnd,
+  };
+}
+
+export async function computeCreditCardDueBudget(cards, recurringSeries, budgetMonthKey, asOfDate = todayStr()) {
+  const cardList = Array.isArray(cards) ? cards : [];
+  if (!cardList.length) return { total: 0, cards: [] };
+
+  const statementMonthKey = budgetMonthKey;
+  const previousStatementMonthKey = addMonths(statementMonthKey, -1);
+  const monthKeys = [previousStatementMonthKey, statementMonthKey];
+  const rowsByMonth = new Map();
+
+  await Promise.all(monthKeys.map(async monthKey => {
+    const data = await loadMonth(monthKey);
+    const recurringRows = recurringRowsForMonth(
+      recurringSeries || [],
+      monthKey,
+      data.deletedRecurring,
+      data.recurringOverrides
+    );
+
+    rowsByMonth.set(monthKey, [
+      ...(data.entries || []),
+      ...recurringRows,
+    ]);
+  }));
+
+  const details = cardList.map(card => {
+    const window = creditCardBillingWindow(card, budgetMonthKey);
+    const effectiveEnd = asOfDate < window.cycleEnd ? asOfDate : window.cycleEnd;
+    let amount = 0;
+
+    if (effectiveEnd >= window.cycleStart) {
+      for (const monthKey of monthKeys) {
+        for (const entry of (rowsByMonth.get(monthKey) || [])) {
+          if (!entry.date || entry.date < window.cycleStart || entry.date > effectiveEnd) continue;
+          if (entry.cardId !== card.id) continue;
+
+          const isCardCharge = entry.type === 'cardcharge';
+          const isCardRecurring = entry.type === 'recurring' && entry.paymentMode === 'card';
+
+          if (isCardCharge || isCardRecurring) {
+            amount += Number(entry.amount) || 0;
+          }
+        }
+      }
+    }
+
+    return {
+      cardId: card.id,
+      name: card.name,
+      billingDay: Number(card.billingDay) || 1,
+      dueDay: Number(card.dueDay) || 1,
+      cycleStart: window.cycleStart,
+      cycleEnd: window.cycleEnd,
+      dueDate: creditCardDueDate(window.cycleEnd, card.dueDay),
+      effectiveEnd,
+      amount,
+    };
+  });
+
+  return {
+    total: details.reduce((sum, card) => sum + card.amount, 0),
+    cards: details,
+  };
 }
 
 export function settledLentAmount(entry) {

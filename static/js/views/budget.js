@@ -10,7 +10,7 @@ import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '
 import {
   loadMonth, saveMonth, cardById, allSpendTags, ensureMonthIndexed,
   emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth,
-  computeMonthTotals, computeSpendingBreakdown, spendingAmountForEntry,
+  computeCreditCardDueBudget, computeSpendingBreakdown, spendingAmountForEntry,
   forecastCategorySpend, matchesCategory, migrateBudgetData,
   validateGroupBudget, validateCategoryBudget, validateCategoryMove
 } from '../core/domain.js';
@@ -48,14 +48,17 @@ function classificationOf(cat) {
 }
 
 const dotsSvg = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="12" cy="12" r="2"></circle><circle cx="12" cy="5" r="2"></circle><circle cx="12" cy="19" r="2"></circle></svg>`;
+const deleteBinSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>`;
 
 let budgetData = [];
 let customTags = [];
 let emiSeries = [];
 let sipSeries = [];
 let recurringSeries = [];
+let cards = [];
 let currentMonthEntries = [];
 let scheduledMonthEntries = [];
+let currentCcDueSnapshot = null;
 let monthsIndex = [];
 let domainLoaded = false;
 let isFormOpen = false;
@@ -69,11 +72,9 @@ let entriesByMonthMemo = {};
 let currentKey = currentMonthKey();
 let isPastMonth = false;
 
-const CC_DUES_SYSTEM_TYPE = 'credit-card-dues';
-const CC_DUE_TAG = 'CC due';
-
 async function loadDomain() {
   if (domainLoaded) return;
+
   [customTags, emiSeries, sipSeries, recurringSeries, monthsIndex, goals] = await Promise.all([
     Store.get('custom-spend-tags', []),
     Store.get('emiseries', []),
@@ -82,85 +83,272 @@ async function loadDomain() {
     Store.get('months-index', []),
     Store.get('goals', []),
   ]);
-  
-  // Pre-fetch past 6 months data for the goal algorithm
-  const past6 = [...monthsIndex].filter(m => m < currentMonthKey()).sort().slice(-6);
-  await Promise.all(past6.map(async mk => {
-    const data = await loadMonth(mk);
-    entriesByMonthMemo[mk] = data.entries || [];
-    let bd = await Store.get(`budget-data:${mk}`, null);
-    if (!bd) bd = await Store.get('budget-data', []);
-    budgetDataByMonthMemo[mk] = migrateBudgetData(bd);
-  }));
-  
+
   domainLoaded = true;
 }
 
-async function creditCardDueAmountForMonth(monthKey) {
-  const data = await loadMonth(monthKey);
-  const recurringRows = recurringRowsForMonth(recurringSeries, monthKey, data.deletedRecurring, data.recurringOverrides).filter(row => row.date <= todayStr());
-  return computeMonthTotals((data.entries || []).concat(recurringRows)).cardCharge;
+const CC_DUES_SYSTEM_TYPE = 'credit-card-dues';
+const AUTO_SYSTEM_TYPE = 'auto-spends';
+const CC_DUE_TAG = 'CC due';
+const MANAGED_AUTO_CATEGORIES = new Set(['emi', 'sip', 'recurring']);
+
+function isSystemGroup(group) {
+  return group?.systemType === CC_DUES_SYSTEM_TYPE || group?.systemType === AUTO_SYSTEM_TYPE;
 }
 
-async function ensureCreditCardDuesGroup() {
-  if (currentKey < currentMonthKey()) return;
+function systemDismissedKey(systemType) {
+  return `budget-system-dismissed:${currentKey}:${systemType}`;
+}
 
-  const dismissed = await Store.get(`budget-cc-dues-dismissed:${currentKey}`, false);
-  if (dismissed) return;
+function systemRowsHiddenKey(systemType) {
+  return `budget-system-hidden:${currentKey}:${systemType}`;
+}
 
-  const sourceMonth = addMonths(currentKey, -1);
-  const autoAmount = await creditCardDueAmountForMonth(sourceMonth);
+async function hiddenSystemRows(systemType) {
+  const stored = await Store.get(systemRowsHiddenKey(systemType), { categories: [], items: [] });
+  return {
+    categories: Array.isArray(stored?.categories) ? stored.categories : [],
+    items: Array.isArray(stored?.items) ? stored.items : [],
+  };
+}
+
+async function hideSystemRow(systemType, kind, id) {
+  if (!id) return;
+
+  const hidden = await hiddenSystemRows(systemType);
+  const bucket = kind === 'cat' ? hidden.categories : hidden.items;
+
+  if (!bucket.includes(id)) bucket.push(id);
+  await Store.set(systemRowsHiddenKey(systemType), hidden);
+}
+
+function formatSystemDate(dateStr) {
+  if (!dateStr) return '';
+  return new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+
+function stripManagedAutoCategories(groups) {
+  for (const group of (groups || [])) {
+    if (isSystemGroup(group)) continue;
+
+    const categories = group.categories || [];
+    const removed = categories.filter(cat => MANAGED_AUTO_CATEGORIES.has(String(cat.name || '').trim().toLowerCase()));
+    if (!removed.length) continue;
+
+    const removedBudget = removed.reduce((sum, cat) => sum + (Number(cat.budget) || 0), 0);
+    group.categories = categories.filter(cat => !MANAGED_AUTO_CATEGORIES.has(String(cat.name || '').trim().toLowerCase()));
+    group.budget = Math.max(0, (Number(group.budget) || 0) - removedBudget);
+  }
+
+  return groups || [];
+}
+
+async function ensureCreditCardDuesGroup(snapshot) {
+  const dismissed = await Store.get(systemDismissedKey(CC_DUES_SYSTEM_TYPE), false);
+  if (dismissed) {
+    budgetData = budgetData.filter(group => group.systemType !== CC_DUES_SYSTEM_TYPE);
+    return;
+  }
+
+  const hiddenRows = await hiddenSystemRows(CC_DUES_SYSTEM_TYPE);
+  if (hiddenRows.categories.includes('cc-due')) {
+    budgetData = budgetData.filter(group => group.systemType !== CC_DUES_SYSTEM_TYPE);
+    return;
+  }
+
+  const visibleCards = (snapshot.cards || []).filter(card => !hiddenRows.items.includes(card.cardId));
+  if (!visibleCards.length) {
+    budgetData = budgetData.filter(group => group.systemType !== CC_DUES_SYSTEM_TYPE);
+    return;
+  }
+
+  const visibleTotal = visibleCards.reduce((sum, card) => sum + (Number(card.amount) || 0), 0);
   let group = budgetData.find(item => item.systemType === CC_DUES_SYSTEM_TYPE);
 
-  if (!group && autoAmount <= 0) return;
-
   if (!group) {
-    group = { id: `system-cc-dues-${currentKey}`, name: 'Credit Card Dues', budget: autoAmount, expanded: true, systemType: CC_DUES_SYSTEM_TYPE, sourceMonth, autoManaged: true, categories: [] };
+    group = {
+      id: `system-cc-dues-${currentKey}`,
+      name: 'Credit Card Dues',
+      budget: snapshot.total,
+      expanded: true,
+      systemType: CC_DUES_SYSTEM_TYPE,
+      autoManaged: true,
+      categories: [],
+    };
     budgetData.push(group);
   }
 
+  const existingCategory = (group.categories || []).find(item => item.systemType === CC_DUES_SYSTEM_TYPE);
+  const subcategories = visibleCards.map(card => ({
+    id: `system-cc-card-${currentKey}-${card.cardId}`,
+    name: card.name,
+    displayName: card.name,
+    budget: card.amount,
+    dueDate: card.dueDate,
+    systemType: CC_DUES_SYSTEM_TYPE,
+    systemCardId: card.cardId,
+    subcategories: [],
+  }));
+
+  const categoryBudget = existingCategory?.budgetOverridden
+    ? Number(existingCategory.budget) || 0
+    : visibleTotal;
+
+  const category = {
+    id: `system-cc-due-${currentKey}`,
+    name: CC_DUE_TAG,
+    budget: categoryBudget,
+    budgetOverridden: existingCategory?.budgetOverridden === true,
+    expanded: existingCategory?.expanded !== false,
+    classification: 'essential',
+    systemType: CC_DUES_SYSTEM_TYPE,
+    subcategories,
+  };
+
   group.name = 'Credit Card Dues';
   group.systemType = CC_DUES_SYSTEM_TYPE;
-  group.sourceMonth = sourceMonth;
-
-  let category = (group.categories || []).find(item => item.systemType === CC_DUES_SYSTEM_TYPE || String(item.name || '').toLowerCase() === 'cc due');
-  if (!category) {
-    category = { id: `system-cc-due-${currentKey}`, name: CC_DUE_TAG, budget: Number(group.budget) || autoAmount, expanded: false, subcategories: [], classification: 'essential', systemType: CC_DUES_SYSTEM_TYPE };
-  }
-
-  category.name = CC_DUE_TAG;
-  category.classification = 'essential';
-  category.systemType = CC_DUES_SYSTEM_TYPE;
-  category.subcategories = [];
+  group.categories = [category];
 
   if (group.autoManaged !== false) {
-    group.budget = autoAmount;
-    category.budget = autoAmount;
+    group.budget = category.budget;
     group.autoManaged = true;
   }
+}
 
-  group.categories = [category];
+async function ensureAutoSpendGroup(autoRows) {
+  const dismissed = await Store.get(systemDismissedKey(AUTO_SYSTEM_TYPE), false);
+  if (dismissed) {
+    budgetData = budgetData.filter(group => group.systemType !== AUTO_SYSTEM_TYPE);
+    return;
+  }
+
+  const hiddenRows = await hiddenSystemRows(AUTO_SYSTEM_TYPE);
+  const existingGroup = budgetData.find(item => item.systemType === AUTO_SYSTEM_TYPE);
+  const definitions = [
+    { type: 'emi', name: 'EMI' },
+    { type: 'sip', name: 'SIP' },
+    { type: 'recurring', name: 'Recurring' },
+  ];
+
+  const categories = definitions.map(def => {
+    if (hiddenRows.categories.includes(def.type)) return null;
+
+    const rows = autoRows
+      .filter(row => row.type === def.type && !hiddenRows.items.includes(row.seriesId))
+      .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+
+    if (!rows.length) return null;
+
+    const existingCategory = (existingGroup?.categories || []).find(category =>
+      String(category.name || '').toLowerCase() === def.name.toLowerCase()
+    );
+
+    const subcategories = rows.map(row => {
+      const existingSub = (existingCategory?.subcategories || []).find(sub =>
+        sub.systemSeriesId === row.seriesId
+      );
+      const budget = existingSub?.budgetOverridden
+        ? Number(existingSub.budget) || 0
+        : Number(row.amount) || 0;
+
+      return {
+        id: `system-auto-${currentKey}-${def.type}-${row.seriesId}`,
+        name: row.description || def.name,
+        displayName: `${row.description || def.name} · ${formatSystemDate(row.date)}`,
+        budget,
+        budgetOverridden: existingSub?.budgetOverridden === true,
+        scheduledDate: row.date,
+        systemSeriesId: row.seriesId,
+        systemAutoType: def.type,
+        systemType: AUTO_SYSTEM_TYPE,
+        subcategories: [],
+      };
+    });
+
+    const generatedBudget = subcategories.reduce((sum, sub) => sum + (Number(sub.budget) || 0), 0);
+    const budget = existingCategory?.budgetOverridden
+      ? Number(existingCategory.budget) || 0
+      : generatedBudget;
+
+    return {
+      id: `system-auto-category-${currentKey}-${def.type}`,
+      name: def.name,
+      budget,
+      budgetOverridden: existingCategory?.budgetOverridden === true,
+      expanded: existingCategory?.expanded !== false,
+      classification: def.type === 'sip' ? 'investment' : 'essential',
+      systemAutoType: def.type,
+      systemType: AUTO_SYSTEM_TYPE,
+      subcategories,
+    };
+  }).filter(Boolean);
+
+  if (!categories.length) {
+    budgetData = budgetData.filter(group => group.systemType !== AUTO_SYSTEM_TYPE);
+    return;
+  }
+
+  const total = categories.reduce((sum, category) => sum + category.budget, 0);
+  let group = existingGroup;
+
+  if (!group) {
+    group = {
+      id: `system-auto-${currentKey}`,
+      name: 'AUTO',
+      budget: total,
+      expanded: true,
+      systemType: AUTO_SYSTEM_TYPE,
+      autoManaged: true,
+      categories: [],
+    };
+    budgetData.push(group);
+  }
+
+  group.name = 'AUTO';
+  group.systemType = AUTO_SYSTEM_TYPE;
+  group.categories = categories;
+
+  if (group.autoManaged !== false) {
+    group.budget = total;
+    group.autoManaged = true;
+  }
 }
 
 function renderCreditCardSpendAlert() {
-  if (currentKey !== currentMonthKey()) return '';
-  const cardSpend = computeMonthTotals(currentMonthEntries).cardCharge;
+  if (currentKey !== currentMonthKey() || !currentCcDueSnapshot?.cards?.length) return '';
+
   const nextMonth = monthKeyLabel(addMonths(currentKey, 1));
-  return `<div class="cc-spend-alert"><div class="cc-spend-alert-copy"><span class="cc-spend-alert-eyebrow">Credit card spend this month</span><strong>${fmtINR(cardSpend)}</strong><span>Added to <b>Credit Card Dues</b> budget for ${nextMonth}.</span></div><span class="cc-spend-alert-tag">CC due</span></div>`;
+  const cardRows = currentCcDueSnapshot.cards.map(card =>
+    `<span class="cc-spend-alert-card">${escapeHtml(card.name)} · ${fmtINR(card.amount)} · bills ${formatSystemDate(card.cycleEnd)}</span>`
+  ).join('');
+
+  return `<div class="cc-spend-alert"><div class="cc-spend-alert-copy"><span class="cc-spend-alert-eyebrow">Next credit-card statement reserve</span><strong>${fmtINR(currentCcDueSnapshot.total)}</strong><span>Accruing for the <b>Credit Card Dues</b> budget in ${nextMonth}.</span><div class="cc-spend-alert-cards">${cardRows}</div></div><span class="cc-spend-alert-tag">CC due</span></div>`;
 }
 
-function calculateUsed(name, isSub, parentName) {
+function calculateUsed(name, isSub, parentName, systemRef = null) {
   if (!name || !currentMonthEntries) return 0;
+
   let total = 0;
   const target = String(name).trim().toLowerCase();
+
   for (const e of currentMonthEntries) {
     if (e.type === 'income' || e.type === 'payback' || e.type === 'goal_funding') continue;
+
     const amt = spendingAmountForEntry(e);
     if (amt <= 0) continue;
 
-    // Investments are bucketed from Month/SIP asset categories. This makes
-    // Fund/Stock/FD/Bond/MF/ETF usable as Budget categories without changing
-    // the labels stored by the Month and SIP pages.
+    if (systemRef?.cardId) {
+      if (e.type === 'spend' && String(e.tag || '').trim().toLowerCase() === 'cc due' && e.cardId === systemRef.cardId) {
+        total += amt;
+      }
+      continue;
+    }
+
+    if (systemRef?.seriesId) {
+      if (e.seriesId === systemRef.seriesId) total += amt;
+      continue;
+    }
+
     const investmentBucket = investmentBudgetCategory(e);
     if (!isSub && investmentBucket && investmentBucket.toLowerCase() === target) {
       total += amt;
@@ -169,7 +357,21 @@ function calculateUsed(name, isSub, parentName) {
 
     if (matchesCategory(e, name, isSub, parentName)) total += amt;
   }
+
   return total;
+}
+
+function calculateSystemCategoryUsed(item, parentGroup) {
+  if (!isSystemGroup(parentGroup) || !(item.subcategories || []).length) {
+    return calculateUsed(item.name, false, null);
+  }
+
+  return item.subcategories.reduce((sum, sub) => {
+    return sum + calculateUsed(sub.name, true, item.name, {
+      cardId: sub.systemCardId || null,
+      seriesId: sub.systemSeriesId || null,
+    });
+  }, 0);
 }
 
 // pct -> { label, cls } used for both row status pills and the KPI overall pill
@@ -457,7 +659,11 @@ function renderSummaryCards() {
 
 function renderBudgetRow(item, isSub, parentId, groupId) {
   const parentGroup = budgetData.find(group => group.id === groupId);
-  const isSystemRow = parentGroup?.systemType === CC_DUES_SYSTEM_TYPE;
+  const isSystemRow = isSystemGroup(parentGroup);
+  const isAutoSystemRow = parentGroup?.systemType === AUTO_SYSTEM_TYPE;
+  const isCcSystemRow = parentGroup?.systemType === CC_DUES_SYSTEM_TYPE;
+  const isSystemCategory = isSystemRow && !isSub;
+  const isSystemSubcategory = isSystemRow && isSub;
   let parentName = null;
   if (isSub && parentId) {
     for (const g of budgetData) {
@@ -465,13 +671,21 @@ function renderBudgetRow(item, isSub, parentId, groupId) {
       if (parent) { parentName = parent.name; break; }
     }
   }
-  const used = calculateUsed(item.name, isSub, parentName);
+  const used = !isSub && isSystemRow
+    ? calculateSystemCategoryUsed(item, parentGroup)
+    : calculateUsed(item.name, isSub, parentName, {
+        cardId: item.systemCardId || null,
+        seriesId: item.systemSeriesId || null,
+      });
   const pct = item.budget > 0 ? (used / item.budget) * 100 : 0;
   const isDanger = pct > 100;
   const status = item.budget > 0 ? getStatusInfo(pct) : { label: 'Unassigned', cls: 'status-unassigned' };
 
   let forecastHtml = '';
-  const forecast = forecastCategorySpend(item.name, isSub, parentName, item.budget, currentKey, scheduledMonthEntries);
+  const shouldShowForecast = !isSystemRow || parentGroup?.systemType === AUTO_SYSTEM_TYPE;
+  const forecast = shouldShowForecast
+    ? forecastCategorySpend(item.name, isSub, parentName, item.budget, currentKey, scheduledMonthEntries)
+    : null;
   if (forecast) {
     const svgs = {
       'ok': `<svg class="forecast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
@@ -485,6 +699,41 @@ function renderBudgetRow(item, isSub, parentId, groupId) {
     `;
   }
 
+  if (
+    !forecastHtml &&
+    parentGroup?.systemType === AUTO_SYSTEM_TYPE &&
+    !isSub &&
+    (item.subcategories || []).length > 0
+  ) {
+    const scheduled = item.subcategories
+      .filter(sub => sub.scheduledDate)
+      .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
+
+    const lastScheduled = scheduled[scheduled.length - 1];
+    if (lastScheduled) {
+      forecastHtml = `
+        <div class="budget-forecast ok">
+          <svg class="forecast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span class="bf-text"><span>${fmtINR(item.budget)} auto-spent by ${formatSystemDate(lastScheduled.scheduledDate)}</span></span>
+        </div>
+      `;
+    }
+  }
+
+  if (
+    parentGroup?.systemType === CC_DUES_SYSTEM_TYPE &&
+    isSub &&
+    item.systemCardId &&
+    item.dueDate
+  ) {
+    forecastHtml = `
+      <div class="budget-forecast ok">
+        <svg class="forecast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 15"></polyline></svg>
+        <span class="bf-text"><span>${fmtINR(item.budget)} due by ${formatSystemDate(item.dueDate)}</span></span>
+      </div>
+    `;
+  }
+
   const dragHandleSvg = `<svg class="drag-handle" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"></circle><circle cx="15" cy="6" r="1.6"></circle><circle cx="9" cy="12" r="1.6"></circle><circle cx="15" cy="12" r="1.6"></circle><circle cx="9" cy="18" r="1.6"></circle><circle cx="15" cy="18" r="1.6"></circle></svg>`;
 
   const pencilSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`;
@@ -492,7 +741,7 @@ function renderBudgetRow(item, isSub, parentId, groupId) {
   const warnSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>`;
 
   let chevronHtml = '';
-  if (!isSub && !isSystemRow) {
+  if (!isSub && (!isSystemRow || (item.subcategories || []).length > 0)) {
     chevronHtml = `<button class="toggle-sub ${item.expanded ? 'expanded' : ''}" data-toggle-sub="${item.id}" title="${item.expanded ? 'Collapse' : 'Expand'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>`;
   }
 
@@ -520,18 +769,33 @@ function renderBudgetRow(item, isSub, parentId, groupId) {
         <span class="row-menu-icon">${pencilSvg}</span><span class="row-menu-text">Edit</span>
       </button>
       <button class="icon-btn row-menu-btn" data-popover-trigger data-del-budget="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" ${parentId ? `data-parent-id="${parentId}"` : ''} title="Remove">
-        <span class="row-menu-icon">✕</span><span class="row-menu-text">Delete</span>
+        <span class="row-menu-icon">${deleteBinSvg}</span><span class="row-menu-text">Delete</span>
+      </button>
+    `;
+  } else if (!isPastMonth && isSystemCategory) {
+    actionsContent = `
+      <button class="edit-budget-btn icon-btn row-menu-btn" data-edit-budget="${item.id}" data-type="cat" title="Edit budget">
+        <span class="row-menu-icon">${pencilSvg}</span><span class="row-menu-text">Edit</span>
+      </button>
+      <button class="icon-btn row-menu-btn" data-popover-trigger data-del-budget="${item.id}" data-type="cat" title="Remove">
+        <span class="row-menu-icon">${deleteBinSvg}</span><span class="row-menu-text">Delete</span>
+      </button>
+    `;
+  } else if (!isPastMonth && isSystemSubcategory) {
+    actionsContent = `
+      <button class="icon-btn row-menu-btn" data-popover-trigger data-del-budget="${item.id}" data-type="sub" data-parent-id="${parentId}" title="Remove">
+        <span class="row-menu-icon">${deleteBinSvg}</span><span class="row-menu-text">Delete</span>
       </button>
     `;
   }
 
   return `
-  <div class="budget-row ${isSub ? 'is-sub' : ''} ${isSystemRow ? 'system-cc-due-row' : ''}" data-id="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" data-parent-id="${parentId ? parentId : ''}" data-group-id="${groupId}" draggable="${!isPastMonth && !isSystemRow}">
+  <div class="budget-row ${isSub ? 'is-sub' : ''} ${parentGroup?.systemType === CC_DUES_SYSTEM_TYPE ? 'system-cc-due-row' : ''} ${parentGroup?.systemType === AUTO_SYSTEM_TYPE ? 'system-auto-row' : ''}" data-id="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" data-parent-id="${parentId ? parentId : ''}" data-group-id="${groupId}" draggable="${!isPastMonth && !isSystemRow}">
     <div class="cat-name-col">
       ${classificationHtml}
       <div class="cat-name-inner" style="display:flex; align-items:center; gap:8px;">
         ${isSystemRow ? '' : dragHandleSvg}
-        <span style="font-weight:600; color:var(--navy); font-family:'Source Serif 4', Georgia, serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(item.name)}</span>
+        <span style="font-weight:600; color:var(--navy); font-family:'Source Serif 4', Georgia, serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(item.displayName || item.name)}</span>
       </div>
     </div>
     <div class="budget-amt-col">
@@ -550,9 +814,7 @@ function renderBudgetRow(item, isSub, parentId, groupId) {
     <div class="actions-col">
       ${chevronHtml}
       <div class="row-actions-menu">
-        <button class="icon-btn row-menu-btn" data-view-txns="${escapeHtml(item.name)}" title="View transactions">
-          <span class="row-menu-icon">${eyeSvg}</span><span class="row-menu-text">Check</span>
-        </button>
+        ${!isSystemRow || isSystemCategory ? `<button class="icon-btn row-menu-btn" data-view-txns="${escapeHtml(item.name)}" title="View transactions"><span class="row-menu-icon">${eyeSvg}</span><span class="row-menu-text">Check</span></button>` : ''}
         ${actionsContent}
       </div>
       <button class="icon-btn mobile-actions-toggle" data-toggle-row-actions title="Actions">${dotsSvg}</button>
@@ -730,7 +992,8 @@ async function renderBudget() {
       const lastLogged = monthsIndex.length ? monthsIndex[monthsIndex.length - 1] : null;
       if (lastLogged && lastLogged !== currentKey) {
         const lastBudget = await Store.get(`budget-data:${lastLogged}`, []) || [];
-        budgetData = JSON.parse(JSON.stringify(lastBudget)).filter(group => group.systemType !== CC_DUES_SYSTEM_TYPE);
+        const copiedBudget = JSON.parse(JSON.stringify(lastBudget)).filter(group => !isSystemGroup(group));
+        budgetData = stripManagedAutoCategories(copiedBudget);
       } else {
         budgetData = [];
       }
@@ -738,8 +1001,37 @@ async function renderBudget() {
       budgetData = [];
     }
   }
-  budgetData = migrateBudgetData(budgetData);
-  await ensureCreditCardDuesGroup();
+  budgetData = stripManagedAutoCategories(migrateBudgetData(budgetData));
+
+  const [monthData, freshEmi, freshSip, freshRec, freshCards] = await Promise.all([
+    loadMonth(currentKey),
+    Store.get('emiseries', []),
+    Store.get('sipseries', []),
+    Store.get('recurringseries', []),
+    Store.get('creditcards', []),
+  ]);
+
+  emiSeries = freshEmi;
+  sipSeries = freshSip;
+  recurringSeries = freshRec;
+  cards = freshCards;
+
+  const emiRows = emiRowsForMonth(emiSeries, currentKey, monthData.deletedEmi);
+  const sipRows = sipRowsForMonth(sipSeries, currentKey, monthData.deletedSip, monthData.sipOverrides);
+  const recurringRows = recurringRowsForMonth(recurringSeries, currentKey, monthData.deletedRecurring, monthData.recurringOverrides);
+  const scheduledGeneratedRows = [...sipRows, ...recurringRows, ...emiRows];
+  const postedGeneratedRows = scheduledGeneratedRows.filter(row => !row.date || row.date <= todayStr());
+
+  scheduledMonthEntries = [...(monthData.entries || []), ...scheduledGeneratedRows];
+  currentMonthEntries = [...(monthData.entries || []), ...postedGeneratedRows];
+
+  const ccDueSnapshot = await computeCreditCardDueBudget(cards, recurringSeries, currentKey);
+  currentCcDueSnapshot = currentKey === currentMonthKey()
+    ? await computeCreditCardDueBudget(cards, recurringSeries, addMonths(currentKey, 1))
+    : null;
+
+  await ensureCreditCardDuesGroup(ccDueSnapshot);
+  await ensureAutoSpendGroup(scheduledGeneratedRows);
   await Store.set(`budget-data:${currentKey}`, budgetData);
 
   // Handle deep link from Month -> Budget
@@ -766,46 +1058,35 @@ async function renderBudget() {
     sessionStorage.removeItem('month-to-budget-open');
   }
 
-  const [monthData, freshEmi, freshSip, freshRec] = await Promise.all([
-    loadMonth(currentKey),
-    Store.get('emiseries', []),
-    Store.get('sipseries', []),
-    Store.get('recurringseries', []),
-  ]);
-  emiSeries = freshEmi;
-  sipSeries = freshSip;
-  recurringSeries = freshRec;
-
-  const emiRows = emiRowsForMonth(emiSeries, currentKey, monthData.deletedEmi);
-  const sipRows = sipRowsForMonth(sipSeries, currentKey, monthData.deletedSip, monthData.sipOverrides);
-  const recurringRows = recurringRowsForMonth(recurringSeries, currentKey, monthData.deletedRecurring, monthData.recurringOverrides);
-  const scheduledGeneratedRows = [...sipRows, ...recurringRows, ...emiRows];
-  const postedGeneratedRows = scheduledGeneratedRows.filter(row => !row.date || row.date <= todayStr());
-
-  scheduledMonthEntries = [...(monthData.entries || []), ...scheduledGeneratedRows];
-  currentMonthEntries = [...(monthData.entries || []), ...postedGeneratedRows];
-
   let totalBudget = 0;
   let totalUsed = 0;
 
   let tableRows = '';
   budgetData.forEach(group => {
     const isCcDuesGroup = group.systemType === CC_DUES_SYSTEM_TYPE;
+    const isAutoGroup = group.systemType === AUTO_SYSTEM_TYPE;
+    const isManagedGroup = isCcDuesGroup || isAutoGroup;
+    const systemClass = isCcDuesGroup ? 'system-cc-dues' : (isAutoGroup ? 'system-auto-spends' : '');
+    const systemBadge = isCcDuesGroup ? 'CYCLE' : (isAutoGroup ? 'AUTO' : '');
     let groupAllocated = (group.categories || []).reduce((s, c) => s + (Number(c.budget) || 0), 0);
     let groupUsed = 0;
-    (group.categories || []).forEach(c => groupUsed += calculateUsed(c.name, false, null));
+    (group.categories || []).forEach(c => {
+      groupUsed += isManagedGroup
+        ? calculateSystemCategoryUsed(c, group)
+        : calculateUsed(c.name, false, null);
+    });
     
     tableRows += `
-      <div class="budget-group ${isCcDuesGroup ? 'system-cc-dues' : ''}" data-group-id="${group.id}">
+      <div class="budget-group ${systemClass}" data-group-id="${group.id}">
         <div class="budget-group-header ${group.expanded !== false ? 'expanded' : ''}" data-group-drop-target="${group.id}">
           <button class="toggle-sub ${group.expanded !== false ? 'expanded' : ''}" data-toggle-group="${group.id}" title="${group.expanded !== false ? 'Collapse' : 'Expand'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
-          <span class="bgh-name">${escapeHtml(group.name)}${isCcDuesGroup ? '<span class="system-group-badge">AUTO</span>' : ''}</span>
+          <span class="bgh-name">${escapeHtml(group.name)}${systemBadge ? `<span class="system-group-badge">${systemBadge}</span>` : ''}</span>
           <span class="bgh-amount">${fmtINR(groupUsed)} / ${fmtINR(group.budget)}</span>
           <div class="bgh-actions">
             <div class="row-actions-menu">
               ${!isPastMonth ? `
               <button class="edit-budget-btn icon-btn row-menu-btn" data-edit-budget="${group.id}" data-type="group" title="Edit budget"><span class="row-menu-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></span><span class="row-menu-text">Edit</span></button>
-              <button class="icon-btn row-menu-btn" data-popover-trigger data-del-budget="${group.id}" data-type="group" title="Remove"><span class="row-menu-icon">✕</span><span class="row-menu-text">Delete</span></button>
+              <button class="icon-btn row-menu-btn" data-popover-trigger data-del-budget="${group.id}" data-type="group" title="Remove"><span class="row-menu-icon">${deleteBinSvg}</span><span class="row-menu-text">Delete</span></button>
               ` : ''}
             </div>
             ${!isPastMonth ? `<button class="icon-btn mobile-actions-toggle" data-toggle-row-actions title="Actions">${dotsSvg}</button>` : ''}
@@ -822,19 +1103,19 @@ async function renderBudget() {
           tableRows += renderBudgetRow(sub, true, cat.id, group.id);
         });
       }
-      if (!isPastMonth && !isCcDuesGroup) {
+      if (!isPastMonth && !isManagedGroup) {
         tableRows += `<button class="add-row-btn is-sub" data-inline-add-btn="${cat.id}" data-group-id="${group.id}" type="button">+ Add subcategory for ${escapeHtml(cat.name)}</button>`;
       }
       tableRows += `</div></div>`;
     });
     
-    if (!isPastMonth && !isCcDuesGroup) {
+    if (!isPastMonth && !isManagedGroup) {
       tableRows += `<div style="padding: 12px 16px;"><button class="add-row-btn dashed-add-btn" data-inline-newcat-btn="${group.id}" type="button">+ Add category</button></div>`;
     }
     tableRows += `</div></div></div></div>`;
   });
 
-  const userBudgetGroups = budgetData.filter(group => group.systemType !== CC_DUES_SYSTEM_TYPE);
+  const userBudgetGroups = budgetData.filter(group => !isSystemGroup(group));
   if (userBudgetGroups.length === 0) {
     const hasPrevLogged = monthsIndex.some(m => m < currentKey);
     if (!isPastMonth && hasPrevLogged) {
@@ -969,7 +1250,7 @@ root.addEventListener('dragover', (ev) => {
   const groupHeader = ev.target.closest('.budget-group-header');
   if (groupHeader && draggedItem.type === 'cat') {
     const destGroup = budgetData.find(group => group.id === groupHeader.dataset.groupDropTarget);
-    if (destGroup?.systemType === CC_DUES_SYSTEM_TYPE) {
+    if (isSystemGroup(destGroup)) {
       ev.dataTransfer.dropEffect = 'none';
       return;
     }
@@ -1031,8 +1312,8 @@ root.addEventListener('drop', async (ev) => {
     if (destGroupId !== draggedItem.groupId) {
       const sourceGroup = budgetData.find(g => g.id === draggedItem.groupId);
       const destGroup = budgetData.find(g => g.id === destGroupId);
-      if (destGroup?.systemType === CC_DUES_SYSTEM_TYPE) {
-        showToast('Credit Card Dues is a system-managed group');
+      if (isSystemGroup(destGroup)) {
+        showToast(`${destGroup.name} is a system-managed group`);
         return;
       }
       const catToMove = sourceGroup.categories.find(c => c.id === draggedItem.id);
@@ -1065,8 +1346,8 @@ root.addEventListener('drop', async (ev) => {
   const targetGroupId = row.dataset.groupId;
   const targetGroup = budgetData.find(group => group.id === targetGroupId);
 
-  if (targetGroup?.systemType === CC_DUES_SYSTEM_TYPE) {
-    showToast('Credit Card Dues is a system-managed group');
+  if (isSystemGroup(targetGroup)) {
+    showToast(`${targetGroup.name} is a system-managed group`);
     return;
   }
 
@@ -1146,6 +1427,13 @@ root.addEventListener('drop', async (ev) => {
 });
 
 // Click Handlers
+function deletedAutoField(autoType) {
+  if (autoType === 'sip') return 'deletedSip';
+  if (autoType === 'emi') return 'deletedEmi';
+  if (autoType === 'recurring') return 'deletedRecurring';
+  return null;
+}
+
 root.addEventListener('click', async (ev) => {
   const toggleRowActions = ev.target.closest('[data-toggle-row-actions]');
   if (toggleRowActions) {
@@ -1594,8 +1882,10 @@ root.addEventListener('click', async (ev) => {
         let lastBudget = await Store.get(`budget-data:${lastLogged}`, null);
         if (!lastBudget) lastBudget = await Store.get('budget-data', []) || [];
         
-        const systemGroups = budgetData.filter(group => group.systemType === CC_DUES_SYSTEM_TYPE);
-        const copiedGroups = JSON.parse(JSON.stringify(lastBudget)).filter(group => group.systemType !== CC_DUES_SYSTEM_TYPE);
+        const systemGroups = budgetData.filter(group => isSystemGroup(group));
+        const copiedGroups = stripManagedAutoCategories(
+          JSON.parse(JSON.stringify(lastBudget)).filter(group => !isSystemGroup(group))
+        );
         budgetData = [...copiedGroups, ...systemGroups];
         await Store.set(`budget-data:${currentKey}`, budgetData);
         await renderBudget();
@@ -1719,11 +2009,9 @@ root.addEventListener('click', async (ev) => {
     if (type === 'group') {
       const group = budgetData.find(g => g.id === id);
       if (group) {
-        if (group.systemType === CC_DUES_SYSTEM_TYPE) {
+        if (isSystemGroup(group)) {
           group.budget = newBudget;
           group.autoManaged = false;
-          const category = (group.categories || [])[0];
-          if (category) category.budget = newBudget;
         } else {
           if (!validateGroupBudget(group, newBudget)) {
             showToast('Group budget cannot be less than sum of categories');
@@ -1735,26 +2023,69 @@ root.addEventListener('click', async (ev) => {
     } else if (type === 'cat') {
       for (const g of budgetData) {
         const cat = (g.categories || []).find(c => c.id === id);
-        if (cat) {
-          const tempCat = JSON.parse(JSON.stringify(cat));
-          tempCat.budget = newBudget;
-          if (!validateCategoryBudget(tempCat, newBudget)) { showToast('Budget cannot be less than sum of sub-categories'); return; }
-          cat.budget = newBudget;
-          if (!validateGroupBudget(g, g.budget)) { showToast('Group budget cannot support this increase'); return; }
-          break;
+        if (!cat) continue;
+
+        const tempCat = JSON.parse(JSON.stringify(cat));
+        tempCat.budget = newBudget;
+        if (!validateCategoryBudget(tempCat, newBudget)) {
+          showToast('Budget cannot be less than sum of sub-categories');
+          return;
         }
+
+        if (isSystemGroup(g)) {
+          if (g.autoManaged === false) {
+            const tempGroup = JSON.parse(JSON.stringify(g));
+            const tempTarget = (tempGroup.categories || []).find(c => c.id === id);
+            if (tempTarget) tempTarget.budget = newBudget;
+
+            if (!validateGroupBudget(tempGroup, g.budget)) {
+              showToast('Group budget cannot support this increase');
+              return;
+            }
+          }
+
+          cat.budget = newBudget;
+          cat.budgetOverridden = true;
+
+          if (g.autoManaged !== false) {
+            g.budget = (g.categories || []).reduce(
+              (sum, category) => sum + (Number(category.budget) || 0),
+              0
+            );
+          }
+        } else {
+          cat.budget = newBudget;
+          if (!validateGroupBudget(g, g.budget)) {
+            showToast('Group budget cannot support this increase');
+            return;
+          }
+        }
+        break;
       }
     } else if (type === 'sub') {
       for (const g of budgetData) {
         const parent = (g.categories || []).find(c => c.id === parentId);
-        if (parent) {
+        if (!parent) continue;
+
+        const targetSub = (parent.subcategories || []).find(s => s.id === id);
+        if (!targetSub) continue;
+
+        if (g.systemType === AUTO_SYSTEM_TYPE && targetSub.systemSeriesId) {
+          targetSub.budget = newBudget;
+          targetSub.budgetOverridden = true;
+          parent.budget = (parent.subcategories || []).reduce((sum, sub) => sum + (Number(sub.budget) || 0), 0);
+
+          if (g.autoManaged !== false) {
+            g.budget = (g.categories || []).reduce((sum, category) => sum + (Number(category.budget) || 0), 0);
+          }
+        } else {
           const tempParent = JSON.parse(JSON.stringify(parent));
           const sub = tempParent.subcategories.find(s => s.id === id);
           if (sub) sub.budget = newBudget;
           if (!validateCategoryBudget(tempParent, parent.budget)) { showToast('Sub-category budgets exceed parent budget'); return; }
-          parent.subcategories.find(s => s.id === id).budget = newBudget;
-          break;
+          targetSub.budget = newBudget;
         }
+        break;
       }
     }
 
@@ -1775,27 +2106,46 @@ root.addEventListener('click', async (ev) => {
   if (confirmDel) {
     ev.stopPropagation();
     const [type, parentId, id] = confirmDel.dataset.confirmDelBudget.split('|');
+
     if (type === 'group') {
       const group = budgetData.find(g => g.id === id);
-      if (group?.systemType === CC_DUES_SYSTEM_TYPE) {
-        await Store.set(`budget-cc-dues-dismissed:${currentKey}`, true);
+      if (isSystemGroup(group)) {
+        await Store.set(systemDismissedKey(group.systemType), true);
       }
       budgetData = budgetData.filter(g => g.id !== id);
     } else if (type === 'cat') {
       for (const g of budgetData) {
-        if (g.categories && g.categories.some(c => c.id === id)) {
-          g.categories = g.categories.filter(c => c.id !== id);
-          break;
+        const cat = (g.categories || []).find(c => c.id === id);
+        if (!cat) continue;
+
+        if (g.systemType === AUTO_SYSTEM_TYPE) {
+          await hideSystemRow(AUTO_SYSTEM_TYPE, 'cat', cat.systemAutoType);
+        } else if (g.systemType === CC_DUES_SYSTEM_TYPE) {
+          await hideSystemRow(CC_DUES_SYSTEM_TYPE, 'cat', 'cc-due');
         }
+
+        g.categories = g.categories.filter(c => c.id !== id);
+        break;
       }
     } else {
       for (const g of budgetData) {
         const parent = (g.categories || []).find(c => c.id === parentId);
-        if (parent && parent.subcategories) {
-          parent.subcategories = parent.subcategories.filter(s => s.id !== id);
+        if (!parent || !parent.subcategories) continue;
+
+        const sub = parent.subcategories.find(s => s.id === id);
+        if (!sub) continue;
+
+        if (g.systemType === AUTO_SYSTEM_TYPE && sub.systemSeriesId) {
+          await hideSystemRow(AUTO_SYSTEM_TYPE, 'sub', sub.systemSeriesId);
+        } else if (g.systemType === CC_DUES_SYSTEM_TYPE && sub.systemCardId) {
+          await hideSystemRow(CC_DUES_SYSTEM_TYPE, 'sub', sub.systemCardId);
         }
+
+        parent.subcategories = parent.subcategories.filter(s => s.id !== id);
+        break;
       }
     }
+
     await Store.set(`budget-data:${currentKey}`, budgetData);
     hideDeleteCallout();
     await renderBudget();

@@ -151,11 +151,8 @@
   gap: 16px;
   margin: 14px 0 24px;
   padding: 14px 16px;
-  border: 1px solid rgba(142, 111, 176, 0.28);
+  border: 1px solid;
   border-radius: 12px;
-  background:
-    radial-gradient(circle at 92% 10%, rgba(201, 138, 60, 0.16) 0%, transparent 38%),
-    linear-gradient(135deg, rgba(142, 111, 176, 0.08), rgba(255, 255, 255, 0.9) 55%, rgba(251, 240, 226, 0.72));
 }
 
 .cc-spend-alert-copy {
@@ -180,10 +177,34 @@
 .cc-spend-alert-eyebrow {
   width: 100%;
   color: var(--royal);
+  font-family: 'IBM Plex Mono', monospace;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.cc-spend-alert-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.cc-spend-alert-card {
+  padding: 4px 7px;
+  border: 1px solid rgba(142, 111, 176, 0.18);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.52);
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+}
+
+:root[data-theme="dark"] .cc-spend-alert-card {
+  border-color: rgba(172, 145, 219, 0.19);
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .cc-spend-alert-tag,
@@ -206,11 +227,14 @@
   border: 1px solid rgba(201, 138, 60, 0.28);
 }
 
-:root[data-theme="dark"] .cc-spend-alert {
-  border-color: rgba(172, 145, 219, 0.28);
-  background:
-    radial-gradient(circle at 92% 10%, rgba(209, 139, 54, 0.18) 0%, transparent 40%),
-    linear-gradient(135deg, rgba(73, 59, 103, 0.42), rgba(28, 32, 48, 0.96) 55%, rgba(52, 39, 29, 0.72));
+:root[data-theme="hi-contrast"] .cc-spend-alert {
+  border-color: #000;
+  background: #fff;
+}
+:root[data-theme="hi-contrast"] .cc-spend-alert-tag {
+  border-color: #000;
+  color: #fff;
+  background: var(--amber);
 }
 
 :root[data-theme="dark"] .cc-spend-alert-tag {
@@ -230,19 +254,26 @@
 :root[data-theme="dark"] .budget-group { border-color: var(--sky); }
 :root[data-theme="hi-contrast"] .budget-group { color: #000000; }
 
-.budget-group.system-cc-dues {
-  border-color: rgba(142, 111, 176, 0.34);
+.budget-group.system-cc-dues,
+.budget-group.system-auto-spends,
+.cc-spend-alert {
+  border: 1px solid rgba(142, 111, 176, 0.28);
   background:
-    radial-gradient(circle at 92% 8%, rgba(201, 138, 60, 0.13) 0%, transparent 38%),
-    linear-gradient(135deg, #ffffff 0%, #f7f2ff 52%, #fff8ef 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    radial-gradient(circle at 92% 10%, rgba(225, 179, 123, 0.16) 0%, transparent 38%),
+    linear-gradient(135deg, var(--ice-2), var(--paper) 55%, rgb(255 251 246))
 }
 
-:root[data-theme="dark"] .budget-group.system-cc-dues {
-  border-color: rgba(172, 145, 219, 0.32);
-  background:
-    radial-gradient(circle at 92% 8%, rgba(209, 139, 54, 0.15) 0%, transparent 40%),
-    linear-gradient(140deg, rgba(50, 42, 68, 0.98) 0%, rgba(29, 32, 47, 0.99) 56%, rgba(47, 36, 28, 0.96) 100%);
+:root[data-theme="hi-contrast"] .budget-group.system-cc-dues,
+:root[data-theme="hi-contrast"] .budget-group.system-auto-spends {
+  border-color: #000;
+  background: #fff;
+}
+
+:root[data-theme="dark"] .budget-group.system-cc-dues,
+:root[data-theme="dark"] .budget-group.system-auto-spends,
+:root[data-theme="dark"] .cc-spend-alert {
+  border-color: rgba(172, 145, 219, 0.28);
+  background: linear-gradient(135deg, var(--ice-2) 0%, var(--hair) 55%, rgb(8 6 4))
 }
 
 .system-group-badge {
@@ -260,7 +291,8 @@
   border-color: rgba(172, 145, 219, 0.22);
 }
 
-.system-cc-due-row {
+.system-cc-due-row,
+.system-auto-row {
   background: linear-gradient(90deg, rgba(142, 111, 176, 0.045), rgba(201, 138, 60, 0.035));
 }
 
@@ -275,7 +307,6 @@
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  border-bottom: 1px solid var(--hair);
   font-family: 'Source Serif 4', Georgia, serif;
   position: relative;
   transition: background 0.2s ease;
@@ -286,8 +317,6 @@
 .budget-group-header.expanded {
   border-bottom-color: var(--hair);
 }
-:root[data-theme="dark"] .budget-group-header.expanded { border-bottom-color: var(--sky); }
-:root[data-theme="hi-contrast"] .budget-group-header.expanded { border-bottom-color: #ffffff; }
 
 .bgh-name {
   font-size: 1.15rem;
@@ -311,7 +340,7 @@
   width: auto;
   margin: 0 16px;
 }
-:root[data-theme="hi-contrast"] .bgh-amount { color: #ffffff; }
+:root[data-theme="hi-contrast"] .bgh-amount { color: #000; }
 
 .bgh-actions {
   display: flex;
