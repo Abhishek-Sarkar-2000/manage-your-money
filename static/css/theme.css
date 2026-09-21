@@ -466,7 +466,8 @@ body {
 :root[data-theme="dark"] .field input,
 :root[data-theme="dark"] .emi-stats input,
 :root[data-theme="dark"] .split-inline-member-field input,
-:root[data-theme="dark"] .balance-set-input input {
+:root[data-theme="dark"] .balance-set-input input,
+:root[data-theme="dark"] .budget-amt-col input {
   background: var(--paper) !important;
   color: var(--ink);
   border-color: var(--hair) !important;
@@ -476,6 +477,7 @@ body {
 :root[data-theme="dark"] .emi-stats input:hover,
 :root[data-theme="dark"] .balance-set-input input:hover,
 :root[data-theme="dark"] .field select:hover,
+:root[data-theme="dark"] .budget-amt-col input:hover,
 :root[data-theme="dark"] .table-controls select:hover {
   background: rgba(31, 36, 55, 0.98) !important;
   border-color: rgba(125, 156, 255, 0.58) !important;
@@ -485,6 +487,7 @@ body {
 :root[data-theme="dark"] .emi-stats input:focus,
 :root[data-theme="dark"] .balance-set-input input:focus,
 :root[data-theme="dark"] .field select:focus,
+:root[data-theme="dark"] .budget-amt-col input:focus,
 :root[data-theme="dark"] .table-controls select:open  {
   background: rgba(31, 36, 55, 1) !important;
   border-color: var(--blue) !important;

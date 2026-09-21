@@ -1,7 +1,7 @@
 /* ---------- /budget ---------- */
 import { Store } from '../core/store.js';
 import { $, $$, uid, escapeHtml } from '../core/dom.js';
-import { fmtINR, currentMonthKey, addMonths, monthKeyLabel } from '../core/format.js';
+import { fmtINR, currentMonthKey, addMonths, monthKeyLabel, todayStr } from '../core/format.js';
 import { authReady } from '../core/auth.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
@@ -10,13 +10,14 @@ import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '
 import {
   loadMonth, saveMonth, cardById, allSpendTags, ensureMonthIndexed,
   emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth,
-  forecastCategorySpend, matchesCategory, migrateBudgetData, netSpendAmount,
+  computeMonthTotals, computeSpendingBreakdown, spendingAmountForEntry,
+  forecastCategorySpend, matchesCategory, migrateBudgetData,
   validateGroupBudget, validateCategoryBudget, validateCategoryMove
 } from '../core/domain.js';
 import { computeGoalRecommendation } from '../core/goal-algorithm.js';
 
 const root = document.getElementById('budget-root');
-const DEFAULT_TAGS = ['Groceries', 'Food', 'Fuel', 'Transport', 'Rent', 'Utility', 'Shopping', 'Recharge', 'Medicine', 'Gift', 'EMI', 'RECURRING', 'Fund', 'Stock', 'FD', 'Bond', 'MF', 'ETF'];
+const DEFAULT_TAGS = ['Groceries', 'Food', 'Fuel', 'Transport', 'Rent', 'Utility', 'Shopping', 'Recharge', 'Medicine', 'Gift', 'EMI', 'RECURRING', 'CC due', 'Fund', 'Stock', 'FD', 'Bond', 'MF', 'ETF'];
 
 const INVESTMENT_BUDGET_MAP = { fund: 'Fund', 'lump-sum mf': 'Fund', stock: 'Stock', 'fixed deposit': 'FD', fd: 'FD', bond: 'Bond', 'mutual fund': 'MF', mf: 'MF', etf: 'ETF' };
 
@@ -32,7 +33,7 @@ function investmentBudgetCategory(entry) {
 // tags, defaults to "discretionary".
 const DEFAULT_TAG_CLASSIFICATIONS = {
   groceries: 'essential', food: 'essential', fuel: 'essential', transport: 'essential',
-  rent: 'essential', utility: 'essential', medicine: 'essential', emi: 'essential', recurring: 'essential',
+  rent: 'essential', utility: 'essential', medicine: 'essential', emi: 'essential', recurring: 'essential', 'cc due': 'essential',
   sip: 'investment', investment: 'investment', fund: 'investment', stock: 'investment', fd: 'investment', bond: 'investment', mf: 'investment', etf: 'investment',
   shopping: 'discretionary', recharge: 'discretionary', gift: 'discretionary',
 };
@@ -54,6 +55,7 @@ let emiSeries = [];
 let sipSeries = [];
 let recurringSeries = [];
 let currentMonthEntries = [];
+let scheduledMonthEntries = [];
 let monthsIndex = [];
 let domainLoaded = false;
 let isFormOpen = false;
@@ -66,6 +68,9 @@ let entriesByMonthMemo = {};
 
 let currentKey = currentMonthKey();
 let isPastMonth = false;
+
+const CC_DUES_SYSTEM_TYPE = 'credit-card-dues';
+const CC_DUE_TAG = 'CC due';
 
 async function loadDomain() {
   if (domainLoaded) return;
@@ -91,13 +96,66 @@ async function loadDomain() {
   domainLoaded = true;
 }
 
+async function creditCardDueAmountForMonth(monthKey) {
+  const data = await loadMonth(monthKey);
+  const recurringRows = recurringRowsForMonth(recurringSeries, monthKey, data.deletedRecurring, data.recurringOverrides).filter(row => row.date <= todayStr());
+  return computeMonthTotals((data.entries || []).concat(recurringRows)).cardCharge;
+}
+
+async function ensureCreditCardDuesGroup() {
+  if (currentKey < currentMonthKey()) return;
+
+  const dismissed = await Store.get(`budget-cc-dues-dismissed:${currentKey}`, false);
+  if (dismissed) return;
+
+  const sourceMonth = addMonths(currentKey, -1);
+  const autoAmount = await creditCardDueAmountForMonth(sourceMonth);
+  let group = budgetData.find(item => item.systemType === CC_DUES_SYSTEM_TYPE);
+
+  if (!group && autoAmount <= 0) return;
+
+  if (!group) {
+    group = { id: `system-cc-dues-${currentKey}`, name: 'Credit Card Dues', budget: autoAmount, expanded: true, systemType: CC_DUES_SYSTEM_TYPE, sourceMonth, autoManaged: true, categories: [] };
+    budgetData.push(group);
+  }
+
+  group.name = 'Credit Card Dues';
+  group.systemType = CC_DUES_SYSTEM_TYPE;
+  group.sourceMonth = sourceMonth;
+
+  let category = (group.categories || []).find(item => item.systemType === CC_DUES_SYSTEM_TYPE || String(item.name || '').toLowerCase() === 'cc due');
+  if (!category) {
+    category = { id: `system-cc-due-${currentKey}`, name: CC_DUE_TAG, budget: Number(group.budget) || autoAmount, expanded: false, subcategories: [], classification: 'essential', systemType: CC_DUES_SYSTEM_TYPE };
+  }
+
+  category.name = CC_DUE_TAG;
+  category.classification = 'essential';
+  category.systemType = CC_DUES_SYSTEM_TYPE;
+  category.subcategories = [];
+
+  if (group.autoManaged !== false) {
+    group.budget = autoAmount;
+    category.budget = autoAmount;
+    group.autoManaged = true;
+  }
+
+  group.categories = [category];
+}
+
+function renderCreditCardSpendAlert() {
+  if (currentKey !== currentMonthKey()) return '';
+  const cardSpend = computeMonthTotals(currentMonthEntries).cardCharge;
+  const nextMonth = monthKeyLabel(addMonths(currentKey, 1));
+  return `<div class="cc-spend-alert"><div class="cc-spend-alert-copy"><span class="cc-spend-alert-eyebrow">Credit card spend this month</span><strong>${fmtINR(cardSpend)}</strong><span>Added to <b>Credit Card Dues</b> budget for ${nextMonth}.</span></div><span class="cc-spend-alert-tag">CC due</span></div>`;
+}
+
 function calculateUsed(name, isSub, parentName) {
   if (!name || !currentMonthEntries) return 0;
   let total = 0;
   const target = String(name).trim().toLowerCase();
   for (const e of currentMonthEntries) {
     if (e.type === 'income' || e.type === 'payback' || e.type === 'goal_funding') continue;
-    const amt = netSpendAmount(e);
+    const amt = spendingAmountForEntry(e);
     if (amt <= 0) continue;
 
     // Investments are bucketed from Month/SIP asset categories. This makes
@@ -126,20 +184,14 @@ function computeSummary() {
   let totalBudget = 0;
   let totalUsed = 0;
   let totalIncome = 0;
-  let totalSpent = 0;
 
   if (currentMonthEntries) {
     for (const e of currentMonthEntries) {
-      if (e.type === 'goal_funding') continue;
-      const amt = Number(e.amount) || 0;
-      if (e.type === 'income') {
-        totalIncome += amt;
-      } else if (e.type !== 'payback') {
-        const spendAmt = netSpendAmount(e);
-        if (spendAmt > 0) totalSpent += spendAmt;
-      }
+      if (e.type === 'income') totalIncome += Number(e.amount) || 0;
     }
   }
+
+  const totalSpent = computeSpendingBreakdown(currentMonthEntries).total;
 
   budgetData.forEach(group => {
     totalBudget += Number(group.budget) || 0;
@@ -174,7 +226,7 @@ function calculateUnbudgeted() {
 
   for (const e of currentMonthEntries) {
     if (e.type === 'income' || e.type === 'payback') continue;
-    const amt = netSpendAmount(e);
+    const amt = spendingAmountForEntry(e);
     if (amt <= 0) continue;
 
     const eType = (e.type || '').toLowerCase();
@@ -313,7 +365,7 @@ function renderSummaryCards() {
 
       budgetData.forEach(group => {
         (group.categories || []).forEach(cat => {
-          const forecast = forecastCategorySpend(cat.name, false, null, cat.budget, currentKey, currentMonthEntries);
+          const forecast = forecastCategorySpend(cat.name, false, null, cat.budget, currentKey, scheduledMonthEntries);
           if (forecast) {
             totalForecast += forecast.projectedByMonthEnd;
             hasForecast = true;
@@ -404,6 +456,8 @@ function renderSummaryCards() {
 }
 
 function renderBudgetRow(item, isSub, parentId, groupId) {
+  const parentGroup = budgetData.find(group => group.id === groupId);
+  const isSystemRow = parentGroup?.systemType === CC_DUES_SYSTEM_TYPE;
   let parentName = null;
   if (isSub && parentId) {
     for (const g of budgetData) {
@@ -417,7 +471,7 @@ function renderBudgetRow(item, isSub, parentId, groupId) {
   const status = item.budget > 0 ? getStatusInfo(pct) : { label: 'Unassigned', cls: 'status-unassigned' };
 
   let forecastHtml = '';
-  const forecast = forecastCategorySpend(item.name, isSub, parentName, item.budget, currentKey, currentMonthEntries);
+  const forecast = forecastCategorySpend(item.name, isSub, parentName, item.budget, currentKey, scheduledMonthEntries);
   if (forecast) {
     const svgs = {
       'ok': `<svg class="forecast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
@@ -438,12 +492,12 @@ function renderBudgetRow(item, isSub, parentId, groupId) {
   const warnSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>`;
 
   let chevronHtml = '';
-  if (!isSub) {
+  if (!isSub && !isSystemRow) {
     chevronHtml = `<button class="toggle-sub ${item.expanded ? 'expanded' : ''}" data-toggle-sub="${item.id}" title="${item.expanded ? 'Collapse' : 'Expand'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>`;
   }
 
   let classificationHtml = '';
-  if (!isSub) {
+  if (!isSub && !isSystemRow) {
     const currentClass = classificationOf(item);
     const classDefs = [
       { key: 'essential', label: 'Essential', letter: 'E' },
@@ -460,7 +514,7 @@ function renderBudgetRow(item, isSub, parentId, groupId) {
   }
 
   let actionsContent = '';
-  if (!isPastMonth) {
+  if (!isPastMonth && !isSystemRow) {
     actionsContent = `
       <button class="edit-budget-btn icon-btn row-menu-btn" data-edit-budget="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" ${parentId ? `data-parent-id="${parentId}"` : ''} title="Edit budget">
         <span class="row-menu-icon">${pencilSvg}</span><span class="row-menu-text">Edit</span>
@@ -472,11 +526,11 @@ function renderBudgetRow(item, isSub, parentId, groupId) {
   }
 
   return `
-  <div class="budget-row ${isSub ? 'is-sub' : ''}" data-id="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" data-parent-id="${parentId ? parentId : ''}" data-group-id="${groupId}" draggable="${!isPastMonth}">
+  <div class="budget-row ${isSub ? 'is-sub' : ''} ${isSystemRow ? 'system-cc-due-row' : ''}" data-id="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" data-parent-id="${parentId ? parentId : ''}" data-group-id="${groupId}" draggable="${!isPastMonth && !isSystemRow}">
     <div class="cat-name-col">
       ${classificationHtml}
       <div class="cat-name-inner" style="display:flex; align-items:center; gap:8px;">
-        ${dragHandleSvg}
+        ${isSystemRow ? '' : dragHandleSvg}
         <span style="font-weight:600; color:var(--navy); font-family:'Source Serif 4', Georgia, serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(item.name)}</span>
       </div>
     </div>
@@ -675,7 +729,8 @@ async function renderBudget() {
     } else if (currentKey === currentMonthKey()) {
       const lastLogged = monthsIndex.length ? monthsIndex[monthsIndex.length - 1] : null;
       if (lastLogged && lastLogged !== currentKey) {
-        budgetData = await Store.get(`budget-data:${lastLogged}`, []) || [];
+        const lastBudget = await Store.get(`budget-data:${lastLogged}`, []) || [];
+        budgetData = JSON.parse(JSON.stringify(lastBudget)).filter(group => group.systemType !== CC_DUES_SYSTEM_TYPE);
       } else {
         budgetData = [];
       }
@@ -684,6 +739,7 @@ async function renderBudget() {
     }
   }
   budgetData = migrateBudgetData(budgetData);
+  await ensureCreditCardDuesGroup();
   await Store.set(`budget-data:${currentKey}`, budgetData);
 
   // Handle deep link from Month -> Budget
@@ -722,52 +778,40 @@ async function renderBudget() {
 
   const emiRows = emiRowsForMonth(emiSeries, currentKey, monthData.deletedEmi);
   const sipRows = sipRowsForMonth(sipSeries, currentKey, monthData.deletedSip, monthData.sipOverrides);
-  const recurringRows = recurringRowsForMonth(
-    recurringSeries,
-    currentKey,
-    monthData.deletedRecurring,
-    monthData.recurringOverrides
-  );
+  const recurringRows = recurringRowsForMonth(recurringSeries, currentKey, monthData.deletedRecurring, monthData.recurringOverrides);
+  const scheduledGeneratedRows = [...sipRows, ...recurringRows, ...emiRows];
+  const postedGeneratedRows = scheduledGeneratedRows.filter(row => !row.date || row.date <= todayStr());
 
-  currentMonthEntries = [
-    ...(monthData.entries || []),
-    ...sipRows,
-    ...recurringRows,
-    ...emiRows,
-  ];
+  scheduledMonthEntries = [...(monthData.entries || []), ...scheduledGeneratedRows];
+  currentMonthEntries = [...(monthData.entries || []), ...postedGeneratedRows];
 
   let totalBudget = 0;
   let totalUsed = 0;
 
   let tableRows = '';
   budgetData.forEach(group => {
+    const isCcDuesGroup = group.systemType === CC_DUES_SYSTEM_TYPE;
     let groupAllocated = (group.categories || []).reduce((s, c) => s + (Number(c.budget) || 0), 0);
     let groupUsed = 0;
     (group.categories || []).forEach(c => groupUsed += calculateUsed(c.name, false, null));
     
     tableRows += `
-      <div class="budget-group" data-group-id="${group.id}">
+      <div class="budget-group ${isCcDuesGroup ? 'system-cc-dues' : ''}" data-group-id="${group.id}">
         <div class="budget-group-header ${group.expanded !== false ? 'expanded' : ''}" data-group-drop-target="${group.id}">
           <button class="toggle-sub ${group.expanded !== false ? 'expanded' : ''}" data-toggle-group="${group.id}" title="${group.expanded !== false ? 'Collapse' : 'Expand'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
-          <span class="bgh-name">${escapeHtml(group.name)}</span>
+          <span class="bgh-name">${escapeHtml(group.name)}${isCcDuesGroup ? '<span class="system-group-badge">AUTO</span>' : ''}</span>
           <span class="bgh-amount">${fmtINR(groupUsed)} / ${fmtINR(group.budget)}</span>
           <div class="bgh-actions">
             <div class="row-actions-menu">
               ${!isPastMonth ? `
-              <button class="edit-budget-btn icon-btn row-menu-btn" data-edit-budget="${group.id}" data-type="group" title="Edit budget">
-                <span class="row-menu-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></span><span class="row-menu-text">Edit</span>
-              </button>
-              <button class="icon-btn row-menu-btn" data-popover-trigger data-del-budget="${group.id}" data-type="group" title="Remove">
-                <span class="row-menu-icon">✕</span><span class="row-menu-text">Delete</span>
-              </button>
+              <button class="edit-budget-btn icon-btn row-menu-btn" data-edit-budget="${group.id}" data-type="group" title="Edit budget"><span class="row-menu-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></span><span class="row-menu-text">Edit</span></button>
+              <button class="icon-btn row-menu-btn" data-popover-trigger data-del-budget="${group.id}" data-type="group" title="Remove"><span class="row-menu-icon">✕</span><span class="row-menu-text">Delete</span></button>
               ` : ''}
             </div>
             ${!isPastMonth ? `<button class="icon-btn mobile-actions-toggle" data-toggle-row-actions title="Actions">${dotsSvg}</button>` : ''}
           </div>
         </div>
-        <div class="group-wrap ${group.expanded !== false ? 'expanded' : ''}" data-group-wrap="${group.id}">
-          <div class="group-inner">
-          <div class="budget-group-body">
+        <div class="group-wrap ${group.expanded !== false ? 'expanded' : ''}" data-group-wrap="${group.id}"><div class="group-inner"><div class="budget-group-body">
     `;
     
     (group.categories || []).forEach(cat => {
@@ -778,34 +822,31 @@ async function renderBudget() {
           tableRows += renderBudgetRow(sub, true, cat.id, group.id);
         });
       }
-      if (!isPastMonth) {
+      if (!isPastMonth && !isCcDuesGroup) {
         tableRows += `<button class="add-row-btn is-sub" data-inline-add-btn="${cat.id}" data-group-id="${group.id}" type="button">+ Add subcategory for ${escapeHtml(cat.name)}</button>`;
       }
       tableRows += `</div></div>`;
     });
     
-    if (!isPastMonth) {
+    if (!isPastMonth && !isCcDuesGroup) {
       tableRows += `<div style="padding: 12px 16px;"><button class="add-row-btn dashed-add-btn" data-inline-newcat-btn="${group.id}" type="button">+ Add category</button></div>`;
     }
     tableRows += `</div></div></div></div>`;
   });
 
-  if (!tableRows) {
+  const userBudgetGroups = budgetData.filter(group => group.systemType !== CC_DUES_SYSTEM_TYPE);
+  if (userBudgetGroups.length === 0) {
     const hasPrevLogged = monthsIndex.some(m => m < currentKey);
     if (!isPastMonth && hasPrevLogged) {
-      tableRows = `
+      tableRows += `
         <div style="grid-column: 1/-1; display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px;">
           <button class="add-row-btn" data-add-group-btn type="button" style="flex: 1 1 250px; margin: 0;">+ Add a Group</button>
           <button class="add-row-btn" id="copy-last-budget-btn" type="button" style="flex: 1 1 250px; margin: 0; border-color: var(--sky); color: var(--blue);">Copy from the last logged month</button>
         </div>
       `;
     } else if (!isPastMonth) {
-      tableRows = `
-        <div style="grid-column: 1/-1; display: flex; flex-wrap: wrap; margin-top: 8px;">
-          <button class="add-row-btn" data-add-group-btn type="button" style="flex: 1 1 100%; margin: 0;">+ Add a Group</button>
-        </div>
-      `;
-    } else {
+      tableRows += `<div style="grid-column: 1/-1; display: flex; flex-wrap: wrap; margin-top: 8px;"><button class="add-row-btn" data-add-group-btn type="button" style="flex: 1 1 100%; margin: 0;">+ Add a Group</button></div>`;
+    } else if (!tableRows) {
       tableRows = `<div class="empty-chart" style="padding: 24px; grid-column: 1/-1; text-align: center; color: var(--muted); border: 1px dashed var(--hair); border-radius: 12px;">No budgets set for this month.</div>`;
     }
   }
@@ -861,6 +902,7 @@ async function renderBudget() {
 
   <div class="section">
     ${renderSummaryCards()}
+    ${renderCreditCardSpendAlert()}
     ${renderGoalsSection()}
     ${renderUnbudgetedCallout()}
     
@@ -926,6 +968,11 @@ root.addEventListener('dragover', (ev) => {
   
   const groupHeader = ev.target.closest('.budget-group-header');
   if (groupHeader && draggedItem.type === 'cat') {
+    const destGroup = budgetData.find(group => group.id === groupHeader.dataset.groupDropTarget);
+    if (destGroup?.systemType === CC_DUES_SYSTEM_TYPE) {
+      ev.dataTransfer.dropEffect = 'none';
+      return;
+    }
     ev.dataTransfer.dropEffect = 'move';
     document.querySelectorAll('.drag-target-active').forEach(el => el.classList.remove('drag-target-active'));
     groupHeader.closest('.budget-group').classList.add('drag-target-active');
@@ -984,6 +1031,10 @@ root.addEventListener('drop', async (ev) => {
     if (destGroupId !== draggedItem.groupId) {
       const sourceGroup = budgetData.find(g => g.id === draggedItem.groupId);
       const destGroup = budgetData.find(g => g.id === destGroupId);
+      if (destGroup?.systemType === CC_DUES_SYSTEM_TYPE) {
+        showToast('Credit Card Dues is a system-managed group');
+        return;
+      }
       const catToMove = sourceGroup.categories.find(c => c.id === draggedItem.id);
       
       if (!validateCategoryMove(destGroup, catToMove)) {
@@ -1012,6 +1063,12 @@ root.addEventListener('drop', async (ev) => {
   const targetType = row.dataset.type;
   const targetParentId = row.dataset.parentId || null;
   const targetGroupId = row.dataset.groupId;
+  const targetGroup = budgetData.find(group => group.id === targetGroupId);
+
+  if (targetGroup?.systemType === CC_DUES_SYSTEM_TYPE) {
+    showToast('Credit Card Dues is a system-managed group');
+    return;
+  }
 
   if (draggedItem.type === 'sub') {
     if (targetType === 'cat' || targetParentId !== draggedItem.parentId) {
@@ -1537,7 +1594,9 @@ root.addEventListener('click', async (ev) => {
         let lastBudget = await Store.get(`budget-data:${lastLogged}`, null);
         if (!lastBudget) lastBudget = await Store.get('budget-data', []) || [];
         
-        budgetData = JSON.parse(JSON.stringify(lastBudget));
+        const systemGroups = budgetData.filter(group => group.systemType === CC_DUES_SYSTEM_TYPE);
+        const copiedGroups = JSON.parse(JSON.stringify(lastBudget)).filter(group => group.systemType !== CC_DUES_SYSTEM_TYPE);
+        budgetData = [...copiedGroups, ...systemGroups];
         await Store.set(`budget-data:${currentKey}`, budgetData);
         await renderBudget();
         showToast('Budget copied');
@@ -1660,11 +1719,18 @@ root.addEventListener('click', async (ev) => {
     if (type === 'group') {
       const group = budgetData.find(g => g.id === id);
       if (group) {
-        if (!validateGroupBudget(group, newBudget)) {
-          showToast('Group budget cannot be less than sum of categories');
-          return;
+        if (group.systemType === CC_DUES_SYSTEM_TYPE) {
+          group.budget = newBudget;
+          group.autoManaged = false;
+          const category = (group.categories || [])[0];
+          if (category) category.budget = newBudget;
+        } else {
+          if (!validateGroupBudget(group, newBudget)) {
+            showToast('Group budget cannot be less than sum of categories');
+            return;
+          }
+          group.budget = newBudget;
         }
-        group.budget = newBudget;
       }
     } else if (type === 'cat') {
       for (const g of budgetData) {
@@ -1710,6 +1776,10 @@ root.addEventListener('click', async (ev) => {
     ev.stopPropagation();
     const [type, parentId, id] = confirmDel.dataset.confirmDelBudget.split('|');
     if (type === 'group') {
+      const group = budgetData.find(g => g.id === id);
+      if (group?.systemType === CC_DUES_SYSTEM_TYPE) {
+        await Store.set(`budget-cc-dues-dismissed:${currentKey}`, true);
+      }
       budgetData = budgetData.filter(g => g.id !== id);
     } else if (type === 'cat') {
       for (const g of budgetData) {

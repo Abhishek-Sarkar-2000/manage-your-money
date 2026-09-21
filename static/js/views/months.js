@@ -13,7 +13,7 @@ import { showToast } from '../components/toast.js';
 import { markRendered } from '../components/render-guard.js';
 
 const root = document.getElementById('months-root');
-const DEFAULT_TAGS = ['Groceries', 'Food', 'Fuel', 'Transport', 'Rent', 'Utility', 'Shopping', 'Recharge', 'Medicine', 'Gift', 'EMI', 'SIP', 'RECURRING'];
+const DEFAULT_TAGS = ['Groceries', 'Food', 'Fuel', 'Transport', 'Rent', 'Utility', 'Shopping', 'Recharge', 'Medicine', 'Gift', 'EMI', 'SIP', 'RECURRING', 'CC due'];
 
 let monthsIndex = [];
 let emiSeries = [];

@@ -5,7 +5,7 @@ import { fmtINR, todayStr, currentMonthKey, monthKeyLabel, addMonths, diffMonths
 import { authReady } from '../core/auth.js';
 import {
   loadMonth, saveMonth, ensureMonthIndexed, emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth,
-  computeMonthTotals, computeGlobalStats, cardById, allSpendTags,
+  computeMonthTotals, computeSpendingBreakdown, computeGlobalStats, cardById, allSpendTags,
   findCategoryByTag, ensureCategoryForTag, migrateBudgetData
 } from '../core/domain.js';
 import { renderStatCards, wireStatCardFlip } from '../components/stat-cards.js';
@@ -20,7 +20,7 @@ import { markRendered } from '../components/render-guard.js';
 const root = document.getElementById('month-root');
 const monthKey = root.dataset.monthKey;
 
-const DEFAULT_TAGS = ['Groceries', 'Food', 'Fuel', 'Transport', 'Rent', 'Utility', 'Shopping', 'Recharge', 'Medicine'];
+const DEFAULT_TAGS = ['Groceries', 'Food', 'Fuel', 'Transport', 'Rent', 'Utility', 'Shopping', 'Recharge', 'Medicine', 'CC due'];
 
 let cards = [];
 let emiSeries = [];
@@ -1231,7 +1231,9 @@ async function renderMonth() {
     const recurringRowsFiltered = recurringRows.filter(r => r.date <= todayStr());
 
     const allRows = [...data.entries, ...sipRowsFiltered, ...recurringRowsFiltered, ...emiRowsFiltered].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-    const monthTotals = computeMonthTotals(data.entries.concat(emiRowsFiltered, sipRowsFiltered, recurringRowsFiltered));
+    const postedSpendRows = data.entries.concat(emiRowsFiltered, sipRowsFiltered, recurringRowsFiltered);
+    const spendingBreakdown = computeSpendingBreakdown(postedSpendRows);
+    const monthTotals = computeMonthTotals(postedSpendRows);
 
     const stats = await computeGlobalStats({ cards, emiSeries, sipSeries, recurringSeries, monthsIndex, existingInvestments, isShared: false, sharedSplitId: null, splitsIndex });
     console.log('[renderMonth] after computeGlobalStats');
@@ -1888,13 +1890,14 @@ async function renderMonth() {
         <div class="chart-card" style="min-width: 0; overflow-x: auto;">
           <h4>Spending Breakdown</h4>
           ${donutChart([
-            { label: 'Regular debit', value: monthTotals.regularDebit, color: 'var(--debit)' },
-            { label: 'Credit card spends', value: monthTotals.ccSpends, color: '#8E6FB0' },
-            { label: 'Cash payments', value: monthTotals.cashPayments, color: '#C98A3C' },
-            { label: 'EMI', value: monthTotals.emi, color: '#5B4B9E' },
-            { label: 'Recurring', value: monthTotals.recurring, color: '#B0556F' },
-            { label: 'SIP', value: monthTotals.sip, color: '#2E8B77' },
-            { label: 'Investment', value: monthTotals.invest, color: 'var(--blue)' },
+            { label: 'Regular debit', value: spendingBreakdown.regularDebit, color: 'var(--debit)' },
+            { label: 'Credit card spends', value: spendingBreakdown.creditCardSpends, color: '#8E6FB0' },
+            { label: 'Credit card dues', value: spendingBreakdown.creditCardDues, color: '#D28A35' },
+            { label: 'Cash payments', value: spendingBreakdown.cashPayments, color: '#C98A3C' },
+            { label: 'EMI', value: spendingBreakdown.emi, color: '#5B4B9E' },
+            { label: 'Recurring', value: spendingBreakdown.recurring, color: '#B0556F' },
+            { label: 'SIP', value: spendingBreakdown.sip, color: '#2E8B77' },
+            { label: 'Investment', value: spendingBreakdown.investment, color: 'var(--blue)' },
           ])}
         </div>
 

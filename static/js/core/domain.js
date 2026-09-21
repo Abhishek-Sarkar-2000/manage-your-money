@@ -249,78 +249,106 @@ export function recurringRowsForMonth(recurringSeries, monthKey, deletedRecurrin
 
 export function settledLentAmount(entry) {
   const type = String(entry?.type || '').toLowerCase();
-
-  if (
-    !['spend', 'cardcharge', 'cashpayment'].includes(type) ||
-    !Array.isArray(entry?.lent)
-  ) {
-    return 0;
-  }
+  if (!['spend', 'cardcharge', 'cashpayment'].includes(type) || !Array.isArray(entry?.lent)) return 0;
 
   return entry.lent.reduce(
-    (sum, lent) =>
-      lent.settled ? sum + (Number(lent.amount) || 0) : sum,
+    (sum, lent) => lent.settled ? sum + (Number(lent.amount) || 0) : sum,
     0
   );
 }
 
 export function netSpendAmount(entry) {
   const amount = Number(entry?.amount) || 0;
-
   if (amount <= 0) return amount;
-
   return Math.max(0, amount - settledLentAmount(entry));
 }
 
+export function spendingAmountForEntry(entry) {
+  const type = String(entry?.type || '').toLowerCase();
+  const amount = Number(entry?.amount) || 0;
+
+  if (amount <= 0 || ['income', 'payback', 'goal_funding'].includes(type)) return 0;
+  if (type === 'spend' && String(entry?.tag || '').trim().toLowerCase() === 'atm') return 0;
+  if (['spend', 'cardcharge', 'cashpayment'].includes(type)) return netSpendAmount(entry);
+
+  return amount;
+}
+
+export function computeSpendingBreakdown(entries) {
+  const breakdown = {
+    regularDebit: 0,
+    creditCardSpends: 0,
+    creditCardDues: 0,
+    cashPayments: 0,
+    emi: 0,
+    recurring: 0,
+    sip: 0,
+    investment: 0,
+    total: 0,
+  };
+
+  for (const entry of (entries || [])) {
+    const amount = spendingAmountForEntry(entry);
+    if (amount <= 0) continue;
+
+    const type = String(entry.type || '').toLowerCase();
+
+    if (type === 'spend') {
+      if (entry.paymentMode === 'card' || String(entry.tag || '').trim().toLowerCase() === 'cc due') {
+        breakdown.creditCardDues += amount;
+      } else {
+        breakdown.regularDebit += amount;
+      }
+    } else if (type === 'cardcharge') {
+      breakdown.creditCardSpends += amount;
+    } else if (type === 'cashpayment') {
+      breakdown.cashPayments += amount;
+    } else if (type === 'emi') {
+      breakdown.emi += amount;
+    } else if (type === 'recurring') {
+      if (entry.paymentMode === 'card') breakdown.creditCardSpends += amount;
+      else breakdown.recurring += amount;
+    } else if (type === 'sip') {
+      breakdown.sip += amount;
+    } else if (type === 'investment') {
+      breakdown.investment += amount;
+    }
+  }
+
+  breakdown.total =
+    breakdown.regularDebit +
+    breakdown.creditCardSpends +
+    breakdown.creditCardDues +
+    breakdown.cashPayments +
+    breakdown.emi +
+    breakdown.recurring +
+    breakdown.sip +
+    breakdown.investment;
+
+  return breakdown;
+}
+
 export function computeMonthTotals(entries) {
-  let income = 0, cashSpend = 0, cardPaymentSpend = 0, cardCharge = 0, invest = 0, emi = 0, sip = 0, payback = 0, recurring = 0, recurringCash = 0;
-  let regularDebit = 0, cashPayments = 0, ccSpends = 0, others = 0, goalFunding = 0;
+  let income = 0, cashSpend = 0, cardPaymentSpend = 0, cardCharge = 0, payback = 0, recurringCash = 0;
+  let others = 0, goalFunding = 0;
 
   for (const e of entries) {
     const amt = Number(e.amount) || 0;
-    const netSpendAmt = netSpendAmount(e);
 
     if (e.type === 'income') {
       income += amt;
     } else if (e.type === 'spend') {
-      if (e.paymentMode === 'card') {
-        cardPaymentSpend += amt;
-      } else {
-        // cashSpend remains the real cash movement; regularDebit is the
-        // personal spend amount after any settled lent has been reimbursed.
-        cashSpend += amt;
-        if (e.tag !== 'ATM') regularDebit += netSpendAmt;
-      }
+      if (e.paymentMode === 'card') cardPaymentSpend += amt;
+      else cashSpend += amt;
     } else if (e.type === 'cardcharge') {
-      // The card still owes the full merchant charge, but the Spending
-      // Breakdown should only count the unreimbursed portion as spend.
       cardCharge += amt;
-      ccSpends += netSpendAmt;
-    } else if (e.type === 'cashpayment') {
-      cashPayments += netSpendAmt;
-    } else if (e.type === 'investment') {
-      invest += amt;
-      others += amt;
-    } else if (e.type === 'emi') {
-      emi += amt;
-      others += amt;
-    } else if (e.type === 'sip') {
-      sip += amt;
+    } else if (e.type === 'investment' || e.type === 'emi' || e.type === 'sip') {
       others += amt;
     } else if (e.type === 'recurring') {
-      recurring += amt;
       others += amt;
-      if (e.paymentMode === 'card') {
-        cardCharge += amt;
-        ccSpends += amt;
-      } else {
-        recurringCash += amt;
-      }
+      if (e.paymentMode === 'card') cardCharge += amt;
+      else recurringCash += amt;
     } else if (e.type === 'payback') {
-      // Settlement restores cash/bank balance, while the source transaction's
-      // settled lent is already removed from its own spend category above.
-      // Do not subtract from regularDebit here or card/cash settlements would
-      // be attributed to the wrong category (and regular spends double-counted).
       cashSpend -= amt;
       payback += amt;
     } else if (e.type === 'goal_funding') {
@@ -329,11 +357,21 @@ export function computeMonthTotals(entries) {
     }
   }
 
+  const spending = computeSpendingBreakdown(entries);
+  const regularDebit = spending.regularDebit;
+  const cashPayments = spending.cashPayments;
+  const ccSpends = spending.creditCardSpends;
+  const creditCardDues = spending.creditCardDues;
+  const emi = spending.emi;
+  const recurring = spending.recurring;
+  const sip = spending.sip;
+  const invest = spending.investment;
   const totalConsumption = regularDebit + cashPayments + ccSpends + emi + recurring;
 
   return {
     income, cashSpend, cardPaymentSpend, cardCharge, invest, emi, sip, payback, recurring, recurringCash,
-    regularDebit, cashPayments, ccSpends, others, totalConsumption, goalFunding,
+    regularDebit, cashPayments, ccSpends, creditCardDues, others, totalConsumption, goalFunding,
+    spendingTotal: spending.total,
   };
 }
 
@@ -581,7 +619,7 @@ export function forecastCategorySpend(categoryName, isSub, parentName, budget, m
 
   for (const e of currentMonthEntries) {
     if (e.type === 'income' || e.type === 'payback' || e.type === 'goal_funding') continue;
-    const amt = netSpendAmount(e);
+    const amt = spendingAmountForEntry(e);
     if (amt <= 0) continue;
 
     if (!matchesCategory(e, target, isSub, pTarget)) continue;
