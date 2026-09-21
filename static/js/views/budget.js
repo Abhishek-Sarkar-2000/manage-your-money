@@ -334,15 +334,21 @@ function calculateUsed(name, isSub, parentName, systemRef = null) {
   for (const e of currentMonthEntries) {
     if (e.type === 'income' || e.type === 'payback' || e.type === 'goal_funding') continue;
 
-    const amt = spendingAmountForEntry(e);
-    if (amt <= 0) continue;
-
     if (systemRef?.cardId) {
-      if (e.type === 'spend' && String(e.tag || '').trim().toLowerCase() === 'cc due' && e.cardId === systemRef.cardId) {
-        total += amt;
+      const grossAmount = Number(e.amount) || 0;
+      if (
+        grossAmount > 0 &&
+        e.type === 'spend' &&
+        String(e.tag || '').trim().toLowerCase() === 'cc due' &&
+        e.cardId === systemRef.cardId
+      ) {
+        total += grossAmount;
       }
       continue;
     }
+
+    const amt = spendingAmountForEntry(e);
+    if (amt <= 0) continue;
 
     if (systemRef?.seriesId) {
       if (e.seriesId === systemRef.seriesId) total += amt;

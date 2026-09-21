@@ -275,6 +275,38 @@ function creditCardDueDate(statementDate, rawDueDay) {
   return dateForMonthDay(dueMonthKey, dueDay);
 }
 
+const CREDIT_CARD_CYCLE_SETTLEMENTS_KEY = 'credit-card-cycle-settlements';
+
+function creditCardCycleSettlementKey(cardId, cycleEnd) {
+  return `${cardId}|${cycleEnd}`;
+}
+
+async function loadCreditCardCycleSettlements() {
+  const stored = await Store.get(CREDIT_CARD_CYCLE_SETTLEMENTS_KEY, {});
+  return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
+}
+
+export async function setCreditCardCycleSettled(cardId, cycleEnd, settled) {
+  if (!cardId || !cycleEnd) return;
+
+  const settlements = await loadCreditCardCycleSettlements();
+  const key = creditCardCycleSettlementKey(cardId, cycleEnd);
+
+  if (settled) settlements[key] = true;
+  else delete settlements[key];
+
+  await Store.set(CREDIT_CARD_CYCLE_SETTLEMENTS_KEY, settlements);
+}
+
+export function creditCardCurrentStatementMonthKey(card, asOfDate = todayStr()) {
+  const monthKey = asOfDate.slice(0, 7);
+  const currentMonthCutoff = dateForMonthDay(monthKey, card?.billingDay);
+
+  return asOfDate <= currentMonthCutoff
+    ? monthKey
+    : addMonths(monthKey, 1);
+}
+
 export function creditCardBillingWindow(card, budgetMonthKey) {
   const statementMonthKey = budgetMonthKey;
   const previousStatementMonthKey = addMonths(statementMonthKey, -1);
@@ -289,6 +321,67 @@ export function creditCardBillingWindow(card, budgetMonthKey) {
   };
 }
 
+export async function creditCardCycleLedger(card, recurringSeries, statementMonthKey, asOfDate = todayStr()) {
+  if (!card?.id || !statementMonthKey) return null;
+
+  const window = creditCardBillingWindow(card, statementMonthKey);
+  const effectiveEnd = asOfDate < window.cycleEnd ? asOfDate : window.cycleEnd;
+  const monthKeys = [window.previousStatementMonthKey, window.statementMonthKey];
+  const transactions = [];
+
+  await Promise.all(monthKeys.map(async monthKey => {
+    const data = await loadMonth(monthKey);
+    const recurringRows = recurringRowsForMonth(
+      recurringSeries || [],
+      monthKey,
+      data.deletedRecurring,
+      data.recurringOverrides
+    );
+
+    for (const entry of [...(data.entries || []), ...recurringRows]) {
+      if (!entry.date || entry.date < window.cycleStart || entry.date > effectiveEnd) continue;
+      if (entry.cardId !== card.id) continue;
+
+      const isCardCharge = entry.type === 'cardcharge';
+      const isCardRecurring = entry.type === 'recurring' && entry.paymentMode === 'card';
+      if (!isCardCharge && !isCardRecurring) continue;
+
+      transactions.push({
+        id: entry.id,
+        date: entry.date,
+        description: entry.description || (isCardRecurring ? 'Recurring card payment' : 'Card charge'),
+        amount: Number(entry.amount) || 0,
+        type: isCardRecurring ? 'recurring' : 'cardcharge',
+        sourceLabel: isCardRecurring ? 'Recurring' : 'Card charge',
+        tag: entry.tag || entry.category || '',
+      });
+    }
+  }));
+
+  transactions.sort((a, b) => {
+    const dateCompare = String(a.date).localeCompare(String(b.date));
+    return dateCompare || String(a.description).localeCompare(String(b.description));
+  });
+
+  const grossAmount = transactions.reduce((sum, entry) => sum + entry.amount, 0);
+  const settlements = await loadCreditCardCycleSettlements();
+  const fullySettled = settlements[creditCardCycleSettlementKey(card.id, window.cycleEnd)] === true;
+
+  return {
+    cardId: card.id,
+    cardName: card.name,
+    statementMonthKey,
+    cycleStart: window.cycleStart,
+    cycleEnd: window.cycleEnd,
+    effectiveEnd,
+    dueDate: creditCardDueDate(window.cycleEnd, card.dueDay),
+    grossAmount,
+    dueAmount: fullySettled ? 0 : grossAmount,
+    fullySettled,
+    transactions,
+  };
+}
+
 export async function computeCreditCardDueBudget(cards, recurringSeries, budgetMonthKey, asOfDate = todayStr()) {
   const cardList = Array.isArray(cards) ? cards : [];
   if (!cardList.length) return { total: 0, cards: [] };
@@ -297,6 +390,7 @@ export async function computeCreditCardDueBudget(cards, recurringSeries, budgetM
   const previousStatementMonthKey = addMonths(statementMonthKey, -1);
   const monthKeys = [previousStatementMonthKey, statementMonthKey];
   const rowsByMonth = new Map();
+  const settlements = await loadCreditCardCycleSettlements();
 
   await Promise.all(monthKeys.map(async monthKey => {
     const data = await loadMonth(monthKey);
@@ -334,6 +428,10 @@ export async function computeCreditCardDueBudget(cards, recurringSeries, budgetM
       }
     }
 
+    const grossAmount = amount;
+    const fullySettled =
+      settlements[creditCardCycleSettlementKey(card.id, window.cycleEnd)] === true;
+
     return {
       cardId: card.id,
       name: card.name,
@@ -343,7 +441,9 @@ export async function computeCreditCardDueBudget(cards, recurringSeries, budgetM
       cycleEnd: window.cycleEnd,
       dueDate: creditCardDueDate(window.cycleEnd, card.dueDay),
       effectiveEnd,
-      amount,
+      grossAmount,
+      fullySettled,
+      amount: fullySettled ? 0 : grossAmount,
     };
   });
 
