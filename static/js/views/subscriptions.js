@@ -12,6 +12,7 @@ const root = document.getElementById('subscriptions-root');
 let recurringSeries = [];
 let cards = [];
 let domainLoaded = false;
+let recurringAddPending = false;
 
 async function renderSubscriptions() {
   if (!domainLoaded) {
@@ -102,35 +103,49 @@ root.addEventListener('click', async (ev) => {
 
   const addRecurring = ev.target.closest('#recurring-add');
   if (addRecurring) {
-    ev.preventDefault(); // Prevents page refresh
+    ev.preventDefault();
+    if (recurringAddPending) return;
+
     const desc = $('#recurring-desc').value.trim();
     const amount = Number($('#recurring-amount').value);
     const dayOfMonth = Number($('#recurring-day').value);
-    if (!desc || !amount || amount <= 0 || !dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) { showToast('Enter details, a valid amount and a date of deduction (1-31)'); return; }
-    
+    if (!desc || !amount || amount <= 0 || !dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) {
+      showToast('Enter details, a valid amount and a date of deduction (1-31)');
+      return;
+    }
+
     const modeBtn = document.querySelector('[data-sub-mode].active');
     const paymentMode = modeBtn ? modeBtn.dataset.subMode : 'bank';
     let cardId = null;
     if (paymentMode === 'card') {
       cardId = $('#recurring-card').value;
-      if (!cardId) { showToast('Add a credit card first'); return; }
+      if (!cardId) {
+        showToast('Add a credit card first');
+        return;
+      }
     }
 
-    recurringSeries.push({ id: uid(), description: desc, amount, dayOfMonth, paymentMode, cardId, startMonth: currentMonthKey() });recurringSeries.push({
-      id: uid(),
-      description: desc,
-      amount,
-      dayOfMonth,
-      paymentMode,
-      cardId,
-      startMonth: currentMonthKey(),
-      status: 'active',
-      pausedMonth: null,
-      skipMonths: []
-    });
-    await Store.set('recurringseries', recurringSeries);
-    await renderSubscriptions();
-    showToast(`Recurring spend will be deducted on the ${dayOfMonth}${ordinalSuffix(dayOfMonth)} of every month`);
+    recurringAddPending = true;
+    addRecurring.disabled = true;
+
+    try {
+      recurringSeries.push({
+        id: uid(),
+        description: desc,
+        amount,
+        dayOfMonth,
+        paymentMode,
+        cardId,
+        startMonth: currentMonthKey()
+      });
+
+      await Store.set('recurringseries', recurringSeries);
+      await renderSubscriptions();
+      showToast(`Recurring spend will be deducted on the ${dayOfMonth}${ordinalSuffix(dayOfMonth)} of every month`);
+    } finally {
+      recurringAddPending = false;
+      addRecurring.disabled = false;
+    }
     return;
   }
   const delRecurringSeriesBtn = ev.target.closest('[data-del-recurring-series]');

@@ -157,7 +157,6 @@ function renderCardStatementExplorer(selectedCard, ledger) {
         <div class="cc-ledger-stat">
           <span>Statement closes</span>
           <strong>${formatCardDate(ledger.cycleEnd)}</strong>
-          <small>${selectedCycleView === 'current' ? `Activity through ${formatCardFullDate(ledger.effectiveEnd)}` : 'Completed cycle'}</small>
         </div>
       </div>
 

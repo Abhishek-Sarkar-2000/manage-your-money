@@ -300,6 +300,54 @@ svg.linechart {
   overflow: visible;
 }
 
+/*
+ * Homepage balance chart uses SVG Y-axis text.
+ * Give it its own container so Y labels can thin out
+ * at the same widths as the month chart.
+ */
+.home-linechart-container {
+  container-type: inline-size;
+}
+
+.home-linechart-container .home-y-tick {
+  font-family: 'IBM Plex Mono', monospace;
+
+  /*
+   * Resize continuously with the homepage chart.
+   */
+  font-size: clamp(8px, 1.55cqw, 10px);
+}
+
+/*
+ * Match month-page Y-axis density:
+ * hide alternating labels on medium-width charts.
+ */
+@container (max-width: 620px) {
+  /*
+   * Medium charts: reduce density but retain
+   * enough intermediate scale information.
+   */
+  .home-linechart-container .home-y-tick:nth-of-type(even):not(:last-of-type) {
+    display: none;
+  }
+}
+
+@container (max-width: 390px) {
+  /*
+   * Never show fewer than three:
+   * top + middle + bottom.
+   */
+  .home-linechart-container .home-y-tick {
+    display: none;
+  }
+
+  .home-linechart-container .home-y-tick:first-of-type,
+  .home-linechart-container .home-y-tick:nth-of-type(4),
+  .home-linechart-container .home-y-tick:last-of-type {
+    display: block;
+  }
+}
+
 .stacked-segment {
   transition: opacity 0.15s ease;
   background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, rgba(0, 0, 0, 0.05) 100%) !important;
@@ -454,6 +502,148 @@ svg.linechart {
 }
 
 /* =========================================================
+   Responsive Y-axis density for all line charts
+   ========================================================= */
+
+.responsive-linechart-container {
+  width: 100%;
+  container-type: inline-size;
+}
+
+/*
+ * SVG Y labels scale continuously with their own chart width,
+ * rather than jumping at viewport breakpoints.
+ */
+.responsive-linechart-container .responsive-y-tick {
+  font-size: clamp(
+    8px,
+    calc(6px + 0.5cqw),
+    10px
+  );
+}
+
+/*
+ * The month chart already provides its own container.
+ * Its external HTML Y labels use the same continuous scale.
+ */
+.linechart-container .responsive-y-tick {
+  font-size: clamp(
+    8px,
+    calc(6px + 0.5cqw),
+    10px
+  );
+}
+
+/*
+ * Medium chart:
+ * remove only the densest intermediate ticks.
+ */
+@container (max-width: 620px) {
+  .responsive-y-tick.is-dense,
+  .responsive-y-grid.is-dense {
+    display: none;
+  }
+}
+
+/*
+ * Narrow chart:
+ * retain ONLY top + middle + bottom.
+ *
+ * Because those three are marked is-core in JS,
+ * every line chart always keeps at least 3 Y ticks.
+ */
+@container (max-width: 390px) {
+  .responsive-y-tick:not(.is-core),
+  .responsive-y-grid:not(.is-core) {
+    display: none;
+  }
+}
+
+
+/* =========================================================
+   Homepage responsive line chart
+   ========================================================= */
+
+.home-linechart-container {
+  width: 100%;
+  min-width: 0;
+
+  /*
+   * Responsive rules below are based on the actual
+   * chart width rather than the viewport width.
+   */
+  container-type: inline-size;
+}
+
+/*
+ * SVG text is scaled together with the 900-unit viewBox.
+ *
+ * Therefore the SVG font-size must become numerically larger
+ * as the rendered chart becomes narrower. This counter-scales
+ * the label so it remains readable on phones.
+ */
+.home-linechart-container .home-y-tick {
+  font-size: clamp(
+    10px,
+    calc(40px - 3.33cqw),
+    30px
+  );
+}
+
+/*
+ * Other SVG line charts, including price-track.
+ *
+ * Counter-scale their Y-axis text as the SVG shrinks so
+ * labels do not become tiny on narrow screens.
+ */
+@media (max-width: 620px) {
+  svg.linechart text {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 500px) {
+  svg.linechart text {
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 390px) {
+  svg.linechart text {
+    font-size: 26px;
+  }
+}
+
+/*
+ * Medium width:
+ * remove only the densest intermediate labels.
+ */
+@container (max-width: 620px) {
+  .home-linechart-container .home-y-tick.is-dense,
+  .home-linechart-container .home-y-grid.is-dense {
+    display: none;
+  }
+}
+
+/*
+ * Narrow width:
+ * always retain exactly the protected
+ * top + middle + bottom scale positions.
+ */
+@container (max-width: 500px) {
+  .home-linechart-container .home-y-tick,
+  .home-linechart-container .home-y-grid {
+    display: none;
+  }
+
+  .home-linechart-container .home-y-tick.is-core,
+  .home-linechart-container .home-y-grid.is-core {
+    display: block !important;
+  }
+}
+
+
+/* =========================================================
    Interactive Line Chart
    ========================================================= */
 
@@ -476,8 +666,10 @@ svg.linechart {
 
   width: 100%;
 
-  /* Gap between Y ticks and chart */
-  column-gap: 14px;
+  /*
+   * Small separation between the Y labels and plot.
+   */
+  column-gap: 8px;
 }
 
 
@@ -489,12 +681,11 @@ svg.linechart {
   position: relative;
 
   /*
-   * Match LINE_PAD_T / LINE_PAD_B.
-   *
-   * Axis labels are external now, so the plot itself
-   * fills essentially the full SVG height.
+   * Keep a small amount of breathing room on the left.
+   * 8px is enough to avoid the labels touching the edge
+   * without recreating the old oversized gutter.
    */
-  padding: 4px 0px 32px 24px;
+  padding: 4px 0 32px 8px;
 }
 
 .linechart-y-axis-inner {
@@ -513,7 +704,17 @@ svg.linechart {
   text-align: right;
 
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
+
+  /*
+   * Scale continuously with the chart container.
+   *
+   * Large chart  -> ~10px
+   * Small chart  -> ~8px
+   *
+   * cqw is relative to .linechart-container because that
+   * element already has container-type:inline-size.
+   */
+  font-size: clamp(8px, 1.55cqw, 10px);
   line-height: 1;
 
   color: var(--muted);
@@ -521,34 +722,6 @@ svg.linechart {
   user-select: none;
   -webkit-user-select: none;
   pointer-events: none;
-}
-
-
-/*
- * On medium-width charts, hide alternating intermediate
- * Y labels. Grid lines remain available as visual guides.
- */
-@container (max-width: 620px) {
-  .linechart-y-tick:nth-child(even):not(:last-child) {
-    display: none;
-  }
-}
-
-
-/*
- * Very narrow charts only need the top, middle-ish,
- * and bottom labels.
- */
-@container (max-width: 390px) {
-  .linechart-y-tick {
-    display: none;
-  }
-
-  .linechart-y-tick:first-child,
-  .linechart-y-tick:nth-child(4),
-  .linechart-y-tick:last-child {
-    display: block;
-  }
 }
 
 /* ---------------------------------------------------------
@@ -598,6 +771,43 @@ svg.linechart {
 
   user-select: none;
   -webkit-user-select: none;
+}
+
+
+/*
+ * Price Tracker line chart
+ *
+ * This chart still uses SVG text for its Y axis, so the
+ * numerical SVG font size must grow as the SVG becomes
+ * narrower in order to keep the rendered text readable.
+ */
+.price-linechart-container {
+  width: 100%;
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.price-linechart text {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+}
+
+@container (max-width: 620px) {
+  .price-linechart text {
+    font-size: 18px;
+  }
+}
+
+@container (max-width: 500px) {
+  .price-linechart text {
+    font-size: 23px;
+  }
+}
+
+@container (max-width: 390px) {
+  .price-linechart text {
+    font-size: 27px;
+  }
 }
 
 
@@ -765,6 +975,29 @@ svg.linechart {
   pointer-events: none;
 }
 
+/*
+ * Legacy SVG line charts produced through yAxisGrid()
+ * (for example price-history charts).
+ *
+ * Their Y ticks already carry density classes.
+ * Progressively remove intermediate ticks while always
+ * retaining the core three-tick scale.
+ */
+.linechart .y-tick {
+  font-size: clamp(8px, 1.2vw, 10px);
+}
+
+@media (max-width: 620px) {
+  .linechart .y-tick-dense {
+    display: none;
+  }
+}
+
+@media (max-width: 390px) {
+  .linechart .y-tick-med {
+    display: none;
+  }
+}
 
 /* =========================================================
    Responsive Line Chart
@@ -775,7 +1008,6 @@ svg.linechart {
     column-gap: 10px;
   }
 
-  .linechart-y-tick,
   .linechart-x-tick {
     font-size: 9px;
   }
@@ -789,10 +1021,6 @@ svg.linechart {
 @media (max-width: 540px) {
   .linechart-layout {
     column-gap: 7px;
-  }
-
-  .linechart-y-tick {
-    font-size: 8px;
   }
 
   .linechart-x-tick {
@@ -818,10 +1046,6 @@ svg.linechart {
 @media (max-width: 400px) {
   .linechart-layout {
     column-gap: 5px;
-  }
-
-  .linechart-y-tick {
-    font-size: 7.5px;
   }
 
   .linechart-x-tick {

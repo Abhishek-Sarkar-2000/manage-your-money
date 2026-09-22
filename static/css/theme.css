@@ -329,6 +329,7 @@ body {
 :root[data-theme="dark"] .price-item-card,
 :root[data-theme="dark"] .add-entry-panel,
 :root[data-theme="dark"] .cc-item,
+:root[data-theme="dark"] .cc-ledger-cycle-strip,
 :root[data-theme="dark"] .balance-box,
 :root[data-theme="dark"] .sip-card {
   background: linear-gradient(
@@ -415,7 +416,6 @@ body {
   border-color: var(--sky) !important;
 }
 
-:root[data-theme="dark"] .cc-item,
 :root[data-theme="dark"] .txn-option-card {
   background: linear-gradient(135deg, var(--ice) 0%, var(--ice-2) 45%, var(--paper) 100%) !important;
   color: var(--navy);

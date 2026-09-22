@@ -124,7 +124,7 @@ function renderFromCache() {
 
   <div class="section">
     <div class="section-title"><h2>Balance over time</h2></div>
-    <div class="chart-card">
+    <div class="chart-card home-linechart-container">
       <div class="chart-toolbar">
         <div class="range-toggle">
           <button class="range-btn ${balanceChartRange === 1 ? 'active' : ''}" data-range="1" type="button">1M</button>

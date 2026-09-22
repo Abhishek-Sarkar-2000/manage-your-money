@@ -2,6 +2,32 @@
 import { fmtINR } from '../../core/format.js';
 import { yAxisGrid } from './axis-grid.js';
 
+/*
+ * Shared responsive Y-tick density classes.
+ *
+ * Top, middle and bottom are always "core", so responsive
+ * CSS can never reduce a chart below three visible Y ticks.
+ */
+function yTickDensityClass(index, count) {
+  const middleIndex =
+    Math.round(
+      (count - 1) / 2
+    );
+
+  if (
+    index === 0 ||
+    index === middleIndex ||
+    index === count - 1
+  ) {
+    return 'is-core';
+  }
+
+  return index % 2 === 0
+    ? 'is-medium'
+    : 'is-dense';
+}
+
+
 /* =========================================================
    Home page: long-range daily balance trend
    ========================================================= */
@@ -66,17 +92,59 @@ export function dailyBalanceChart(series, rangeMonths) {
     ` L${coords[coords.length - 1][0].toFixed(1)},${h - padB}` +
     ` L${coords[0][0].toFixed(1)},${h - padB} Z`;
 
-  const gridSvg = yAxisGrid(
-    minV,
-    maxV,
-    w,
-    h,
-    padL,
-    padR,
-    padT,
-    padB,
-    8
-  );
+  const homeYTicks =
+    Array.from(
+      { length: 8 },
+      (_, i) => {
+        const ratio =
+          i / 7;
+
+        return (
+          maxV -
+          ratio * (maxV - minV)
+        );
+      }
+    );
+
+  const gridSvg =
+    homeYTicks
+      .map((value, i) => {
+        const y =
+          padT +
+          ((maxV - value) /
+            (maxV - minV)) *
+            (h - padT - padB);
+
+        const densityClass =
+          yTickDensityClass(
+            i,
+            homeYTicks.length
+          );
+
+        return `
+          <line
+            class="home-y-grid ${densityClass}"
+            x1="${padL}"
+            y1="${y.toFixed(1)}"
+            x2="${w - padR}"
+            y2="${y.toFixed(1)}"
+            stroke="var(--sky)"
+            stroke-opacity="0.25"
+            stroke-width="1"
+            stroke-dasharray="4 4"
+          ></line>
+
+          <text
+            class="home-y-tick ${densityClass}"
+            x="${padL - 10}"
+            y="${(y + 3).toFixed(1)}"
+            fill="var(--muted)"
+            text-anchor="end"
+            font-family="IBM Plex Mono, monospace"
+          >${formatYAxisTick(value)}</text>
+        `;
+      })
+      .join('');
 
   let tickIdxs = [];
 
@@ -150,6 +218,7 @@ export function dailyBalanceChart(series, rangeMonths) {
   const lastPoint = series[series.length - 1];
 
   return `
+    <div class="responsive-linechart-container home-linechart-container">
     <svg
       class="linechart"
       viewBox="0 0 ${w} ${h}"
@@ -199,6 +268,7 @@ export function dailyBalanceChart(series, rangeMonths) {
     <div class="subnote">
       Latest balance (${lastPoint.date}):
       <strong class="num">${fmtINR(lastPoint.balance)}</strong>
+    </div>
     </div>
   `;
 }
@@ -690,16 +760,22 @@ function renderInteractiveLineChart(
     LINE_PAD_R;
 
   const horizontalGrid = yTicks
-    .map(value => {
+    .map((value, i) => {
       const y =
         LINE_PAD_T +
         ((maxV - value) /
           (maxV - minV)) *
           plotHeight;
 
+      const densityClass =
+        yTickDensityClass(
+          i,
+          yTicks.length
+        );
+
       return `
         <line
-          class="linechart-y-grid"
+          class="linechart-y-grid responsive-y-grid ${densityClass}"
           x1="${LINE_PAD_L}"
           y1="${y.toFixed(1)}"
           x2="${LINE_CHART_W - LINE_PAD_R}"
@@ -718,15 +794,21 @@ function renderInteractiveLineChart(
    * Their vertical positions match the SVG grid lines.
    */
   const yTicksHtml = yTicks
-    .map(value => {
+    .map((value, i) => {
       const topPct =
         ((maxV - value) /
           (maxV - minV)) *
         100;
 
+      const densityClass =
+        yTickDensityClass(
+          i,
+          yTicks.length
+        );
+
       return `
         <div
-          class="linechart-y-tick"
+          class="linechart-y-tick responsive-y-tick ${densityClass}"
           style="top:${topPct}%;"
           title="${fmtINR(value)}"
         >
@@ -1438,7 +1520,12 @@ export function priceLineChart(hist) {
 
   const w = 900;
   const h = 170;
-  const padL = 85;
+
+  /*
+   * Y-axis labels are compact, so we do not need
+   * the old 85-unit gutter.
+   */
+  const padL = 60;
   const padR = 20;
   const padT = 16;
   const padB = 30;
@@ -1499,18 +1586,54 @@ export function priceLineChart(hist) {
       h - padB
     } Z`;
 
-  const gridSvg =
-    yAxisGrid(
-      minV,
-      maxV,
-      w,
-      h,
-      padL,
-      padR,
-      padT,
-      padB,
-      4
+  const priceYTicks =
+    Array.from(
+      { length: 6 },
+      (_, i) =>
+        maxV -
+        (i / 5) *
+          (maxV - minV)
     );
+
+  const gridSvg =
+    priceYTicks
+      .map((value, i) => {
+        const y =
+          padT +
+          ((maxV - value) /
+            ((maxV - minV) || 1)) *
+            (h - padT - padB);
+
+        const densityClass =
+          yTickDensityClass(
+            i,
+            priceYTicks.length
+          );
+
+        return `
+          <line
+            class="responsive-y-grid ${densityClass}"
+            x1="${padL}"
+            y1="${y.toFixed(1)}"
+            x2="${w - padR}"
+            y2="${y.toFixed(1)}"
+            stroke="var(--sky)"
+            stroke-opacity="0.25"
+            stroke-width="1"
+            stroke-dasharray="4 4"
+          ></line>
+
+          <text
+            class="responsive-y-tick ${densityClass}"
+            x="${padL - 10}"
+            y="${(y + 3).toFixed(1)}"
+            fill="var(--muted)"
+            text-anchor="end"
+            font-family="IBM Plex Mono, monospace"
+          >${formatYAxisTick(value)}</text>
+        `;
+      })
+      .join('');
 
   const dots =
     coords
@@ -1549,8 +1672,9 @@ export function priceLineChart(hist) {
     hist[hist.length - 1].price;
 
   return `
+    <div class="price-linechart-container">
     <svg
-      class="linechart"
+      class="linechart price-linechart"
       viewBox="0 0 ${w} ${h}"
     >
       <defs>
@@ -1599,6 +1723,7 @@ export function priceLineChart(hist) {
       <strong class="num">
         ${fmtINR(lastVal)}
       </strong>
+    </div>
     </div>
   `;
 }
