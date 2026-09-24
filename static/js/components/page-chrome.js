@@ -20,9 +20,17 @@ export function appendPageChrome(root, { showFabHome = true, isShared = false } 
   
   let footerContainer = document.getElementById('global-footer-container');
   if (!footerContainer) {
-    footerContainer = document.createElement('div');
+    footerContainer = document.createElement('footer');
     footerContainer.id = 'global-footer-container';
-    document.body.appendChild(footerContainer);
+    footerContainer.className = isShared ? 'app-footer app-footer-shared' : 'app-footer app-workspace-footer';
+
+    const footerHost = isShared ? document.body : document.querySelector('.app-workspace');
+
+    if (footerHost) {
+      footerHost.appendChild(footerContainer);
+    } else {
+      document.body.appendChild(footerContainer);
+    }
   }
 
   footerContainer.innerHTML = `

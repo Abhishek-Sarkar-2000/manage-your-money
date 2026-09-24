@@ -1032,17 +1032,29 @@ async function renderBudget() {
   currentMonthEntries = [...(monthData.entries || []), ...postedGeneratedRows];
 
   const ccDueSnapshot = await computeCreditCardDueBudget(cards, recurringSeries, currentKey);
+
+  /*
+   * `computeCreditCardDueBudget(currentKey)` already represents the active
+   * billing cycle that starts in currentKey and closes in the following month.
+   *
+   * Do NOT advance currentKey here. Doing so selects the following billing
+   * cycle, which has not started yet and therefore reports ₹0 accrued spend.
+   */
   currentCcDueSnapshot = currentKey === currentMonthKey()
-    ? await computeCreditCardDueBudget(cards, recurringSeries, addMonths(currentKey, 1))
+    ? ccDueSnapshot
     : null;
 
   await ensureCreditCardDuesGroup(ccDueSnapshot);
   await ensureAutoSpendGroup(scheduledGeneratedRows);
   await Store.set(`budget-data:${currentKey}`, budgetData);
 
-  // Handle deep link from Month -> Budget
+  // Handle deep links from Month and Dashboard.
   const openReq = sessionStorage.getItem('month-to-budget-open');
+  const dashboardParams = new URLSearchParams(window.location.search);
+  const dashboardFocus = dashboardParams.get('focus');
+  const dashboardFocusId = dashboardParams.get('id');
   let scrollTargetId = null;
+  let scrollTargetSelector = null;
   if (openReq) {
     try {
       const { tagName, monthKey: reqMk } = JSON.parse(openReq);
@@ -1062,6 +1074,23 @@ async function renderBudget() {
       }
     } catch(e) {}
     sessionStorage.removeItem('month-to-budget-open');
+  }
+
+  if (dashboardFocus === 'category' && dashboardFocusId) {
+    for (const group of budgetData) {
+      const category = (group.categories || []).find(item => item.id === dashboardFocusId);
+      if (!category) continue;
+
+      group.expanded = true;
+      category.expanded = true;
+      scrollTargetId = category.id;
+      scrollTargetSelector = `.budget-row[data-id="${CSS.escape(category.id)}"]`;
+      break;
+    }
+  }
+
+  if (dashboardFocus === 'goal' && dashboardFocusId) {
+    scrollTargetSelector = `.goal-card[data-goal-id="${CSS.escape(dashboardFocusId)}"]`;
   }
 
   let totalBudget = 0;
@@ -1211,14 +1240,17 @@ async function renderBudget() {
 
   appendPageChrome(root);
 
-  if (scrollTargetId) {
+  if (scrollTargetId || scrollTargetSelector) {
     setTimeout(() => {
-      const targetRow = document.querySelector(`.budget-row[data-id="${scrollTargetId}"]`);
+      const selector = scrollTargetSelector || `.budget-row[data-id="${CSS.escape(scrollTargetId)}"]`;
+      const targetRow = document.querySelector(selector);
+
       if (targetRow) {
         targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        targetRow.style.transition = 'background 0.5s ease';
-        targetRow.style.background = 'var(--ice)';
-        setTimeout(() => targetRow.style.background = '', 1500);
+        targetRow.classList.add('dashboard-deep-link-target');
+        targetRow.setAttribute('tabindex', '-1');
+        targetRow.focus({ preventScroll: true });
+        setTimeout(() => targetRow.classList.remove('dashboard-deep-link-target'), 1800);
       }
     }, 100);
   }

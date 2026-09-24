@@ -1,6 +1,5 @@
 /* ---------- SVG line charts (self-contained, no libraries) ---------- */
 import { fmtINR } from '../../core/format.js';
-import { yAxisGrid } from './axis-grid.js';
 
 /*
  * Shared responsive Y-tick density classes.
@@ -37,12 +36,23 @@ export function dailyBalanceChart(series, rangeMonths) {
     return `<div class="empty-chart">Add a month to see your balance trend here.</div>`;
   }
 
+  const useOriginalCompactChart =
+    window.matchMedia('(max-width: 1023px)').matches;
+
   const w = 900;
-  const h = 220;
+
+  /*
+   * Desktop gets the taller dashboard chart.
+   * <=1023px returns completely to the original geometry.
+   */
+  const h = useOriginalCompactChart ? 220 : 276;
+
   const padL = 85;
   const padR = 20;
-  const padT = 16;
-  const padB = 34;
+  const padT = useOriginalCompactChart ? 16 : 22;
+  const padB = useOriginalCompactChart ? 34 : 42;
+
+  const plotHeight = h - padT - padB;
 
   const vals = series.map(p => p.balance);
   const rawMin = Math.min(...vals);
@@ -72,7 +82,7 @@ export function dailyBalanceChart(series, rangeMonths) {
       h -
       padB -
       ((p.balance - minV) / range) *
-        (h - padT - padB);
+        plotHeight;
 
     return [x, y];
   });
@@ -92,12 +102,28 @@ export function dailyBalanceChart(series, rangeMonths) {
     ` L${coords[coords.length - 1][0].toFixed(1)},${h - padB}` +
     ` L${coords[0][0].toFixed(1)},${h - padB} Z`;
 
+  /*
+   * Increase Y-axis detail when the chart has more vertical room.
+   * Keep the density bounded so labels never become excessive.
+   */
+  const homeYTickCount = useOriginalCompactChart
+    ? 8
+    : Math.max(
+        6,
+        Math.min(
+          11,
+          Math.round(plotHeight / 50) + 1
+        )
+      );
+
   const homeYTicks =
     Array.from(
-      { length: 8 },
+      { length: homeYTickCount },
       (_, i) => {
         const ratio =
-          i / 7;
+          homeYTickCount > 1
+            ? i / (homeYTickCount - 1)
+            : 0;
 
         return (
           maxV -
@@ -113,7 +139,7 @@ export function dailyBalanceChart(series, rangeMonths) {
           padT +
           ((maxV - value) /
             (maxV - minV)) *
-            (h - padT - padB);
+            plotHeight;
 
         const densityClass =
           yTickDensityClass(
@@ -208,7 +234,7 @@ export function dailyBalanceChart(series, rangeMonths) {
           x="${x.toFixed(1)}"
           y="${h - 6}"
           fill="var(--muted)"
-          text-anchor="right"
+          text-anchor="middle"
           font-family="IBM Plex Mono, monospace"
         >${tickLabel(series[i])}</text>
       `;
@@ -220,7 +246,7 @@ export function dailyBalanceChart(series, rangeMonths) {
   return `
     <div class="responsive-linechart-container home-linechart-container">
     <svg
-      class="linechart"
+      class="linechart dashboard-balance-chart-svg"
       viewBox="0 0 ${w} ${h}"
     >
       <defs>
@@ -1368,39 +1394,12 @@ document.addEventListener(
         [endIndex, startIndex];
     }
 
-    if (endIndex - startIndex >= 1) {
-      state.zoomStart = startIndex;
-      state.zoomEnd = endIndex;
-
-      redrawLineChart(id);
-    }
-
-    if (
-      startIndex > endIndex
-    ) {
-      [
-        startIndex,
-        endIndex
-      ] = [
-        endIndex,
-        startIndex
-      ];
-    }
-
     /*
      * Require at least two points.
      */
-    if (
-      endIndex -
-        startIndex >=
-      1
-    ) {
-      state.zoomStart =
-        startIndex;
-
-      state.zoomEnd =
-        endIndex;
-
+    if (endIndex - startIndex >= 1) {
+      state.zoomStart = startIndex;
+      state.zoomEnd = endIndex;
       redrawLineChart(id);
     }
 
@@ -1753,7 +1752,7 @@ export function wireChartTooltips(
   const showTooltip = ev => {
     const dot =
       ev.target.closest(
-        '.linechart-dot, .stacked-segment, .shared-debt-segment'
+        '.linechart-dot, .stacked-segment, .shared-debt-segment, .dashboard-cashflow-bar'
       );
 
     if (!dot) return;
@@ -1840,7 +1839,7 @@ export function wireChartTooltips(
     ev => {
       if (
         ev.target.closest(
-          '.linechart-dot, .stacked-segment, .shared-debt-segment'
+          '.linechart-dot, .stacked-segment, .shared-debt-segment, .dashboard-cashflow-bar'
         )
       ) {
         hideTooltip();
@@ -1854,7 +1853,7 @@ export function wireChartTooltips(
     ev => {
       const dot =
         ev.target.closest(
-          '.linechart-dot, .stacked-segment, .shared-debt-segment'
+          '.linechart-dot, .stacked-segment, .shared-debt-segment, .dashboard-cashflow-bar'
         );
 
       if (dot) {

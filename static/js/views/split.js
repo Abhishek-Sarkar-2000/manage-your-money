@@ -31,6 +31,7 @@ let splitAddMemberFormSource = null;
 let splitEditingGroupId = null;
 let splitExpandedId = null;
 let splitSlideDirection = '';
+let dashboardSpendFocusId = null;
 let animTimeout = null;
 let domainLoaded = false;
 
@@ -43,11 +44,20 @@ let currentSort = { key: 'date', asc: false };
 // Every mutation to splitsIndex/monthsIndex already happens in place
 // before persisting, so the cache never goes stale.
 async function loadDomain() {
-  if (domainLoaded) return;
   [splitsIndex, monthsIndex] = await Promise.all([
     Store.get('splits-index', []),
     Store.get('months-index', []),
   ]);
+
+  const params = new URLSearchParams(window.location.search);
+  const requestedGroupId = params.get('group');
+  const requestedSpendId = params.get('spend');
+
+  if (requestedGroupId && splitsIndex.includes(requestedGroupId)) {
+    splitExpandedId = requestedGroupId;
+    dashboardSpendFocusId = requestedSpendId || null;
+  }
+
   domainLoaded = true;
 }
 
@@ -382,7 +392,7 @@ function renderSplitDetailsPanel(group) {
       dateCell = `<td class="dv-date" rowspan="${dateStreakCounts.get(index)}">${dateContent}</td>`;
     }
     return `
-    <tr>${dateCell}
+    <tr data-split-spend-id="${escapeHtml(s.id)}">${dateCell}
       <td class="desc-cell">
         ${renderSplitShareCallout(group, s)}
         <span class="src-badge">${escapeHtml(s.payee)}</span>
@@ -829,6 +839,22 @@ async function renderSplit() {
   appendPageChrome(root);
   setupScrollWrappers(root);
   setupTableScrollIndicators(root);
+
+  if (dashboardSpendFocusId) {
+    const spendId = dashboardSpendFocusId;
+    dashboardSpendFocusId = null;
+
+    setTimeout(() => {
+      const target = root.querySelector(`[data-split-spend-id="${CSS.escape(spendId)}"]`);
+      if (!target) return;
+
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.classList.add('dashboard-deep-link-target');
+      target.setAttribute('tabindex', '-1');
+      target.focus({ preventScroll: true });
+      setTimeout(() => target.classList.remove('dashboard-deep-link-target'), 1800);
+    }, 120);
+  }
 
   // Sync horizontal scrolling and EXACT table widths between the body and sticky header
   const tableWrapEl = root.querySelector('.transactions-container .table-wrap');

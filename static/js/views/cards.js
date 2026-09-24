@@ -94,9 +94,19 @@ function renderCardStatementExplorer(selectedCard, ledger) {
           <strong>Fully settled</strong>
           <span>Use this when the statement was completely cleared outside the recorded Month entries, such as an unlogged payment or cashback adjustment. Transaction history and spending remain unchanged.</span>
         </div>
-        <label class="cc-settle-switch">
-          <input type="checkbox" data-cycle-settled="${ledger.cycleEnd}" ${ledger.fullySettled ? 'checked' : ''} />
-          <span class="cc-settle-slider"></span>
+        <label
+          class="cc-settle-switch"
+          for="cc-cycle-settled"
+          aria-label="Mark this credit card statement as fully settled"
+        >
+          <input
+            id="cc-cycle-settled"
+            name="cycleSettled"
+            type="checkbox"
+            data-cycle-settled="${ledger.cycleEnd}"
+            ${ledger.fullySettled ? 'checked' : ''}
+          />
+          <span class="cc-settle-slider" aria-hidden="true"></span>
         </label>
       </div>
     `
@@ -115,8 +125,13 @@ function renderCardStatementExplorer(selectedCard, ledger) {
 
       <div class="cc-ledger-toolbar">
         <div class="field cc-ledger-card-select">
-          <label>Credit card</label>
-          <select data-card-ledger-select>
+          <label for="cc-ledger-card-select">Credit card</label>
+          <select
+            id="cc-ledger-card-select"
+            name="ledgerCard"
+            data-card-ledger-select
+            autocomplete="off"
+          >
             ${selectorOptions}
           </select>
         </div>
@@ -199,7 +214,13 @@ async function renderCards() {
     });
 
     if (migrated) await Store.set('creditcards', cards);
-    selectedCardId = cards[0]?.id || null;
+
+    const params = new URLSearchParams(window.location.search);
+    const requestedCardId = params.get('card');
+    const requestedCycle = params.get('cycle');
+
+    selectedCardId = cards.some(card => card.id === requestedCardId) ? requestedCardId : (cards[0]?.id || null);
+    selectedCycleView = requestedCycle === 'last' ? 'last' : 'current';
     domainLoaded = true;
   }
 
@@ -243,9 +264,53 @@ async function renderCards() {
         ${isEditing ? `
           <div class="cc-card-editor">
             <div class="form-row">
-              <div class="field"><label>Card description</label><input class="cc-edit-name" type="text" value="${escapeHtml(c.name)}" /></div>
-              <div class="field"><label>Billing date</label><input class="cc-edit-billing" type="number" min="1" max="31" value="${c.billingDay}" /></div>
-              <div class="field"><label>Due date</label><input class="cc-edit-due" type="number" min="1" max="31" value="${c.dueDay}" /></div>
+              <div class="field">
+                <label for="cc-edit-name-${c.id}">
+                  Card description
+                </label>
+                <input
+                  id="cc-edit-name-${c.id}"
+                  name="cardDescription"
+                  class="cc-edit-name"
+                  type="text"
+                  value="${escapeHtml(c.name)}"
+                  autocomplete="off"
+                />
+              </div>
+
+              <div class="field">
+                <label for="cc-edit-billing-${c.id}">
+                  Billing date
+                </label>
+                <input
+                  id="cc-edit-billing-${c.id}"
+                  name="billingDay"
+                  class="cc-edit-billing"
+                  type="number"
+                  min="1"
+                  max="31"
+                  value="${c.billingDay}"
+                  inputmode="numeric"
+                  autocomplete="off"
+                />
+              </div>
+
+              <div class="field">
+                <label for="cc-edit-due-${c.id}">
+                  Due date
+                </label>
+                <input
+                  id="cc-edit-due-${c.id}"
+                  name="dueDay"
+                  class="cc-edit-due"
+                  type="number"
+                  min="1"
+                  max="31"
+                  value="${c.dueDay}"
+                  inputmode="numeric"
+                  autocomplete="off"
+                />
+              </div>
             </div>
             <div class="form-actions">
               <button class="btn primary" data-save-card="${c.id}" type="button">Save</button>
@@ -268,11 +333,54 @@ async function renderCards() {
         <div class="cc-list">${rows}</div>
         <div class="form-panel">
           <div class="form-row">
-            <div class="field"><label>Card description</label><input id="cc-name" type="text" placeholder="e.g. HDFC Regalia" /></div>
-            <div class="field"><label>Billing cycle (day of month bill is generated)</label><input id="cc-day" type="number" min="1" max="31" placeholder="e.g. 18" /></div>
-            <div class="field"><label>Due date (day of month payment is due)</label><input id="cc-due-day" type="number" min="1" max="31" value="1" /></div>
+            <div class="field">
+              <label for="cc-name">
+                Card description
+              </label>
+              <input
+                id="cc-name"
+                name="cardDescription"
+                type="text"
+                placeholder="e.g. HDFC Regalia"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="field">
+              <label for="cc-day">
+                Billing cycle (day of month bill is generated)
+              </label>
+              <input
+                id="cc-day"
+                name="billingDay"
+                type="number"
+                min="1"
+                max="31"
+                placeholder="e.g. 18"
+                inputmode="numeric"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="field">
+              <label for="cc-due-day">
+                Due date (day of month payment is due)
+              </label>
+              <input
+                id="cc-due-day"
+                name="dueDay"
+                type="number"
+                min="1"
+                max="31"
+                value="1"
+                inputmode="numeric"
+                autocomplete="off"
+              />
+            </div>
           </div>
-          <div class="form-actions"><button class="btn" id="cc-add">Add card</button></div>
+          <div class="form-actions">
+            <button class="btn" id="cc-add" type="button">Add card</button>
+          </div>
         </div>
     </div>
 
@@ -281,6 +389,18 @@ async function renderCards() {
   `;
 
   appendPageChrome(root);
+
+  const requestedCardId = new URLSearchParams(window.location.search).get('card');
+  if (requestedCardId && selectedCardId === requestedCardId) {
+    setTimeout(() => {
+      const explorer = root.querySelector('.cc-ledger-card-select')?.closest('.card') || root.querySelector('[data-card-ledger-select]');
+      if (!explorer) return;
+
+      explorer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      explorer.setAttribute('tabindex', '-1');
+      explorer.focus({ preventScroll: true });
+    }, 100);
+  }
 }
 
 root.addEventListener('click', async (ev) => {

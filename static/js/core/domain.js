@@ -644,6 +644,8 @@ export async function computeDailyBalanceSeries(monthsIndex, emiSeries, sipSerie
     const deltaByDay = {};
     for (const e of relevant) {
       if (!e.date) continue;
+      if (e.type === 'recurring' && e.paymentMode === 'card') continue;
+
       const amt = Number(e.amount) || 0;
       const signed = (e.type === 'income' || e.type === 'payback') ? amt : -amt;
       deltaByDay[e.date] = (deltaByDay[e.date] || 0) + signed;
@@ -770,7 +772,7 @@ export async function computeGlobalCardDues(monthsIndex, cards, recurringSeries)
       }
     }
   }
-  const list = Object.values(perCard).filter(x => x.card).map(x => ({ name: x.card.name, dues: x.dues }));
+  const list = Object.values(perCard).filter(x => x.card).map(x => ({ cardId: x.card.id, name: x.card.name, billingDay: Number(x.card.billingDay) || 1, dueDay: Number(x.card.dueDay) || 1, dues: x.dues }));
   const total = list.reduce((s, x) => s + x.dues, 0);
   return { total, list };
 }

@@ -154,34 +154,22 @@ export function initGoogleSignIn() {
   });
   isGoogleInitialized = true;
 
-  const cornerEl = document.getElementById('google-signin-btn');
-  const mobileLoginBtn = document.getElementById('mobile-login-btn');
-  
-  if (cornerEl) {
-    const renderCornerButton = () => {
-      const isMobile = window.matchMedia('(max-width: 639px)').matches;
-      if (isMobile) {
-        cornerEl.style.display = 'none';
-        if (mobileLoginBtn) {
-          mobileLoginBtn.style.display = currentUser ? 'none' : 'flex';
-        }
-      } else {
-        cornerEl.style.display = currentUser ? 'none' : 'inline-block';
-        if (mobileLoginBtn) mobileLoginBtn.style.display = 'none';
-        renderGoogleButton(cornerEl, {
-          type: 'standard',
-          theme: 'outline',
-          size: 'medium',
-          shape: 'pill',
-          text: 'signin_with',
-          logo_alignment: 'left',
-          width: '200',
-        });
-      }
-    };
-    
-    renderCornerButton();
-    window.matchMedia('(max-width: 639px)').addEventListener('change', renderCornerButton);
+  const signinSlot = document.getElementById('google-signin-btn');
+
+  if (signinSlot) {
+    signinSlot.style.display = currentUser ? 'none' : 'block';
+
+    if (!currentUser) {
+      renderGoogleButton(signinSlot, {
+        type: 'standard',
+        theme: 'outline',
+        size: 'medium',
+        shape: 'pill',
+        text: 'signin_with',
+        logo_alignment: 'left',
+        width: '200',
+      });
+    }
   }
 }
 
@@ -209,65 +197,43 @@ export function mountHeroGoogleButton(heroSlot) {
 function updateProfileBadge() {
   const signinEl = document.getElementById('google-signin-btn');
   const signoutBtn = document.getElementById('profile-signout-btn');
+
+  const userCard = document.getElementById('sidebar-user-card');
+  const userNameEl = document.getElementById('sidebar-user-name');
   const emailEl = document.getElementById('burger-user-email');
-  const brandNameEl = document.getElementById('brand-name');
+  const initialEl = document.getElementById('sidebar-user-initial');
 
   if (currentUser) {
-    if (brandNameEl) {
-      const isHome = window.location.pathname === '/' || window.location.pathname === '/home';
-      if (isHome) {
-        const firstName = (currentUser.name || '').split(' ')[0] || 'User';
-        brandNameEl.textContent = `${firstName}'s LedgerNote`;
-      } else {
-        brandNameEl.textContent = 'LedgerNote';
-      }
-    }
+    const displayName =
+      (currentUser.name || '').trim() ||
+      (currentUser.email || '').split('@')[0] ||
+      'LedgerNote user';
+
+    const firstInitial = displayName.charAt(0).toUpperCase() || 'L';
+
     if (signinEl) signinEl.style.display = 'none';
     if (signoutBtn) signoutBtn.style.display = 'block';
+
+    if (userCard) userCard.hidden = false;
+    if (userNameEl) userNameEl.textContent = displayName;
+    if (initialEl) initialEl.textContent = firstInitial;
+
     if (emailEl) {
-      emailEl.style.display = 'block';
       emailEl.textContent = currentUser.email || '';
     }
   } else {
-    if (brandNameEl) {
-      brandNameEl.textContent = 'LedgerNote';
-    }
     if (signinEl) signinEl.style.display = 'block';
     if (signoutBtn) signoutBtn.style.display = 'none';
-    if (emailEl) emailEl.style.display = 'none';
+
+    if (userCard) userCard.hidden = true;
+    if (userNameEl) userNameEl.textContent = '';
+    if (emailEl) emailEl.textContent = '';
+    if (initialEl) initialEl.textContent = 'L';
   }
 }
 
-function wireBurgerMenu() {
-  const burgerBtn = document.getElementById('burger-toggle-btn');
-  const burgerPanel = document.getElementById('burger-menu-panel');
-  const burgerWrap = document.getElementById('burger-menu-wrap');
+function wireAccountActions() {
   const signoutBtn = document.getElementById('profile-signout-btn');
-  
-  if (!burgerBtn || !burgerPanel) return;
-
-  // 1. Toggle Logic
-  burgerBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const isOpen = burgerPanel.classList.toggle('open');
-    burgerBtn.setAttribute('aria-expanded', String(isOpen));
-  });
-
-  // 2. Click-Outside to Close
-  document.addEventListener('click', (e) => {
-    if (burgerPanel.classList.contains('open') && (!burgerWrap || !burgerWrap.contains(e.target))) {
-      burgerPanel.classList.remove('open');
-      burgerBtn.setAttribute('aria-expanded', 'false');
-    }
-  });
-
-  // 3. Link Click to Close
-  burgerPanel.addEventListener('click', (e) => {
-    if (e.target.closest('.burger-link') || e.target.closest('.theme-opt')) {
-      burgerPanel.classList.remove('open');
-      burgerBtn.setAttribute('aria-expanded', 'false');
-    }
-  });
 
   if (signoutBtn) {
     signoutBtn.addEventListener('click', () => signOut());
@@ -275,7 +241,7 @@ function wireBurgerMenu() {
 }
 
 function initThemeSelector() {
-  // Sync UI active states for BOTH the desktop topbar AND the mobile submenu
+  // One persisted theme state drives the shared sidebar on every viewport.
   function syncActiveStates() {
     const theme = localStorage.getItem('ledger-theme') || 'default';
     document.querySelectorAll('[data-theme-btn]').forEach(btn => {
@@ -287,14 +253,22 @@ function initThemeSelector() {
     const themeBtn = ev.target.closest('[data-theme-btn]');
     if (themeBtn) {
       const theme = themeBtn.dataset.themeBtn;
+      const supportedThemes = ['default', 'hi-contrast', 'dark'];
+
+      if (!supportedThemes.includes(theme)) return;
+
       localStorage.setItem('ledger-theme', theme);
       document.documentElement.setAttribute('data-theme', theme);
-      
-      const themeColors = { 'default': '#FCFDFF', 'dark': '#0F111E', 'hi-contrast': '#FFFFFF' };
+
+      const themeColors = {
+        default: '#FCFDFF',
+        'hi-contrast': '#FFFFFF',
+        dark: '#0F111E'
+      };
       const meta = document.querySelector('meta[name="theme-color"]');
       if (meta) meta.content = themeColors[theme] || '#FCFDFF';
 
-      // Re-sync all buttons so the desktop pill and mobile burger pill stay identical
+      // Re-sync every rendered theme control from the same persisted state.
       syncActiveStates();
     }
   });
@@ -309,4 +283,4 @@ window.addEventListener('auth:required', () => {
 });
 
 initThemeSelector();
-wireBurgerMenu();
+wireAccountActions();

@@ -17,110 +17,408 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}?v={{ static_version }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-bar.css') }}?v={{ static_version }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/charts.css') }}?v={{ static_version }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app-shell.css') }}?v={{ static_version }}" />
   {% block extra_css %}{% endblock %}
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script id="app-config" type="application/json">{"googleClientId": {{ google_client_id | tojson }}}</script>
   <script>
-    const savedTheme = localStorage.getItem('ledger-theme') || 'default';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    
-    // Set the OS-level status/nav bar color dynamically based on the saved theme
-    const themeColors = { 'default': '#FCFDFF', 'dark': '#0F111E', 'hi-contrast': '#FFFFFF' };
-    const meta = document.createElement('meta');
-    meta.name = 'theme-color';
-    meta.content = themeColors[savedTheme] || '#FCFDFF';
-    document.head.appendChild(meta);
+    (() => {
+      const supportedThemes = ['default', 'hi-contrast', 'dark'];
+      const storedTheme = localStorage.getItem('ledger-theme');
+
+      const savedTheme = supportedThemes.includes(storedTheme)
+        ? storedTheme
+        : 'default';
+
+      if (storedTheme && storedTheme !== savedTheme) {
+        localStorage.setItem('ledger-theme', savedTheme);
+      }
+
+      document.documentElement.setAttribute('data-theme', savedTheme);
+
+      const themeColors = {
+        default: '#FCFDFF',
+        'hi-contrast': '#FFFFFF',
+        dark: '#0F111E'
+      };
+
+      const meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      meta.content = themeColors[savedTheme];
+      document.head.appendChild(meta);
+    })();
   </script>
-  
-  <style>
-    body { display: flex; flex-direction: column; }
-    #app { flex: 1 0 auto; }
-    .footer-block { margin-top: auto; }
-  </style>
 </head>
 <body data-is-shared="{{ 'true' if is_shared else 'false' }}">
 
-  {% block topbar %}
-  <div id="global-topbar" class="topbar-wrapper">
-    <div class="topbar">
-      <a class="brand" href="/home"><span class="mark"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><rect x="6" y="6" width="4" height="4" rx="1"></rect><path d="M12 6h4a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-4V6z"></path><path d="M6 12v5a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-7v-2H6z"></path></svg></span><span id="brand-name">LedgerNote</span></a>
-      {% block auth_bar %}
-      <div id="auth-bar" class="auth-bar">
-        <!-- Desktop Theme Pill Grid -->
-        <div id="desktop-theme-selector" class="range-toggle desktop-theme-grid">
-          <button class="range-btn" data-theme-btn="default" type="button">Light</button>
-          <button class="range-btn" data-theme-btn="hi-contrast" type="button">Hi-Contrast</button>
-          <button class="range-btn" data-theme-btn="dark" type="button">Dark</button>
-        </div>
+  {% if is_shared %}
 
-        <!-- Burger Menu Wrapper -->
-        <div class="burger-menu-wrap" id="burger-menu-wrap">
-          <button class="burger-toggle-btn" id="burger-toggle-btn" type="button" aria-label="Menu" aria-expanded="false">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
+    <div id="global-topbar" class="topbar-wrapper">
+      <div class="topbar">
+        <a class="brand" href="/home">
+          <span class="mark">
+            <svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor">
+              <rect x="6" y="6" width="4" height="4" rx="1"></rect>
+              <path d="M12 6h4a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-4V6z"></path>
+              <path d="M6 12v5a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-7v-2H6z"></path>
+            </svg>
+          </span>
+          <span>LedgerNote</span>
+        </a>
+      </div>
+    </div>
+
+    <div id="app" class="shared-page-content">
+
+  {% else %}
+
+    <div class="app-shell" id="app-shell">
+
+      <aside
+        class="app-sidebar"
+        id="app-sidebar"
+        aria-label="LedgerNote navigation"
+        aria-hidden="false"
+      >
+        <div class="sidebar-header">
+          <a class="sidebar-brand" href="/home" aria-label="LedgerNote home">
+            <span class="sidebar-brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor">
+                <rect x="6" y="6" width="4" height="4" rx="1"></rect>
+                <path d="M12 6h4a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-4V6z"></path>
+                <path d="M6 12v5a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-7v-2H6z"></path>
+              </svg>
+            </span>
+
+            <span class="sidebar-brand-copy">
+              <strong>LedgerNote</strong>
+              <small>Daily finance, clearly.</small>
+            </span>
+          </a>
+
+          <button
+            class="sidebar-close-btn"
+            id="sidebar-close-btn"
+            type="button"
+            aria-label="Close navigation"
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none"
+                 stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
           </button>
+        </div>
 
-          <!-- Dropdown Panel -->
-          <div class="burger-menu-panel" id="burger-menu-panel">
-            <!-- Navigation -->
-            <div class="burger-menu-section-title">MONEY MATTERS</div>
-            <a href="/home" class="burger-link">Dashboard</a>
-            <a href="/months" class="burger-link">Previous Months</a>
-            <a href="/budget" class="burger-link">Budget</a>
-            <a href="/split" class="burger-link">Split Money</a>
-            <a href="/sips" class="burger-link">SIPs</a>
-            <a href="/subscriptions" class="burger-link">Subscriptions</a>
-            <a href="/cards" class="burger-link">Credit Cards</a>
-            <a href="/pricetrack" class="burger-link">Price Tracker</a>
+        <nav class="sidebar-nav" aria-label="Money matters">
+          <div class="sidebar-section-label">Money matters</div>
 
-            <!-- Mobile Theme Sub-menu -->
-            <div class="mobile-theme-submenu">
-              <hr class="burger-divider">
-              <div class="burger-menu-section-title">THEME</div>
-              <button class="burger-link theme-opt" data-theme-btn="default" type="button" style="position: relative;">Light</button>
-              <button class="burger-link theme-opt" data-theme-btn="hi-contrast" type="button" style="position: relative;">Hi-Contrast</button>
-              <button class="burger-link theme-opt" data-theme-btn="dark" type="button" style="position: relative;">Dark</button>
+          <a
+            href="/home"
+            class="sidebar-link {{ 'active' if active_route == 'home' else '' }}"
+            {% if active_route == 'home' %}aria-current="page"{% endif %}
+          >
+            <span class="sidebar-link-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 11.5 12 4l9 7.5"></path>
+                <path d="M5.5 10.5V20h13v-9.5"></path>
+                <path d="M9.5 20v-6h5v6"></path>
+              </svg>
+            </span>
+            <span class="sidebar-link-label">Home</span>
+            <span class="sidebar-chevron" aria-hidden="true">›</span>
+          </a>
+
+          <a
+            href="/months"
+            class="sidebar-link {{ 'active' if active_route in ['months', 'month'] else '' }}"
+            {% if active_route in ['months', 'month'] %}aria-current="page"{% endif %}
+          >
+            <span class="sidebar-link-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="5" width="18" height="16" rx="2"></rect>
+                <path d="M7 3v4M17 3v4M3 10h18"></path>
+              </svg>
+            </span>
+            <span class="sidebar-link-label">Months &amp; Activity</span>
+            <span class="sidebar-chevron" aria-hidden="true">›</span>
+          </a>
+
+          <a
+            href="/budget"
+            class="sidebar-link {{ 'active' if active_route == 'budget' else '' }}"
+            {% if active_route == 'budget' %}aria-current="page"{% endif %}
+          >
+            <span class="sidebar-link-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3v18"></path>
+                <path d="M18 7H9a3 3 0 0 0 0 6h6a3 3 0 0 1 0 6H6"></path>
+              </svg>
+            </span>
+            <span class="sidebar-link-label">Budget &amp; Goals</span>
+            <span class="sidebar-chevron" aria-hidden="true">›</span>
+          </a>
+
+          <a
+            href="/cards"
+            class="sidebar-link {{ 'active' if active_route == 'cards' else '' }}"
+            {% if active_route == 'cards' %}aria-current="page"{% endif %}
+          >
+            <span class="sidebar-link-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+                <path d="M3 10h18M7 15h3"></path>
+              </svg>
+            </span>
+            <span class="sidebar-link-label">Cards</span>
+            <span class="sidebar-chevron" aria-hidden="true">›</span>
+          </a>
+
+          <a
+            href="/sips"
+            class="sidebar-link {{ 'active' if active_route == 'sips' else '' }}"
+            {% if active_route == 'sips' %}aria-current="page"{% endif %}
+          >
+            <span class="sidebar-link-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path>
+              </svg>
+            </span>
+            <span class="sidebar-link-label">SIPs</span>
+            <span class="sidebar-chevron" aria-hidden="true">›</span>
+          </a>
+
+          <a
+            href="/subscriptions"
+            class="sidebar-link {{ 'active' if active_route == 'subscriptions' else '' }}"
+            {% if active_route == 'subscriptions' %}aria-current="page"{% endif %}
+          >
+            <span class="sidebar-link-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="5" width="16" height="16" rx="2"></rect>
+                <path d="M8 3v4M16 3v4M4 10h16"></path>
+              </svg>
+            </span>
+            <span class="sidebar-link-label">Subscriptions</span>
+            <span class="sidebar-chevron" aria-hidden="true">›</span>
+          </a>
+
+          <a
+            href="/split"
+            class="sidebar-link {{ 'active' if active_route == 'split' else '' }}"
+            {% if active_route == 'split' %}aria-current="page"{% endif %}
+          >
+            <span class="sidebar-link-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="9" cy="8" r="3"></circle>
+                <circle cx="17" cy="9" r="2.5"></circle>
+                <path d="M3.5 20c.5-4 2.4-6 5.5-6s5 2 5.5 6"></path>
+                <path d="M14 15c3.6-.8 6 .9 6.5 4"></path>
+              </svg>
+            </span>
+            <span class="sidebar-link-label">Split Money</span>
+            <span class="sidebar-chevron" aria-hidden="true">›</span>
+          </a>
+
+          <a
+            href="/pricetrack"
+            class="sidebar-link {{ 'active' if active_route == 'pricetrack' else '' }}"
+            {% if active_route == 'pricetrack' %}aria-current="page"{% endif %}
+          >
+            <span class="sidebar-link-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 13 11 22 2 13l9-9h7l2 2v7Z"></path>
+                <circle cx="15.5" cy="8.5" r="1"></circle>
+              </svg>
+            </span>
+            <span class="sidebar-link-label">Price Tracker</span>
+            <span class="sidebar-chevron" aria-hidden="true">›</span>
+          </a>
+        </nav>
+
+        <div class="sidebar-spacer"></div>
+
+        <section class="sidebar-theme" aria-labelledby="sidebar-theme-title">
+          <div class="sidebar-section-label" id="sidebar-theme-title">
+            Theme
+          </div>
+
+          <div
+            class="sidebar-theme-grid"
+            role="group"
+            aria-label="Choose application theme"
+          >
+            <button data-theme-btn="default" type="button">
+              Light
+            </button>
+
+            <button data-theme-btn="hi-contrast" type="button">
+              Hi-Contrast
+            </button>
+
+            <button data-theme-btn="dark" type="button">
+              Dark
+            </button>
+          </div>
+        </section>
+
+        <section class="sidebar-account">
+          <div class="sidebar-section-label">Account</div>
+
+          <div id="sidebar-user-card" class="sidebar-user-card" hidden>
+            <div class="sidebar-user-avatar" aria-hidden="true">
+              <span id="sidebar-user-initial">L</span>
             </div>
 
-            <hr class="burger-divider">
+            <div class="sidebar-user-copy">
+              <strong id="sidebar-user-name">LedgerNote user</strong>
+              <span id="burger-user-email"></span>
+            </div>
+          </div>
 
-            <!-- Auth Section -->
-            <div class="burger-menu-section-title">ACCOUNT</div>
-            <div id="burger-user-email" class="burger-user-email" style="display: none;"></div>
-            <div id="google-signin-btn" class="google-signin-btn"></div>
-            <button id="profile-signout-btn" class="burger-link auth-link" type="button" style="display: none;">Sign out</button>
+          <div id="google-signin-btn" class="google-signin-btn"></div>
+
+          <button
+            id="profile-signout-btn"
+            class="sidebar-signout-btn"
+            type="button"
+            style="display:none;"
+          >
+            Sign out
+          </button>
+        </section>
+      </aside>
+
+      <button
+        class="sidebar-backdrop"
+        id="sidebar-backdrop"
+        type="button"
+        tabindex="-1"
+        aria-label="Close navigation"
+      ></button>
+
+      <section class="app-workspace">
+
+        <div id="global-topbar" class="topbar-wrapper app-topbar">
+          <div class="topbar app-topbar-inner">
+
+            <div class="app-topbar-left">
+              <button
+                id="sidebar-toggle-btn"
+                class="sidebar-toggle-btn"
+                type="button"
+                aria-label="Open navigation"
+                aria-controls="app-sidebar"
+                aria-expanded="false"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="22"
+                  height="22"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <line x1="3" y1="6" x2="21" y2="6"></line>
+                  <line x1="3" y1="12" x2="21" y2="12"></line>
+                  <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+              </button>
+
+              <a
+                class="mobile-topbar-brand"
+                href="/home"
+                aria-label="LedgerNote home"
+              >
+                <span class="mark" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="100%"
+                    height="100%"
+                    fill="currentColor"
+                  >
+                    <rect x="6" y="6" width="4" height="4" rx="1"></rect>
+                    <path d="M12 6h4a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-4V6z"></path>
+                    <path d="M6 12v5a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-7v-2H6z"></path>
+                  </svg>
+                </span>
+
+                <span>LedgerNote</span>
+              </a>
+
+              <span class="desktop-page-context">
+                {% if active_route == 'home' %}
+                  Home
+                {% elif active_route in ['months', 'month'] %}
+                  Months &amp; Activity
+                {% elif active_route == 'budget' %}
+                  Budget &amp; Goals
+                {% elif active_route == 'cards' %}
+                  Cards
+                {% elif active_route == 'sips' %}
+                  SIPs
+                {% elif active_route == 'subscriptions' %}
+                  Subscriptions
+                {% elif active_route == 'split' %}
+                  Split Money
+                {% elif active_route == 'pricetrack' %}
+                  Price Tracker
+                {% else %}
+                  LedgerNote
+                {% endif %}
+              </span>
+            </div>
+
+            <div
+              class="app-topbar-actions"
+              id="app-topbar-actions"
+            ></div>
+
           </div>
         </div>
-      </div>
-      {% endblock %}
+
+        <div id="app" class="app-content">
+
+  {% endif %}
+
+          {% block content %}{% endblock %}
+
+          <div class="toast" id="toast"></div>
+          <div id="split-share-popover" class="split-row-popover"></div>
+          <div id="del-popover" class="del-popover"></div>
+
+        </div>
+
+  {% if is_shared %}
+
+    <footer id="global-footer-container" class="app-footer app-footer-shared"></footer>
+
+  {% else %}
+
+        <footer id="global-footer-container" class="app-footer app-workspace-footer"></footer>
+
+      </section>
     </div>
-  </div>
-  {% endblock %}
 
-  <div id="app">
-    {% block content %}{% endblock %}
-
-    <!-- Global UI Overlays -->
-    <div class="toast" id="toast"></div>
-    <div id="split-share-popover" class="split-row-popover"></div>
-    <div id="del-popover" class="del-popover"></div>
-  </div>
-
-  <div id="global-footer-container"></div>
+  {% endif %}
   
   {% if not is_shared %}
   <script type="module">
     import { initGoogleSignIn, checkAuth } from "{{ url_for('static', filename='js/core/auth.js') }}";
-    
-    // Fade in auth-bar after 1 second
-    setTimeout(() => {
-      const authBar = document.getElementById('auth-bar');
-      if (authBar) authBar.classList.add('visible');
-    }, 1000);
+    import "{{ url_for('static', filename='js/components/app-shell.js') }}";
 
     document.body.addEventListener('click', e => {
       const navBtn = e.target.closest('[data-nav]');

@@ -4,65 +4,6 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/charts.css') }}?v={{ static_version }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/views/split.css') }}?v={{ static_version }}" />
 {% endblock %}
-{% block topbar %}
-  <div id="global-topbar" class="topbar-wrapper">
-    <div class="topbar">
-      <a class="brand" id="shared-brand-link"><span class="mark"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><rect x="6" y="6" width="4" height="4" rx="1"></rect><path d="M12 6h4a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-4V6z"></path><path d="M6 12v5a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-7v-2H6z"></path></svg></span> <span id="brand-name">LedgerNote</span></a>
-      
-      <div id="auth-bar" class="auth-bar">
-        <!-- Desktop Theme Pill Grid -->
-        <div id="desktop-theme-selector" class="range-toggle desktop-theme-grid">
-          <button class="range-btn" data-theme-btn="default" type="button">Light</button>
-          <button class="range-btn" data-theme-btn="hi-contrast" type="button">Hi-Contrast</button>
-          <button class="range-btn" data-theme-btn="dark" type="button">Dark</button>
-        </div>
-
-        <!-- Burger Menu Wrapper -->
-        <div class="burger-menu-wrap" id="burger-menu-wrap">
-          <button class="burger-toggle-btn" id="burger-toggle-btn" type="button" aria-label="Menu" aria-expanded="false">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
-          </button>
-
-          <!-- Dropdown Panel -->
-          <div class="burger-menu-panel" id="burger-menu-panel">
-            <!-- Navigation -->
-            <div class="burger-menu-section-title">MONEY MATTERS</div>
-            <a href="/home" class="burger-link">Dashboard</a>
-            <a href="/months" class="burger-link">Previous Months</a>
-            <a href="/budget" class="burger-link">Budget</a>
-            <a href="/split" class="burger-link">Split Money</a>
-            <a href="/sips" class="burger-link">SIPs</a>
-            <a href="/subscriptions" class="burger-link">Subscriptions</a>
-            <a href="/cards" class="burger-link">Credit Cards</a>
-            <a href="/pricetrack" class="burger-link">Price Tracker</a>
-
-            <!-- Mobile Theme Sub-menu -->
-            <div class="mobile-theme-submenu">
-              <hr class="burger-divider">
-              <div class="burger-menu-section-title">THEME</div>
-              <button class="burger-link theme-opt" data-theme-btn="default" type="button" style="position: relative;">Light</button>
-              <button class="burger-link theme-opt" data-theme-btn="hi-contrast" type="button" style="position: relative;">Hi-Contrast</button>
-              <button class="burger-link theme-opt" data-theme-btn="dark" type="button" style="position: relative;">Dark</button>
-            </div>
-
-            <hr class="burger-divider">
-
-            <!-- Auth Section -->
-            <div class="burger-menu-section-title">ACCOUNT</div>
-            <div id="burger-user-email" class="burger-user-email" style="display: none;"></div>
-            <div id="google-signin-btn" class="google-signin-btn"></div>
-            <button id="profile-signout-btn" class="burger-link auth-link" type="button" style="display: none;">Sign out</button>
-          </div>
-        </div>
-      </div>
-      
-    </div>
-  </div>
-{% endblock %}
 {% block content %}
   <div id="share-split-root" class="share-split-view" data-loading="true" data-share-id="{{ share_id }}"></div>
 {% endblock %}

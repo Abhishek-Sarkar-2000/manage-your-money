@@ -47,6 +47,7 @@ let activeTypeFilters = [];
 let activeTagFilters = [];
 let currentSort = { key: 'date', asc: false };
 let deductCcCash = false;
+let dashboardEntryFocusId = null;
 
 const TABLE_TYPE_LABELS = {
   spend: 'Spend',
@@ -1170,8 +1171,37 @@ async function renderMonth() {
 
     console.log('[renderMonth] before computeGlobalStats');
 
-    // Deep link from Budget -> Month
     let scrollToTransactions = false;
+
+    const dashboardParams = new URLSearchParams(window.location.search);
+    const dashboardFocus = dashboardParams.get('focus');
+    dashboardEntryFocusId = dashboardParams.get('entry');
+
+    if (dashboardFocus === 'uncategorized') {
+      activeTypeFilters = [];
+      activeTagFilters = ['Untagged'];
+      scrollToTransactions = true;
+    }
+
+    if (dashboardFocus === 'lent') {
+      activeTypeFilters = ['Lent'];
+      activeTagFilters = [];
+      scrollToTransactions = true;
+    }
+
+    if (dashboardEntryFocusId) {
+      const requestedEntry = (data.entries || []).find(entry => entry.id === dashboardEntryFocusId);
+
+      if (requestedEntry) {
+        const typeLabel = getTableTypeLabel(requestedEntry);
+        activeTypeFilters = hasLentData(requestedEntry) ? ['Lent'] : [typeLabel];
+        activeTagFilters = [];
+      }
+
+      scrollToTransactions = true;
+    }
+
+    // Deep link from Budget -> Month
     const savedFilter = sessionStorage.getItem('budget-to-month-filter');
     if (savedFilter) {
       try {
@@ -1282,6 +1312,10 @@ async function renderMonth() {
     const filteredRows = allRows.filter(e => {
       const typeLabel = getTableTypeLabel(e);
 
+      const dashboardUncategorizedPass =
+        dashboardFocus !== 'uncategorized' ||
+        ['spend', 'cardcharge', 'cashpayment'].includes(e.type);
+
       const typePass =
         activeTypeFilters.length === 0 ||
         activeTypeFilters.includes(typeLabel) ||
@@ -1297,7 +1331,7 @@ async function renderMonth() {
             return (getTableTagLabel(e).toLowerCase() === tl) || ((e.subCategory || '').toLowerCase() === tl);
         });
 
-      return typePass && tagPass;
+      return dashboardUncategorizedPass && typePass && tagPass;
     });
 
     const sortedRows = filteredRows
@@ -1330,14 +1364,18 @@ async function renderMonth() {
       i = j;
     }
 
-    const rowsHtml = sortedRows.map((e, index) =>
-      renderRow(
+    const rowsHtml = sortedRows.map((e, index) => {
+      const rowHtml = renderRow(
         e,
         monthKey,
         dateStreakCounts.get(index) || 1,
         firstDateRows.has(index)
-      )
-    ).join('');
+      );
+
+      if (!e.id) return rowHtml;
+
+      return rowHtml.replace('<tr', `<tr data-entry-id="${escapeHtml(String(e.id))}"`);
+    }).join('');
 
     const neutralTableTypes = new Set(['cardcharge', 'cashpayment']);
 
@@ -2046,6 +2084,20 @@ async function renderMonth() {
     setupScrollWrappers(root);
     setupTableScrollIndicators(root);
 
+    const requestedEntryId = new URLSearchParams(window.location.search).get('entry');
+    if (requestedEntryId) {
+      setTimeout(() => {
+        const target = root.querySelector(`[data-entry-id="${CSS.escape(requestedEntryId)}"]`);
+        if (!target) return;
+
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.classList.add('dashboard-deep-link-target');
+        target.setAttribute('tabindex', '-1');
+        target.focus({ preventScroll: true });
+        setTimeout(() => target.classList.remove('dashboard-deep-link-target'), 1800);
+      }, 100);
+    }
+
     // Sync horizontal scrolling and EXACT table widths between the body and sticky header
     const tableWrapEl = root.querySelector('.transactions-container .table-wrap');
     const headerWrapEl = root.querySelector('.transactions-container .table-header-wrap');
@@ -2080,13 +2132,38 @@ async function renderMonth() {
 
     if (scrollToTransactions) {
       setTimeout(() => {
-        const txns = root.querySelector('.transactions-container');
-        if (txns) {
-          const yOffset = -70;
-          const y = txns.getBoundingClientRect().top + window.scrollY + yOffset;
-          window.scrollTo({ top: y, behavior: 'smooth' });
+        let didScroll = false;
+
+        if (dashboardEntryFocusId) {
+          const target = root.querySelector(`[data-entry-id="${CSS.escape(dashboardEntryFocusId)}"]`);
+
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.classList.add('dashboard-deep-link-target');
+            target.setAttribute('tabindex', '-1');
+            target.focus({ preventScroll: true });
+            setTimeout(() => target.classList.remove('dashboard-deep-link-target'), 1800);
+            didScroll = true;
+          }
         }
-      }, 100);
+
+        if (!didScroll) {
+          const txns = root.querySelector('.transactions-container');
+
+          if (txns) {
+            const yOffset = -88;
+            const y = txns.getBoundingClientRect().top + window.scrollY + yOffset;
+            window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+            didScroll = true;
+          }
+        }
+
+        if (didScroll) {
+          const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;
+          window.history.replaceState({}, '', cleanUrl);
+          dashboardEntryFocusId = null;
+        }
+      }, 250);
     }
   } catch (err) {
     console.error('renderMonth failed:', err);

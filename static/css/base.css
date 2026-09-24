@@ -38,19 +38,27 @@ h4 {
 }
 
 #app {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 0 24px;
-  width: 75%;
-  min-width: 320px;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin: 0;
   flex: 1 0 auto;
   display: flex;
   flex-direction: column;
   position: relative;
 }
 
+/* Public share pages intentionally retain the narrower reading layout. */
+body[data-is-shared="true"] #app {
+  max-width: 1080px;
+  width: 75%;
+  min-width: 320px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
 @media (max-width: 960px) {
-  #app {
+  body[data-is-shared="true"] #app {
     width: 100%;
   }
 }
@@ -998,6 +1006,35 @@ td.actions-cell {
 
   #table-sort-direction {
     flex-basis: 100%;
+  }
+}
+
+/* ---------- Dashboard deep-link focus ---------- */
+
+.dashboard-deep-link-target {
+  position: relative;
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+  animation: dashboard-deep-link-pulse 1.8s ease-out;
+}
+
+@keyframes dashboard-deep-link-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--blue) 32%, transparent);
+  }
+
+  55% {
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--blue) 0%, transparent);
+  }
+
+  100% {
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-deep-link-target {
+    animation: none;
   }
 }
 

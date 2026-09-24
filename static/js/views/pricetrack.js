@@ -33,6 +33,12 @@ async function loadDomain() {
     Store.get('price-track-dict', {}),
     Store.get('custom-spend-tags', []),
   ]);
+
+  const requestedItemId = new URLSearchParams(window.location.search).get('item');
+  if (requestedItemId && priceItems.some(item => item.id === requestedItemId)) {
+    priceExpandedId = requestedItemId;
+  }
+
   domainLoaded = true;
 }
 
@@ -278,6 +284,20 @@ async function renderPriceTrack() {
   appendPageChrome(root);
   setupScrollWrappers(root);
   setupTableScrollIndicators(root);
+
+  const requestedItemId = new URLSearchParams(window.location.search).get('item');
+  if (requestedItemId && priceExpandedId === requestedItemId) {
+    setTimeout(() => {
+      const target = root.querySelector(`[data-price-card="${CSS.escape(requestedItemId)}"]`);
+      if (!target) return;
+
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.classList.add('dashboard-deep-link-target');
+      target.setAttribute('tabindex', '-1');
+      target.focus({ preventScroll: true });
+      setTimeout(() => target.classList.remove('dashboard-deep-link-target'), 1800);
+    }, 100);
+  }
 }
 
 root.addEventListener('click', async (ev) => {

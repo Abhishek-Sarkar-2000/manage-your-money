@@ -1,75 +1,168 @@
-/* ---------- Button grid on home ---------- */
-.action-card {
-  background: linear-gradient(155deg, #fff 0%, var(--ice) 100%);
-  border: 1px solid var(--hair);
-  border-radius: var(--radius);
-  padding: 26px 22px;
-  cursor: pointer;
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-  text-align: left;
-  flex: 0 0 250px;
-  min-width: 220px;
+/* ============================================================
+   LedgerNote Home Dashboard
+   Stage 2: responsive information architecture
+   ============================================================ */
+
+.home-view {
+  width: 100%;
+  min-width: 0;
+  container-type: inline-size;
+  container-name: home-dashboard;
 }
 
-.action-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow);
-  border-color: var(--sky);
+.home-view[data-loading="true"] {
+  min-height: calc(100vh - var(--app-header-height) - 48px);
 }
 
-.action-card .ac-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--blue), var(--navy));
-  color: white;
+/* ---------- Loading ---------- */
+
+.home-loading-state {
+  min-height: calc(100vh - var(--app-header-height) - 80px);
+  display: grid;
+  place-items: center;
+}
+
+.home-loading-card {
+  width: min(100%, 360px);
+  min-height: 200px;
+  padding: 40px 30px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 1.15rem;
-  margin-bottom: 16px;
 }
 
-.action-card h3 {
-  font-size: 1.15rem;
-  margin-bottom: 6px;
+.home-loading-spinner {
+  width: 36px;
+  height: 36px;
+  margin-bottom: 24px;
+  border: 3px solid var(--ice);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
-.action-card p {
+.home-loading-copy {
+  margin-top: auto;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* ---------- Dashboard header ---------- */
+
+.dashboard-heading {
+  width: 100%;
+  margin-bottom: 22px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.dashboard-heading-copy {
+  min-width: 0;
+}
+
+.dashboard-eyebrow,
+.dashboard-section-kicker,
+.dashboard-panel-kicker {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--blue);
+}
+
+.dashboard-heading h1 {
+  margin: 5px 0 5px;
+  color: var(--navy);
+  font-size: clamp(1.65rem, 2.3vw, 2.35rem);
+  line-height: 1.08;
+}
+
+.dashboard-heading p {
+  max-width: 720px;
   margin: 0;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.94rem;
   line-height: 1.5;
 }
 
+.dashboard-primary-action {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 9px 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--blue);
+  box-shadow: var(--shadow-sm);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.69rem;
+  font-weight: 600;
+  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+}
 
-/* ---------- Current month quick-access card ---------- */
+.dashboard-primary-action:hover {
+  transform: translateY(-1px);
+  border-color: var(--sky);
+  background: var(--blue-bg);
+}
+
+/* ---------- Current month ---------- */
+
+.dashboard-current-month {
+  width: 100%;
+  margin-bottom: 22px;
+}
+
 .current-month-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 18px;
-  margin-top: 10px;
 }
 
 .current-month-card {
+  width: 100%;
+
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  flex-wrap: wrap;
-  background: linear-gradient(135deg, var(--navy) 0%, var(--royal) 55%, var(--blue) 100%);
-  border-radius: var(--radius);
-  padding: 26px 28px;
+
+  padding: 22px 24px;
+
+  border-radius: 14px;
+
   cursor: pointer;
   color: #fff;
+  text-decoration: none;
+
+  background:
+    linear-gradient(
+      135deg,
+      var(--navy) 0%,
+      var(--royal) 55%,
+      var(--blue) 100%
+    );
+
   box-shadow: var(--shadow);
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .current-month-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 16px 34px rgba(11, 37, 69, 0.28);
+  transform: translateY(-2px);
+  box-shadow: 0 15px 32px rgba(11, 37, 69, 0.24);
 }
 
 .current-month-card .cm-left {
@@ -77,61 +170,119 @@
 }
 
 .current-month-card .cm-eyebrow {
+  margin-bottom: 5px;
+  color: var(--text-sky);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--text-sky);
-  margin-bottom: 6px;
 }
 
 .current-month-card h3 {
+  margin: 0 0 7px;
+
   color: var(--text-white);
-  font-size: 1.4rem;
-  margin-bottom: 6px;
+
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+  line-height: 1.08;
 }
 
 .current-month-card .cm-sub {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.56rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+
   color: var(--text-light);
+
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  font-weight: 600;
+
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.cm-sub-separator {
+  opacity: 0.65;
 }
 
 .current-month-mini {
   display: flex;
-  gap: 26px;
   flex-wrap: wrap;
-  justify-content: space-between;
+  justify-content: flex-end;
+  gap: 18px 28px;
+}
+
+
+/* Current-month hero navigation */
+
+.cm-open {
+  flex: 0 0 auto;
+
+  min-height: 42px;
+  padding: 9px 12px 9px 14px;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.cm-open > span {
+  font-size: 0.61rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cm-open > strong {
+  font-size: 1.05rem;
+  font-weight: 500;
+
+  transition: transform 0.16s ease;
+}
+
+.current-month-card:hover .cm-open > strong {
+  transform: translateX(3px);
+}
+
+.current-month-card:hover .cm-open {
+  background: rgba(255, 255, 255, 0.13);
 }
 
 .cm-stat {
-  text-align: left;
+  min-width: 92px;
 }
 
 .cm-stat .cm-label {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.66rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #B9CEE3;
   margin-bottom: 4px;
+  color: #B9CEE3;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.61rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .cm-stat .cm-value {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 1.15rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
 .cm-stat.income .cm-value {
-  color: #8fe0b7;
+  color: #8FE0B7;
 }
 
 .cm-stat.spend .cm-value {
-  color: #e9daab;
+  color: #E9DAAB;
 }
 
 .cm-stat.invest .cm-value {
@@ -139,8 +290,8 @@
 }
 
 .current-month-card.empty {
-  background: linear-gradient(135deg, #fff, var(--ice-2));
   color: var(--navy);
+  background: linear-gradient(135deg, var(--paper), var(--ice-2));
   border: 1.5px dashed var(--sky);
 }
 
@@ -156,39 +307,3646 @@
   color: var(--muted);
 }
 
-@media (max-width: 600px) {
-  .current-month-mini {
-    width: 100%;
+/* ---------- KPI zone ---------- */
+
+.dashboard-kpi-section {
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.dashboard-section-heading {
+  margin-bottom: 10px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.dashboard-section-heading h2 {
+  margin: 3px 0 0;
+  font-size: 1.16rem;
+}
+
+.dashboard-section-hint {
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65rem;
+}
+
+.dashboard-kpi-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.dashboard-kpi-card {
+  --kpi-accent: var(--blue);
+  position: relative;
+  min-width: 0;
+  padding: 17px 18px 15px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  background: linear-gradient(150deg, var(--paper) 0%, var(--ice-2) 100%);
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-kpi-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--kpi-accent);
+}
+
+.dashboard-kpi-card-balance {
+  --kpi-accent: var(--credit);
+}
+
+.dashboard-kpi-card-spend {
+  --kpi-accent: var(--debit);
+}
+
+.dashboard-kpi-card-invest {
+  --kpi-accent: var(--blue);
+}
+
+.dashboard-kpi-card-projection {
+  --kpi-accent: var(--royal);
+}
+
+.dashboard-kpi-card.is-negative {
+  --kpi-accent: var(--debit);
+}
+
+.dashboard-kpi-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard-kpi-label {
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.67rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.dashboard-kpi-icon {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--kpi-accent) 28%, var(--hair));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--kpi-accent) 10%, var(--paper));
+  color: var(--kpi-accent);
+}
+
+.dashboard-kpi-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.dashboard-kpi-value {
+  margin: 4px 0 8px;
+  overflow: hidden;
+  color: var(--navy);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: clamp(1.22rem, 1.45vw, 1.7rem);
+  font-weight: 600;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-kpi-card-spend .dashboard-kpi-value {
+  color: var(--debit);
+}
+
+.dashboard-kpi-card-invest .dashboard-kpi-value {
+  color: var(--blue);
+}
+
+.dashboard-kpi-card.is-negative .dashboard-kpi-value {
+  color: var(--debit);
+}
+
+.dashboard-kpi-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dashboard-kpi-meta {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.dashboard-kpi-meta.is-warning {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--debit);
+  font-weight: 600;
+}
+
+.dashboard-kpi-info {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--debit-bg);
+  border: 1px solid color-mix(in srgb, var(--debit) 50%, transparent);
+  color: var(--debit);
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 0.58rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.dashboard-kpi-chip {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--ice);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.54rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+:root[data-theme="dark"] .dashboard-kpi-card {
+  background: linear-gradient(150deg, var(--paper) 0%, var(--ice) 100%);
+}
+
+:root[data-theme="hi-contrast"] .dashboard-kpi-card,
+:root[data-theme="hi-contrast"] .dashboard-kpi-icon,
+:root[data-theme="hi-contrast"] .dashboard-kpi-chip,
+:root[data-theme="hi-contrast"] .dashboard-kpi-info {
+  border-color: #000;
+}
+
+:root[data-theme="hi-contrast"] .dashboard-kpi-card::before {
+  background: #000;
+}
+
+@container home-dashboard (max-width: 980px) {
+  .dashboard-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-/* ---------- Stats (hoverable on desktop, slide-reveal on mobile) ---------- */
+@container home-dashboard (max-width: 520px) {
+  .dashboard-kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
 
+  .dashboard-kpi-card {
+    min-height: 134px;
+    padding: 15px 16px 13px;
+  }
+
+  .dashboard-kpi-value {
+    font-size: 1.35rem;
+  }
+}
+
+/* ---------- Main dashboard grid ---------- */
+
+.dashboard-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-flow: row dense;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.dashboard-span-3 {
+  grid-column: span 3;
+}
+
+.dashboard-span-4 {
+  grid-column: span 4;
+}
+
+.dashboard-span-5 {
+  grid-column: span 5;
+}
+
+.dashboard-span-6 {
+  grid-column: span 6;
+}
+
+.dashboard-span-8 {
+  grid-column: span 8;
+}
+
+.dashboard-span-12 {
+  grid-column: 1 / -1;
+}
+
+/* ---------- Shared dashboard panel ---------- */
+
+.dashboard-panel {
+  min-width: 0;
+  min-height: 236px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  background: linear-gradient(155deg, var(--paper) 0%, var(--ice-2) 100%);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.dashboard-panel-chart {
+  min-height: 330px;
+}
+
+
+/* ---------- Balance chart + SIP portfolio stack ---------- */
+
+.dashboard-chart-stack {
+  min-width: 0;
+  min-height: 0;
+
+  height: auto;
+  align-self: stretch;
+
+  display: grid;
+  grid-template-rows:
+    minmax(300px, 1fr)
+    auto;
+
+  gap: 16px;
+}
+
+.dashboard-chart-stack > .dashboard-panel {
+  width: 100%;
+  min-height: 0;
+  height: auto;
+}
+
+.dashboard-chart-stack > .dashboard-panel-chart {
+  align-self: stretch;
+}
+
+.dashboard-chart-stack > .dashboard-panel-sip-investment {
+  align-self: start;
+}
+
+.dashboard-chart-stack .dashboard-panel-chart {
+  min-height: 0;
+}
+
+.dashboard-chart-stack .dashboard-chart-body {
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.dashboard-panel-money-inbox,
+.dashboard-panel-upcoming {
+  min-height: 300px;
+}
+
+.dashboard-panel-header {
+  min-width: 0;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard-panel-header-chart {
+  align-items: center;
+}
+
+.dashboard-panel-header h3 {
+  margin: 3px 0 0;
+  color: var(--navy);
+  font-size: 1.05rem;
+}
+
+.dashboard-panel-link {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--blue);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.dashboard-panel-link:hover {
+  text-decoration: underline;
+}
+
+.dashboard-stage-badge {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--ice);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.57rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ---------- Placeholder content ---------- */
+
+.dashboard-panel-placeholder {
+  flex: 1;
+  min-height: 140px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  border: 1px dashed var(--hair);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ice) 65%, transparent);
+}
+
+.dashboard-panel-placeholder strong {
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.dashboard-panel-placeholder span {
+  max-width: 46ch;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+/* ---------- Chart ---------- */
+
+.dashboard-chart-body {
+  flex: 1;
+  min-height: 245px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.dashboard-chart-body .linechart-container,
+.dashboard-chart-body .responsive-linechart-container,
+.dashboard-chart-body svg.linechart {
+  width: 100%;
+  min-width: 0;
+}
+
+.dashboard-chart-body .home-linechart-container {
+  width: 100%;
+  min-width: 0;
+}
+
+.dashboard-chart-body .home-linechart-container svg.linechart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ---------- Dashboard chart controls ---------- */
+
+.dashboard-chart-controls {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dashboard-chart-mode {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--hair);
+  border-radius: 9px;
+  background: var(--ice);
+}
+
+.dashboard-chart-mode button {
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.61rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dashboard-chart-mode button:hover {
+  color: var(--blue);
+}
+
+.dashboard-chart-mode button.active {
+  background: var(--paper);
+  color: var(--blue);
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-cashflow-chart {
+  width: 100%;
+  min-width: 0;
+}
+
+.dashboard-cashflow-svg-wrap {
+  width: 100%;
+  min-width: 0;
+}
+
+.dashboard-cashflow-svg-wrap svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.dashboard-cashflow-gridline line {
+  stroke: var(--hair);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.dashboard-cashflow-gridline text,
+.dashboard-cashflow-month-label {
+  fill: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+}
+
+.dashboard-cashflow-bar {
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.dashboard-cashflow-bar:hover {
+  opacity: 0.78;
+}
+
+.dashboard-cashflow-bar.is-income {
+  fill: var(--credit);
+}
+
+.dashboard-cashflow-bar.is-spending {
+  fill: var(--debit);
+}
+
+.dashboard-cashflow-bar.is-investments {
+  fill: var(--blue);
+}
+
+.dashboard-cashflow-legend {
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6rem;
+}
+
+.dashboard-cashflow-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.dashboard-cashflow-legend i {
+  width: 8px;
+  height: 8px;
+  display: inline-block;
+  border-radius: 2px;
+}
+
+.dashboard-cashflow-legend i.is-income {
+  background: var(--credit);
+}
+
+.dashboard-cashflow-legend i.is-spending {
+  background: var(--debit);
+}
+
+.dashboard-cashflow-legend i.is-investments {
+  background: var(--blue);
+}
+
+.dashboard-chart-note {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.67rem;
+  line-height: 1.4;
+}
+
+/* ---------- Budget Status ---------- */
+
+.dashboard-panel-budget {
+  min-height: 330px;
+}
+
+.dashboard-budget-summary {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard-budget-summary-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dashboard-budget-summary-copy > span {
+  color: var(--muted);
+  font-size: 0.67rem;
+}
+
+.dashboard-budget-summary-copy > strong {
+  color: var(--navy);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.dashboard-budget-summary-copy small {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 500;
+}
+
+.dashboard-budget-percent {
+  color: var(--blue);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.dashboard-budget-summary.is-over .dashboard-budget-percent,
+.dashboard-budget-summary.is-over .dashboard-budget-summary-copy > strong {
+  color: var(--debit);
+}
+
+.dashboard-budget-summary.is-forecast .dashboard-budget-percent,
+.dashboard-budget-summary.is-high .dashboard-budget-percent {
+  color: var(--amber);
+}
+
+.dashboard-budget-overall-progress,
+.dashboard-budget-progress {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--paper);
+}
+
+.dashboard-budget-overall-progress {
+  height: 7px;
+  margin: 9px 0 6px;
+}
+
+.dashboard-budget-overall-progress > span,
+.dashboard-budget-progress > span {
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+  background: var(--blue);
+}
+
+.dashboard-budget-summary.is-over + .dashboard-budget-overall-progress > span {
+  background: var(--debit);
+}
+
+.dashboard-budget-summary.is-forecast + .dashboard-budget-overall-progress > span,
+.dashboard-budget-summary.is-high + .dashboard-budget-overall-progress > span {
+  background: var(--amber);
+}
+
+.dashboard-budget-overall-meta {
+  margin-bottom: 13px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.61rem;
+}
+
+.dashboard-budget-overall-meta .is-warning {
+  color: var(--debit);
+  font-weight: 600;
+  text-align: right;
+}
+
+.dashboard-budget-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dashboard-budget-row {
+  min-width: 0;
+}
+
+.dashboard-budget-row-head,
+.dashboard-budget-row-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dashboard-budget-row-head {
+  margin-bottom: 5px;
+  align-items: baseline;
+}
+
+.dashboard-budget-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.73rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-budget-values {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  white-space: nowrap;
+}
+
+.dashboard-budget-progress {
+  height: 5px;
+}
+
+.dashboard-budget-row.is-high .dashboard-budget-progress > span,
+.dashboard-budget-row.is-forecast .dashboard-budget-progress > span {
+  background: var(--amber);
+}
+
+.dashboard-budget-row.is-over .dashboard-budget-progress > span {
+  background: var(--debit);
+}
+
+.dashboard-budget-row-foot {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.56rem;
+}
+
+.dashboard-budget-row.is-over .dashboard-budget-row-foot {
+  color: var(--debit);
+}
+
+.dashboard-budget-row.is-forecast .dashboard-budget-row-foot > span:last-child {
+  color: var(--amber);
+  font-weight: 600;
+}
+
+.dashboard-budget-unbudgeted {
+  margin-top: 12px;
+  padding-top: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  border-top: 1px dashed var(--hair);
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1.4;
+}
+
+.dashboard-budget-unbudgeted strong {
+  color: var(--amber);
+}
+
+.dashboard-budget-info {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--amber) 55%, var(--hair));
+  border-radius: 50%;
+  color: var(--amber);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.53rem;
+  font-weight: 700;
+}
+
+.dashboard-budget-empty {
+  flex: 1;
+  min-height: 190px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 7px;
+  border: 1px dashed var(--hair);
+  border-radius: 10px;
+}
+
+.dashboard-budget-empty strong {
+  color: var(--ink);
+  font-size: 0.82rem;
+}
+
+.dashboard-budget-empty > span {
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.dashboard-budget-empty a {
+  margin-top: 4px;
+  color: var(--blue);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.63rem;
+  font-weight: 600;
+}
+
+:root[data-theme="hi-contrast"] .dashboard-budget-overall-progress,
+:root[data-theme="hi-contrast"] .dashboard-budget-progress,
+:root[data-theme="hi-contrast"] .dashboard-budget-info,
+:root[data-theme="hi-contrast"] .dashboard-budget-empty {
+  border: 1px solid #000;
+}
+
+/* ---------- Month-end projection ---------- */
+
+.dashboard-projection-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-projection-hero {
+  margin-bottom: 13px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dashboard-projection-hero span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.dashboard-projection-hero strong {
+  color: var(--navy);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.12rem;
+  white-space: nowrap;
+}
+
+.dashboard-projection-body.is-negative .dashboard-projection-hero strong,
+.dashboard-projection-body.is-negative .dashboard-projection-row.is-result strong {
+  color: var(--debit);
+}
+
+.dashboard-projection-meter {
+  position: relative;
+  width: 100%;
+  height: 7px;
+  margin-bottom: 15px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--ice);
+}
+
+.dashboard-projection-meter span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--projection-used);
+  border-radius: inherit;
+  background: var(--blue);
+}
+
+.dashboard-projection-body.is-negative .dashboard-projection-meter span {
+  background: var(--debit);
+}
+
+.dashboard-projection-bridge {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-projection-row {
+  min-height: 34px;
+  padding: 7px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px dashed var(--hair);
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.dashboard-projection-row strong {
+  color: var(--ink);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dashboard-projection-row.is-start span,
+.dashboard-projection-row.is-start strong {
+  color: var(--blue);
+}
+
+.dashboard-projection-row.is-result {
+  margin-top: 2px;
+  border-bottom: 0;
+}
+
+.dashboard-projection-row.is-result span,
+.dashboard-projection-row.is-result strong {
+  color: var(--navy);
+  font-weight: 700;
+}
+
+.dashboard-projection-empty {
+  padding: 10px 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  border-bottom: 1px dashed var(--hair);
+}
+
+.dashboard-projection-note {
+  margin-top: auto;
+  padding-top: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.65rem;
+  line-height: 1.4;
+}
+
+.dashboard-projection-info {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hair);
+  border-radius: 50%;
+  background: var(--ice);
+  color: var(--blue);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.56rem;
+  font-weight: 700;
+}
+
+:root[data-theme="hi-contrast"] .dashboard-chart-mode,
+:root[data-theme="hi-contrast"] .dashboard-chart-mode button.active,
+:root[data-theme="hi-contrast"] .dashboard-projection-info {
+  border-color: #000 !important;
+}
+
+:root[data-theme="hi-contrast"] .dashboard-chart-mode button.active {
+  background: var(--blue) !important;
+  color: #fff !important;
+}
+
+/* ---------- Secondary dashboard widgets ---------- */
+
+.dashboard-secondary-empty {
+  flex: 1;
+  min-height: 180px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 7px;
+  border: 1px dashed var(--hair);
+  border-radius: 10px;
+}
+
+.dashboard-secondary-empty strong {
+  color: var(--ink);
+  font-size: 0.82rem;
+}
+
+.dashboard-secondary-empty > span,
+.dashboard-secondary-mini-empty {
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.dashboard-secondary-empty a,
+.dashboard-secondary-more {
+  color: var(--blue);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.61rem;
+  font-weight: 600;
+}
+
+.dashboard-secondary-empty a {
+  margin-top: 4px;
+}
+
+.dashboard-secondary-more {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.dashboard-secondary-mini-empty {
+  padding: 20px 8px;
+  text-align: center;
+}
+
+/* ---------- Theme-specific treatment ---------- *//* ---------- Goals ---------- */
+
+.dashboard-goal-summary,
+.dashboard-price-summary {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.64rem;
+}
+
+.dashboard-goal-summary strong,
+.dashboard-price-summary strong {
+  color: var(--navy);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.66rem;
+}
+
+.dashboard-goal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.dashboard-goal-row {
+  position: relative;
+  padding: 10px;
+  border: 1px solid var(--hair);
+  border-radius: 9px;
+  background: var(--paper);
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.dashboard-goal-list .dashboard-goal-row::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: -1px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--blue);
+}
+
+.dashboard-goal-row:hover {
+  transform: translateX(2px);
+  border-color: var(--sky);
+  background: #fff;
+}
+
+.dashboard-goal-head,
+.dashboard-goal-progress,
+.dashboard-goal-foot {
+  position: relative;
+  z-index: 2;
+}
+
+.dashboard-goal-head,
+.dashboard-goal-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 9px;
+}
+
+.dashboard-goal-head > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dashboard-goal-head strong {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 0.8rem;
+}
+
+.dashboard-goal-head > div > span,
+.dashboard-goal-foot {
+  color: var(--muted);
+  font-size: 0.65rem;
+}
+
+.dashboard-goal-percent {
+  flex: 0 0 auto;
+  color: var(--blue);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.dashboard-goal-progress {
+  height: 6px;
+  margin: 8px 0 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--ice);
+}
+:root[data-theme="hi-contrast"] .dashboard-goal-progress {
+  border: 1px solid #000;
+}
+:root[data-theme="dark"] .dashboard-goal-progress {
+  background: var(--paper);
+}
+
+.dashboard-goal-progress > span {
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+  background: var(--blue);
+}
+
+.dashboard-goal-row.is-completed .dashboard-goal-progress > span {
+  background: var(--credit);
+}
+.dashboard-goal-list .dashboard-goal-row.is-completed::before {
+  background: var(--credit);
+}
+
+.dashboard-goal-foot .is-positive {
+  color: var(--credit);
+  font-weight: 600;
+}
+
+/* ---------- SIP portfolio ---------- */
+
+.dashboard-panel-sip-investment {
+  min-height: 0;
+}
+
+.dashboard-sip-investment {
+  min-width: 0;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  align-items: stretch;
+
+  gap: 10px;
+}
+
+.dashboard-sip-hero,
+.dashboard-sip-month {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+
+  background: var(--ice);
+}
+
+.dashboard-sip-hero {
+  padding: 9px 12px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.dashboard-sip-hero > span,
+.dashboard-sip-month span {
+  color: var(--muted);
+  font-size: 0.58rem;
+}
+
+.dashboard-sip-hero > strong {
+  margin-top: 4px;
+
+  color: var(--navy);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.08rem;
+  line-height: 1.2;
+}
+
+.dashboard-sip-hero > small {
+  margin-top: 5px;
+
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.54rem;
+  line-height: 1.35;
+}
+
+.dashboard-sip-hero > small span {
+  margin: 0 3px;
+  color: var(--blue);
+}
+
+.dashboard-sip-month {
+  padding: 6px 10px;
+
+  display: grid;
+  grid-template-rows: repeat(2, auto);
+  align-content: center;
+  gap: 6px;
+}
+
+.dashboard-sip-month > div {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  gap: 2px;
+}
+
+.dashboard-sip-month > div + div {
+  padding-top: 6px;
+  border-top: 1px solid var(--hair);
+}
+
+.dashboard-sip-month strong {
+  color: var(--navy);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.73rem;
+}
+
+
+:root[data-theme="dark"] .dashboard-sip-hero,
+:root[data-theme="dark"] .dashboard-sip-month {
+  background: var(--ice);
+  border-color: rgba(111, 159, 247, 0.18);
+}
+
+
+/* ---------- Shared expenses ---------- */
+
+.dashboard-shared-summary {
+  margin-bottom: 11px;
+  padding: 9px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  border-radius: 8px;
+  background: var(--ice);
+}
+
+.dashboard-shared-summary span {
+  color: var(--muted);
+  font-size: 0.65rem;
+}
+
+.dashboard-shared-summary strong {
+  color: var(--navy);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.77rem;
+}
+
+.dashboard-shared-summary.is-owe strong {
+  color: var(--debit);
+}
+
+.dashboard-shared-summary.is-owed strong {
+  color: var(--credit);
+}
+
+.dashboard-shared-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-shared-row {
+  min-width: 0;
+  padding: 8px 2px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--hair);
+}
+
+.dashboard-shared-row:last-child {
+  border-bottom: 0;
+}
+
+.dashboard-shared-icon {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--blue-bg);
+  color: var(--blue);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.dashboard-shared-row.is-lent .dashboard-shared-icon {
+  background: color-mix(in srgb, var(--credit) 12%, var(--paper));
+  color: var(--credit);
+}
+
+.dashboard-shared-row.is-lent.is-settled {
+  opacity: 0.72;
+}
+
+.dashboard-shared-row.is-lent.is-settled .dashboard-shared-value strong {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--muted);
+  color: var(--muted);
+}
+
+.dashboard-shared-copy,
+.dashboard-shared-value {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dashboard-shared-copy strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.71rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+.dashboard-shared-row:hover .dashboard-shared-copy strong {
+  color: var(--blue);
+}
+
+.dashboard-shared-copy small,
+.dashboard-shared-value small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.56rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-shared-value {
+  align-items: flex-end;
+  white-space: nowrap;
+}
+
+.dashboard-shared-value strong {
+  color: var(--navy);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.66rem;
+}
+
+/* ---------- Theme-specific treatment ---------- *//* ---------- Price tracking ---------- */
+
+.dashboard-price-list {
+  display: flex;
+  flex-direction: column;
+}
+
+/*
+ * Price Tracking can reuse the dashboard-pager-page surface styling
+ * even when there is only one page, but it must not inherit the pager's
+ * track sizing/flex behavior outside of .dashboard-pager-track.
+ */
+.dashboard-panel-prices > .dashboard-price-list.dashboard-pager-page {
+  flex: 0 0 auto;
+
+  width: 100%;
+  min-width: 0;
+
+  height: auto;
+  min-height: 0;
+  max-height: 100%;
+
+  box-sizing: border-box;
+  overflow: hidden;
+
+  align-self: stretch;
+}
+.dashboard-panel-prices {
+  grid-column: span 4;
+
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dashboard-price-row {
+  min-width: 0;
+  padding: 9px 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid var(--hair);
+}
+
+.dashboard-price-row:last-child {
+  border-bottom: 0;
+}
+
+.dashboard-price-copy,
+.dashboard-price-value {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dashboard-price-copy strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-price-copy small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.57rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-price-value {
+  flex: 0 0 auto;
+  align-items: flex-end;
+}
+
+.dashboard-price-value > strong {
+  color: var(--navy);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+}
+
+.dashboard-price-change,
+.dashboard-price-flat {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.56rem;
+  font-weight: 600;
+}
+
+.dashboard-price-change.is-up {
+  color: var(--debit);
+}
+
+.dashboard-price-change.is-down {
+  color: var(--credit);
+}
+
+.dashboard-price-change.is-flat,
+.dashboard-price-flat {
+  color: var(--muted);
+}
+
+/* ---------- Theme-specific treatment ---------- */
+
+:root[data-theme="dark"] .dashboard-panel {
+  background: linear-gradient(155deg, var(--paper) 0%, var(--ice) 100%);
+}
+
+:root[data-theme="dark"] .dashboard-panel-placeholder {
+  border-color: var(--line);
+}
+
+
+/* =========================================================
+   DARK THEME — UNIFIED DASHBOARD WIDGET SURFACE
+   ========================================================= */
+
+:root[data-theme="dark"] .dashboard-panel,
+:root[data-theme="dark"] .dashboard-widget,
+:root[data-theme="dark"] .dashboard-panel-placeholder {
+  background:
+    linear-gradient(
+      135deg,
+      #151a38 0%,
+      #1b2148 35%,
+      #202653 65%,
+      #151c3d 100%
+    ) !important;
+
+  border-color: rgba(111, 159, 247, 0.45) !important;
+
+  box-shadow:
+    inset 0 1px 0 rgba(194, 195, 243, 0.08),
+    inset 0 0 20px rgba(111, 159, 247, 0.05);
+}
+
+:root[data-theme="dark"] .dashboard-people-side {
+  background: rgba(111, 159, 247, 0.08);
+}
+
+:root[data-theme="dark"] .dashboard-people-summary > div,
+:root[data-theme="dark"] .dashboard-people-side,
+:root[data-theme="dark"] .dashboard-shared-summary,
+:root[data-theme="dark"] .dashboard-card-metrics > div,
+:root[data-theme="dark"] .dashboard-attention-empty {
+  background: rgba(111, 159, 247, 0.08) !important;
+  border-color: rgba(111, 159, 247, 0.22) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(194, 195, 243, 0.04);
+}
+
+:root[data-theme="dark"] .dashboard-attention-row:hover {
+  background: rgba(111, 159, 247, 0.13);
+}
+
+:root[data-theme="dark"] .dashboard-attention-row,
+:root[data-theme="dark"] .dashboard-card-row,
+:root[data-theme="dark"] .dashboard-goal-row,
+:root[data-theme="dark"] .dashboard-chart-mode,
+:root[data-theme="dark"] .dashboard-kpi-card {
+  background:
+    linear-gradient(
+      135deg,
+      var(--ice) 0%,
+      var(--ice-2) 40%
+    ) !important;
+
+  border-color: var(--sky);
+}
+
+:root[data-theme="dark"] .dashboard-attention-row:hover,
+:root[data-theme="dark"] .dashboard-card-row:hover,
+:root[data-theme="dark"] .dashboard-shared-row:hover,
+:root[data-theme="dark"] .dashboard-goal-row:hover {
+  background: rgba(111, 159, 247, 0.13) !important;
+  border-color: rgba(111, 159, 247, 0.42) !important;
+}
+
+:root[data-theme="dark"] .dashboard-chart-mode button.active {
+  background:
+    linear-gradient(
+      135deg,
+      var(--blue) 0%,
+      var(--blue-soft) 100%
+    ) !important;
+
+  border-color: rgba(111, 159, 247, 0.48);
+  color: var(--navy);
+}
+
+/* =========================================================
+   HI-CONTRAST THEME
+   ========================================================= */
+
+:root[data-theme="hi-contrast"] .dashboard-panel,
+:root[data-theme="hi-contrast"] .dashboard-primary-action,
+:root[data-theme="hi-contrast"] .current-month-card.empty {
+  border-color: #000;
+}
+
+:root[data-theme="hi-contrast"] .dashboard-panel-placeholder {
+  border-color: #000;
+}
+
+:root[data-theme="hi-contrast"] .dashboard-stage-badge {
+  border-color: #000;
+}
+
+/*
+ * In the normal theme these dashboard surfaces use var(--ice).
+ * Hi-contrast makes --ice pure white globally, so restore a
+ * visible light-blue surface here without affecting the rest
+ * of the application.
+ */
+:root[data-theme="hi-contrast"] .dashboard-shared-summary,
+:root[data-theme="hi-contrast"] .dashboard-card-metrics > div,
+:root[data-theme="hi-contrast"] .dashboard-people-summary > div,
+:root[data-theme="hi-contrast"] .dashboard-people-side,
+:root[data-theme="hi-contrast"] .dashboard-inbox-count:not(.has-items),
+:root[data-theme="hi-contrast"] .dashboard-upcoming-icon:not(.is-emi):not(.is-sip):not(.is-recurring) {
+  border: 1px solid #000;
+}
+
+/* ---------- Money Inbox ---------- */
+
+.dashboard-inbox-count {
+  min-width: 25px;
+  height: 25px;
+  padding: 0 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  background: var(--ice);
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.63rem;
+  font-weight: 700;
+}
+
+.dashboard-inbox-count.has-items {
+  border-color: color-mix(in srgb, var(--debit) 45%, var(--hair));
+  background: var(--debit-bg);
+  color: var(--debit);
+}
+
+.dashboard-attention-list,
+.dashboard-upcoming-list {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.dashboard-attention-row {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  min-height: 58px;
+  padding: 9px 8px 9px 10px;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto 14px;
+  align-items: stretch;
+  gap: 9px;
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--paper) 88%, var(--ice));
+  color: var(--ink);
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.dashboard-attention-row::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--blue);
+}
+
+.dashboard-attention-row.is-critical::before {
+  background: var(--debit);
+}
+
+.dashboard-attention-row.is-warning::before {
+  background: var(--amber);
+}
+
+.dashboard-attention-row:hover {
+  transform: translateX(2px);
+  border-color: var(--sky);
+  background: #fff;
+}
+
+.dashboard-attention-icon {
+  width: 30px;
+  height: 30px;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--blue-bg);
+  color: var(--blue);
+}
+
+.dashboard-attention-row.is-critical .dashboard-attention-icon {
+  background: var(--debit-bg);
+  color: var(--debit);
+}
+
+.dashboard-attention-row.is-warning .dashboard-attention-icon {
+  background: color-mix(in srgb, var(--amber) 12%, var(--paper));
+  color: var(--amber);
+}
+
+.dashboard-attention-icon svg,
+.dashboard-upcoming-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.dashboard-attention-copy,
+.dashboard-upcoming-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dashboard-attention-copy {
+  width: 100%;
+  align-self: stretch;
+  justify-content: center;
+}
+
+.dashboard-attention-copy strong,
+.dashboard-upcoming-copy strong {
+  color: var(--ink);
+  font-size: 0.79rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.dashboard-attention-copy strong {
+  width: 100%;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.dashboard-upcoming-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-attention-copy small,
+.dashboard-upcoming-copy small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.3;
+}
+
+.dashboard-attention-copy small {
+  width: 100%;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.dashboard-upcoming-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-attention-amount {
+  align-self: center;
+  color: var(--navy);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.71rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dashboard-attention-row.is-critical .dashboard-attention-amount {
+  color: var(--debit);
+}
+
+.dashboard-attention-chevron {
+  align-self: center;
+  color: var(--muted);
+  font-family: Arial, sans-serif;
+  font-size: 1rem;
+}
+
+.dashboard-attention-more {
+  margin-top: 9px;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.61rem;
+  text-align: right;
+}
+
+/* ---------- Card Dues ---------- */
+
+.dashboard-panel-card-dues {
+  min-height: 300px;
+}
+
+.dashboard-card-row-top {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dashboard-card-summary {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard-card-summary > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dashboard-card-summary > div > span {
+  color: var(--muted);
+  font-size: 0.64rem;
+}
+
+.dashboard-card-summary > div > strong {
+  color: var(--navy);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.05rem;
+}
+
+.dashboard-card-alert-count,
+.dashboard-card-clear {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border-radius: 999px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.56rem;
+  font-weight: 600;
+}
+
+.dashboard-card-alert-count {
+  border: 1px solid color-mix(in srgb, var(--debit) 42%, var(--hair));
+  background: var(--debit-bg);
+  color: var(--debit);
+}
+
+.dashboard-card-clear {
+  border: 1px solid color-mix(in srgb, var(--credit) 35%, var(--hair));
+  background: color-mix(in srgb, var(--credit) 10%, var(--paper));
+  color: var(--credit);
+}
+
+.dashboard-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dashboard-card-row {
+  position: relative;
+  min-width: 0;
+  padding: 11px;
+  display: block;
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--paper) 90%, var(--ice));
+  color: var(--ink);
+  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+}
+
+.dashboard-card-row::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: -1px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--blue);
+}
+
+.dashboard-card-row.is-warning::before {
+  background: var(--amber);
+}
+
+.dashboard-card-row.is-critical::before,
+.dashboard-card-row.is-overdue::before {
+  background: var(--debit);
+}
+
+.dashboard-card-row:hover {
+  transform: translateX(2px);
+  border-color: var(--sky);
+  background: #fff;
+}
+
+.dashboard-card-identity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dashboard-card-identity strong {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+.dashboard-card-identity span {
+  color: var(--muted);
+  font-size: 0.62rem;
+}
+
+.dashboard-card-row.is-warning .dashboard-card-identity span {
+  color: var(--amber);
+}
+
+.dashboard-card-row.is-critical .dashboard-card-identity span,
+.dashboard-card-row.is-overdue .dashboard-card-identity span {
+  color: var(--debit);
+  font-weight: 600;
+}
+
+.dashboard-card-outstanding {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.dashboard-card-outstanding span {
+  color: var(--muted);
+  font-size: 0.55rem;
+}
+
+.dashboard-card-outstanding strong {
+  color: var(--navy);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.76rem;
+}
+
+.dashboard-card-row.is-overdue .dashboard-card-outstanding strong,
+.dashboard-card-row.is-critical .dashboard-card-outstanding strong {
+  color: var(--debit);
+}
+
+.dashboard-card-metrics {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.dashboard-card-metrics > div {
+  min-width: 0;
+  padding: 7px;
+  border-radius: 7px;
+  background: var(--ice);
+}
+
+.dashboard-card-metrics span,
+.dashboard-card-metrics strong {
+  display: block;
+}
+
+.dashboard-card-metrics span {
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 0.53rem;
+}
+
+.dashboard-card-metrics strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.61rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-card-cycle {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: auto minmax(20px, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.53rem;
+}
+
+.dashboard-card-cycle-line {
+  height: 1px;
+  background: var(--hair);
+}
+
+.dashboard-card-more {
+  margin-top: 10px;
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: 5px;
+  color: var(--blue);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.61rem;
+  font-weight: 600;
+}
+
+.dashboard-card-empty {
+  flex: 1;
+  min-height: 180px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 7px;
+  border: 1px dashed var(--hair);
+  border-radius: 10px;
+}
+
+.dashboard-card-empty strong {
+  color: var(--ink);
+  font-size: 0.82rem;
+}
+
+.dashboard-card-empty > span {
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.dashboard-card-empty a {
+  margin-top: 4px;
+  color: var(--blue);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.63rem;
+  font-weight: 600;
+}
+
+:root[data-theme="hi-contrast"] .dashboard-card-row,
+:root[data-theme="hi-contrast"] .dashboard-card-alert-count,
+:root[data-theme="hi-contrast"] .dashboard-card-clear,
+:root[data-theme="hi-contrast"] .dashboard-card-empty,
+:root[data-theme="hi-contrast"] .dashboard-secondary-empty,
+:root[data-theme="hi-contrast"] .dashboard-goal-row {
+  border-color: #000;
+}
+
+/* ---------- Upcoming ---------- */
+
+.dashboard-upcoming-row {
+  min-width: 0;
+  min-height: 53px;
+  padding: 8px 4px;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  border-bottom: 1px solid var(--hair);
+  color: var(--ink);
+}
+
+.dashboard-upcoming-row:last-child {
+  border-bottom: 0;
+}
+
+.dashboard-upcoming-row:hover .dashboard-upcoming-copy strong {
+  color: var(--blue);
+}
+
+.dashboard-upcoming-icon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--ice);
+  color: var(--blue);
+}
+
+.dashboard-upcoming-icon.is-emi {
+  background: color-mix(in srgb, var(--amber) 12%, var(--paper));
+  color: var(--amber);
+}
+
+.dashboard-upcoming-icon.is-sip {
+  background: color-mix(in srgb, var(--credit) 12%, var(--paper));
+  color: var(--credit);
+}
+
+.dashboard-upcoming-icon.is-recurring {
+  background: var(--blue-bg);
+  color: var(--blue);
+}
+
+.dashboard-upcoming-money {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.dashboard-upcoming-money strong {
+  color: var(--navy);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+}
+
+.dashboard-upcoming-money small {
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.59rem;
+}
+
+.dashboard-attention-empty {
+  flex: 1;
+  min-height: 140px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px dashed var(--hair);
+  border-radius: 10px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.dashboard-attention-empty strong {
+  color: var(--ink);
+  font-size: 0.83rem;
+}
+
+.dashboard-attention-empty small {
+  max-width: 38ch;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.dashboard-empty-check {
+  width: 28px;
+  height: 28px;
+  margin-bottom: 3px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--credit) 12%, var(--paper));
+  color: var(--credit);
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 700;
+}
+
+:root[data-theme="hi-contrast"] .dashboard-attention-row,
+:root[data-theme="hi-contrast"] .dashboard-attention-empty,
+:root[data-theme="hi-contrast"] .dashboard-inbox-count,
+:root[data-theme="hi-contrast"] .dashboard-upcoming-icon {
+  border-color: #000;
+}
+
+:root[data-theme="hi-contrast"] .dashboard-goal-row:hover,
+:root[data-theme="hi-contrast"] .dashboard-attention-row:hover,
+:root[data-theme="hi-contrast"] .dashboard-card-row:hover,
+:root[data-theme="hi-contrast"] .dashboard-pager-arrow:hover:not(:disabled) {
+  background: #EAF3FC;
+}
+
+/* ============================================================
+   Responsive layouts
+   ============================================================ */
+
+/* Large desktop: > 1600 px content area */
+@media (min-width: 1600px) {
+  .dashboard-grid {
+    gap: 18px;
+  }
+
+  .dashboard-panel {
+    padding: 20px;
+  }
+
+  .dashboard-panel-chart {
+    min-height: 350px;
+  }
+}
+
+/* Standard laptop / compact desktop */
+@media (max-width: 1279px) {
+  .dashboard-panel-money-inbox {
+    grid-column: span 5;
+  }
+
+  .dashboard-chart-stack {
+    grid-column: span 7;
+  }
+
+  .dashboard-panel-budget {
+    grid-column: span 4;
+  }
+
+  .dashboard-panel-card-dues {
+    grid-column: span 4;
+  }
+
+  .dashboard-panel-upcoming {
+    grid-column: span 4;
+  }
+
+  .dashboard-panel-goals,
+  .dashboard-panel-shared,
+  .dashboard-panel-prices,
+  .dashboard-panel-projection {
+    grid-column: span 6;
+  }
+}
+
+/* Tablet and narrow desktop workspace */
+@media (max-width: 1023px) {
+  .dashboard-chart-stack {
+    grid-column: 1 / -1;
+
+    height: auto;
+    min-height: 0;
+
+    grid-template-rows: auto auto;
+    gap: 14px;
+  }
+
+  .dashboard-chart-stack > .dashboard-panel {
+    height: auto;
+  }
+
+  .dashboard-chart-stack .dashboard-panel-chart,
+  .dashboard-chart-stack .dashboard-panel-sip-investment {
+    min-height: 0;
+  }
+
+  .dashboard-heading {
+    align-items: flex-start;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .dashboard-span-3,
+  .dashboard-span-4,
+  .dashboard-span-5,
+  .dashboard-span-6,
+  .dashboard-span-8 {
+    grid-column: span 1;
+  }
+
+  .dashboard-panel-chart {
+    grid-column: 1 / -1;
+    order: -1;
+  }
+
+  .dashboard-panel-money-inbox {
+    grid-column: 1 / -1;
+  }
+
+  .dashboard-panel {
+    min-height: 220px;
+  }
+}
+
+/* Mobile */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .home-view {
+    width: 100%;
+    max-width: none;
+  }
+
+  .home-view .dashboard-page {
+    width: 100%;
+  }
+
+  .home-view .dashboard-heading,
+  .home-view .dashboard-section-heading,
+  .home-view .dashboard-grid {
+    width: 100%;
+  }
+
+  .home-view .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .home-view .dashboard-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .home-view .dashboard-kpi-card {
+    min-width: 0;
+    padding: 16px;
+  }
+
+  .home-view .dashboard-kpi-value {
+    font-size: clamp(1.2rem, 2.8vw, 1.5rem);
+  }
+
+  .home-view [data-dashboard-slot="money-inbox"],
+  .home-view [data-dashboard-slot="balance-stack"] {
+    grid-column: 1 / -1;
+  }
+
+  .home-view [data-dashboard-slot="budget"],
+  .home-view [data-dashboard-slot="card-dues"],
+  .home-view [data-dashboard-slot="upcoming"],
+  .home-view [data-dashboard-slot="goals"],
+  .home-view [data-dashboard-slot="shared"],
+  .home-view [data-dashboard-slot="prices"] {
+    grid-column: span 1;
+  }
+
+  .home-view [data-dashboard-slot="projection"] {
+    grid-column: 1 / -1;
+  }
+
+  /*
+   * <=1023px: chart dictates the panel height.
+   * Do not stretch the SVG to fill an artificial widget height.
+   */
+  .home-view .dashboard-panel-chart {
+    min-height: 0;
+    height: auto;
+    align-self: start;
+  }
+
+  .home-view .dashboard-chart-body {
+    flex: 0 0 auto;
+    min-height: 0;
+    height: auto;
+    justify-content: flex-start;
+  }
+
+  .home-view .dashboard-cashflow-chart,
+  .home-view .dashboard-balance-chart {
+    min-height: 0;
+    height: auto;
+  }
+
+  .home-view .home-linechart-container svg.linechart,
+  .home-view .dashboard-cashflow-svg-wrap svg {
+    width: 100%;
+    height: auto;
+  }
+
+  .home-view .dashboard-panel-header-chart {
+    align-items: flex-start;
+    flex-direction: row;
+    gap: 16px;
+  }
+
+  .home-view .dashboard-chart-controls {
+    width: auto;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .home-view .dashboard-chart-mode,
+  .home-view .range-toggle {
+    width: auto;
+    display: flex;
+  }
+
+  .home-view .dashboard-panel {
+    min-width: 0;
+    padding: 17px;
+    border-radius: 13px;
+  }
+
+  .home-view .dashboard-panel-header {
+    margin-bottom: 13px;
+  }
+
+  .home-view .dashboard-panel-header h3 {
+    font-size: 1rem;
+  }
+
+  .home-view .dashboard-panel-kicker {
+    font-size: 0.58rem;
+  }
+
+  .home-view .dashboard-budget-row,
+  .home-view .dashboard-card-row,
+  .home-view .dashboard-shared-row,
+  .home-view .dashboard-price-row,
+  .home-view .dashboard-goal-row {
+    min-width: 0;
+  }
+
+  .home-view .dashboard-budget-name,
+  .home-view .dashboard-card-identity,
+  .home-view .dashboard-shared-copy,
+  .home-view .dashboard-price-copy {
+    min-width: 0;
+  }
+
+  .home-view .dashboard-card-row {
+    padding: 11px;
+  }
+
+  .home-view .dashboard-card-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .home-view .dashboard-card-metrics > div {
+    min-width: 0;
+    padding: 7px 6px;
+  }
+
+  .home-view .dashboard-card-metrics strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .home-view .dashboard-panel-money-inbox .dashboard-attention-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .home-view .dashboard-panel-money-inbox .dashboard-attention-row {
+    min-width: 0;
+    height: 100%;
+  }
+
+  .home-view .dashboard-panel-money-inbox .dashboard-attention-row:only-child {
+    grid-column: 1 / -1;
+  }
+
+  .home-view .dashboard-panel-goals,
+  .home-view .dashboard-panel-shared,
+  .home-view .dashboard-panel-prices {
+    min-height: 260px;
+  }
+
+  .home-view .dashboard-heading {
+    margin-bottom: 22px;
+    align-items: center;
+  }
+
+  .home-view .dashboard-heading h1 {
+    font-size: clamp(1.75rem, 3.5vw, 2.15rem);
+  }
+
+  .home-view .dashboard-heading-copy > p {
+    max-width: 620px;
+    font-size: 0.82rem;
+  }
+}
+
+@media (min-width: 900px) and (max-width: 1023px) {
+  .home-view .dashboard-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .home-view [data-dashboard-slot="money-inbox"],
+  .home-view [data-dashboard-slot="balance-stack"],
+  .home-view [data-dashboard-slot="projection"] {
+    grid-column: 1 / -1;
+  }
+
+  .home-view [data-dashboard-slot="budget"],
+  .home-view [data-dashboard-slot="card-dues"],
+  .home-view [data-dashboard-slot="upcoming"],
+  .home-view [data-dashboard-slot="goals"] {
+    grid-column: span 3;
+  }
+
+  .home-view [data-dashboard-slot="shared"],
+  .home-view [data-dashboard-slot="prices"] {
+    grid-column: span 3;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 900px) {
+  .dashboard-sip-investment {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .dashboard-sip-hero {
+    padding: 10px 12px;
+  }
+
+  .dashboard-sip-hero > strong {
+    font-size: 0.96rem;
+  }
+
+  .dashboard-sip-month {
+    padding: 7px 9px;
+  }
+}
+
+@media (max-width: 767px) {
+  .dashboard-sip-investment {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-sip-month {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: none;
+  }
+
+  .dashboard-sip-month > div + div {
+    border-top: 0;
+    border-left: 1px solid var(--hair);
+    padding-left: 10px;
+  }
+
+  .dashboard-heading {
+    margin-bottom: 18px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .dashboard-heading p {
+    font-size: 0.86rem;
+  }
+
+  .dashboard-primary-action {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .dashboard-current-month,
+  .dashboard-kpi-section {
+    margin-bottom: 18px;
+  }
+
+  .current-month-card {
+    padding: 18px;
+    gap: 16px;
+
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .current-month-card .cm-left {
+    min-width: 0;
+  }
+
+  .cm-open {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .current-month-mini {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .cm-stat {
+    flex: 1 1 90px;
+  }
+
+  .dashboard-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .dashboard-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .dashboard-panel {
+    width: 100%;
+    min-height: 0;
+    padding: 15px;
+  }
+
+  .dashboard-budget-overall-meta {
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .dashboard-budget-overall-meta .is-warning {
+    text-align: left;
+  }
+
+  .dashboard-panel-money-inbox {
+    order: 1;
+  }
+
+  .dashboard-panel-chart {
+    order: 2;
+    min-height: 310px;
+  }
+
+  .dashboard-panel-budget {
+    order: 3;
+  }
+
+  .dashboard-panel-card-dues {
+    order: 4;
+  }
+
+  .dashboard-panel-upcoming {
+    order: 5;
+  }
+
+  .dashboard-panel-goals {
+    order: 6;
+  }
+
+  .dashboard-panel-shared {
+    order: 7;
+  }
+
+  .dashboard-panel-prices {
+    order: 8;
+  }
+
+  .dashboard-panel-projection {
+    order: 9;
+  }
+
+  .dashboard-panel-placeholder {
+    min-height: 110px;
+  }
+}
+
+/* Small phones */
 @media (max-width: 480px) {
-  .action-card {
-    flex: 0 0 180px;
-    min-width: 160px;
-    padding: 18px 16px;
+  .dashboard-attention-row {
+    grid-template-columns: 30px minmax(0, 1fr) 14px;
   }
-  
-  .action-card .ac-icon {
-    width: 32px;
-    height: 32px;
-    margin-bottom: 12px;
+
+  .dashboard-attention-amount {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: -3px;
   }
-  
-  .action-card .ac-icon svg {
-    width: 16px;
-    height: 16px;
+
+  .dashboard-attention-chevron {
+    grid-column: 3;
+    grid-row: 1 / span 2;
   }
-  
-  .action-card h3 {
+
+  .dashboard-upcoming-row {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .dashboard-card-row-top {
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .dashboard-card-outstanding {
+    align-items: flex-end;
+  }
+
+  .dashboard-card-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .dashboard-card-metrics > div {
+    padding: 6px 5px;
+  }
+
+  .dashboard-card-metrics span {
+    font-size: 0.48rem;
+  }
+
+  .dashboard-card-metrics strong {
+    font-size: 0.55rem;
+  }
+
+  .dashboard-goal-list .dashboard-goal-row:nth-child(n+3),
+  .dashboard-shared-list .dashboard-shared-row:nth-child(n+3),
+  .dashboard-price-list .dashboard-price-row:nth-child(n+3) {
+    display: none;
+  }
+
+  .dashboard-goal-list {
+    gap: 6px;
+  }
+
+  .dashboard-goal-row {
+    padding: 8px;
+  }
+
+  .dashboard-goal-head strong {
+    font-size: 0.68rem;
+  }
+
+  .dashboard-goal-head > div > span,
+  .dashboard-goal-foot {
+    font-size: 0.53rem;
+  }
+
+  .dashboard-shared-row,
+  .dashboard-price-row {
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+
+  .dashboard-shared-copy strong,
+  .dashboard-price-copy strong {
+    font-size: 0.66rem;
+  }
+
+  .dashboard-shared-copy small,
+  .dashboard-shared-value small,
+  .dashboard-price-copy small {
+    font-size: 0.52rem;
+  }
+
+  .dashboard-upcoming-money {
+    grid-column: 2;
+    align-items: flex-start;
+    flex-direction: row;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 420px) {
+  .dashboard-heading h1 {
+    font-size: 1.55rem;
+  }
+
+  .dashboard-panel-header-chart {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboard-panel-header-chart .range-toggle {
+    width: 100%;
+  }
+
+  .dashboard-panel-header-chart .range-btn {
+    flex: 1;
+  }
+
+  .dashboard-chart-body {
+    flex: 0 0 auto;
+    min-height: 0;
+    height: auto;
+  }
+
+  .dashboard-cashflow-legend {
+    justify-content: flex-start;
+    gap: 8px 12px;
+  }
+
+  .dashboard-projection-hero {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 767px) {
+  .home-view .dashboard-upcoming-list {
+    gap: 2px;
+  }
+
+  .home-view .dashboard-upcoming-row {
+    min-height: 48px;
+    padding: 7px 2px;
+  }
+
+  .home-view .dashboard-upcoming-copy strong {
+    font-size: 0.66rem;
+  }
+
+  .home-view .dashboard-upcoming-copy small,
+  .home-view .dashboard-upcoming-date {
+    font-size: 0.54rem;
+  }
+
+  .home-view [data-dashboard-slot="money-inbox"] {
+    order: 1;
+  }
+
+  .home-view [data-dashboard-slot="balance-stack"] {
+    order: 2;
+  }
+
+  .home-view [data-dashboard-slot="budget"] {
+    order: 3;
+  }
+
+  .home-view [data-dashboard-slot="card-dues"] {
+    order: 4;
+  }
+
+  .home-view [data-dashboard-slot="upcoming"] {
+    order: 5;
+  }
+
+  .home-view [data-dashboard-slot="goals"] {
+    order: 6;
+  }
+
+  .home-view [data-dashboard-slot="shared"] {
+    order: 7;
+  }
+
+  .home-view [data-dashboard-slot="prices"] {
+    order: 8;
+  }
+
+  .home-view [data-dashboard-slot="projection"] {
+    order: 9;
+  }
+
+  .home-view .dashboard-section-heading {
+    margin-bottom: 9px;
+  }
+
+  .home-view .dashboard-section-kicker {
+    font-size: 0.55rem;
+  }
+
+  .home-view .dashboard-section-heading h2 {
     font-size: 0.95rem;
-    margin-bottom: 4px;
   }
-  
-  .action-card p {
-    font-size: 0.75rem;
-    line-height: 1.4;
+
+  .home-view .dashboard-section-hint {
+    display: none;
+  }
+
+  .home-view .dashboard-heading {
+    margin-bottom: 16px;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .home-view .dashboard-heading-copy {
+    min-width: 0;
+  }
+
+  .home-view .dashboard-eyebrow {
+    margin-bottom: 3px;
+    font-size: 0.58rem;
+  }
+
+  .home-view .dashboard-heading h1 {
+    margin: 0;
+    font-size: clamp(1.35rem, 6vw, 1.65rem);
+    line-height: 1.08;
+  }
+
+  .home-view .dashboard-heading-copy > p {
+    display: none;
+  }
+
+  .home-view .dashboard-primary-action {
+    flex: 0 0 auto;
+    padding: 7px 9px;
+    font-size: 0.58rem;
+    white-space: nowrap;
+  }
+
+  .home-view .dashboard-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .home-view .dashboard-kpi-card {
+    min-width: 0;
+    padding: 11px;
+    border-radius: 10px;
+  }
+
+  .home-view .dashboard-kpi-label {
+    font-size: 0.54rem;
+    line-height: 1.25;
+  }
+
+  .home-view .dashboard-kpi-value {
+    margin-top: 5px;
+    font-size: clamp(0.92rem, 4.3vw, 1.12rem);
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+  }
+
+  .home-view .dashboard-kpi-meta {
+    margin-top: 5px;
+    font-size: 0.54rem;
+    line-height: 1.35;
+  }
+
+  .home-view .dashboard-grid {
+    gap: 10px;
+  }
+
+  .home-view .dashboard-panel {
+    min-height: 0;
+    padding: 13px;
+    border-radius: 11px;
+  }
+
+  .home-view .dashboard-panel-header {
+    margin-bottom: 10px;
+  }
+
+  .home-view .dashboard-panel-kicker {
+    margin-bottom: 2px;
+    font-size: 0.52rem;
+  }
+
+  .home-view .dashboard-panel-header h3 {
+    font-size: 0.9rem;
+  }
+
+  .home-view .dashboard-panel-link,
+  .home-view .dashboard-stage-badge,
+  .home-view .dashboard-inbox-count {
+    font-size: 0.56rem;
+  }
+
+  .home-view .dashboard-panel-money-inbox {
+    padding: 14px;
+  }
+
+  .home-view .dashboard-attention-list {
+    gap: 7px;
+  }
+
+  .home-view .dashboard-attention-row {
+    min-height: 54px;
+    padding: 9px 8px;
+    gap: 8px;
+  }
+
+  .home-view .dashboard-attention-copy strong {
+    font-size: 0.68rem;
+    line-height: 1.3;
+  }
+
+  .home-view .dashboard-attention-copy small {
+    font-size: 0.56rem;
+    line-height: 1.35;
+  }
+
+  .home-view .dashboard-attention-amount {
+    font-size: 0.62rem;
+  }
+
+  .home-view .dashboard-panel-chart {
+    min-height: 0;
+    height: auto;
+  }
+
+  .home-view .dashboard-chart-body {
+    flex: 0 0 auto;
+    min-height: 0;
+    height: auto;
+  }
+
+  .home-view .dashboard-budget-summary {
+    margin-bottom: 8px;
+  }
+
+  .home-view .dashboard-budget-row {
+    padding: 8px 0;
+  }
+
+  .home-view .dashboard-budget-name {
+    font-size: 0.64rem;
+  }
+
+  .home-view .dashboard-budget-values {
+    font-size: 0.56rem;
+  }
+
+  .home-view .dashboard-budget-row-foot {
+    font-size: 0.53rem;
+  }
+
+  .home-view .dashboard-budget-unbudgeted {
+    margin-top: 9px;
+    padding: 8px;
+    font-size: 0.57rem;
+  }
+
+  .home-view .dashboard-card-summary {
+    margin-bottom: 9px;
+  }
+
+  .home-view .dashboard-card-row {
+    padding: 9px;
+  }
+
+  .home-view .dashboard-card-list {
+    gap: 7px;
+  }
+
+  .home-view .dashboard-card-identity strong {
+    font-size: 0.7rem;
+  }
+
+  .home-view .dashboard-card-identity span {
+    font-size: 0.56rem;
+  }
+
+  .home-view .dashboard-card-outstanding strong {
+    font-size: 0.7rem;
+  }
+
+  .home-view .dashboard-card-cycle {
+    margin-top: 6px;
+  }
+
+  .home-view .dashboard-projection-hero {
+    gap: 4px;
+  }
+
+  .home-view .dashboard-projection-value {
+    font-size: clamp(1.15rem, 6vw, 1.45rem);
+  }
+
+  .home-view .dashboard-projection-bridge {
+    gap: 5px;
+  }
+
+  .home-view .dashboard-projection-bridge-row {
+    padding: 6px 0;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .home-view .dashboard-card-row:hover,
+  .home-view .dashboard-goal-row:hover,
+  .home-view .dashboard-shared-row:hover,
+  .home-view .dashboard-price-row:hover {
+    transform: none;
+  }
+
+  .home-view .dashboard-panel-link,
+  .home-view .dashboard-primary-action,
+  .home-view .dashboard-secondary-more,
+  .home-view .dashboard-card-more {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .home-view .dashboard-attention-row,
+  .home-view .dashboard-card-row,
+  .home-view .dashboard-goal-row,
+  .home-view .dashboard-shared-row,
+  .home-view .dashboard-price-row,
+  .home-view .dashboard-upcoming-row {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@media (max-width: 530px) {
+  .home-view .dashboard-chart-controls {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .home-view .dashboard-panel-header-chart {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .home-view .dashboard-chart-mode button,
+  .home-view .range-toggle button {
+    min-width: 0;
+    min-height: 21px;
+    padding: 4px 5px;
+    font-size: 0.56rem;
+  }
+
+  .dashboard-chart-controls {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .dashboard-chart-mode,
+  .dashboard-chart-controls .range-toggle {
+    flex: 1 1 auto;
+  }
+
+  .dashboard-chart-mode button,
+  .dashboard-chart-controls .range-btn {
+    flex: 1;
+  }
+
+  .home-view .dashboard-chart-mode,
+  .home-view .range-toggle {
+    width: 100%;
+    display: grid;
+  }
+
+  .home-view .dashboard-chart-mode {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-view .range-toggle {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 390px) {
+  .home-view .dashboard-heading {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .home-view .dashboard-primary-action {
+    align-self: flex-start;
+  }
+
+  .home-view .dashboard-kpi-grid {
+    gap: 6px;
+  }
+
+  .home-view .dashboard-kpi-card {
+    padding: 9px;
+  }
+
+  .home-view .dashboard-kpi-label {
+    font-size: 0.5rem;
+  }
+
+  .home-view .dashboard-kpi-value {
+    font-size: 0.88rem;
+  }
+
+  .home-view .dashboard-panel {
+    padding: 11px;
+  }
+
+  .home-view .dashboard-card-row-top {
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .home-view .dashboard-card-outstanding {
+    align-items: flex-start;
+  }
+
+  .home-view .dashboard-card-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .home-view .dashboard-shared-row {
+    grid-template-columns: 25px minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+
+  .home-view .dashboard-shared-icon {
+    width: 24px;
+    height: 24px;
+    font-size: 0.65rem;
+  }
+}
+
+
+/* ============================================================
+   Dashboard discrete paging + compact secondary stack
+   ============================================================ */
+
+.dashboard-secondary-stack {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto auto;
+  gap: 16px;
+}
+
+.dashboard-secondary-stack > .dashboard-panel {
+  min-height: 0;
+}
+
+.dashboard-secondary-stack > [data-dashboard-slot="goals"],
+.dashboard-secondary-stack > [data-dashboard-slot="people-balances"] {
+  grid-column: auto;
+  order: 0;
+}
+
+.dashboard-panel-compact {
+  padding: 12px 14px;
+}
+
+.dashboard-panel-compact .dashboard-panel-header {
+  margin-bottom: 8px;
+}
+
+.dashboard-panel-compact .dashboard-panel-header h3 {
+  font-size: 0.92rem;
+}
+
+.dashboard-panel-compact .dashboard-panel-kicker {
+  font-size: 0.54rem;
+}
+
+
+/* ---------- Discrete horizontal pager ---------- */
+
+.dashboard-pager {
+  min-width: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.dashboard-pager-viewport {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dashboard-pager-track {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+
+  transform: translate3d(
+    var(--dashboard-page-offset, 0%),
+    0,
+    0
+  );
+
+  transition: transform 0.22s ease;
+  will-change: transform;
+}
+
+.dashboard-pager-page {
+  min-width: 100%;
+  box-sizing: border-box;
+
+  padding: 8px;
+  background: var(--ice);
+
+  border-radius: 11px;
+}
+:root[data-theme="dark"] .dashboard-pager-page {
+  background: var(--ice-2);
+}
+
+.dashboard-attention-row,
+.dashboard-card-row {
+  box-sizing: border-box;
+}
+
+.dashboard-pager-controls {
+  min-height: 26px;
+  margin-top: 10px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.dashboard-pager-arrow {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+
+  display: grid;
+  place-items: center;
+
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+
+  background: var(--paper);
+  color: var(--blue);
+
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1rem;
+  line-height: 1;
+
+  cursor: pointer;
+
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.dashboard-pager-arrow:hover:not(:disabled) {
+  border-color: var(--sky);
+  background: var(--ice);
+}
+
+.dashboard-pager-arrow:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+
+.dashboard-pager-dots {
+  min-width: 28px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.dashboard-pager-dot {
+  width: 5px;
+  height: 5px;
+  padding: 0;
+
+  border: 0;
+  border-radius: 999px;
+
+  background:
+    color-mix(
+      in srgb,
+      var(--muted) 38%,
+      transparent
+    );
+
+  cursor: pointer;
+
+  transition:
+    width 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.dashboard-pager-dot.is-active {
+  width: 14px;
+  background: var(--blue);
+}
+
+
+/* ---------- Compact Goal / People cards ---------- */
+
+.dashboard-panel-compact .dashboard-pager-controls {
+  min-height: 22px;
+  margin-top: 6px;
+}
+
+.dashboard-panel-compact .dashboard-pager-arrow {
+  width: 21px;
+  height: 21px;
+  font-size: 0.88rem;
+}
+
+.dashboard-panel-compact .dashboard-goal-summary {
+  margin-bottom: 6px;
+  font-size: 0.65rem;
+}
+
+.dashboard-panel-compact .dashboard-goal-summary strong {
+  font-size: 0.75rem;
+}
+
+.dashboard-panel-compact .dashboard-goal-row {
+  padding: 7px 8px;
+}
+
+.dashboard-panel-compact .dashboard-goal-head strong {
+  font-size: 0.8rem;
+}
+
+.dashboard-panel-compact .dashboard-goal-head > div > span,
+.dashboard-panel-compact .dashboard-goal-foot {
+  font-size: 0.62rem;
+}
+
+.dashboard-panel-compact .dashboard-goal-percent {
+  font-size: 0.8rem;
+}
+
+.dashboard-panel-compact .dashboard-goal-progress {
+  height: 4px;
+  margin: 5px 0 4px;
+}
+
+.dashboard-panel-compact .dashboard-secondary-empty {
+  min-height: 92px;
+  padding: 10px;
+  gap: 4px;
+}
+
+.dashboard-panel-compact .dashboard-secondary-empty strong {
+  font-size: 0.74rem;
+}
+
+.dashboard-panel-compact .dashboard-secondary-empty > span {
+  font-size: 0.61rem;
+}
+
+.dashboard-panel-compact .dashboard-secondary-empty a {
+  margin-top: 1px;
+  font-size: 0.58rem;
+}
+
+
+/* ---------- People balances ---------- */
+
+.dashboard-people-summary,
+.dashboard-people-page {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.dashboard-people-summary {
+  margin-bottom: 7px;
+}
+
+/*
+ * If only one overall direction exists, let it use the
+ * full width rather than leaving an empty second column.
+ */
+.dashboard-people-summary > div:only-child {
+  grid-column: 1 / -1;
+}
+
+.dashboard-people-summary > div,
+.dashboard-people-side {
+  min-width: 0;
+  padding: 8px 10px;
+
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--paper) 88%, var(--ice));;
+}
+
+.dashboard-people-summary span {
+  display: block;
+
+  color: var(--muted);
+  font-size: 0.51rem;
+}
+
+.dashboard-people-summary strong {
+  margin-top: 2px;
+
+  display: block;
+  overflow: hidden;
+
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78rem;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-people-summary .is-owed strong {
+  color: var(--credit);
+}
+
+.dashboard-people-summary .is-owe strong {
+  color: var(--debit);
+}
+
+
+/* ---------- One card = one person ---------- */
+
+.dashboard-people-side {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+}
+
+.dashboard-person-name {
+  min-width: 0;
+  overflow: hidden;
+
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 700;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-person-balances {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dashboard-person-balance {
+  min-width: 0;
+
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.dashboard-person-balance > span {
+  min-width: 0;
+
+  color: var(--muted);
+  font-size: 0.6rem;
+
+  white-space: nowrap;
+}
+
+.dashboard-person-balance > strong {
+  flex: 0 0 auto;
+
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+
+  white-space: nowrap;
+}
+
+.dashboard-person-balance.is-owed > strong {
+  color: var(--credit);
+}
+
+.dashboard-person-balance.is-owe > strong {
+  color: var(--debit);
+}
+
+
+/*
+ * A final page containing only one person should still occupy
+ * one half of the view instead of stretching into a large card.
+ */
+.dashboard-people-page
+.dashboard-people-side:only-child {
+  grid-column: span 1;
+}
+
+.dashboard-people-note {
+  margin-top: 5px;
+  overflow: hidden;
+
+  color: var(--muted);
+  font-size: 0.52rem;
+  line-height: 1.3;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-people-empty {
+  flex: 1;
+
+  min-height: 78px;
+  padding: 10px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+
+  border: 1px dashed var(--hair);
+  border-radius: 9px;
+}
+
+.dashboard-people-empty strong {
+  color: var(--ink);
+  font-size: 0.72rem;
+}
+
+.dashboard-people-empty span {
+  color: var(--muted);
+  font-size: 0.6rem;
+  line-height: 1.35;
+}
+
+
+/* ---------- Accessibility / themes ---------- */
+
+:root[data-theme="hi-contrast"] .dashboard-pager-arrow,
+:root[data-theme="hi-contrast"] .dashboard-people-empty {
+  border-color: #000;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-pager-track {
+    transition: none;
+  }
+}
+
+
+/* ---------- Responsive layout ---------- */
+
+@media (max-width: 1279px) {
+  .dashboard-secondary-stack {
+    grid-column: span 6;
+  }
+
+  .dashboard-secondary-stack > [data-dashboard-slot="goals"],
+  .dashboard-secondary-stack > [data-dashboard-slot="people-balances"] {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 1023px) {
+  .dashboard-secondary-stack {
+    grid-column: span 1;
+  }
+
+  .dashboard-secondary-stack > .dashboard-panel {
+    min-height: 0;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .home-view [data-dashboard-slot="secondary-stack"] {
+    grid-column: span 1;
+    min-height: 260px;
+  }
+
+  .home-view .dashboard-secondary-stack > .dashboard-panel-compact {
+    min-height: 0;
+    padding: 12px 14px;
+  }
+
+  .home-view .dashboard-panel-compact .dashboard-panel-header {
+    margin-bottom: 8px;
+  }
+
+  .home-view .dashboard-panel-compact .dashboard-panel-header h3 {
+    font-size: 0.92rem;
+  }
+}
+
+@media (min-width: 900px) and (max-width: 1023px) {
+  .home-view [data-dashboard-slot="secondary-stack"] {
+    grid-column: span 3;
+  }
+}
+
+@media (max-width: 767px) {
+  .home-view [data-dashboard-slot="secondary-stack"] {
+    order: 6;
+    gap: 12px;
+  }
+
+  .dashboard-secondary-stack > [data-dashboard-slot="goals"],
+  .dashboard-secondary-stack > [data-dashboard-slot="people-balances"] {
+    grid-column: auto;
+    order: 0;
+  }
+}
+
+
+/*
+ * Your existing <=480px rules hide the 3rd+ Goal/Shared/Price
+ * rows. Once these widgets use discrete pages, hiding those rows
+ * would make some paged records unreachable, so restore them.
+ */
+@media (max-width: 480px) {
+  /* .dashboard-kpi-footer {
+    
+  } */
+
+  .dashboard-goal-list
+  .dashboard-goal-row:nth-child(n+3) {
+    display: block;
+  }
+
+  .dashboard-shared-list
+  .dashboard-shared-row:nth-child(n+3) {
+    display: grid;
+  }
+
+  .dashboard-price-list
+  .dashboard-price-row:nth-child(n+3) {
+    display: flex;
   }
 }
