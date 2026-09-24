@@ -99,6 +99,18 @@ function dashboardDaysBetween(fromDate, toDate) {
   return Math.round((end - start) / 86400000);
 }
 
+function dashboardDaysLeftInMonth(monthKey, asOfDate = todayStr()) {
+  const [year, month] = monthKey.split('-').map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+
+  if (asOfDate.slice(0, 7) !== monthKey) return null;
+
+  return Math.max(
+    0,
+    daysInMonth - Number(asOfDate.slice(8, 10))
+  );
+}
+
 function nextDashboardDueDate(rawDueDay, asOfDate = todayStr()) {
   let monthKey = asOfDate.slice(0, 7);
   let candidate = dashboardDateFromMonthDay(monthKey, rawDueDay);
@@ -140,20 +152,20 @@ async function buildCurrentMonthDashboardMetrics(domain, stats) {
     return breakdown;
   }, { emi: 0, sip: 0, recurring: 0 });
 
-  const currentBreakdown = stats.breakdown.find(row => row.monthKey === key);
-  const previousBreakdown = stats.breakdown.filter(row => row.monthKey < key).sort((a, b) => a.monthKey.localeCompare(b.monthKey)).at(-1);
+  const previousBreakdown = stats.breakdown
+    .filter(row => row.monthKey < key)
+    .sort((a, b) => a.monthKey.localeCompare(b.monthKey))
+    .at(-1);
 
-  let startingBalance = 0;
+  const startingBalance =
+    data.startingBalanceMode === 'auto' && previousBreakdown
+      ? Number(previousBreakdown.ending) || 0
+      : Number(data.startingBalance) || 0;
 
-  if (currentBreakdown) {
-    startingBalance = Number(currentBreakdown.starting) || 0;
-  } else if (hasCurrentMonth && data.startingBalanceMode !== 'auto') {
-    startingBalance = Number(data.startingBalance) || 0;
-  } else if (previousBreakdown) {
-    startingBalance = Number(previousBreakdown.ending) || 0;
-  }
-
-  const availableBalance = startingBalance + postedTotals.income - monthCashOutflow(postedTotals);
+  const availableBalance =
+    startingBalance +
+    postedTotals.income -
+    monthCashOutflow(postedTotals);
   const pendingCashCommitments = monthCashOutflow(remainingTotals);
   const monthEndProjection = availableBalance - pendingCashCommitments;
   const asOfLabel = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
@@ -649,22 +661,21 @@ function buildDashboardCashflowSeries(stats, dashboardKpis) {
 async function buildDashboardSipInvestments(domain) {
   const today = todayStr();
   const currentKey = currentMonthKey();
+  const basePortfolio = Number(domain.existingInvestments) || 0;
 
   /*
-   * Count actual SIP deductions through today.
-   * Include the current month even if it has not yet been added to
-   * months-index, so today's generated SIP rows are represented.
+   * Previous month-end portfolio:
+   * base portfolio + every SIP from months before the current month.
    */
-  const historyKeys = [
-    ...new Set([
-      ...(domain.monthsIndex || []).filter(key => key <= currentKey),
-      currentKey,
-    ]),
+  const previousMonthKeys = [
+    ...new Set(
+      (domain.monthsIndex || []).filter(key => key < currentKey)
+    ),
   ].sort();
 
-  let sipInvested = 0;
+  let previousSipInvested = 0;
 
-  for (const monthKey of historyKeys) {
+  for (const monthKey of previousMonthKeys) {
     const data = await dashboardMonthData(domain, monthKey);
 
     const rows = sipRowsForMonth(
@@ -675,11 +686,17 @@ async function buildDashboardSipInvestments(domain) {
     );
 
     for (const row of rows) {
-      if (row.date && row.date > today) continue;
-      sipInvested += Number(row.amount) || 0;
+      previousSipInvested += Number(row.amount) || 0;
     }
   }
 
+  const previousMonthEndPortfolio =
+    basePortfolio + previousSipInvested;
+
+  /*
+   * Current-month SIPs only count once their configured due date
+   * has arrived.
+   */
   const currentData = await dashboardMonthData(domain, currentKey);
 
   const currentRows = sipRowsForMonth(
@@ -708,12 +725,19 @@ async function buildDashboardSipInvestments(domain) {
       0
     );
 
+  const currentPortfolio =
+    previousMonthEndPortfolio + currentMonthInvested;
+
   return {
-    basePortfolio: Number(domain.existingInvestments) || 0,
-    sipInvested,
+    basePortfolio,
+    previousSipInvested,
+    previousMonthEndPortfolio,
+
     currentMonthScheduled,
     currentMonthInvested,
     currentMonthRemaining,
+
+    currentPortfolio,
   };
 }
 
@@ -760,6 +784,63 @@ function buildDashboardGoals(domain) {
   };
 }
 
+function applyBudgetForecastProjection(dashboardKpis, budgetSnapshot) {
+  const available = Number(dashboardKpis.availableBalance) || 0;
+
+  const postedBudgeted = Number(budgetSnapshot?.totalUsed) || 0;
+  const postedUnbudgeted = Number(budgetSnapshot?.unbudgeted?.total) || 0;
+  const projectedTotal = Number(budgetSnapshot?.totalProjected) || 0;
+
+  /*
+   * Budget forecast is a full-month total, so remove spending that has
+   * already happened before applying the remaining forecast to today's
+   * available balance.
+   */
+  const remainingForecast = Math.max(
+    0,
+    projectedTotal - postedBudgeted - postedUnbudgeted
+  );
+
+  const forecastDeductions = (budgetSnapshot?.categories || [])
+    .filter(category =>
+      category.systemType !== 'auto-spends' &&
+      category.systemType !== 'credit-card-dues'
+    )
+    .reduce((sum, category) => {
+      const remaining = Math.max(
+        0,
+        (Number(category.projected) || 0) -
+        (Number(category.used) || 0)
+      );
+
+      return sum + remaining;
+    }, 0);
+
+  const forecastRows = forecastDeductions > 0
+    ? [{
+        label: 'Budget forecast deductions',
+        amount: forecastDeductions,
+      }]
+    : [];
+
+  dashboardKpis.budgetForecastTotal = projectedTotal;
+  dashboardKpis.remainingBudgetForecast = remainingForecast;
+  dashboardKpis.forecastRows = forecastRows;
+
+  dashboardKpis.monthEndProjection =
+    available - remainingForecast;
+
+  /*
+   * This is now the Budget-page month-end forecast adjusted against
+   * the balance actually available today.
+   */
+  dashboardKpis.monthEndProjection =
+    available - remainingForecast;
+
+  return dashboardKpis;
+}
+
+
 /* Runs once per page load: every network round trip and every O(months)
    computation lives here. Nothing below this function touches Store.get(). */
 async function buildCache() {
@@ -774,6 +855,12 @@ async function buildCache() {
   const dashboardKpis = await buildCurrentMonthDashboardMetrics(domain, stats);
   const upcomingCommitments = await buildUpcomingCommitments(domain);
   const budgetSnapshot = await buildDashboardBudget(domain);
+
+  applyBudgetForecastProjection(
+    dashboardKpis,
+    budgetSnapshot
+  );
+
   const cardSnapshot = await buildDashboardCards(domain, stats);
   const sipInvestmentSnapshot = await buildDashboardSipInvestments(domain);
   const goalSnapshot = buildDashboardGoals(domain);
@@ -830,7 +917,14 @@ function renderFromCache() {
         aria-label="Open ${monthKeyLabel(cache.dashboardKpis.monthKey)} transactions"
       >
         <div class="cm-left">
-          <div class="cm-eyebrow">This month</div>
+          <div class="cm-eyebrow">
+            <span>This month : </span>
+            ${
+              dashboardDaysLeftInMonth(cache.dashboardKpis.monthKey) !== null
+                ? `<span class="cm-days-left">${dashboardDaysLeftInMonth(cache.dashboardKpis.monthKey)} days left</span>`
+                : ''
+            }
+          </div>
 
           <h3>${monthKeyLabel(cache.dashboardKpis.monthKey)}</h3>
 

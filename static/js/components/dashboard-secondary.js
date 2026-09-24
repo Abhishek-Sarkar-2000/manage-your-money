@@ -357,7 +357,14 @@ export function renderDashboardSharedExpenses(snapshot, perPage = 4, maxPages = 
           class="dashboard-shared-row"
           href="/split?group=${encodeURIComponent(item.groupId)}&spend=${encodeURIComponent(item.id.replace(/^split-/, ''))}"
         >
-          <span class="dashboard-shared-icon" aria-hidden="true">↔</span>
+          <span class="dashboard-shared-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 8h13"></path>
+                <path d="m14 5 3 3-3 3"></path>
+                <path d="M20 16H7"></path>
+                <path d="m10 13-3 3 3 3"></path>
+            </svg>
+            </span>
 
           <span class="dashboard-shared-copy">
             <strong>${escapeHtml(item.description)}</strong>
@@ -398,9 +405,15 @@ export function renderDashboardSharedExpenses(snapshot, perPage = 4, maxPages = 
 }
 
 export function renderDashboardSipInvestments(snapshot) {
-  const basePortfolio = Number(snapshot?.basePortfolio) || 0;
-  const sipInvested = Number(snapshot?.sipInvested) || 0;
-  const portfolioTotal = basePortfolio + sipInvested;
+  const previousMonthEndPortfolio =
+    Number(snapshot?.previousMonthEndPortfolio) || 0;
+
+  const currentMonthInvested =
+    Number(snapshot?.currentMonthInvested) || 0;
+
+  const portfolioTotal =
+    Number(snapshot?.currentPortfolio) ||
+    (previousMonthEndPortfolio + currentMonthInvested);
 
   const monthEndSip = Number(snapshot?.currentMonthScheduled) || 0;
   const remainingThisMonth = Number(snapshot?.currentMonthRemaining) || 0;
@@ -411,9 +424,9 @@ export function renderDashboardSipInvestments(snapshot) {
         <span>Portfolio + SIP investments</span>
         <strong>${fmtINR(portfolioTotal)}</strong>
         <small>
-          Base ${fmtINR(basePortfolio)}
+          Previous month-end ${fmtINR(previousMonthEndPortfolio)}
           <span aria-hidden="true">+</span>
-          SIPs ${fmtINR(sipInvested)}
+          current SIPs ${fmtINR(currentMonthInvested)}
         </small>
       </div>
 

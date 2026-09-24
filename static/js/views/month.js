@@ -5,10 +5,10 @@ import { fmtINR, todayStr, currentMonthKey, monthKeyLabel, addMonths, diffMonths
 import { authReady } from '../core/auth.js';
 import {
   loadMonth, saveMonth, ensureMonthIndexed, emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth,
-  computeMonthTotals, computeSpendingBreakdown, computeGlobalStats, cardById, allSpendTags,
+  computeMonthTotals, computeSpendingBreakdown, computeGlobalStats, monthCashOutflow, cardById, allSpendTags,
   findCategoryByTag, ensureCategoryForTag, migrateBudgetData
 } from '../core/domain.js';
-import { renderStatCards, wireStatCardFlip } from '../components/stat-cards.js';
+import { renderDashboardKpis } from '../components/dashboard-kpis.js';
 import { donutChart } from '../components/charts/donut.js';
 import { barChart, tagsBarChart } from '../components/charts/bar-chart.js';
 import { lineChart, wireChartTooltips } from '../components/charts/line-chart.js';
@@ -1281,7 +1281,81 @@ async function renderMonth() {
     const hasPrev = monthsIndex.includes(prevKey) && !!breakdownByKey[prevKey];
     const prevEnding = hasPrev ? breakdownByKey[prevKey].ending : null;
     const mode = data.startingBalanceMode || 'manual';
-    const displayedStarting = (mode === 'auto' && hasPrev) ? prevEnding : (Number(data.startingBalance) || 0);
+    const displayedStarting = (mode === 'auto' && hasPrev)
+      ? prevEnding
+      : (Number(data.startingBalance) || 0);
+
+    const availableBalance =
+      displayedStarting +
+      monthTotals.income -
+      monthCashOutflow(monthTotals);
+
+    const remainingScheduledRows = [
+      ...emiRows,
+      ...sipRows,
+      ...recurringRows,
+    ].filter(row => row.date && row.date > todayStr());
+
+    const remainingTotals =
+      computeMonthTotals(remainingScheduledRows);
+
+    const pendingCashCommitments =
+      monthKey === currentMonthKey()
+        ? monthCashOutflow(remainingTotals)
+        : 0;
+
+    const monthKpis = {
+      monthKey,
+
+      hasCurrentMonth: monthKey === currentMonthKey(),
+
+      income: monthTotals.income,
+
+      spentThisMonth:
+        monthTotals.totalConsumption,
+
+      investmentsThisMonth:
+        monthTotals.invest + monthTotals.sip,
+
+      creditCardDues:
+        Number(stats.cardDues?.total) || 0,
+
+      availableBalance,
+
+      pendingCashCommitments,
+
+      pendingCashBreakdown: {
+        emi: remainingScheduledRows
+          .filter(row => row.type === 'emi')
+          .reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
+
+        sip: remainingScheduledRows
+          .filter(row => row.type === 'sip')
+          .reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
+
+        recurring: remainingScheduledRows
+          .filter(
+            row =>
+              row.type === 'recurring' &&
+              row.paymentMode !== 'card'
+          )
+          .reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
+      },
+
+      monthEndProjection:
+        availableBalance - pendingCashCommitments,
+
+      budgetForecastTotal: 0,
+      remainingBudgetForecast: pendingCashCommitments,
+
+      asOfLabel:
+        monthKey === currentMonthKey()
+          ? new Date().toLocaleDateString(
+              'en-IN',
+              { day: 'numeric', month: 'short' }
+            )
+          : monthKeyLabel(monthKey),
+    };
 
     const typeOptions = [];
     const tagOptions = [];
@@ -1892,7 +1966,7 @@ async function renderMonth() {
     <div class="section">
       ${renderAddEntryPanel()}
     </div>
-    <div class="section">
+     <div class="section">
       <div class="section-title" style="margin-bottom: 12px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="color: var(--blue); display: flex;">
@@ -1906,9 +1980,10 @@ async function renderMonth() {
           </span>
           <h2 style="margin: 0;">This month's finances, at a glance</h2>
         </div>
-        <span class="hint">Hover a card for the breakdown</span>
+        <span class="hint">${monthKeyLabel(monthKey)}</span>
       </div>
-      ${renderStatCards(stats)}
+
+      ${renderDashboardKpis(monthKpis)}
     </div>
     <div class="section">
       <div class="section-title" style="margin-bottom: 12px;">
@@ -3569,7 +3644,6 @@ root.addEventListener('input', (ev) => {
 });
 
 import('../components/delete-popover.js').then(({ wireDeletePopoverDismiss }) => wireDeletePopoverDismiss(root));
-wireStatCardFlip(root);
 window.addEventListener('auth:signed-in', renderMonth);
 window.addEventListener('auth:checked', renderMonth);
 // Wait for the first /api/auth/me round trip so we never flash the

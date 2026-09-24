@@ -89,13 +89,12 @@ export function renderDashboardBudget(snapshot, perPage = 4) {
           : '<span>Based on posted spending</span>'
       }
     </div>
-
-    ${renderDashboardPager(pages, 'Budget categories')}
-
     ${
       snapshot.unbudgeted.total > 0
         ? `<div class="dashboard-budget-unbudgeted"><span class="dashboard-budget-info" aria-hidden="true">i</span><span><strong>${fmtINR(snapshot.unbudgeted.total)}</strong> of posted spending is outside your current budget.</span></div>`
         : ''
     }
+
+    ${renderDashboardPager(pages, 'Budget categories')}
   `;
 }

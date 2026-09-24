@@ -123,19 +123,65 @@ export function renderDashboardCashflowChart(series, rangeMonths, currentMonthKe
 }
 
 export function renderMonthEndProjection(kpis) {
-  const breakdown = kpis.pendingCashBreakdown || { emi: 0, sip: 0, recurring: 0 };
+  const breakdown = kpis.pendingCashBreakdown || {
+    emi: 0,
+    sip: 0,
+    recurring: 0,
+  };
+
   const available = Number(kpis.availableBalance) || 0;
-  const pending = Number(kpis.pendingCashCommitments) || 0;
+  const pending = Number(kpis.remainingBudgetForecast) || 0;
   const projected = Number(kpis.monthEndProjection) || 0;
-  const commitmentPct = available > 0 ? Math.min(100, Math.max(0, (pending / available) * 100)) : (pending > 0 ? 100 : 0);
+
+  const commitmentPct = available > 0
+    ? Math.min(
+        100,
+        Math.max(0, (pending / available) * 100)
+      )
+    : pending > 0
+      ? 100
+      : 0;
 
   const obligationRows = [
-    { label: 'Remaining EMIs', value: Number(breakdown.emi) || 0 },
-    { label: 'Remaining SIPs', value: Number(breakdown.sip) || 0 },
-    { label: 'Bank recurring payments', value: Number(breakdown.recurring) || 0 },
+    {
+      label: 'Remaining EMIs',
+      value: Number(breakdown.emi) || 0,
+    },
+    {
+      label: 'Remaining SIPs',
+      value: Number(breakdown.sip) || 0,
+    },
+    {
+      label: 'Recurring payments',
+      value: Number(breakdown.recurring) || 0,
+    },
   ].filter(row => row.value > 0);
 
-  const deductions = obligationRows.length ? obligationRows.map(row => `<div class="dashboard-projection-row"><span>${row.label}</span><strong>− ${fmtINR(row.value)}</strong></div>`).join('') : `<div class="dashboard-projection-empty">No remaining scheduled cash commitments this month.</div>`;
+  const forecastRows = (kpis.forecastRows || [])
+    .filter(row => Number(row.amount) > 0);
+
+  const deductions = [
+    ...obligationRows,
+    ...forecastRows.map(row => ({
+      label: row.label,
+      value: Number(row.amount) || 0,
+    })),
+  ];
+
+  const deductionHtml = deductions.length
+    ? deductions
+        .map(row => `
+          <div class="dashboard-projection-row">
+            <span>${row.label}</span>
+            <strong>− ${fmtINR(row.value)}</strong>
+          </div>
+        `)
+        .join('')
+    : `
+        <div class="dashboard-projection-empty">
+          No additional spending forecast this month.
+        </div>
+      `;
 
   return `
     <div class="dashboard-projection-body ${projected < 0 ? 'is-negative' : ''}">
@@ -146,10 +192,19 @@ export function renderMonthEndProjection(kpis) {
       <div class="dashboard-projection-meter" style="--projection-used:${commitmentPct.toFixed(1)}%;"><span></span></div>
       <div class="dashboard-projection-bridge">
         <div class="dashboard-projection-row is-start"><span>Available today</span><strong>${fmtINR(available)}</strong></div>
-        ${deductions}
-        <div class="dashboard-projection-row is-result"><span>Projected balance</span><strong>${fmtINR(projected)}</strong></div>
+        ${deductionHtml}
+        <div class="dashboard-projection-row is-result">
+          <span>Projected month-end balance</span>
+          <strong>${fmtINR(projected)}</strong>
+        </div>
       </div>
-      <div class="dashboard-projection-note"><span class="dashboard-projection-info" aria-hidden="true">i</span><span>Uses known remaining cash commitments only. It does not estimate discretionary spending or future credit-card settlement payments.</span></div>
+      <div class="dashboard-projection-note">
+        <span class="dashboard-projection-info" aria-hidden="true">i</span>
+        <span>
+          Uses the Budget page month-end forecast and applies the remaining
+          forecast spending to today's available balance.
+        </span>
+      </div>
     </div>
   `;
 }

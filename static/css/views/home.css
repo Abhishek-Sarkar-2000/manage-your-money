@@ -65,6 +65,10 @@
   min-width: 0;
 }
 
+.cm-days-left {
+  font-weight: 600;
+}
+
 .dashboard-eyebrow,
 .dashboard-section-kicker,
 .dashboard-panel-kicker {
@@ -350,7 +354,7 @@
   overflow: hidden;
   border: 1px solid var(--hair);
   border-radius: 14px;
-  background: linear-gradient(150deg, var(--paper) 0%, var(--ice-2) 100%);
+  background: linear-gradient(150deg, var(--ice-2) 0%, #fff 45%, var(--ice-2) 80%);
   box-shadow: var(--shadow-sm);
 }
 
@@ -372,6 +376,14 @@
 
 .dashboard-kpi-card-invest {
   --kpi-accent: var(--blue);
+}
+
+.dashboard-kpi-card-carddues {
+  --kpi-accent: var(--amber);
+}
+
+.dashboard-kpi-card-carddues .dashboard-kpi-value {
+  color: var(--amber);
 }
 
 .dashboard-kpi-card-projection {
@@ -509,6 +521,62 @@
   background: #000;
 }
 
+.month-view .dashboard-kpi-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+/*
+ * Medium desktop / tablet:
+ * row 1 = 2 equal-width cards
+ * row 2 = 3 equal-width cards
+ */
+@media (min-width: 800px) and (max-width: 1400px) {
+  .month-view .dashboard-kpi-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .month-view .dashboard-kpi-card:nth-child(1),
+  .month-view .dashboard-kpi-card:nth-child(2) {
+    grid-column: span 3;
+  }
+
+  .month-view .dashboard-kpi-card:nth-child(3),
+  .month-view .dashboard-kpi-card:nth-child(4),
+  .month-view .dashboard-kpi-card:nth-child(5) {
+    grid-column: span 2;
+  }
+}
+
+/*
+ * Narrow tablet:
+ * row 1 = first card full width
+ * row 2 = cards 2 + 3
+ * row 3 = cards 4 + 5
+ */
+@media (min-width: 520px) and (max-width: 799px) {
+  .month-view .dashboard-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .month-view .dashboard-kpi-card:nth-child(1) {
+    grid-column: 1 / -1;
+  }
+
+  .month-view .dashboard-kpi-card:nth-child(n+2) {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 519px) {
+  .month-view .dashboard-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .month-view .dashboard-kpi-card {
+    grid-column: 1 / -1;
+  }
+}
+
 @container home-dashboard (max-width: 980px) {
   .dashboard-kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -576,7 +644,7 @@
   flex-direction: column;
   border: 1px solid var(--hair);
   border-radius: 14px;
-  background: linear-gradient(155deg, var(--paper) 0%, var(--ice-2) 100%);
+  background: linear-gradient(155deg, #fff 0%, var(--ice-2) 100%);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
@@ -935,7 +1003,7 @@
   width: 100%;
   overflow: hidden;
   border-radius: 999px;
-  background: var(--paper);
+  background: var(--ice);
 }
 
 .dashboard-budget-overall-progress {
@@ -961,7 +1029,7 @@
 }
 
 .dashboard-budget-overall-meta {
-  margin-bottom: 13px;
+  margin-bottom: 7px;
   display: flex;
   justify-content: space-between;
   gap: 8px;
@@ -1044,8 +1112,8 @@
 }
 
 .dashboard-budget-unbudgeted {
-  margin-top: 12px;
-  padding-top: 10px;
+  margin-bottom: 10px;
+  padding-top: 7px;
   display: flex;
   align-items: flex-start;
   gap: 6px;
@@ -1053,6 +1121,9 @@
   color: var(--muted);
   font-size: 0.62rem;
   line-height: 1.4;
+}
+:root[data-theme="dark"] .dashboard-budget-unbudgeted {
+  border-color: var(--sky);
 }
 
 .dashboard-budget-unbudgeted strong {
@@ -1595,6 +1666,10 @@
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.75rem;
   font-weight: 700;
+}
+.dashboard-shared-icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 .dashboard-shared-row.is-lent .dashboard-shared-icon {
@@ -3491,6 +3566,7 @@
   display: flex;
   flex: 1;
   flex-direction: column;
+  justify-content: space-between;
 }
 
 .dashboard-pager-viewport {
@@ -3847,6 +3923,14 @@
   line-height: 1.35;
 }
 
+:root[data-theme="dark"] .dashboard-budget-empty,
+:root[data-theme="dark"] .dashboard-projection-empty,
+:root[data-theme="dark"] .dashboard-people-empty,
+:root[data-theme="dark"] .dashboard-card-empty,
+:root[data-theme="dark"] .dashboard-attention-empty,
+:root[data-theme="dark"] .dashboard-secondary-empty {
+  border-color: var(--sky);
+}
 
 /* ---------- Accessibility / themes ---------- */
 

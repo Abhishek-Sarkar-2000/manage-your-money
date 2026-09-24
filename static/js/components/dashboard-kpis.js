@@ -13,6 +13,7 @@ export function renderDashboardKpis(kpis) {
   const availableAbnormal = kpis.availableBalance < 0;
   const spendingAbnormal = kpis.income > 0 && kpis.spentThisMonth > kpis.income;
   const investmentAbnormal = kpis.income > 0 && kpis.investmentsThisMonth > kpis.income;
+  const forecastTotal = Number(kpis.budgetForecastTotal) || 0;
   const projectionAbnormal = kpis.monthEndProjection < 0;
 
   const projectionClass = projectionAbnormal ? ' is-negative' : '';
@@ -20,7 +21,45 @@ export function renderDashboardKpis(kpis) {
   const availableMeta = availableAbnormal ? `Balance is ${fmtINR(Math.abs(kpis.availableBalance))} below zero` : (kpis.hasCurrentMonth ? `As of ${kpis.asOfLabel} · posted cash activity` : 'Carried from your latest logged month');
   const spentMeta = spendingAbnormal ? `${fmtINR(kpis.spentThisMonth - kpis.income)} more spent than income logged` : (spentPct === null ? 'No income logged this month' : `${spentPct}% of income logged`);
   const investedMeta = investmentAbnormal ? `${fmtINR(kpis.investmentsThisMonth - kpis.income)} more invested than income logged` : (investedPct === null ? 'No income logged this month' : `${investedPct}% of income logged`);
-  const projectionMeta = projectionAbnormal ? `Projected to end ${fmtINR(Math.abs(kpis.monthEndProjection))} below zero` : (kpis.pendingCashCommitments > 0 ? `${fmtINR(kpis.pendingCashCommitments)} scheduled cash commitments remaining` : 'No scheduled cash commitments remaining');
+
+  const projectionMeta = `${fmtINR(forecastTotal)} total forecast spend`;
+
+  const hasCreditCardDues =
+    kpis.creditCardDues !== undefined &&
+    kpis.creditCardDues !== null;
+
+  const creditCardDues = Number(kpis.creditCardDues) || 0;
+
+  const creditCardDuesCard = hasCreditCardDues
+    ? `
+      <article class="dashboard-kpi-card dashboard-kpi-card-carddues">
+        <div class="dashboard-kpi-top">
+          <span class="dashboard-kpi-label">Credit Card Dues</span>
+          <span class="dashboard-kpi-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+              <path d="M3 9h18"></path>
+              <path d="M7 15h4"></path>
+            </svg>
+          </span>
+        </div>
+
+        <div class="dashboard-kpi-value">
+          ${fmtINR(creditCardDues)}
+        </div>
+
+        <div class="dashboard-kpi-footer">
+          <span class="dashboard-kpi-meta">
+            ${creditCardDues > 0
+              ? 'Outstanding across your credit cards'
+              : 'No outstanding credit card dues'}
+          </span>
+          <span class="dashboard-kpi-chip">Credit</span>
+        </div>
+      </article>
+    `
+    : '';
 
   return `
     <div class="dashboard-kpi-grid">
@@ -37,10 +76,12 @@ export function renderDashboardKpis(kpis) {
       </article>
 
       <article class="dashboard-kpi-card dashboard-kpi-card-invest">
-        <div class="dashboard-kpi-top"><span class="dashboard-kpi-label">Investments This Month</span><span class="dashboard-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V12"></path><path d="M10 20V8"></path><path d="M16 20V4"></path><path d="M22 20H2"></path></svg></span></div>
+        <div class="dashboard-kpi-top"><span class="dashboard-kpi-label">Investments This Month</span><span class="dashboard-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="13" width="4" height="7" rx="1"></rect><rect x="10" y="9" width="4" height="11" rx="1"></rect><rect x="17" y="4" width="4" height="16" rx="1"></rect></svg></span></div>
         <div class="dashboard-kpi-value">${fmtINR(kpis.investmentsThisMonth)}</div>
         <div class="dashboard-kpi-footer"><span class="dashboard-kpi-meta${investmentAbnormal ? ' is-warning' : ''}">${investmentAbnormal ? '<span class="dashboard-kpi-info" aria-hidden="true">i</span>' : ''}${investedMeta}</span><span class="dashboard-kpi-chip">Month</span></div>
       </article>
+
+      ${creditCardDuesCard}
 
       <article class="dashboard-kpi-card dashboard-kpi-card-projection${projectionClass}">
         <div class="dashboard-kpi-top"><span class="dashboard-kpi-label">Month-End Projection</span><span class="dashboard-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path><path d="m17.5 5.5 1.5-1.5"></path></svg></span></div>

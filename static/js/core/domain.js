@@ -272,14 +272,20 @@ function dayBefore(dateStr) {
   return `${year}-${month}-${day}`;
 }
 
-function creditCardDueDate(statementDate, rawDueDay) {
-  const statementMonthKey = statementDate.slice(0, 7);
-  const billingDay = Number(statementDate.slice(8, 10)) || 1;
+function creditCardDueDate(cycleEndDate, rawDueDay) {
+  const cycleEndMonthKey = cycleEndDate.slice(0, 7);
+  const cycleEndDay = Number(cycleEndDate.slice(8, 10)) || 1;
   const dueDay = Math.min(Math.max(Number(rawDueDay) || 1, 1), 31);
 
-  const dueMonthKey = dueDay > billingDay
-    ? statementMonthKey
-    : addMonths(statementMonthKey, 1);
+  /*
+   * The payment due date must always fall after the billing cycle.
+   *
+   * If the configured due day is still ahead of the cycle-end day,
+   * use it in the same month. Otherwise use the following month.
+   */
+  const dueMonthKey = dueDay > cycleEndDay
+    ? cycleEndMonthKey
+    : addMonths(cycleEndMonthKey, 1);
 
   return dateForMonthDay(dueMonthKey, dueDay);
 }
@@ -383,7 +389,7 @@ export async function creditCardCycleLedger(card, recurringSeries, statementMont
     cycleStart: window.cycleStart,
     cycleEnd: window.cycleEnd,
     effectiveEnd,
-    dueDate: creditCardDueDate(window.cycleStart, card.dueDay),
+    dueDate: creditCardDueDate(window.cycleEnd, card.dueDay),
     grossAmount,
     dueAmount: fullySettled ? 0 : grossAmount,
     fullySettled,
@@ -448,7 +454,7 @@ export async function computeCreditCardDueBudget(cards, recurringSeries, budgetM
       dueDay: Number(card.dueDay) || 1,
       cycleStart: window.cycleStart,
       cycleEnd: window.cycleEnd,
-      dueDate: creditCardDueDate(window.cycleStart, card.dueDay),
+      dueDate: creditCardDueDate(window.cycleEnd, card.dueDay),
       effectiveEnd,
       grossAmount,
       fullySettled,

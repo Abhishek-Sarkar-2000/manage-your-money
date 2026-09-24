@@ -17,7 +17,7 @@ function dashboardAttentionIcon(kind) {
     budget: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v10"></path><path d="M16 9.5c0-1.4-1.8-2.5-4-2.5S8 8 8 9.5s1.8 2.5 4 2.5 4 1.1 4 2.5-1.8 2.5-4 2.5-4-1.1-4-2.5"></path></svg>',
     emi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"></path><path d="M5 10v10h14V10"></path><path d="M9 20v-6h6v6"></path></svg>',
     sip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V10"></path><path d="M12 14c-5 0-7-3-7-7 4 0 7 2 7 7Z"></path><path d="M12 11c4 0 6-2 6-6-4 0-6 2-6 6Z"></path></svg>',
-    recurring: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-6V1"></path><path d="M20 7a8 8 0 1 0 1 7"></path></svg>'
+    recurring: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18.5 7.5A8 8 0 1 0 20 14"></path><path d="M18.5 7.5V3.5"></path><path d="M18.5 7.5h-4"></path></svg>'
   };
 
   return icons[kind] || icons.review;

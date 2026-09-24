@@ -2,6 +2,7 @@
 {% block title %}{{ month_key }} — Manage Your Money{% endblock %}
 {% block extra_css %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/charts.css') }}?v={{ static_version }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/views/home.css') }}?v={{ static_version }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/views/month.css') }}?v={{ static_version }}" />
 {% endblock %}
 {% block content %}
