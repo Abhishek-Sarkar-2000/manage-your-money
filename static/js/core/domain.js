@@ -637,6 +637,15 @@ export async function computeCreditCardDueBudget(
       carriedOutstanding +
       currentCycleAccrued;
 
+    const grossBudgetAmount =
+      lastCycleGross +
+      currentCycleGross;
+
+    const budgetAmount =
+      budgetMonthKey > currentMonthKey()
+        ? amount
+        : grossBudgetAmount;
+
     return {
       cardId: card.id,
       name: card.name,
@@ -690,8 +699,8 @@ export async function computeCreditCardDueBudget(
 
       carriedOutstanding,
       currentCycleAccrued,
-      
-      budgetAmount: lastCycleGross + currentCycleGross,
+
+      budgetAmount,
       amount,
     };
   });

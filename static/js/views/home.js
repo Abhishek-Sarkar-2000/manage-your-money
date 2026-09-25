@@ -9,7 +9,7 @@ import { fmtINR, currentMonthKey, monthKeyLabel, todayStr, addMonths, diffMonths
 import { authReady } from '../core/auth.js';
 import { computeGlobalStats, computeMonthTotals, monthCashOutflow, emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth, loadMonth, computeDailyBalanceSeries, windowSeries, migrateBudgetData, creditCardCycleLedger, creditCardCurrentStatementMonthKey } from '../core/domain.js';
 import { renderDashboardKpis } from '../components/dashboard-kpis.js';
-import { analyzeDashboardBudget } from '../core/budget-insights.js';
+import { analyzeDashboardBudget, applyBudgetForecastProjection } from '../core/budget-insights.js';
 import { renderMoneyInbox, renderUpcomingSpends } from '../components/dashboard-attention.js';
 import { renderDashboardBudget } from '../components/dashboard-budget.js';
 import { renderDashboardCards } from '../components/dashboard-cards.js';
@@ -22,7 +22,7 @@ import {
 } from '../components/dashboard-secondary.js';
 import { renderDashboardCashflowChart, renderMonthEndProjection } from '../components/dashboard-finance-overview.js';
 import { dailyBalanceChart, wireChartTooltips } from '../components/charts/line-chart.js';
-import { setupTableScrollIndicators } from '../components/scroll-wrapper.js';
+import { setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { markRendered } from '../components/render-guard.js';
 import {
@@ -827,63 +827,6 @@ function buildDashboardGoals(domain) {
   };
 }
 
-function applyBudgetForecastProjection(dashboardKpis, budgetSnapshot) {
-  const available = Number(dashboardKpis.availableBalance) || 0;
-
-  const postedBudgeted = Number(budgetSnapshot?.totalUsed) || 0;
-  const postedUnbudgeted = Number(budgetSnapshot?.unbudgeted?.total) || 0;
-  const projectedTotal = Number(budgetSnapshot?.totalProjected) || 0;
-
-  /*
-   * Budget forecast is a full-month total, so remove spending that has
-   * already happened before applying the remaining forecast to today's
-   * available balance.
-   */
-  const remainingForecast = Math.max(
-    0,
-    projectedTotal - postedBudgeted - postedUnbudgeted
-  );
-
-  const forecastDeductions = (budgetSnapshot?.categories || [])
-    .filter(category =>
-      category.systemType !== 'auto-spends' &&
-      category.systemType !== 'credit-card-dues'
-    )
-    .reduce((sum, category) => {
-      const remaining = Math.max(
-        0,
-        (Number(category.projected) || 0) -
-        (Number(category.used) || 0)
-      );
-
-      return sum + remaining;
-    }, 0);
-
-  const forecastRows = forecastDeductions > 0
-    ? [{
-        label: 'Budget forecast deductions',
-        amount: forecastDeductions,
-      }]
-    : [];
-
-  dashboardKpis.budgetForecastTotal = projectedTotal;
-  dashboardKpis.remainingBudgetForecast = remainingForecast;
-  dashboardKpis.forecastRows = forecastRows;
-
-  dashboardKpis.monthEndProjection =
-    available - remainingForecast;
-
-  /*
-   * This is now the Budget-page month-end forecast adjusted against
-   * the balance actually available today.
-   */
-  dashboardKpis.monthEndProjection =
-    available - remainingForecast;
-
-  return dashboardKpis;
-}
-
-
 /* Runs once per page load: every network round trip and every O(months)
    computation lives here. Nothing below this function touches Store.get(). */
 async function buildCache() {
@@ -1178,6 +1121,7 @@ function renderFromCache() {
   `;
 
   appendPageChrome(root, { showFabHome: false });
+  setupScrollWrappers(root);
   setupTableScrollIndicators(root);
 }
 

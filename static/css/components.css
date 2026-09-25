@@ -230,29 +230,29 @@
 
 @media (max-width: 960px) {
   .scroll-wrapper > .can-scroll-right {
-    mask-image: linear-gradient(to right, black 96%, transparent);
-    -webkit-mask-image: linear-gradient(to right, black 96%, transparent);
+    mask-image: linear-gradient(to right, black 94%, transparent 98%);
+    -webkit-mask-image: linear-gradient(to right, black 94%, transparent 98%);
   }
 
   .scroll-wrapper > .can-scroll-left {
-    mask-image: linear-gradient(to left, black 96%, transparent);
-    -webkit-mask-image: linear-gradient(to left, black 96%, transparent);
+    mask-image: linear-gradient(to left, black 94%, transparent 98%);
+    -webkit-mask-image: linear-gradient(to left, black 94%, transparent 98%);
   }
 
   .scroll-wrapper > .can-scroll-both {
     mask-image: linear-gradient(
       to right,
-      transparent 0,
+      transparent 1%,
       black 4%,
-      black 96%,
-      transparent 100%
+      black 94%,
+      transparent 98%
     );
     -webkit-mask-image: linear-gradient(
       to right,
-      transparent 0,
+      transparent 1%,
       black 4%,
-      black 96%,
-      transparent 100%
+      black 94%,
+      transparent 98%
     );
   }
 }

@@ -506,6 +506,180 @@
   white-space: nowrap;
 }
 
+.dashboard-money-matters {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .dashboard-money-matters {
+    display: block;
+    margin-top: 18px;
+    padding: 14px 14px 14px 16px;
+    border: 1px solid var(--hair);
+    border-radius: 16px;
+    background: linear-gradient(120deg, var(--ice-2) 0%, var(--paper) 48%, var(--ice) 100%);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+
+  .dashboard-money-matters-header {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    min-width: 0;
+  }
+
+  .dashboard-money-matters-title {
+    flex: 0 0 auto;
+    min-width: 112px;
+  }
+
+  .dashboard-money-matters-header h3 {
+    margin: 2px 0 0;
+    color: var(--navy);
+    font-family: 'Fraunces', serif;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .dashboard-money-matters-scroll {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .dashboard-money-matters .scroll-wrapper {
+    width: 100%;
+    margin: 0;
+    z-index: 1;
+  }
+
+  .dashboard-money-matters-scroll .scroll-arrow {
+    font-size: 0;
+  }
+
+  .dashboard-money-matters-scroll .scroll-arrow::before {
+    content: '›';
+    font-family: Arial, sans-serif;
+    font-size: 1.15rem;
+    line-height: 1;
+  }
+
+  .dashboard-money-matters-scroll .scroll-arrow.left::before {
+    content: '‹';
+  }
+
+  .money-matters-track {
+    gap: 10px;
+    padding: 6px 12px;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 12px;
+  }
+
+  .money-matters-link {
+    flex: 0 0 200px;
+    min-width: 0;
+    padding: 10px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    scroll-snap-align: start;
+    border: 1px solid var(--hair);
+    border-radius: 12px;
+    background: linear-gradient(155deg, var(--paper), var(--ice-2));
+    color: var(--navy);
+    text-decoration: none;
+    box-shadow: var(--shadow-sm);
+    transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+  }
+
+  .money-matters-link:hover {
+    border-color: var(--blue);
+    transform: translateY(-1px);
+  }
+
+  .money-matters-link.is-active {
+    border-color: var(--blue);
+    background: var(--ice);
+    box-shadow: 0 0 0 1px var(--blue);
+  }
+
+  .money-matters-link-icon {
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    background: var(--ice);
+    color: var(--blue);
+  }
+
+  .money-matters-link-icon svg {
+    display: block;
+  }
+
+  .money-matters-link-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-family: 'Source Serif 4', serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.15;
+  }
+
+  .money-matters-link-arrow {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: Arial, sans-serif;
+    font-size: 1.15rem;
+    line-height: 1;
+    color: var(--muted);
+  }
+
+  .money-matters-link:hover .money-matters-link-arrow,
+  .money-matters-link.is-active .money-matters-link-arrow {
+    color: currentColor;
+  }
+}
+
+@media (max-width: 600px) {
+  .dashboard-money-matters {
+    padding: 14px 10px 10px;
+  }
+
+  .dashboard-money-matters-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .dashboard-money-matters-title {
+    min-width: 0;
+    padding: 0 4px;
+  }
+
+  .dashboard-money-matters-scroll {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .money-matters-link {
+    flex-basis: 160px;
+    padding: 7px 7px;
+    gap: 8px;
+  }
+  
+  .money-matters-link-label {
+    font-size: 0.7rem;
+  }
+}
+
 :root[data-theme="dark"] .dashboard-kpi-card {
   background: linear-gradient(150deg, var(--paper) 0%, var(--ice) 100%);
 }
@@ -1836,6 +2010,7 @@
    ========================================================= */
 
 :root[data-theme="dark"] .dashboard-panel,
+:root[data-theme="dark"] .dashboard-money-matters,
 :root[data-theme="dark"] .dashboard-widget,
 :root[data-theme="dark"] .dashboard-panel-placeholder {
   background:

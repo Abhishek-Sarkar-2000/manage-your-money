@@ -287,6 +287,18 @@
     border-color 0.15s ease;
 }
 
+.sidebar-theme-icon {
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-theme-icon svg {
+  display: block;
+  width: 17px;
+  height: 17px;
+}
+
 .sidebar-theme-grid button:hover {
   color: var(--blue);
   background: var(--paper);
@@ -837,7 +849,30 @@ body:not([data-is-shared="true"]) .sticky-controls-wrap {
   }
 
   .sidebar-theme-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 3px;
+    padding: 3px;
+  }
+
+  .sidebar-theme-grid button {
+    min-height: 32px;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sidebar-theme-label {
+    display: none;
+  }
+
+  .sidebar-theme-icon {
+    display: inline-flex;
+  }
+
+  .sidebar-theme-icon svg {
+    width: 18px;
+    height: 18px;
   }
 }
 

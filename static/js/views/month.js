@@ -8,6 +8,7 @@ import {
   computeMonthTotals, computeSpendingBreakdown, computeGlobalStats, monthCashOutflow, cardById, allSpendTags,
   findCategoryByTag, ensureCategoryForTag, migrateBudgetData
 } from '../core/domain.js';
+import { analyzeDashboardBudget, applyBudgetForecastProjection } from '../core/budget-insights.js';
 import { renderDashboardKpis } from '../components/dashboard-kpis.js';
 import { donutChart } from '../components/charts/donut.js';
 import { barChart, tagsBarChart } from '../components/charts/bar-chart.js';
@@ -1356,6 +1357,31 @@ async function renderMonth() {
             )
           : monthKeyLabel(monthKey),
     };
+
+    if (monthKey === currentMonthKey()) {
+      const postedBudgetEntries = [
+        ...data.entries.filter(entry => !entry.date || entry.date <= todayStr()),
+        ...emiRowsFiltered,
+        ...sipRowsFiltered,
+        ...recurringRowsFiltered,
+      ];
+
+      const scheduledBudgetEntries = [
+        ...data.entries,
+        ...emiRows,
+        ...sipRows,
+        ...recurringRows,
+      ];
+
+      const budgetSnapshot = analyzeDashboardBudget({
+        budgetData,
+        postedEntries: postedBudgetEntries,
+        scheduledEntries: scheduledBudgetEntries,
+        monthKey,
+      });
+
+      applyBudgetForecastProjection(monthKpis, budgetSnapshot);
+    }
 
     const typeOptions = [];
     const tagOptions = [];

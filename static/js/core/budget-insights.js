@@ -155,3 +155,44 @@ export function analyzeDashboardBudget({ budgetData, postedEntries, scheduledEnt
     riskCount: categories.filter(category => category.overAmount > 0 || category.projectedOverAmount > 0).length,
   };
 }
+
+export function applyBudgetForecastProjection(dashboardKpis, budgetSnapshot) {
+  const available = Number(dashboardKpis.availableBalance) || 0;
+  const postedBudgeted = Number(budgetSnapshot?.totalUsed) || 0;
+  const postedUnbudgeted = Number(budgetSnapshot?.unbudgeted?.total) || 0;
+  const projectedTotal = Number(budgetSnapshot?.totalProjected) || 0;
+
+  const remainingForecast = Math.max(
+    0,
+    projectedTotal - postedBudgeted - postedUnbudgeted
+  );
+
+  const forecastDeductions = (budgetSnapshot?.categories || [])
+    .filter(category =>
+      category.systemType !== 'auto-spends' &&
+      category.systemType !== 'credit-card-dues'
+    )
+    .reduce((sum, category) => {
+      const remaining = Math.max(
+        0,
+        (Number(category.projected) || 0) -
+        (Number(category.used) || 0)
+      );
+
+      return sum + remaining;
+    }, 0);
+
+  const forecastRows = forecastDeductions > 0
+    ? [{
+        label: 'Budget forecast deductions',
+        amount: forecastDeductions,
+      }]
+    : [];
+
+  dashboardKpis.budgetForecastTotal = projectedTotal;
+  dashboardKpis.remainingBudgetForecast = remainingForecast;
+  dashboardKpis.forecastRows = forecastRows;
+  dashboardKpis.monthEndProjection = available - remainingForecast;
+
+  return dashboardKpis;
+}
