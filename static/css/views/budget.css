@@ -146,9 +146,7 @@
 
 .cc-spend-alert {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  width: 100%;
   margin: 14px 0 24px;
   padding: 14px 16px;
   border: 1px solid;
@@ -160,7 +158,17 @@
   flex-wrap: wrap;
   align-items: baseline;
   gap: 6px 10px;
+  width: 100%;
+  min-width: 0;
   color: var(--muted);
+}
+
+.cc-spend-alert-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
 }
 
 .cc-spend-alert-copy strong {
@@ -175,7 +183,7 @@
 }
 
 .cc-spend-alert-eyebrow {
-  width: 100%;
+  min-width: 0;
   color: var(--royal);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.72rem;
@@ -194,7 +202,7 @@
 
 .cc-spend-alert-card {
   padding: 4px 7px;
-  border: 1px solid rgba(142, 111, 176, 0.18);
+  border: 1px solid var(--hair);
   border-radius: 7px;
   background: rgba(255, 255, 255, 0.52);
   color: var(--muted);
@@ -203,7 +211,7 @@
 }
 
 :root[data-theme="dark"] .cc-spend-alert-card {
-  border-color: rgba(172, 145, 219, 0.19);
+  border-color: var(--sky);
   background: rgba(255, 255, 255, 0.035);
 }
 
@@ -227,6 +235,12 @@
   border: 1px solid rgba(201, 138, 60, 0.28);
 }
 
+.cc-spend-alert-copy > strong,
+.cc-spend-alert-description,
+.cc-spend-alert-cards {
+  width: 100%;
+}
+
 :root[data-theme="hi-contrast"] .cc-spend-alert {
   border-color: #000;
   background: #fff;
@@ -241,6 +255,54 @@
   color: #F0B86D;
   background: rgba(119, 73, 28, 0.28);
   border-color: rgba(223, 151, 67, 0.3);
+}
+
+@media (max-width: 800px) {
+  .cc-spend-alert {
+    margin: 10px 0 16px;
+    padding: 10px 11px;
+    border-radius: 10px;
+  }
+
+  .cc-spend-alert-copy {
+    gap: 4px;
+  }
+
+  .cc-spend-alert-head {
+    gap: 8px;
+  }
+
+  .cc-spend-alert-eyebrow {
+    font-size: 0.64rem;
+    letter-spacing: 0.025em;
+  }
+
+  .cc-spend-alert-tag {
+    flex: 0 0 auto;
+    padding: 3px 7px;
+    font-size: 0.58rem;
+  }
+
+  .cc-spend-alert-copy > strong {
+    font-size: 0.92rem;
+  }
+
+  .cc-spend-alert-description {
+    font-size: 0.64rem !important;
+    line-height: 1.4;
+  }
+
+  .cc-spend-alert-cards {
+    gap: 4px;
+    margin-top: 2px;
+  }
+
+  .cc-spend-alert-card {
+    width: 100%;
+    padding: 4px 6px;
+    font-size: 0.61rem;
+    line-height: 1.35;
+  }
 }
 
 /* ---------- Groups & Goals ---------- */
@@ -1347,7 +1409,7 @@
   font-family: 'IBM Plex Mono', monospace;
   color: var(--blue); 
   gap: 12px;
-  padding: 12px 18px;
+  padding: 10px 14px;
   margin-bottom: 16px;
   border-radius: 12px;
   backdrop-filter: blur(8px);
@@ -1357,12 +1419,12 @@
   display: flex;
 }
 .forecast-report-banner .frb-text {
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   margin-top: 1px;
 }
 .forecast-report-banner .frb-text strong {
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 0.98rem;
 }
 
 /* Forecast: Under/On Budget (Blue) */
@@ -1397,7 +1459,7 @@
   align-items: center;
   color: rgb(107, 150, 37);
   gap: 12px;
-  padding: 12px 18px;
+  padding: 10px 14px;
   margin-bottom: 16px;
   border-radius: 12px;
   /* Translucent orange-yellow gradient */
@@ -1414,13 +1476,13 @@
 
 .income-report-banner .irb-text {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   margin-top: 1px;
 }
 
 .income-report-banner .irb-text strong {
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 0.98rem;
 }
 
 /* Dark mode overrides */
@@ -1435,20 +1497,6 @@
 }
 
 @container app (max-width: 900px) {
-  .income-report-banner .irb-text {
-    font-size: 0.88rem;
-  }
-  .income-report-banner .irb-text strong {
-    font-size: 0.98rem;
-  }
-  
-  .forecast-report-banner .frb-text {
-    font-size: 0.88rem;
-  }
-  .forecast-report-banner .frb-text strong {
-    font-size: 0.98rem;
-  }
-
   .budget-summary-grid {
     grid-template-columns: 1fr 1fr;
     gap: 12px;
@@ -1682,6 +1730,26 @@
   .kpi-sub {
     font-size: 0.64rem;
     margin-top: 1px;
+  }
+  .income-report-banner{
+    padding: 8px 11px;
+    gap: 8px;
+  }
+  .income-report-banner .irb-text {
+    font-size: 0.7rem;
+  }
+  .income-report-banner .irb-text strong {
+    font-size: 0.76rem;
+  }
+  .forecast-report-banner {
+    padding: 8px 11px;
+    gap: 8px;
+  }
+  .forecast-report-banner .frb-text {
+    font-size: 0.7rem;
+  }
+  .forecast-report-banner .frb-text strong {
+    font-size: 0.76rem;
   }
   .cat-name-col {
     font-size: 0.85rem;

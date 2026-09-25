@@ -553,7 +553,7 @@
  * row 2 = cards 2 + 3
  * row 3 = cards 4 + 5
  */
-@media (min-width: 520px) and (max-width: 799px) {
+@media (max-width: 799px) {
   .month-view .dashboard-kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -564,16 +564,6 @@
 
   .month-view .dashboard-kpi-card:nth-child(n+2) {
     grid-column: span 1;
-  }
-}
-
-@media (max-width: 519px) {
-  .month-view .dashboard-kpi-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .month-view .dashboard-kpi-card {
-    grid-column: 1 / -1;
   }
 }
 
@@ -590,7 +580,6 @@
   }
 
   .dashboard-kpi-card {
-    min-height: 134px;
     padding: 15px 16px 13px;
   }
 
@@ -3229,19 +3218,19 @@
     border-radius: 10px;
   }
 
-  .home-view .dashboard-kpi-label {
+  .dashboard-kpi-label {
     font-size: 0.54rem;
     line-height: 1.25;
   }
 
-  .home-view .dashboard-kpi-value {
+  .dashboard-kpi-value {
     margin-top: 5px;
     font-size: clamp(0.92rem, 4.3vw, 1.12rem);
     line-height: 1.1;
     overflow-wrap: anywhere;
   }
 
-  .home-view .dashboard-kpi-meta {
+  .dashboard-kpi-meta {
     margin-top: 5px;
     font-size: 0.54rem;
     line-height: 1.35;
@@ -3479,15 +3468,15 @@
     gap: 6px;
   }
 
-  .home-view .dashboard-kpi-card {
-    padding: 9px;
+  .dashboard-kpi-card {
+    padding: 9px 9px 9px 14px;
   }
 
-  .home-view .dashboard-kpi-label {
+  .dashboard-kpi-label {
     font-size: 0.5rem;
   }
 
-  .home-view .dashboard-kpi-value {
+  .dashboard-kpi-value {
     font-size: 0.88rem;
   }
 

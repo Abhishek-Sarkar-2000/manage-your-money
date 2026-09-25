@@ -11,7 +11,7 @@ import {
   loadMonth, saveMonth, cardById, allSpendTags, ensureMonthIndexed,
   emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth,
   computeCreditCardDueBudget, computeSpendingBreakdown, spendingAmountForEntry,
-  forecastCategorySpend, matchesCategory, migrateBudgetData,
+  computeMonthlyBreakdown, forecastCategorySpend, matchesCategory, migrateBudgetData,
   validateGroupBudget, validateCategoryBudget, validateCategoryMove
 } from '../core/domain.js';
 import { computeGoalRecommendation } from '../core/goal-algorithm.js';
@@ -59,6 +59,7 @@ let cards = [];
 let currentMonthEntries = [];
 let scheduledMonthEntries = [];
 let currentCcDueSnapshot = null;
+let currentStartingBalance = 0;
 let monthsIndex = [];
 let domainLoaded = false;
 let isFormOpen = false;
@@ -162,7 +163,7 @@ async function ensureCreditCardDuesGroup(snapshot) {
     return;
   }
 
-  const visibleTotal = visibleCards.reduce((sum, card) => sum + (Number(card.amount) || 0), 0);
+  const visibleTotal = visibleCards.reduce((sum, card) => sum + (Number(card.budgetAmount) || 0), 0);
   let group = budgetData.find(item => item.systemType === CC_DUES_SYSTEM_TYPE);
 
   if (!group) {
@@ -183,8 +184,12 @@ async function ensureCreditCardDuesGroup(snapshot) {
     id: `system-cc-card-${currentKey}-${card.cardId}`,
     name: card.name,
     displayName: card.name,
-    budget: card.amount,
+    budget: Number(card.budgetAmount) || 0,
     dueDate: card.dueDate,
+    carriedOutstanding: Number(card.carriedOutstanding) || 0,
+    carriedDueDate: card.carriedDueDate || null,
+    currentCycleAccrued: Number(card.currentCycleAccrued) || 0,
+    currentCycleDueDate: card.currentCycleDueDate || null,
     systemType: CC_DUES_SYSTEM_TYPE,
     systemCardId: card.cardId,
     subcategories: [],
@@ -254,7 +259,7 @@ async function ensureAutoSpendGroup(autoRows) {
       return {
         id: `system-auto-${currentKey}-${def.type}-${row.seriesId}`,
         name: row.description || def.name,
-        displayName: `${row.description || def.name} · ${formatSystemDate(row.date)}`,
+        displayName: row.description || def.name,
         budget,
         budgetOverridden: existingSub?.budgetOverridden === true,
         scheduledDate: row.date,
@@ -318,11 +323,30 @@ function renderCreditCardSpendAlert() {
   if (currentKey !== currentMonthKey() || !currentCcDueSnapshot?.cards?.length) return '';
 
   const nextMonth = monthKeyLabel(addMonths(currentKey, 1));
-  const cardRows = currentCcDueSnapshot.cards.map(card =>
-    `<span class="cc-spend-alert-card">${escapeHtml(card.name)} · ${fmtINR(card.amount)} · bills ${formatSystemDate(card.cycleEnd)}</span>`
-  ).join('');
+  const cardRows = currentCcDueSnapshot.cards.map(card => {
+    const parts = [];
 
-  return `<div class="cc-spend-alert"><div class="cc-spend-alert-copy"><span class="cc-spend-alert-eyebrow">Next credit-card statement reserve</span><strong>${fmtINR(currentCcDueSnapshot.total)}</strong><span>Accruing for the <b>Credit Card Dues</b> budget in ${nextMonth}.</span><div class="cc-spend-alert-cards">${cardRows}</div></div><span class="cc-spend-alert-tag">CC due</span></div>`;
+    if (card.carriedOutstanding > 0) {
+      parts.push(`carried ${fmtINR(card.carriedOutstanding)}`);
+    }
+
+    if (card.currentCycleAccrued > 0) {
+      parts.push(`current cycle ${fmtINR(card.currentCycleAccrued)}`);
+    }
+
+    const dueParts = [];
+    if (Number(card.carriedOutstanding) > 0 && card.carriedDueDate) {
+      dueParts.push(`${fmtINR(card.carriedOutstanding)} due ${formatSystemDate(card.carriedDueDate)}`);
+    }
+
+    if (Number(card.currentCycleAccrued) > 0 && card.currentCycleDueDate) {
+      dueParts.push(`${fmtINR(card.currentCycleAccrued)} due ${formatSystemDate(card.currentCycleDueDate)}`);
+    }
+
+    return `<span class="cc-spend-alert-card">${escapeHtml(card.name)} · ${fmtINR(card.amount)}${dueParts.length ? ` · ${dueParts.join(' + ')}` : ''}</span>`;
+  }).join('');
+
+  return `<div class="cc-spend-alert"><div class="cc-spend-alert-copy"><div class="cc-spend-alert-head"><span class="cc-spend-alert-eyebrow">Next credit-card statement reserve</span><span class="cc-spend-alert-tag">CC due</span></div><strong>${fmtINR(currentCcDueSnapshot.total)}</strong><span class="cc-spend-alert-description">Accruing for the <b>Credit Card Dues</b> budget in ${nextMonth}.</span><div class="cc-spend-alert-cards">${cardRows}</div></div></div>`;
 }
 
 function calculateUsed(name, isSub, parentName, systemRef = null) {
@@ -399,24 +423,45 @@ function computeSummary() {
     }
   }
 
-  const totalSpent = computeSpendingBreakdown(currentMonthEntries).total;
+  const spending = computeSpendingBreakdown(currentMonthEntries);
+  const totalSpent =
+    spending.total -
+    spending.creditCardDues;
 
   budgetData.forEach(group => {
     totalBudget += Number(group.budget) || 0;
+
     (group.categories || []).forEach(cat => {
-      totalUsed += calculateUsed(cat.name, false, null);
+      totalUsed += isSystemGroup(group)
+        ? calculateSystemCategoryUsed(cat, group)
+        : calculateUsed(cat.name, false, null);
     });
   });
 
   const totalRemaining = totalBudget - totalUsed;
   const usedPct = totalBudget > 0 ? (totalUsed / totalBudget) * 100 : (totalUsed > 0 ? 100 : 0);
   const remainingPct = totalBudget > 0 ? Math.max(0, (totalRemaining / totalBudget) * 100) : 0;
-  const unallocated = totalIncome - totalBudget;
-  const totalSavings = totalIncome - totalSpent;
+
+  const budgetBenchmark =
+    currentStartingBalance +
+    totalIncome;
+
+  const unallocated =
+    budgetBenchmark -
+    totalBudget;
+
+  const savingsSpend = Math.max(
+    0,
+    totalSpent -
+    spending.creditCardSpends -
+    spending.cashPayments
+  );
+
+  const totalSavings = totalIncome - savingsSpend;
   const savingsPct = totalIncome > 0 ? Math.max(0, (totalSavings / totalIncome) * 100) : 0;
   const spentPct = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : (totalSpent > 0 ? 100 : 0);
 
-  return { totalBudget, totalUsed, totalRemaining, usedPct, remainingPct, totalIncome, unallocated, totalSpent, totalSavings, savingsPct, spentPct };
+  return { totalBudget, totalUsed, totalRemaining, usedPct, remainingPct, totalIncome, currentStartingBalance, budgetBenchmark, unallocated, totalSpent, totalSavings, savingsPct, spentPct };
 }
 
 // Finds spend that isn't captured under any budgeted top-level category —
@@ -518,7 +563,7 @@ function renderUnbudgetedCallout() {
 }
 
 function renderSummaryCards() {
-  const { totalBudget, totalUsed, totalRemaining, usedPct, remainingPct, totalIncome, unallocated, totalSpent, totalSavings, savingsPct, spentPct } = computeSummary();
+  const { totalBudget, totalUsed, totalRemaining, usedPct, remainingPct, totalIncome, currentStartingBalance, budgetBenchmark, unallocated, totalSpent, totalSavings, savingsPct, spentPct } = computeSummary();
   const status = getStatusInfo(usedPct);
 
   const briefcaseSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"></path><path d="M2 13h20"></path></svg>`;
@@ -545,7 +590,7 @@ function renderSummaryCards() {
     incomeReportHtml = `
       <div class="income-report-banner">
         <span class="irb-icon">${diamondExclamation}</span>
-        <span class="irb-text">Income for the month: <strong>${fmtINR(totalIncome)}</strong></span>
+        <span class="irb-text">Available to budget: <strong>${fmtINR(budgetBenchmark)}</strong> · Starting ${fmtINR(currentStartingBalance)} + Income ${fmtINR(totalIncome)}</span>
       </div>
     `;
 
@@ -584,8 +629,8 @@ function renderSummaryCards() {
       if (hasForecast) {
         const unbudgetedTotal = calculateUnbudgeted().total;
         const projectedTotalSpend = totalForecast + unbudgetedTotal;
-        const benchmarkValue = totalIncome;
-        const benchmarkLabel = 'income';
+        const benchmarkValue = budgetBenchmark;
+        const benchmarkLabel = 'starting balance + income';
         const isOver = projectedTotalSpend > benchmarkValue;
         const diffAmount = Math.abs(projectedTotalSpend - benchmarkValue);
         const overUnderText = isOver ? 'over' : 'under';
@@ -638,7 +683,7 @@ function renderSummaryCards() {
       <div class="kpi-body">
         <div class="kpi-label" style="${totalSavings < 0 ? 'color: var(--debit);' : ''}">Savings</div>
         <div class="kpi-value ${savingsClass}">${fmtINR(totalSavings)}</div>
-        <div class="kpi-sub" style="${totalSavings < 0 ? 'color: var(--debit);' : 'color: var(--credit);'}">${totalSavings < 0 ? 'Spends > Income' : savingsPctDisplay + ' of income'}</div>
+        <div class="kpi-sub" style="${totalSavings < 0 ? 'color: var(--debit);' : 'color: var(--credit);'}">${totalSavings < 0 ? 'Debits > Income' : savingsPctDisplay + ' of income'}</div>
       </div>
     </div>
     <div class="kpi-card status-card">
@@ -698,11 +743,11 @@ function renderBudgetRow(item, isSub, parentId, groupId) {
       'warning': `<svg class="forecast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13 8 3 18"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>`,
       'auto-over': `<svg class="forecast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 20h20L12 2z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`
     };
-    forecastHtml = `
-      <div class="budget-forecast ${forecast.severity}">
-        ${svgs[forecast.severity]}<span class="bf-text">${forecast.message}</span>
-      </div>
-    `;
+    forecastHtml = `<div class="budget-forecast ${forecast.severity}">${svgs[forecast.severity]}<span class="bf-text">${forecast.message}</span></div>`;
+  }
+
+  if (parentGroup?.systemType === AUTO_SYSTEM_TYPE && isSub && item.scheduledDate) {
+    forecastHtml = `<div class="budget-forecast ok"><svg class="forecast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 15"></polyline></svg><span class="bf-text">${fmtINR(item.budget)} due ${formatSystemDate(item.scheduledDate)}</span></div>`;
   }
 
   if (
@@ -726,18 +771,22 @@ function renderBudgetRow(item, isSub, parentId, groupId) {
     }
   }
 
-  if (
-    parentGroup?.systemType === CC_DUES_SYSTEM_TYPE &&
-    isSub &&
-    item.systemCardId &&
-    item.dueDate
-  ) {
-    forecastHtml = `
-      <div class="budget-forecast ok">
-        <svg class="forecast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 15"></polyline></svg>
-        <span class="bf-text"><span>${fmtINR(item.budget)} due by ${formatSystemDate(item.dueDate)}</span></span>
-      </div>
-    `;
+  if (parentGroup?.systemType === CC_DUES_SYSTEM_TYPE && isSub && item.systemCardId) {
+    const dueParts = [];
+
+    if (Number(item.carriedOutstanding) > 0 && item.carriedDueDate) {
+      dueParts.push(`<span>${fmtINR(item.carriedOutstanding)} due by ${formatSystemDate(item.carriedDueDate)}</span>`);
+    }
+
+    if (Number(item.currentCycleAccrued) > 0 && item.currentCycleDueDate) {
+      dueParts.push(`<span>${fmtINR(item.currentCycleAccrued)} due by ${formatSystemDate(item.currentCycleDueDate)}</span>`);
+    }
+
+    if (!dueParts.length && item.dueDate) {
+      dueParts.push(`<span>${fmtINR(item.budget)} due by ${formatSystemDate(item.dueDate)}</span>`);
+    }
+
+    forecastHtml = `<div class="budget-forecast ok"><svg class="forecast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 15"></polyline></svg><span class="bf-text">${dueParts.join('<span class="cc-due-separator"> · </span>')}</span></div>`;
   }
 
   const dragHandleSvg = `<svg class="drag-handle" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"></circle><circle cx="15" cy="6" r="1.6"></circle><circle cx="9" cy="12" r="1.6"></circle><circle cx="15" cy="12" r="1.6"></circle><circle cx="9" cy="18" r="1.6"></circle><circle cx="15" cy="18" r="1.6"></circle></svg>`;
@@ -1022,6 +1071,14 @@ async function renderBudget() {
   recurringSeries = freshRec;
   cards = freshCards;
 
+  const balanceMonthKeys = [...new Set([...(monthsIndex || []), currentKey])].sort();
+  const monthlyBreakdown = await computeMonthlyBreakdown(balanceMonthKeys, emiSeries, sipSeries, recurringSeries);
+  const currentBreakdown = monthlyBreakdown.find(row => row.monthKey === currentKey);
+
+  currentStartingBalance = currentBreakdown
+    ? Number(currentBreakdown.starting) || 0
+    : Number(monthData.startingBalance) || 0;
+
   const emiRows = emiRowsForMonth(emiSeries, currentKey, monthData.deletedEmi);
   const sipRows = sipRowsForMonth(sipSeries, currentKey, monthData.deletedSip, monthData.sipOverrides);
   const recurringRows = recurringRowsForMonth(recurringSeries, currentKey, monthData.deletedRecurring, monthData.recurringOverrides);
@@ -1032,16 +1089,8 @@ async function renderBudget() {
   currentMonthEntries = [...(monthData.entries || []), ...postedGeneratedRows];
 
   const ccDueSnapshot = await computeCreditCardDueBudget(cards, recurringSeries, currentKey);
-
-  /*
-   * `computeCreditCardDueBudget(currentKey)` already represents the active
-   * billing cycle that starts in currentKey and closes in the following month.
-   *
-   * Do NOT advance currentKey here. Doing so selects the following billing
-   * cycle, which has not started yet and therefore reports ₹0 accrued spend.
-   */
   currentCcDueSnapshot = currentKey === currentMonthKey()
-    ? ccDueSnapshot
+    ? await computeCreditCardDueBudget(cards, recurringSeries, addMonths(currentKey, 1))
     : null;
 
   await ensureCreditCardDuesGroup(ccDueSnapshot);

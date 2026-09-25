@@ -315,24 +315,45 @@ export async function setCreditCardCycleSettled(cardId, cycleEnd, settled) {
 
 export function creditCardCurrentStatementMonthKey(card, asOfDate = todayStr()) {
   const monthKey = asOfDate.slice(0, 7);
-  const currentMonthCycleStart = dateForMonthDay(monthKey, card?.billingDay);
+  const thisMonthCycleEnd = dateForMonthDay(
+    monthKey,
+    card?.billingDay
+  );
 
-  return asOfDate >= currentMonthCycleStart
+  /*
+   * billingDay is the statement / cycle END day.
+   *
+   * Example: billing day = 13
+   *
+   * 14 Aug -> 13 Sep = September statement
+   * 14 Sep -> 13 Oct = October statement
+   */
+  return asOfDate <= thisMonthCycleEnd
     ? monthKey
-    : addMonths(monthKey, -1);
+    : addMonths(monthKey, 1);
 }
 
-export function creditCardBillingWindow(card, budgetMonthKey) {
-  const statementMonthKey = budgetMonthKey;
-  const nextStatementMonthKey = addMonths(statementMonthKey, 1);
-  const cycleStart = dateForMonthDay(statementMonthKey, card?.billingDay);
-  const nextCycleStart = dateForMonthDay(nextStatementMonthKey, card?.billingDay);
+export function creditCardBillingWindow(card, statementMonthKey) {
+  const previousStatementMonthKey =
+    addMonths(statementMonthKey, -1);
+
+  const previousCycleEnd = dateForMonthDay(
+    previousStatementMonthKey,
+    card?.billingDay
+  );
+
+  const cycleEnd = dateForMonthDay(
+    statementMonthKey,
+    card?.billingDay
+  );
 
   return {
     statementMonthKey,
-    nextStatementMonthKey,
-    cycleStart,
-    cycleEnd: dayBefore(nextCycleStart),
+    nextStatementMonthKey:
+      addMonths(statementMonthKey, 1),
+
+    cycleStart: dayAfter(previousCycleEnd),
+    cycleEnd,
   };
 }
 
@@ -341,7 +362,11 @@ export async function creditCardCycleLedger(card, recurringSeries, statementMont
 
   const window = creditCardBillingWindow(card, statementMonthKey);
   const effectiveEnd = asOfDate < window.cycleEnd ? asOfDate : window.cycleEnd;
-  const monthKeys = [window.statementMonthKey, window.nextStatementMonthKey];
+  const monthKeys = [
+    addMonths(window.statementMonthKey, -1),
+    window.statementMonthKey,
+  ];
+
   const transactions = [];
 
   await Promise.all(monthKeys.map(async monthKey => {
@@ -397,18 +422,46 @@ export async function creditCardCycleLedger(card, recurringSeries, statementMont
   };
 }
 
-export async function computeCreditCardDueBudget(cards, recurringSeries, budgetMonthKey, asOfDate = todayStr()) {
+export async function computeCreditCardDueBudget(
+  cards,
+  recurringSeries,
+  budgetMonthKey,
+  asOfDate = todayStr()
+) {
   const cardList = Array.isArray(cards) ? cards : [];
-  if (!cardList.length) return { total: 0, cards: [] };
 
-  const statementMonthKey = budgetMonthKey;
-  const nextStatementMonthKey = addMonths(statementMonthKey, 1);
-  const monthKeys = [statementMonthKey, nextStatementMonthKey];
+  if (!cardList.length) {
+    return { total: 0, cards: [] };
+  }
+
+  /*
+   * For an October budget:
+   *
+   * last statement  = cycle ending in September
+   * current cycle   = cycle ending in October
+   *
+   * Reserve =
+   *   unpaid last statement
+   *   + current-cycle spend accrued so far
+   *   - recorded CC Due payments
+   *
+   * Once the current cycle closes, later card spends belong to
+   * November and no longer increase October's reserve.
+   */
+  const previousMonthKey =
+    addMonths(budgetMonthKey, -1);
+
+  const monthKeys = [
+    addMonths(budgetMonthKey, -2),
+    previousMonthKey,
+    budgetMonthKey,
+  ];
+
   const rowsByMonth = new Map();
-  const settlements = await loadCreditCardCycleSettlements();
 
   await Promise.all(monthKeys.map(async monthKey => {
     const data = await loadMonth(monthKey);
+
     const recurringRows = recurringRowsForMonth(
       recurringSeries || [],
       monthKey,
@@ -422,48 +475,234 @@ export async function computeCreditCardDueBudget(cards, recurringSeries, budgetM
     ]);
   }));
 
+  const settlements =
+    await loadCreditCardCycleSettlements();
+
+  const budgetMonthEnd =
+    dateForMonthDay(budgetMonthKey, 31);
+
+  const liabilityAsOf =
+    asOfDate < budgetMonthEnd
+      ? asOfDate
+      : budgetMonthEnd;
+
   const details = cardList.map(card => {
-    const window = creditCardBillingWindow(card, budgetMonthKey);
-    const effectiveEnd = asOfDate < window.cycleEnd ? asOfDate : window.cycleEnd;
-    let amount = 0;
+    const lastWindow =
+      creditCardBillingWindow(
+        card,
+        previousMonthKey
+      );
 
-    if (effectiveEnd >= window.cycleStart) {
-      for (const monthKey of monthKeys) {
-        for (const entry of (rowsByMonth.get(monthKey) || [])) {
-          if (!entry.date || entry.date < window.cycleStart || entry.date > effectiveEnd) continue;
-          if (entry.cardId !== card.id) continue;
+    const currentWindow =
+      creditCardBillingWindow(
+        card,
+        budgetMonthKey
+      );
 
-          const isCardCharge = entry.type === 'cardcharge';
-          const isCardRecurring = entry.type === 'recurring' && entry.paymentMode === 'card';
+    const currentEffectiveEnd =
+      liabilityAsOf < currentWindow.cycleEnd
+        ? liabilityAsOf
+        : currentWindow.cycleEnd;
 
-          if (isCardCharge || isCardRecurring) {
-            amount += Number(entry.amount) || 0;
-          }
+    let lastCycleGross = 0;
+    let currentCycleGross = 0;
+    let payments = 0;
+
+    for (const monthKey of monthKeys) {
+      for (const entry of (rowsByMonth.get(monthKey) || [])) {
+        if (!entry.date || entry.date > liabilityAsOf) {
+          continue;
+        }
+
+        if (entry.cardId !== card.id) {
+          continue;
+        }
+
+        const amount =
+          Number(entry.amount) || 0;
+
+        if (amount <= 0) continue;
+
+        const isCardCharge =
+          entry.type === 'cardcharge';
+
+        const isCardRecurring =
+          entry.type === 'recurring' &&
+          entry.paymentMode === 'card';
+
+        const isCcDuePayment =
+          entry.type === 'spend' &&
+          String(entry.tag || '')
+            .trim()
+            .toLowerCase() === 'cc due';
+
+        /*
+         * Payments made after the previous statement closed reduce
+         * that statement first, then any excess reduces the current
+         * accruing cycle.
+         */
+        if (
+          isCcDuePayment &&
+          entry.date > lastWindow.cycleEnd
+        ) {
+          payments += amount;
+          continue;
+        }
+
+        if (!isCardCharge && !isCardRecurring) {
+          continue;
+        }
+
+        /*
+         * Closed previous statement.
+         */
+        if (
+          entry.date >= lastWindow.cycleStart &&
+          entry.date <= lastWindow.cycleEnd
+        ) {
+          lastCycleGross += amount;
+          continue;
+        }
+
+        /*
+         * Currently accruing cycle.
+         *
+         * It grows only until this statement's closing date.
+         */
+        if (
+          entry.date >= currentWindow.cycleStart &&
+          entry.date <= currentEffectiveEnd
+        ) {
+          currentCycleGross += amount;
         }
       }
     }
 
-    const grossAmount = amount;
-    const fullySettled =
-      settlements[creditCardCycleSettlementKey(card.id, window.cycleEnd)] === true;
+    const lastFullySettled =
+      settlements[
+        creditCardCycleSettlementKey(
+          card.id,
+          lastWindow.cycleEnd
+        )
+      ] === true;
+
+    let lastOutstanding =
+      lastCycleGross;
+
+    let currentOutstanding =
+      currentCycleGross;
+
+    /*
+     * Actual CC Due payments apply oldest-first.
+     */
+    let remainingPayment =
+      payments;
+
+    const paidAgainstLast =
+      Math.min(
+        lastOutstanding,
+        remainingPayment
+      );
+
+    lastOutstanding -= paidAgainstLast;
+    remainingPayment -= paidAgainstLast;
+
+    /*
+     * The manual Fully Settled flag is authoritative for the
+     * previous statement.
+     */
+    if (lastFullySettled) {
+      lastOutstanding = 0;
+    }
+
+    /*
+     * An overpayment against the old statement may reduce the
+     * currently accruing liability.
+     */
+    if (remainingPayment > 0) {
+      currentOutstanding =
+        Math.max(
+          0,
+          currentOutstanding - remainingPayment
+        );
+    }
+
+    const carriedOutstanding =
+      Math.max(0, lastOutstanding);
+
+    const currentCycleAccrued =
+      Math.max(0, currentOutstanding);
+
+    const amount =
+      carriedOutstanding +
+      currentCycleAccrued;
 
     return {
       cardId: card.id,
       name: card.name,
-      billingDay: Number(card.billingDay) || 1,
-      dueDay: Number(card.dueDay) || 1,
-      cycleStart: window.cycleStart,
-      cycleEnd: window.cycleEnd,
-      dueDate: creditCardDueDate(window.cycleEnd, card.dueDay),
-      effectiveEnd,
-      grossAmount,
-      fullySettled,
-      amount: fullySettled ? 0 : grossAmount,
+
+      billingDay:
+        Number(card.billingDay) || 1,
+
+      dueDay:
+        Number(card.dueDay) || 1,
+
+      lastCycleStart:
+        lastWindow.cycleStart,
+
+      lastCycleEnd:
+        lastWindow.cycleEnd,
+
+      currentCycleStart:
+        currentWindow.cycleStart,
+
+      currentCycleEnd:
+        currentWindow.cycleEnd,
+
+      carriedDueDate:
+        creditCardDueDate(
+          lastWindow.cycleEnd,
+          card.dueDay
+        ),
+
+      currentCycleDueDate:
+        creditCardDueDate(
+          currentWindow.cycleEnd,
+          card.dueDay
+        ),
+
+      dueDate:
+        carriedOutstanding > 0
+          ? creditCardDueDate(lastWindow.cycleEnd, card.dueDay)
+          : creditCardDueDate(currentWindow.cycleEnd, card.dueDay),
+
+      effectiveEnd:
+        currentEffectiveEnd,
+
+      lastStatementGross:
+        lastCycleGross,
+
+      currentCycleGross:
+        currentCycleGross,
+
+      paidAmount:
+        payments,
+
+      carriedOutstanding,
+      currentCycleAccrued,
+      
+      budgetAmount: lastCycleGross + currentCycleGross,
+      amount,
     };
   });
 
   return {
-    total: details.reduce((sum, card) => sum + card.amount, 0),
+    total: details.reduce(
+      (sum, card) =>
+        sum + card.amount,
+      0
+    ),
+
     cards: details,
   };
 }

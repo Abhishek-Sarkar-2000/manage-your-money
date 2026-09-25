@@ -489,20 +489,49 @@ async function buildDashboardCards(domain, stats) {
     const currentCycleAmount = Number(currentLedger?.grossAmount) || 0;
     const lastStatementAmount = Number(previousLedger?.grossAmount) || 0;
 
-    const previousCycleRemainder = Math.max(0, outstanding - currentCycleAmount);
-    const statementDueAmount = Math.min(lastStatementAmount, previousCycleRemainder);
+    const previousCycleRemainder = Math.max(
+      0,
+      outstanding - currentCycleAmount
+    );
+
+    /*
+     * The Card page's settlement switch is authoritative for the
+     * previous statement. Keep its gross spend for history, but never
+     * surface it as payable once it has been marked fully settled.
+     */
+    const statementDueAmount = previousLedger?.fullySettled
+      ? 0
+      : Math.min(
+          Number(previousLedger?.dueAmount) || lastStatementAmount,
+          previousCycleRemainder
+        );
 
     const statementDueDate = previousLedger?.dueDate || null;
     const configuredDueDate = nextDashboardDueDate(card.dueDay, today);
-    const dueDate = statementDueAmount > 0 && statementDueDate ? statementDueDate : configuredDueDate;
-    const daysUntilDue = dueDate ? dashboardDaysBetween(today, dueDate) : null;
+
+    const dueDate = statementDueAmount > 0
+      ? statementDueDate
+      : (currentLedger?.dueDate || configuredDueDate);
+
+    const daysUntilDue = dueDate
+      ? dashboardDaysBetween(today, dueDate)
+      : null;
 
     let urgency = 'normal';
 
-    if (statementDueAmount > 0 && daysUntilDue !== null && daysUntilDue < 0) urgency = 'overdue';
-    else if (outstanding > 0 && daysUntilDue === 0) urgency = 'critical';
-    else if (outstanding > 0 && daysUntilDue !== null && daysUntilDue <= 2) urgency = 'critical';
-    else if (outstanding > 0 && daysUntilDue !== null && daysUntilDue <= 7) urgency = 'warning';
+    /*
+     * Money Inbox urgency is about an actually payable statement,
+     * not merely card activity in the active billing cycle.
+     */
+    if (statementDueAmount > 0 && daysUntilDue !== null && daysUntilDue < 0) {
+      urgency = 'overdue';
+    } else if (statementDueAmount > 0 && daysUntilDue === 0) {
+      urgency = 'critical';
+    } else if (statementDueAmount > 0 && daysUntilDue !== null && daysUntilDue <= 2) {
+      urgency = 'critical';
+    } else if (statementDueAmount > 0 && daysUntilDue !== null && daysUntilDue <= 7) {
+      urgency = 'warning';
+    }
 
     return {
       id: card.id,
@@ -551,7 +580,12 @@ async function buildMoneyInbox(domain, stats, dashboardKpis, upcomingCommitments
   }
 
   for (const card of (cardSnapshot?.cards || [])) {
-    if (card.outstanding <= 0) continue;
+    /*
+     * Inbox alerts represent statement payments that actually require
+     * action. Active-cycle spending is still visible in Card Dues, but
+     * it is not a payment-due alert yet.
+     */
+    if (card.statementDueAmount <= 0) continue;
     if (!['overdue', 'critical', 'warning'].includes(card.urgency)) continue;
 
     let title = 'Credit card payment due soon';
@@ -561,10 +595,19 @@ async function buildMoneyInbox(domain, stats, dashboardKpis, upcomingCommitments
     else if (card.daysUntilDue === 1) title = 'Credit card payment is due tomorrow';
     else if (card.daysUntilDue > 1) title = `Credit card payment is due in ${card.daysUntilDue} days`;
 
-    const alertAmount = card.statementDueAmount > 0 ? card.statementDueAmount : card.outstanding;
-    const detail = card.statementDueAmount > 0 ? `${card.name} · previous statement still has an unpaid balance` : `${card.name} · outstanding balance`;
-
-    items.push({ id: `card-${card.id}`, severity: card.urgency === 'overdue' || card.urgency === 'critical' ? 'critical' : 'warning', kind: 'card', title, detail, amount: alertAmount, date: card.dueDate, href: `/cards?card=${encodeURIComponent(card.id)}&cycle=${card.statementDueAmount > 0 ? 'last' : 'current'}` });
+    items.push({
+      id: `card-${card.id}`,
+      severity:
+        card.urgency === 'overdue' || card.urgency === 'critical'
+          ? 'critical'
+          : 'warning',
+      kind: 'card',
+      title,
+      detail: `${card.name} · previous statement still has an unpaid balance`,
+      amount: card.statementDueAmount,
+      date: card.dueDate,
+      href: `/cards?card=${encodeURIComponent(card.id)}&cycle=last`,
+    });
   }
 
   if (domain.monthsIndex.includes(dashboardKpis.monthKey)) {
