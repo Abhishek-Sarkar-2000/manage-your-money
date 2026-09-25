@@ -653,8 +653,6 @@
   }
 
   .dashboard-money-matters-header {
-    flex-direction: column;
-    align-items: stretch;
     gap: 8px;
   }
 
@@ -673,6 +671,14 @@
     flex-basis: 160px;
     padding: 7px 7px;
     gap: 8px;
+  }
+  
+  .dashboard-money-matters-header {
+    gap: 2px;
+  }
+  
+  .dashboard-money-matters-header h3{
+    font-size: 0.92rem;
   }
   
   .money-matters-link-label {

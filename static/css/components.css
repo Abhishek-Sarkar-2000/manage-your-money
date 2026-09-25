@@ -228,33 +228,31 @@
   z-index: 10;
 }
 
-@media (max-width: 960px) {
-  .scroll-wrapper > .can-scroll-right {
-    mask-image: linear-gradient(to right, black 94%, transparent 98%);
-    -webkit-mask-image: linear-gradient(to right, black 94%, transparent 98%);
-  }
+.scroll-wrapper > .can-scroll-right {
+  mask-image: linear-gradient(to right, black 94%, transparent 98%);
+  -webkit-mask-image: linear-gradient(to right, black 94%, transparent 98%);
+}
 
-  .scroll-wrapper > .can-scroll-left {
-    mask-image: linear-gradient(to left, black 94%, transparent 98%);
-    -webkit-mask-image: linear-gradient(to left, black 94%, transparent 98%);
-  }
+.scroll-wrapper > .can-scroll-left {
+  mask-image: linear-gradient(to left, black 94%, transparent 98%);
+  -webkit-mask-image: linear-gradient(to left, black 94%, transparent 98%);
+}
 
-  .scroll-wrapper > .can-scroll-both {
-    mask-image: linear-gradient(
-      to right,
-      transparent 1%,
-      black 4%,
-      black 94%,
-      transparent 98%
-    );
-    -webkit-mask-image: linear-gradient(
-      to right,
-      transparent 1%,
-      black 4%,
-      black 94%,
-      transparent 98%
-    );
-  }
+.scroll-wrapper > .can-scroll-both {
+  mask-image: linear-gradient(
+    to right,
+    transparent 1%,
+    black 4%,
+    black 94%,
+    transparent 98%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 1%,
+    black 4%,
+    black 94%,
+    transparent 98%
+  );
 }
 
 .scroll-track {

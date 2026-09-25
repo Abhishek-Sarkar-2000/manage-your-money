@@ -206,11 +206,11 @@
   place-items: center;
 
   border-radius: 8px;
-  background: color-mix(in srgb, var(--ice) 85%, transparent);
+  background: var(--hair);
 }
 
 .sidebar-link.active .sidebar-link-icon {
-  background: color-mix(in srgb, var(--blue) 14%, var(--paper));
+  background: var(--ice-2);
 }
 
 .sidebar-link-icon svg {
@@ -242,8 +242,7 @@
 }
 
 .sidebar-spacer {
-  flex: 1 1 auto;
-  min-height: 18px;
+  display: none;
 }
 
 /* ---------- Theme ---------- */
@@ -251,14 +250,24 @@
 .sidebar-theme {
   padding-top: 8px;
   border-top: 1px dashed var(--hair);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sidebar-theme-label {
+  flex: 0 0 auto;
+  padding: 0 0 0 10px;
 }
 
 .sidebar-theme-grid {
+  flex: 0 0 auto;
   display: grid;
-  grid-template-columns: 1fr 1.35fr 1fr;
+  grid-template-columns: repeat(3, 34px);
   gap: 4px;
 
-  margin-top: 3px;
+  margin-top: 0;
   padding: 4px;
 
   border: 1px solid var(--hair);
@@ -268,17 +277,18 @@
 
 .sidebar-theme-grid button {
   min-width: 0;
+  width: 34px;
   min-height: 34px;
-  padding: 5px 6px;
+  padding: 5px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
   border: 1px solid transparent;
   border-radius: 7px;
   background: transparent;
   color: var(--muted);
-
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.62rem;
-  font-weight: 600;
 
   cursor: pointer;
   transition:
@@ -299,6 +309,12 @@
   height: 17px;
 }
 
+.sidebar-theme-grid button svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+
 .sidebar-theme-grid button:hover {
   color: var(--blue);
   background: var(--paper);
@@ -313,15 +329,26 @@
 
 /* High contrast should remain visually explicit. */
 :root[data-theme="hi-contrast"] .sidebar-theme-grid,
-:root[data-theme="hi-contrast"] .sidebar-theme-grid button.active,
-:root[data-theme="hi-contrast"] .sidebar-link,
-:root[data-theme="hi-contrast"] .sidebar-link-icon {
+:root[data-theme="hi-contrast"] .sidebar-theme-grid button.active {
   border-color: #000;
+}
+:root[data-theme="hi-contrast"] .sidebar-link-icon {
+  background: #fff;
+  border: 1px solid #000;
 }
 
 :root[data-theme="hi-contrast"] .sidebar-link.active {
   outline: 2px solid #000;
   outline-offset: -2px;
+}
+
+:root[data-theme="dark"] .sidebar-theme-grid {
+  border-color: var(--sky);
+  background: var(--ice-2);
+}
+:root[data-theme="dark"] .sidebar-theme-grid button.active {
+  border-color: var(--sky);
+  background: var(--ice);
 }
 
 /* ---------- Account ---------- */
@@ -471,8 +498,7 @@
   }
 
   .sidebar-section-label {
-    padding: 4px 8px 3px;
-
+    padding: 5px 8px 8px 8px;
     font-size: 0.54rem;
     line-height: 1.1;
     letter-spacing: 0.08em;
@@ -480,7 +506,7 @@
 
   .sidebar-link {
     min-height: 34px;
-    padding: 4px 7px;
+    padding: 7px 7px;
 
     grid-template-columns: 23px minmax(0, 1fr) 13px;
     gap: 7px;
@@ -509,9 +535,10 @@
   }
 
   .sidebar-spacer {
+    display: block;
+    flex: 1 1 auto;
     min-height: 4px;
   }
-
 
   /* ---------- Theme selector ---------- */
 
@@ -585,6 +612,11 @@
 
     font-size: 0.57rem;
   }
+}
+
+:root[data-theme="dark"] .sidebar-theme,
+:root[data-theme="dark"] .sidebar-account {
+  border-color: var(--sky);
 }
 
 /* ---------- App header ---------- */
@@ -848,31 +880,12 @@ body:not([data-is-shared="true"]) .sticky-controls-wrap {
     width: min(92vw, 300px);
   }
 
-  .sidebar-theme-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 3px;
-    padding: 3px;
-  }
-
   .sidebar-theme-grid button {
     min-height: 32px;
     padding: 5px;
     display: flex;
     align-items: center;
     justify-content: center;
-  }
-
-  .sidebar-theme-label {
-    display: none;
-  }
-
-  .sidebar-theme-icon {
-    display: inline-flex;
-  }
-
-  .sidebar-theme-icon svg {
-    width: 18px;
-    height: 18px;
   }
 }
 

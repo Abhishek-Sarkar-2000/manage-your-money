@@ -251,7 +251,7 @@
         <div class="sidebar-spacer"></div>
 
         <section class="sidebar-theme" aria-labelledby="sidebar-theme-title">
-          <div class="sidebar-section-label" id="sidebar-theme-title">
+          <div class="sidebar-section-label sidebar-theme-label" id="sidebar-theme-title">
             Theme
           </div>
 
@@ -261,37 +261,23 @@
             aria-label="Choose application theme"
           >
             <button data-theme-btn="default" type="button" aria-label="Light theme" title="Light">
-              <span class="sidebar-theme-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="4.2" fill="currentColor"></circle>
-                  <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
-                </svg>
-              </span>
-              <span class="sidebar-theme-label">Light</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="4.2" fill="currentColor"></circle>
+                <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+              </svg>
             </button>
 
             <button data-theme-btn="hi-contrast" type="button" aria-label="High contrast theme" title="Hi-Contrast">
-              <span class="sidebar-theme-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <defs>
-                    <clipPath id="sidebar-contrast-left">
-                      <rect x="2" y="2" width="10" height="20"></rect>
-                    </clipPath>
-                  </defs>
-                  <circle cx="12" cy="12" r="8" fill="currentColor" clip-path="url(#sidebar-contrast-left)"></circle>
-                  <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"></circle>
-                </svg>
-              </span>
-              <span class="sidebar-theme-label">Hi-Contrast</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 4a8 8 0 0 0 0 16Z" fill="currentColor"></path>
+                <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"></circle>
+              </svg>
             </button>
 
             <button data-theme-btn="dark" type="button" aria-label="Dark theme" title="Dark">
-              <span class="sidebar-theme-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <path d="M18.8 15.7A8.2 8.2 0 0 1 8.3 5.2 8.5 8.5 0 1 0 18.8 15.7Z" fill="currentColor"></path>
-                </svg>
-              </span>
-              <span class="sidebar-theme-label">Dark</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M18.8 15.7A8.2 8.2 0 0 1 8.3 5.2 8.5 8.5 0 1 0 18.8 15.7Z" fill="currentColor"></path>
+              </svg>
             </button>
           </div>
         </section>
