@@ -219,6 +219,73 @@
   color: var(--credit);
 }
 
+
+
+.split-member-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 10px;
+}
+
+.split-share-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.split-ledger-mode-wrap {
+  margin-bottom: 4px;
+}
+
+.split-ledger-mode-grid {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(110px, 1fr));
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--blue);
+  border-radius: 999px;
+  background: transparent;
+}
+
+.split-ledger-mode-grid .pill-btn {
+  min-width: 110px;
+  margin: 0;
+  padding: 3px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  white-space: nowrap;
+  text-align: center;
+  box-shadow: none;
+}
+
+.split-ledger-mode-grid .pill-btn + .pill-btn {
+  border-left: 1.5px solid var(--blue);
+}
+
+.split-ledger-mode-grid .pill-btn.active {
+  background: var(--blue);
+}
+
+.split-ledger-mode-grid .pill-btn:not(.active):hover {
+  background: var(--ice);
+}
+
+.split-ledger-mode-grid .pill-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.split-ledger-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
 /* ---------- Shared Split Chart: Who Owes How Much ---------- */
 
 .shared-debt-chart {

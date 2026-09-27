@@ -948,6 +948,7 @@ export async function computeGlobalOwed(monthsIndex, isShared, sharedSplitId, sp
       }
       if ((e.type === 'spend' || e.type === 'cardcharge' || e.type === 'cashpayment') && Array.isArray(e.lent)) {
         for (const l of e.lent) {
+          if (l.splitOwed) continue;
           if (l.settled) continue;
           const name = l.person || 'Unknown';
           byPerson[name] = byPerson[name] || { amount: 0, items: [] };

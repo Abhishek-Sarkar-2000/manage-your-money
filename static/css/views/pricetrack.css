@@ -158,21 +158,6 @@
   }
 }
 
-.split-member-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 10px;
-  align-items: end;
-  margin-bottom: 10px;
-}
-
-.split-share-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
 .divisions-table td.dv-date {
   vertical-align: middle;
   font-family: 'IBM Plex Mono', monospace;

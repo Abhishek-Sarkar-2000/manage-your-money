@@ -302,6 +302,7 @@ async function buildDashboardSharedExpenses(domain) {
       if (!Array.isArray(entry.lent) || !entry.lent.length) continue;
 
       for (const lent of entry.lent) {
+        if (lent.splitOwed) continue;
         const amount = Number(lent.amount) || 0;
         if (amount <= 0) continue;
 

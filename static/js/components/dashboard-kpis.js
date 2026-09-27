@@ -2,7 +2,6 @@ import { fmtINR } from '../core/format.js';
 import { scrollWrapper } from './scroll-wrapper.js';
 
 const MONEY_MATTERS_LINKS = [
-  { href: '/home', label: 'Home', icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path><path d="M9 21v-7h6v7"></path></svg>' },
   { href: '/months', label: 'Month List', icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4M8 3v4M3 10h18"></path><path d="M8 14h2M14 14h2M8 17h2M14 17h2"></path></svg>' },
   { href: '/budget', label: 'Budget & Goals', icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"></circle></svg>' },
   { href: '/cards', label: 'Cards', icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"></rect><path d="M2.5 10h19"></path><path d="M6 15h4"></path></svg>' },
@@ -14,17 +13,12 @@ const MONEY_MATTERS_LINKS = [
 
 function isMoneyMattersLinkActive(href) {
   const path = window.location.pathname;
-  if (href === '/home') return path === '/' || path === '/home';
-  if (href === '/months') return path === '/months' || path.startsWith('/month/');
+  if (href === '/months') return path === '/months';
   return path === href || path.startsWith(`${href}/`);
 }
 
 function renderMoneyMattersQuickLinks() {
-  const path = window.location.pathname;
-  const isHomeDashboard = path === '/' || path === '/home';
-  const visibleLinks = MONEY_MATTERS_LINKS.filter(({ href }) => !(isHomeDashboard && href === '/home'));
-
-  const links = visibleLinks.map(({ href, label, icon }) => {
+  const links = MONEY_MATTERS_LINKS.map(({ href, label, icon }) => {
     const active = isMoneyMattersLinkActive(href);
     return `<a class="money-matters-link${active ? ' is-active' : ''}" href="${href}"${active ? ' aria-current="page"' : ''}><span class="money-matters-link-icon" aria-hidden="true">${icon}</span><span class="money-matters-link-label">${label}</span><span class="money-matters-link-arrow" aria-hidden="true">›</span></a>`;
   }).join('');

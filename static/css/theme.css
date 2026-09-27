@@ -35,7 +35,7 @@
 
 body {
   background:
-    repeating-linear-gradient(180deg, transparent 0 39px, rgba(47, 111, 176, 0.055) 40px 41px),
+    repeating-linear-gradient(180deg, transparent 0 39px, rgba(47, 111, 176, 0.035) 40px 41px),
     linear-gradient(160deg, var(--royal-bg) 0%, white 50%);
   background-attachment: scroll, fixed;
 }
@@ -283,7 +283,7 @@ body {
 
 :root[data-theme="dark"] body {
   background:
-    repeating-linear-gradient(180deg, transparent 0 39px, rgba(136, 142, 184, 0.12) 40px 41px),
+    repeating-linear-gradient(180deg, transparent 0 39px, rgba(136, 142, 184, 0.07) 40px 41px),
     linear-gradient(160deg, #191847 0%, var(--paper) 45%, var(--ice-2) 100%);
   background-attachment: scroll, fixed;
 }

@@ -52,8 +52,8 @@ let dashboardEntryFocusId = null;
 
 const TABLE_TYPE_LABELS = {
   spend: 'Spend',
-  cardcharge: 'Card spend',
-  cashpayment: 'Cash spend',
+  cardcharge: 'CC spend',
+  cashpayment: 'Cash',
   income: 'Income',
   payback: 'Payback',
   owed: 'Owed to you',
@@ -70,7 +70,9 @@ function getTableTypeLabel(e) {
 
 function getTableTagLabel(e) {
   if (['spend', 'cardcharge', 'cashpayment'].includes(e.type)) {
-    return String(e.tag || '').trim() || 'Untagged';
+    const tag = String(e.tag || '').trim();
+    if (isSplitLedgerEntry(e) && tag.toLowerCase() === 'split') return 'Untagged';
+    return tag || 'Untagged';
   }
 
   if (['income', 'sip', 'investment'].includes(e.type)) {
@@ -83,6 +85,11 @@ function getTableTagLabel(e) {
 function hasLentData(e) {
   return Array.isArray(e.lent) && e.lent.length > 0;
 }
+
+function isSplitLedgerEntry(e) {
+  return Boolean(e?.splitRef) || (['spend', 'cardcharge', 'cashpayment'].includes(e?.type) && String(e?.tag || '').trim().toLowerCase() === 'split');
+}
+
 
 function getTableSortDirectionLabel(key, asc) {
   if (key === 'date') return asc ? 'Oldest first' : 'Newest first';
@@ -205,10 +212,12 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   const editSvg = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`;
 
   const hasLent = Array.isArray(e.lent) && e.lent.length > 0;
+  const isLegacySplitLedgerEntry = !e.splitRef && String(e.tag || '').trim().toLowerCase() === 'split';
+  const splitTypeHtml = isSplitLedgerEntry(e) ? `<div style="margin-top: 6px;"><span class="tag split">Split</span></div>` : '';
   const lentTypeHtml = hasLent ? `<div style="margin-top: 6px;"><span class="tag owed">LENT</span></div>` : '';
 
   let tagHtml = '';
-  if (e.tag) {
+  if (e.tag && !isLegacySplitLedgerEntry) {
     tagHtml = ` <button class="src-badge" data-view-budget="${escapeHtml(e.tag)}" title="View in Budget" style="border:none; cursor:pointer;">${escapeHtml(e.tag)}</button>`;
   }
   if (e.subCategory) {
@@ -219,16 +228,16 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
     const isNegative = e.amount < 0;
     const displayAmount = isNegative ? Math.abs(e.amount) : e.amount;
     const card = e.paymentMode === 'card' ? cardById(cards, e.cardId) : null;
-    const lentChips = (e.lent || []).map(l => `
-      <span class="chip ${l.settled ? 'settled' : ''}">
-        <button class="lent-toggle ${l.settled ? 'checked' : ''}" data-toggle-lent="${e.id}|${l.id}" type="button" role="checkbox" aria-checked="${l.settled}" title="${l.settled ? 'Undo payback' : 'Mark as paid back'}"></button>
-        ${l.settled ? `<s>${escapeHtml(l.person)}</s>` : escapeHtml(l.person)} · ${fmtINR(l.amount)}
-      </span>`).join('');
+    const lentChips = (e.lent || []).map(l => {
+      const label = l.splitOwed ? `split owed - ${fmtINR(l.amount)}` : `${escapeHtml(l.person)} · ${fmtINR(l.amount)}`;
+      const title = l.splitOwed ? (l.settled ? 'Undo split owed settlement' : 'Mark split owed settled') : (l.settled ? 'Undo payback' : 'Mark as paid back');
+      return `<span class="chip ${l.settled ? 'settled' : ''}"><button class="lent-toggle ${l.settled ? 'checked' : ''}" data-toggle-lent="${e.id}|${l.id}" type="button" role="checkbox" aria-checked="${l.settled}" title="${title}"></button>${l.settled ? `<s>${label}</s>` : label}</span>`;
+    }).join('');
 
     if (isNegative) {
       return `<tr>
         ${dateCell}
-        <td class="type-cell"><span class="tag payback">Payback</span>${lentTypeHtml}</td>
+        <td class="type-cell"><span class="tag payback">Payback</span>${splitTypeHtml}${lentTypeHtml}</td>
         <td class="desc-cell">
           <strong>${escapeHtml(e.description)}</strong><span class="tags-area">${tagHtml}</span>${metaHtml}
           <div class="subnote">Cash / debit</div>
@@ -241,7 +250,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
 
     return `<tr>
       ${dateCell}
-      <td class="type-cell"><span class="tag spend">Spend</span>${lentTypeHtml}</td>
+      <td class="type-cell"><span class="tag spend">Spend</span>${splitTypeHtml}${lentTypeHtml}</td>
       <td class="desc-cell">
         <strong>${escapeHtml(e.description)}</strong><span class="tags-area">${tagHtml}</span>${metaHtml}
         <div class="subnote">${card ? 'Paid for ' + escapeHtml(card.name) + ' — reduces card dues' : 'Cash / debit'}</div>
@@ -260,7 +269,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       </span>`).join('');
     return `<tr>
       ${dateCell}
-      <td class="type-cell"><span class="tag cardcharge">Card spend</span>${lentTypeHtml}</td>
+      <td class="type-cell"><span class="tag cardcharge">CC spend</span>${splitTypeHtml}${lentTypeHtml}</td>
       <td class="desc-cell">
         <strong>${escapeHtml(e.description)}</strong><span class="tags-area">${tagHtml}</span>${metaHtml}
         <div class="subnote">On ${card ? escapeHtml(card.name) : 'a removed card'} — adds to card dues</div>
@@ -271,14 +280,14 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
     </tr>`;
   }
   if (e.type === 'cashpayment') {
-    const lentChips = (e.lent || []).map(l => `
-      <span class="chip ${l.settled ? 'settled' : ''}">
-        <button class="lent-toggle ${l.settled ? 'checked' : ''}" data-toggle-lent="${e.id}|${l.id}" type="button" role="checkbox" aria-checked="${l.settled}" title="${l.settled ? 'Undo payback' : 'Mark as paid back'}"></button>
-        ${l.settled ? `<s>${escapeHtml(l.person)}</s>` : escapeHtml(l.person)} · ${fmtINR(l.amount)}
-      </span>`).join('');
+    const lentChips = (e.lent || []).map(l => {
+      const label = l.splitOwed ? `split owed - ${fmtINR(l.amount)}` : `${escapeHtml(l.person)} · ${fmtINR(l.amount)}`;
+      const title = l.splitOwed ? (l.settled ? 'Undo split owed settlement' : 'Mark split owed settled') : (l.settled ? 'Undo payback' : 'Mark as paid back');
+      return `<span class="chip ${l.settled ? 'settled' : ''}"><button class="lent-toggle ${l.settled ? 'checked' : ''}" data-toggle-lent="${e.id}|${l.id}" type="button" role="checkbox" aria-checked="${l.settled}" title="${title}"></button>${l.settled ? `<s>${label}</s>` : label}</span>`;
+    }).join('');
     return `<tr>
       ${dateCell}
-      <td class="type-cell"><span class="tag cashpayment">Cash spend</span>${lentTypeHtml}</td>
+      <td class="type-cell"><span class="tag cashpayment">Cash</span>${lentTypeHtml}</td>
       <td class="desc-cell">
         <strong>${escapeHtml(e.description)}</strong><span class="tags-area">${tagHtml}</span>${metaHtml}
         <div class="subnote">Physical cash spent — already accounted for via withdrawal</div>
@@ -681,9 +690,9 @@ function renderInlineEdit(entry, mk) {
   } else if (entry.type === 'spend') {
       typePill = `<span class="tag spend">Spend</span>`;
   } else if (entry.type === 'cardcharge') {
-      typePill = `<span class="tag cardcharge">Card spend</span>`;
+      typePill = `<span class="tag cardcharge">CC spend</span>`;
   } else if (entry.type === 'cashpayment') {
-      typePill = `<span class="tag cashpayment">Cash spend</span>`;
+      typePill = `<span class="tag cashpayment">Cash</span>`;
   } else if (entry.type === 'income') {
       typePill = `<span class="tag income">Income</span>`;
   } else if (entry.type === 'payback') {
@@ -790,10 +799,10 @@ function renderForm(kind) {
   if (kind === 'spend') {
     return `
     <div class="form-panel">
-      <div class="pill-grid" style="margin-bottom: 12px;" id="f-spend-mode-selector">
-        <button class="pill-btn sub-pill active" data-spend-mode="regular" type="button">Regular</button>
-        <button class="pill-btn sub-pill" data-spend-mode="atm" type="button">Cash Withdrawal</button>
-        <button class="pill-btn sub-pill" data-spend-mode="card" type="button" ${cards.length ? '' : 'disabled'}>Credit Card Due Payment</button>
+      <div class="spend-mode-grid" id="f-spend-mode-selector" role="group" aria-label="Spend type">
+        <button class="pill-btn sub-pill active" data-spend-mode="regular" type="button" aria-pressed="true">Regular</button>
+        <button class="pill-btn sub-pill" data-spend-mode="atm" type="button" aria-pressed="false">Cash withdrawal</button>
+        <button class="pill-btn sub-pill" data-spend-mode="card" type="button" aria-pressed="false" ${cards.length ? '' : 'disabled'}>CC due payment</button>
       </div>
       <div class="form-note" id="f-mode-info" style="margin-top:0; margin-bottom:14px;">Add regular spends with tag for instant transfer modes like UPI.</div>
 
@@ -1038,11 +1047,11 @@ const TXN_TYPES = {
   },
   cardcharge:  { 
     icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>`, 
-    title: 'Card spend', desc: 'Online or offline', tone: 'amber' 
+    title: 'Card Spend', desc: 'Online or offline', tone: 'amber' 
   },
   cashpayment: { 
     icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg>`, 
-    title: 'Cash payment', desc: 'Paid via cash', tone: 'green' 
+    title: 'Cash Spend', desc: 'Paid via cash', tone: 'green' 
   },
   recurring:   { 
     icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>`, 
@@ -1401,6 +1410,11 @@ async function renderMonth() {
         typeOptions.push('Lent');
       }
 
+      if (isSplitLedgerEntry(e) && !seenTypeOptions.has('Split')) {
+        seenTypeOptions.add('Split');
+        typeOptions.push('Split');
+      }
+
       const tagLabel = getTableTagLabel(e);
 
       if (!seenTagOptions.has(tagLabel)) {
@@ -1419,7 +1433,8 @@ async function renderMonth() {
       const typePass =
         activeTypeFilters.length === 0 ||
         activeTypeFilters.includes(typeLabel) ||
-        (activeTypeFilters.includes('Lent') && hasLentData(e));
+        (activeTypeFilters.includes('Lent') && hasLentData(e)) ||
+        (activeTypeFilters.includes('Split') && isSplitLedgerEntry(e));
 
       const tagPass =
         activeTagFilters.length === 0 ||
@@ -2568,8 +2583,11 @@ root.addEventListener('click', async (ev) => {
   if (spendModeBtn) {
     if (spendModeBtn.disabled) return;
     const wrap = spendModeBtn.closest('#f-spend-mode-selector');
-    wrap.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
-    spendModeBtn.classList.add('active');
+    wrap.querySelectorAll('.pill-btn').forEach(b => {
+      const active = b === spendModeBtn;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-pressed', String(active));
+    });
 
     const mode = spendModeBtn.dataset.spendMode;
     const descWrap = $('#f-desc-wrap');
@@ -3383,6 +3401,15 @@ root.addEventListener('click', async (ev) => {
     const entry = data.entries.find(e => e.id === entryId);
     const l = entry && (entry.lent || []).find(x => x.id === lentId);
     if (!l) return;
+
+    if (l.splitOwed) {
+      l.settled = !l.settled;
+      delete l.paybackRef;
+      await saveMonth(monthKey);
+      await renderMonth();
+      showToast(l.settled ? 'Split owed marked settled' : 'Split owed restored');
+      return;
+    }
 
     if (!l.settled) {
       // Settle, optimistically: flip the in-memory state, push the new

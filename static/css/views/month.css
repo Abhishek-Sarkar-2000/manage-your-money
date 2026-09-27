@@ -219,6 +219,48 @@
   z-index: 2;
 }
 
+.spend-mode-grid {
+  display: inline-grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 0;
+  overflow: hidden;
+  margin-bottom: 12px;
+  border: 1.5px solid var(--blue);
+  border-radius: 999px;
+  background: transparent;
+}
+
+.spend-mode-grid .pill-btn {
+  min-width: 0;
+  margin: 0;
+  padding: 3px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  white-space: nowrap;
+  text-align: center;
+  box-shadow: none;
+  position: relative;
+}
+
+.spend-mode-grid .pill-btn + .pill-btn {
+  border-left: 1.5px solid var(--blue);
+}
+
+.spend-mode-grid .pill-btn.active {
+  background: var(--blue);
+  color: var(--ice-2);
+}
+
+.spend-mode-grid .pill-btn:not(.active):hover {
+  background: var(--ice);
+}
+
+.spend-mode-grid .pill-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .month-sip-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));

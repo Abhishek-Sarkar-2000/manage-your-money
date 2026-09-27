@@ -3,7 +3,7 @@ import { Store } from '../core/store.js';
 import { $, $$, escapeHtml } from '../core/dom.js';
 import { fmtINR, todayStr, currentMonthKey } from '../core/format.js';
 import { currentUser, authReady } from '../core/auth.js';
-import { ensureMonthIndexed, loadMonth, saveMonth } from '../core/domain.js';
+import { ensureMonthIndexed, loadMonth, saveMonth, allSpendTags, cardById } from '../core/domain.js';
 import {
   SPLIT_YOU, getYouLabel, loadSplit, saveSplit, createSplitGroup, deleteSplitGroup,
   computeSplitPageData, computeGroupPaid, computeGroupSettlementView,
@@ -21,9 +21,12 @@ import { markRendered } from '../components/render-guard.js';
 
 const root = document.getElementById('split-root');
 const youLabel = (possessive) => getYouLabel(false, null, possessive);
+const DEFAULT_TAGS = ['Groceries', 'Food', 'Fuel', 'Transport', 'Rent', 'Utility', 'Shopping', 'Recharge', 'Medicine', 'CC due'];
 
 let splitsIndex = [];
 let monthsIndex = [];
+let cards = [];
+let customTags = [];
 let splitFormOpen = false;
 let splitSpendFormOpen = false;
 let splitAddMemberFormOpen = false;
@@ -44,9 +47,11 @@ let currentSort = { key: 'date', asc: false };
 // Every mutation to splitsIndex/monthsIndex already happens in place
 // before persisting, so the cache never goes stale.
 async function loadDomain() {
-  [splitsIndex, monthsIndex] = await Promise.all([
+  [splitsIndex, monthsIndex, cards, customTags] = await Promise.all([
     Store.get('splits-index', []),
     Store.get('months-index', []),
+    Store.get('creditcards', []),
+    Store.get('custom-spend-tags', []),
   ]);
 
   const params = new URLSearchParams(window.location.search);
@@ -59,6 +64,40 @@ async function loadDomain() {
   }
 
   domainLoaded = true;
+}
+
+function renderSplitLedgerTagField() {
+  const tags = allSpendTags(DEFAULT_TAGS, customTags);
+  const options = tags.map(tag => `<option value="${escapeHtml(tag)}">${escapeHtml(tag)}</option>`).join('');
+  return `<div class="field" id="sp-ledger-tag-wrap"><label>Tag</label><select id="sp-ledger-tag"><option value="">No tag</option>${options}<option value="__custom__">+ Add custom tag</option></select></div><div class="field" id="sp-ledger-tag-custom-wrap" style="display:none;"><label>New tag name</label><input id="sp-ledger-tag-custom" type="text" placeholder="e.g. Pets" /></div>`;
+}
+
+async function resolveSplitLedgerTagFromForm() {
+  const select = $('#sp-ledger-tag');
+  if (!select) return '';
+  const value = select.value;
+  if (value !== '__custom__') return value;
+  const custom = ($('#sp-ledger-tag-custom')?.value || '').trim();
+  if (!custom) return '';
+  const exists = allSpendTags(DEFAULT_TAGS, customTags).some(tag => tag.toLowerCase() === custom.toLowerCase());
+  if (!exists) {
+    customTags.push(custom);
+    await Store.set('custom-spend-tags', customTags);
+  }
+  return custom;
+}
+
+function syncSplitLedgerFormVisibility() {
+  const modeWrap = $('#sp-ledger-mode-wrap');
+  const ledgerWrap = $('#sp-ledger-options');
+  if (!ledgerWrap) return;
+  const paidByYou = $('#sp-payee')?.value === SPLIT_YOU;
+  if (modeWrap) modeWrap.style.display = paidByYou ? 'block' : 'none';
+  ledgerWrap.style.display = paidByYou ? 'block' : 'none';
+  if (!paidByYou) return;
+  const mode = root.querySelector('[data-split-ledger-mode].active')?.dataset.splitLedgerMode || 'regular';
+  const cardWrap = $('#sp-ledger-card-wrap');
+  if (cardWrap) cardWrap.style.display = mode === 'card' ? 'block' : 'none';
 }
 
 function renderSplitAddForm() {
@@ -319,7 +358,9 @@ function renderSplitShareCallout(group, s) {
 }
 
 function renderSplitDetailsPanel(group) {
-  const memberOptions = group.people.map(p => `<option value="${escapeHtml(p)}">${p === SPLIT_YOU ? youLabel() : escapeHtml(p.toUpperCase())}</option>`).join('');
+  const defaultPayee = group.people.includes(SPLIT_YOU) ? SPLIT_YOU : (group.people[0] || '');
+  const memberOptions = group.people.map(p => `<option value="${escapeHtml(p)}" ${p === defaultPayee ? 'selected' : ''}>${p === SPLIT_YOU ? youLabel() : escapeHtml(p.toUpperCase())}</option>`).join('');
+  const cardOptions = cards.map(card => `<option value="${escapeHtml(card.id)}">${escapeHtml(card.name)}</option>`).join('');
 
   const shareInputs = group.people.map(p => {
     const personLabel = p === SPLIT_YOU ? youLabel(true) + ' share' : `${escapeHtml(p.toUpperCase())}'s share`;
@@ -448,22 +489,34 @@ function renderSplitDetailsPanel(group) {
 
   const formHtml = splitSpendFormOpen ? `
   <div class="form-panel slide-down-fade" style="margin-top:14px;">
-    <div class="form-note" style="margin-top:0; margin-bottom:14px;">Add a transaction. The amount is split equally among active members by default.</div>
+    <div class="form-note" style="margin-top:0; margin-bottom:4px;">Add a transaction. The amount is split equally among active members by default.</div>
+    <div class="split-ledger-mode-wrap" id="sp-ledger-mode-wrap" style="${defaultPayee === SPLIT_YOU ? '' : 'display:none;'}">
+      <div class="split-ledger-mode-grid" role="group" aria-label="Month ledger spend type">
+        <button class="pill-btn sub-pill active" data-split-ledger-mode="regular" type="button" aria-pressed="true">Regular</button>
+        <button class="pill-btn sub-pill" data-split-ledger-mode="card" type="button" aria-pressed="false" ${cards.length ? '' : 'disabled'}>Credit card</button>
+      </div>
+    </div>
     <div class="form-row">
       <div class="field"><label>Spend</label><input id="sp-desc" type="text" placeholder="e.g. Dinner" /></div>
       <div class="field"><label>Paid by</label><select id="sp-payee">${memberOptions}</select></div>
       <div class="field"><label>Date</label><input id="sp-date" type="date" value="${todayStr()}" /></div>
       <div class="field"><label>Total amount (₹)</label><input id="sp-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
     </div>
+    <div class="form-row" id="sp-ledger-options" style="${defaultPayee === SPLIT_YOU ? '' : 'display:none;'}">
+      <div class="split-ledger-fields">
+        ${renderSplitLedgerTagField()}
+        <div class="field" id="sp-ledger-card-wrap" style="display:none;"><label>Credit card</label><select id="sp-ledger-card">${cardOptions || '<option value="">No cards added</option>'}</select></div>
+      </div>
+    </div>
     <div class="split-share-grid">${shareInputs}</div>
-    <div class="form-actions">
+    <div class="form-actions" style="margin-top: 16px;">
       <button class="btn primary" data-submit-split-spend="${group.id}" type="button">Add spend</button>
       <button class="btn ghost" data-close-split-spend-form type="button">Cancel</button>
     </div>
   </div>` : '';
   const addMemberFormHtml = (splitAddMemberFormOpen && splitAddMemberFormSource !== 'shares') ? `
   <div class="form-panel slide-down-fade" style="margin-top:14px;">
-    <div class="form-note" style="margin-top:0; margin-bottom:8px;">Add a new person to this split group.</div>
+    <div class="form-note" style="margin-top:0;margin-bottom: 0px;padding-bottom: 8px;">Add a new person to this split group.</div>
     <div class="split-member-row">
       <div class="field">
         <label>Person Name</label>
@@ -887,6 +940,19 @@ async function renderSplit() {
 }
 
 root.addEventListener('click', async (ev) => {
+  const splitLedgerModeBtn = ev.target.closest('[data-split-ledger-mode]');
+  if (splitLedgerModeBtn) {
+    if (splitLedgerModeBtn.disabled) return;
+    const wrap = splitLedgerModeBtn.closest('.split-ledger-mode-grid');
+    wrap.querySelectorAll('[data-split-ledger-mode]').forEach(button => {
+      const active = button === splitLedgerModeBtn;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    syncSplitLedgerFormVisibility();
+    return;
+  }
+
   const removeTableFilter = ev.target.closest('[data-remove-table-filter]');
   if (removeTableFilter) {
     currentPayeeFilter = '';
@@ -1235,24 +1301,36 @@ root.addEventListener('click', async (ev) => {
     if (Math.abs(shareSum - amount) > 0.01) { showToast('Shares must add up to the total amount'); return; }
 
     const group = await loadSplit(groupId, false);
+    if (!group) return;
     const { uid } = await import('../core/dom.js');
     const spendId = uid();
-    let ledgerEntryId = null, ledgerMonthKey = null;
+    let ledgerEntryId = null, ledgerMonthKey = null, ledgerLentId = null;
+    const ledgerMode = payee === SPLIT_YOU ? (root.querySelector('[data-split-ledger-mode].active')?.dataset.splitLedgerMode || 'regular') : null;
+    const ledgerTag = payee === SPLIT_YOU ? await resolveSplitLedgerTagFromForm() : '';
+    let ledgerCardId = null;
+
+    if (payee === SPLIT_YOU && ledgerMode === 'card') {
+      ledgerCardId = $('#sp-ledger-card')?.value || '';
+      if (!cardById(cards, ledgerCardId)) { showToast('Choose a credit card for this spend'); return; }
+    }
 
     if (payee === SPLIT_YOU) {
       ledgerMonthKey = currentMonthKey();
       await ensureMonthIndexed(ledgerMonthKey, monthsIndex);
       const monthData = await loadMonth(ledgerMonthKey);
       const entryId = uid();
-      monthData.entries.push({
-        id: entryId, type: 'spend', description: `${desc} (${group.description})`, amount,
-        date, paymentMode: 'cash', cardId: null, tag: 'split', lent: [],
-      });
+      const yourShare = Number(shares[SPLIT_YOU]) || 0;
+      const splitOwedAmount = Math.max(0, Math.round((amount - yourShare) * 100) / 100);
+      ledgerLentId = splitOwedAmount > 0 ? uid() : null;
+      const lent = splitOwedAmount > 0 ? [{ id: ledgerLentId, person: 'split owed', amount: splitOwedAmount, settled: false, splitOwed: true, splitGroupId: groupId, splitSpendId: spendId }] : [];
+      const splitRef = { groupId, spendId };
+      const ledgerEntry = ledgerMode === 'card' ? { id: entryId, type: 'cardcharge', description: `${desc} (${group.description})`, amount, date, cardId: ledgerCardId, tag: ledgerTag, subCategory: null, lent, splitRef } : { id: entryId, type: 'spend', description: `${desc} (${group.description})`, amount, date, paymentMode: 'cash', cardId: null, tag: ledgerTag, subCategory: null, lent, splitRef };
+      monthData.entries.push(ledgerEntry);
       await saveMonth(ledgerMonthKey);
       ledgerEntryId = entryId;
     }
 
-    group.spends.push({ id: spendId, description: desc, payee, amount, date, shares, ledgerEntryId, monthKey: ledgerMonthKey });
+    group.spends.push({ id: spendId, description: desc, payee, amount, date, shares, ledgerEntryId, monthKey: ledgerMonthKey, ledgerMode, ledgerTag, ledgerCardId, ledgerLentId });
     await saveSplit(groupId);
     splitSpendFormOpen = false;
     await renderSplit();
@@ -1282,6 +1360,17 @@ root.addEventListener('click', async (ev) => {
 });
 
 root.addEventListener('change', async (ev) => {
+  if (ev.target.id === 'sp-payee') {
+    syncSplitLedgerFormVisibility();
+    return;
+  }
+
+  if (ev.target.id === 'sp-ledger-tag') {
+    const customWrap = $('#sp-ledger-tag-custom-wrap');
+    if (customWrap) customWrap.style.display = ev.target.value === '__custom__' ? 'block' : 'none';
+    return;
+  }
+
   if (ev.target.id === 'table-payee-filter') {
     const value = ev.target.value;
     if (value && currentPayeeFilter !== value) {
