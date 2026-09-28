@@ -72,6 +72,7 @@ let entriesByMonthMemo = {};
 
 let currentKey = currentMonthKey();
 let isPastMonth = false;
+let includeCcCashInSpent = false;
 
 async function loadDomain() {
   if (domainLoaded) return;
@@ -424,9 +425,17 @@ function computeSummary() {
   }
 
   const spending = computeSpendingBreakdown(currentMonthEntries);
-  const totalSpent =
+  const ccCashSpends =
+    spending.creditCardSpends +
+    spending.cashPayments;
+
+  const baseSpent =
     spending.total -
-    spending.creditCardDues;
+    ccCashSpends;
+
+  const totalSpent =
+    baseSpent +
+    (includeCcCashInSpent ? ccCashSpends : 0);
 
   budgetData.forEach(group => {
     totalBudget += Number(group.budget) || 0;
@@ -452,7 +461,8 @@ function computeSummary() {
 
   const savingsSpend = Math.max(
     0,
-    totalSpent -
+    spending.total -
+    spending.creditCardDues -
     spending.creditCardSpends -
     spending.cashPayments
   );
@@ -461,7 +471,7 @@ function computeSummary() {
   const savingsPct = totalIncome > 0 ? Math.max(0, (totalSavings / totalIncome) * 100) : 0;
   const spentPct = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : (totalSpent > 0 ? 100 : 0);
 
-  return { totalBudget, totalUsed, totalRemaining, usedPct, remainingPct, totalIncome, currentStartingBalance, budgetBenchmark, unallocated, totalSpent, totalSavings, savingsPct, spentPct };
+  return { totalBudget, totalUsed, totalRemaining, usedPct, remainingPct, totalIncome, currentStartingBalance, budgetBenchmark, unallocated, totalSpent, ccCashSpends, totalSavings, savingsPct, spentPct };
 }
 
 // Finds spend that isn't captured under any budgeted top-level category —
@@ -563,7 +573,7 @@ function renderUnbudgetedCallout() {
 }
 
 function renderSummaryCards() {
-  const { totalBudget, totalUsed, totalRemaining, usedPct, remainingPct, totalIncome, currentStartingBalance, budgetBenchmark, unallocated, totalSpent, totalSavings, savingsPct, spentPct } = computeSummary();
+  const { totalBudget, totalUsed, totalRemaining, usedPct, remainingPct, totalIncome, currentStartingBalance, budgetBenchmark, unallocated, totalSpent, ccCashSpends, totalSavings, savingsPct, spentPct } = computeSummary();
   const status = getStatusInfo(usedPct);
 
   const briefcaseSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"></path><path d="M2 13h20"></path></svg>`;
@@ -596,10 +606,10 @@ function renderSummaryCards() {
 
     const unallocatedClass = unallocated < 0 ? 'negative' : '';
     const unallocatedDisplay = unallocated < 0 ? `-${fmtINR(Math.abs(unallocated))}` : fmtINR(unallocated);
-    const subTextColor = unallocated < 0 ? 'var(--debit)' : 'var(--muted)';
+    const subTextColor = unallocated < 0 ? 'var(--debit-neg)' : 'var(--muted)';
     
     budgetCardContent = `
-      <div class="kpi-label" style="${unallocated < 0 ? 'color: var(--debit);' : ''}">Left to Budget</div>
+      <div class="kpi-label">Left to Budget</div>
       <div class="kpi-value ${unallocatedClass}">${unallocatedDisplay}</div>
       <div class="kpi-sub" style="color: ${subTextColor};">${unallocated < 0 ? 'Over-allocated!' : `Total ${fmtINR(totalBudget)}`}</div>
     `;
@@ -655,7 +665,7 @@ function renderSummaryCards() {
   ${incomeReportHtml}
   ${forecastReportHtml}
   <div class="budget-summary-grid">
-    <div class="kpi-card">
+    <div class="kpi-card budget-kpi-budget">
       <div class="kpi-icon" style="position: relative;">
         ${briefcaseSvg}
         ${unallocated < 0 ? alertIcon : ''}
@@ -664,29 +674,32 @@ function renderSummaryCards() {
         ${budgetCardContent}
       </div>
     </div>
-    <div class="kpi-card">
+    <div class="kpi-card budget-kpi-spent">
       <div class="kpi-icon" style="position: relative;">
         ${coinsSvg}
         ${spentPct > 100 ? alertIcon : ''}
       </div>
       <div class="kpi-body">
-        <div class="kpi-label" style="${spentPct > 100 ? 'color: var(--debit);' : ''}">Spent</div>
+        <div class="budget-spent-label-row">
+          <div class="kpi-label">Spent</div>
+          <button class="budget-spent-toggle ${includeCcCashInSpent ? 'active' : ''}" data-budget-spent-toggle type="button" aria-pressed="${includeCcCashInSpent}" title="${includeCcCashInSpent ? 'Exclude credit card and cash spends' : `Include ${fmtINR(ccCashSpends)} of credit card and cash spends`}">+CC &amp; Cash</button>
+        </div>
         <div class="kpi-value ${spentPct > 100 ? 'negative' : ''}">${fmtINR(totalSpent)}</div>
-        <div class="kpi-sub" style="${spentPct > 100 ? 'color: var(--debit);' : 'color: var(--blue);'}">${spentPct.toFixed(1)}% of budget</div>
+        <div class="kpi-sub" style="${spentPct > 100 ? 'color: var(--debit-neg);' : 'color: var(--blue);'}">${spentPct.toFixed(1)}% of budget</div>
       </div>
     </div>
-    <div class="kpi-card">
+    <div class="kpi-card budget-kpi-savings ${totalSavings < 0 ? 'is-negative' : ''}">
       <div class="kpi-icon" style="position: relative;">
         ${clockSvg}
         ${totalSavings < 0 ? alertIcon : ''}
       </div>
       <div class="kpi-body">
-        <div class="kpi-label" style="${totalSavings < 0 ? 'color: var(--debit);' : ''}">Savings</div>
+        <div class="kpi-label">Savings</div>
         <div class="kpi-value ${savingsClass}">${fmtINR(totalSavings)}</div>
-        <div class="kpi-sub" style="${totalSavings < 0 ? 'color: var(--debit);' : 'color: var(--credit);'}">${totalSavings < 0 ? 'Debits > Income' : savingsPctDisplay + ' of income'}</div>
+        <div class="kpi-sub" style="${totalSavings < 0 ? 'color: var(--debit-neg);' : 'color: var(--credit);'}">${totalSavings < 0 ? 'Debits > Income' : savingsPctDisplay + ' of income'}</div>
       </div>
     </div>
-    <div class="kpi-card status-card">
+    <div class="kpi-card status-card budget-kpi-status ${usedPct > 100 ? 'is-negative' : ''}">
       <div style="position: relative; display: flex; flex-shrink: 0;">
         <svg width="48" height="48" viewBox="0 0 48 48">
           <circle cx="24" cy="24" r="${radius}" fill="none" stroke="var(--sky)" stroke-width="5"></circle>
@@ -696,7 +709,7 @@ function renderSummaryCards() {
         ${usedPct > 100 ? alertIcon.replace('top: -4px; right: -4px;', 'top: 0px; right: 0px;') : ''}
       </div>
       <div class="kpi-body">
-        <div class="kpi-label" style="${usedPct > 100 ? 'color: var(--debit);' : ''}">
+        <div class="kpi-label">
           <span class="hide-sm">Budget Utilization</span>
           <span class="show-sm">Utilization</span>
         </div>
@@ -1522,6 +1535,13 @@ function deletedAutoField(autoType) {
 }
 
 root.addEventListener('click', async (ev) => {
+  const spentToggle = ev.target.closest('[data-budget-spent-toggle]');
+  if (spentToggle) {
+    includeCcCashInSpent = !includeCcCashInSpent;
+    await renderBudget();
+    return;
+  }
+
   const toggleRowActions = ev.target.closest('[data-toggle-row-actions]');
   if (toggleRowActions) {
     const row = toggleRowActions.closest('.budget-row, .budget-group-header');

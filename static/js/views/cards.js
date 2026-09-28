@@ -348,7 +348,7 @@ async function renderCards() {
 
             <div class="field">
               <label for="cc-day">
-                Billing cycle (day of month bill is generated)
+                Billing Date
               </label>
               <input
                 id="cc-day"
@@ -364,7 +364,7 @@ async function renderCards() {
 
             <div class="field">
               <label for="cc-due-day">
-                Due date (day of month payment is due)
+                Due Date
               </label>
               <input
                 id="cc-due-day"

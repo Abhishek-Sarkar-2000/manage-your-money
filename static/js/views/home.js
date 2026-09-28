@@ -386,17 +386,15 @@ function buildDashboardPrices(domain) {
   }).filter(item => item.historyCount > 0);
 
   items.sort((a, b) => {
-    const aHasMove = a.changePct !== null;
-    const bHasMove = b.changePct !== null;
+    const aHasMove = a.changePct !== null && a.changePct !== 0;
+    const bHasMove = b.changePct !== null && b.changePct !== 0;
 
     if (aHasMove !== bHasMove) return aHasMove ? -1 : 1;
 
-    if (aHasMove && bHasMove) {
-      const movementDiff = Math.abs(b.changePct) - Math.abs(a.changePct);
-      if (movementDiff !== 0) return movementDiff;
-    }
+    const dateDiff = String(b.latestDate || '').localeCompare(String(a.latestDate || ''));
+    if (dateDiff !== 0) return dateDiff;
 
-    return String(b.latestDate || '').localeCompare(String(a.latestDate || ''));
+    return String(a.name || '').localeCompare(String(b.name || ''));
   });
 
   return {
@@ -1131,6 +1129,8 @@ async function renderHome() {
   renderFromCache();
 }
 
+let dashboardPagerDrag = null;
+
 function setDashboardPagerPage(pager, requestedIndex) {
   const pages = [
     ...pager.querySelectorAll('[data-dashboard-pager-page]'),
@@ -1147,6 +1147,8 @@ function setDashboardPagerPage(pager, requestedIndex) {
   );
 
   pager.dataset.dashboardPagerIndex = String(nextIndex);
+  pager.classList.remove('is-dragging');
+  pager.style.removeProperty('--dashboard-page-drag-x');
 
   pager.style.setProperty(
     '--dashboard-page-offset',
@@ -1196,7 +1198,121 @@ function setDashboardPagerPage(pager, requestedIndex) {
   }
 }
 
+root.addEventListener('pointerdown', (ev) => {
+  if (ev.pointerType !== 'touch' && ev.pointerType !== 'pen') return;
+
+  const viewport = ev.target.closest('.dashboard-pager-viewport');
+  if (!viewport) return;
+
+  const pager = viewport.closest('[data-dashboard-pager]');
+  if (!pager) return;
+
+  const pages = pager.querySelectorAll('[data-dashboard-pager-page]');
+  if (pages.length < 2) return;
+
+  dashboardPagerDrag = {
+    pager,
+    viewport,
+    pointerId: ev.pointerId,
+    startX: ev.clientX,
+    startY: ev.clientY,
+    deltaX: 0,
+    horizontal: null,
+  };
+
+  viewport.setPointerCapture?.(ev.pointerId);
+});
+
+root.addEventListener('pointermove', (ev) => {
+  const drag = dashboardPagerDrag;
+  if (!drag || drag.pointerId !== ev.pointerId) return;
+
+  const dx = ev.clientX - drag.startX;
+  const dy = ev.clientY - drag.startY;
+
+  if (drag.horizontal === null && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
+    drag.horizontal = Math.abs(dx) > Math.abs(dy);
+  }
+
+  if (!drag.horizontal) return;
+
+  ev.preventDefault();
+
+  const currentIndex =
+    Number(drag.pager.dataset.dashboardPagerIndex) || 0;
+
+  const pageCount =
+    drag.pager.querySelectorAll('[data-dashboard-pager-page]').length;
+
+  let resistedDx = dx;
+
+  if (
+    (currentIndex === 0 && dx > 0) ||
+    (currentIndex === pageCount - 1 && dx < 0)
+  ) {
+    resistedDx *= 0.28;
+  }
+
+  drag.deltaX = resistedDx;
+  drag.pager.classList.add('is-dragging');
+  drag.pager.style.setProperty(
+    '--dashboard-page-drag-x',
+    `${resistedDx}px`,
+  );
+});
+
+function finishDashboardPagerDrag(ev) {
+  const drag = dashboardPagerDrag;
+  if (!drag || drag.pointerId !== ev.pointerId) return;
+
+  dashboardPagerDrag = null;
+
+  drag.viewport.releasePointerCapture?.(ev.pointerId);
+
+  const pager = drag.pager;
+  const currentIndex =
+    Number(pager.dataset.dashboardPagerIndex) || 0;
+
+  if (!drag.horizontal) {
+    pager.classList.remove('is-dragging');
+    pager.style.removeProperty('--dashboard-page-drag-x');
+    return;
+  }
+
+  const threshold = Math.min(
+    70,
+    Math.max(36, drag.viewport.clientWidth * 0.18),
+  );
+
+  let nextIndex = currentIndex;
+
+  if (drag.deltaX <= -threshold) {
+    nextIndex += 1;
+  } else if (drag.deltaX >= threshold) {
+    nextIndex -= 1;
+  }
+
+  setDashboardPagerPage(pager, nextIndex);
+
+  pager.dataset.dashboardPagerSwiped = 'true';
+  setTimeout(() => {
+    delete pager.dataset.dashboardPagerSwiped;
+  }, 0);
+}
+
+root.addEventListener('pointerup', finishDashboardPagerDrag);
+root.addEventListener('pointercancel', finishDashboardPagerDrag);
+
 root.addEventListener('click', (ev) => {
+  const swipedPager = ev.target.closest(
+    '[data-dashboard-pager][data-dashboard-pager-swiped="true"]',
+  );
+
+  if (swipedPager) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    return;
+  }
   const pagerControl = ev.target.closest(
     '[data-dashboard-page-dir], [data-dashboard-page-target]',
   );

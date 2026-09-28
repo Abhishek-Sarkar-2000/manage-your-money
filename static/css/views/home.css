@@ -391,7 +391,7 @@
 }
 
 .dashboard-kpi-card.is-negative {
-  --kpi-accent: var(--debit);
+  --kpi-accent: var(--debit-neg);
 }
 
 .dashboard-kpi-top {
@@ -441,7 +441,7 @@
 }
 
 .dashboard-kpi-card-spend .dashboard-kpi-value {
-  color: var(--debit);
+  color: var(--debit-bd);
 }
 
 .dashboard-kpi-card-invest .dashboard-kpi-value {
@@ -449,7 +449,7 @@
 }
 
 .dashboard-kpi-card.is-negative .dashboard-kpi-value {
-  color: var(--debit);
+  color: var(--debit-neg);
 }
 
 .dashboard-kpi-footer {
@@ -471,7 +471,7 @@
   display: inline-flex;
   align-items: flex-start;
   gap: 6px;
-  color: var(--debit);
+  color: var(--debit-neg);
   font-weight: 600;
 }
 
@@ -687,7 +687,8 @@
 }
 
 :root[data-theme="dark"] .dashboard-kpi-card {
-  background: linear-gradient(150deg, var(--paper) 0%, var(--ice) 100%);
+  background: linear-gradient(135deg, var(--ice-2) 0%, var(--hair) 45%, var(--ice) 100%);
+  box-shadow: inset 0 0 16px rgb(200 182 237 / 11%), inset 0 0 0 1px rgb(179 168 216 / 25%);
 }
 
 :root[data-theme="hi-contrast"] .dashboard-kpi-card,
@@ -899,8 +900,13 @@
   font-weight: 600;
 }
 
-.dashboard-panel-link:hover {
-  text-decoration: underline;
+.dashboard-panel-link > span {
+  display: inline-block;
+  transition: transform 0.16s ease;
+}
+
+.dashboard-panel-link:hover > span {
+  transform: translateX(3px);
 }
 
 .dashboard-stage-badge {
@@ -1207,7 +1213,7 @@
 }
 
 .dashboard-budget-overall-meta .is-warning {
-  color: var(--debit);
+  color: var(--debit-neg);
   font-weight: 600;
   text-align: right;
 }
@@ -1384,7 +1390,7 @@
 
 .dashboard-projection-body.is-negative .dashboard-projection-hero strong,
 .dashboard-projection-body.is-negative .dashboard-projection-row.is-result strong {
-  color: var(--debit);
+  color: var(--debit-neg);
 }
 
 .dashboard-projection-meter {
@@ -1406,7 +1412,7 @@
 }
 
 .dashboard-projection-body.is-negative .dashboard-projection-meter span {
-  background: var(--debit);
+  background: var(--debit-neg);
 }
 
 .dashboard-projection-bridge {
@@ -2057,8 +2063,7 @@
 :root[data-theme="dark"] .dashboard-attention-row,
 :root[data-theme="dark"] .dashboard-card-row,
 :root[data-theme="dark"] .dashboard-goal-row,
-:root[data-theme="dark"] .dashboard-chart-mode,
-:root[data-theme="dark"] .dashboard-kpi-card {
+:root[data-theme="dark"] .dashboard-chart-mode {
   background:
     linear-gradient(
       135deg,
@@ -3742,6 +3747,7 @@
 .dashboard-pager-viewport {
   min-width: 0;
   overflow: hidden;
+  touch-action: pan-y;
 }
 
 .dashboard-pager-track {
@@ -3750,13 +3756,20 @@
   align-items: flex-start;
 
   transform: translate3d(
-    var(--dashboard-page-offset, 0%),
+    calc(
+      var(--dashboard-page-offset, 0%) +
+      var(--dashboard-page-drag-x, 0px)
+    ),
     0,
     0
   );
 
   transition: transform 0.22s ease;
   will-change: transform;
+}
+
+.dashboard-pager.is-dragging .dashboard-pager-track {
+  transition: none;
 }
 
 .dashboard-pager-page {

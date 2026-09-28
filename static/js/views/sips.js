@@ -210,11 +210,11 @@ async function renderSips() {
       </div>
       <span class="hint">Automated recurring investments</span>
     </div>
-    <div class="sip-grid">${sipCardsHtml}</div>
-    <div style="margin-top: 20px;">
+    <div style="margin-top: 8px;">
       ${!isSipFormOpen ? `<button class="pill-btn active" id="open-sip-form" type="button">+ Add New SIP</button>` : ''}
       ${sipFormHtml}
     </div>
+    <div class="sip-grid">${sipCardsHtml}</div>
   </div>
 
   ${pausedSips.length > 0 ? `

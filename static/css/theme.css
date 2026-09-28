@@ -21,6 +21,7 @@
   --debit: #AD4358;
   --debit-bd: #661928;
   --debit-bg: #FBEBEE;
+  --debit-neg: #AD4358;
   --amber: #8A6A2F;
   --amber-bg: #F7F0DF;
   --blue-bg: #E3EEFB;
@@ -74,6 +75,7 @@ body {
   --credit: #66ae0d;
   --debit: #b20f0c;
   --debit-bd: #8B0000;
+  --debit-neg: #b20f0c;
   --amber: #8B6508;
   --blue-bg: #FFFFFF;
   --royal-bg: #FFFFFF;
@@ -267,6 +269,7 @@ body {
   --debit: #e93354;
   --debit-bd: #FF7B93;
   --debit-bg: rgba(255, 123, 147, 0.15);
+  --debit-neg: #e3932d;
   --amber: #FCD277;
   --amber-bg: rgba(252, 210, 119, 0.15);
   --blue-bg: rgba(111, 159, 247, 0.18);
