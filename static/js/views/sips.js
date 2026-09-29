@@ -15,6 +15,17 @@ let domainLoaded = false;
 let isSipFormOpen = false;
 let editingSipId = null;
 let isEditingFoundation = false;
+let currentMonthData = null;
+let currentMonthDataKey = null;
+
+async function getCurrentMonthData() {
+  const key = currentMonthKey();
+  if (currentMonthData && currentMonthDataKey === key) return currentMonthData;
+  currentMonthData = await Store.get('month:' + key, { deletedSip: [] });
+  currentMonthData.deletedSip = currentMonthData.deletedSip || [];
+  currentMonthDataKey = key;
+  return currentMonthData;
+}
 
 function getAssetIcon(category) {
   const cat = (category || 'Mutual Fund').toLowerCase();
@@ -63,15 +74,14 @@ function sipActionMonth(sip, currentMonth, currentMonthData) {
 
 async function renderSips() {
   if (!domainLoaded) {
-    [sipSeries, existingInvestments] = await Promise.all([
-      Store.get('sipseries', []),
-      Store.get('existinginvestments', 0),
-    ]);
+    const records = await Store.bulkGet(['sipseries', 'existinginvestments'], {});
+    sipSeries = records.sipseries || [];
+    existingInvestments = records.existinginvestments || 0;
     domainLoaded = true;
   }
 
   const currentMonth = currentMonthKey();
-  const monthData = await Store.get('month:' + currentMonth, { deletedSip: [] });
+  const monthData = await getCurrentMonthData();
   const currentDeletedSips = monthData.deletedSip || [];
   
   // Filter into active and paused
@@ -309,8 +319,7 @@ root.addEventListener('click', async (ev) => {
     if (!sip) return;
 
     const currentKey = currentMonthKey();
-    const monthData = await Store.get('month:' + currentKey, { deletedSip: [] });
-    monthData.deletedSip = monthData.deletedSip || [];
+    const monthData = await getCurrentMonthData();
 
     sip.skipMonths = sip.skipMonths || [];
     const targetKey = sipActionMonth(sip, currentKey, monthData);
@@ -336,11 +345,11 @@ root.addEventListener('click', async (ev) => {
       showToast(`Skipping deduction for ${monthKeyLabel(targetKey)}`);
     }
 
-    await Store.set('sipseries', sipSeries);
-
+    const writes = [Store.set('sipseries', sipSeries)];
     if (targetKey === currentKey) {
-      await Store.set('month:' + currentKey, monthData);
+      writes.push(Store.set('month:' + currentKey, monthData));
     }
+    await Promise.all(writes);
 
     await renderSips();
     return;
@@ -353,8 +362,7 @@ root.addEventListener('click', async (ev) => {
     if (!sip) return;
 
     const currentKey = currentMonthKey();
-    const monthData = await Store.get('month:' + currentKey, { deletedSip: [] });
-    monthData.deletedSip = monthData.deletedSip || [];
+    const monthData = await getCurrentMonthData();
 
     const pauseFromMonth = sipActionMonth(sip, currentKey, monthData);
 

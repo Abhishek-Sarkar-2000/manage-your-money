@@ -6,7 +6,8 @@ import { authReady } from '../core/auth.js';
 import {
   loadMonth, saveMonth, ensureMonthIndexed, emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth,
   computeMonthTotals, computeSpendingBreakdown, computeGlobalStats, monthCashOutflow, cardById, allSpendTags,
-  findCategoryByTag, ensureCategoryForTag, migrateBudgetData
+  findCategoryByTag, ensureCategoryForTag, migrateBudgetData,
+  invalidateMonthDerivedCache, invalidateAllMonthDerivedCaches
 } from '../core/domain.js';
 import { analyzeDashboardBudget, applyBudgetForecastProjection } from '../core/budget-insights.js';
 import { renderDashboardKpis } from '../components/dashboard-kpis.js';
@@ -16,6 +17,7 @@ import { lineChart, wireChartTooltips } from '../components/charts/line-chart.js
 import { scrollWrapper, setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
+import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
 import { markRendered } from '../components/render-guard.js';
 
 const root = document.getElementById('month-root');
@@ -41,6 +43,21 @@ let isFormOpening = false;
 let animTimeout = null;
 let domainLoaded = false;
 let currentSipFilter = 'All';
+let cachedGlobalStats = null;
+
+const tableCollator = new Intl.Collator(undefined, { sensitivity: 'base' });
+const tableDateSortCache = new Map();
+const tableDateDisplayCache = new Map();
+let tableResizeTimer = null;
+
+window.addEventListener('resize', () => {
+  clearTimeout(tableResizeTimer);
+  tableResizeTimer = setTimeout(() => {
+    const bodyTable = root.querySelector('.transactions-container .table-wrap table');
+    const headerTable = root.querySelector('.transactions-container .table-header-wrap table');
+    if (bodyTable && headerTable) headerTable.style.width = bodyTable.offsetWidth + 'px';
+  }, 150);
+});
 
 const PILL_ORDER = ['spend', 'cardcharge', 'cashpayment', 'recurring', 'income', 'owed', 'emi', 'invest'];
 
@@ -99,11 +116,30 @@ function getTableSortDirectionLabel(key, asc) {
   return '';
 }
 
+function tableDateValue(date) {
+  const key = date || '';
+  if (tableDateSortCache.has(key)) return tableDateSortCache.get(key);
+  const parsed = Date.parse(key);
+  const value = Number.isFinite(parsed) ? parsed : -Infinity;
+  tableDateSortCache.set(key, value);
+  return value;
+}
+
+function tableDateDisplay(date) {
+  if (tableDateDisplayCache.has(date)) return tableDateDisplayCache.get(date);
+  const dt = new Date(date + 'T00:00:00');
+  const value = {
+    day: dt.toLocaleDateString('en-IN', { day: '2-digit' }),
+    month: dt.toLocaleDateString('en-IN', { month: 'short' }),
+    weekday: dt.toLocaleDateString('en-IN', { weekday: 'short' }),
+  };
+  tableDateDisplayCache.set(date, value);
+  return value;
+}
+
 function compareTableRows(a, b, key) {
   if (key === 'date') {
-    const aDate = Number.isFinite(Date.parse(a.date || '')) ? Date.parse(a.date || '') : -Infinity;
-    const bDate = Number.isFinite(Date.parse(b.date || '')) ? Date.parse(b.date || '') : -Infinity;
-    return aDate - bDate;
+    return tableDateValue(a.date) - tableDateValue(b.date);
   }
 
   if (key === 'amount') {
@@ -111,19 +147,11 @@ function compareTableRows(a, b, key) {
   }
 
   if (key === 'type') {
-    return getTableTypeLabel(a).localeCompare(
-      getTableTypeLabel(b),
-      undefined,
-      { sensitivity: 'base' }
-    );
+    return tableCollator.compare(getTableTypeLabel(a), getTableTypeLabel(b));
   }
 
   if (key === 'tag') {
-    return getTableTagLabel(a).localeCompare(
-      getTableTagLabel(b),
-      undefined,
-      { sensitivity: 'base' }
-    );
+    return tableCollator.compare(getTableTagLabel(a), getTableTagLabel(b));
   }
 
   return 0;
@@ -138,24 +166,44 @@ function compareTableRows(a, b, key) {
 // stays correct without a refetch.
 async function loadDomain() {
   if (domainLoaded) return;
-  [cards, emiSeries, sipSeries, monthsIndex, customTags, budgetData, priceTrackDictionary, priceItems, existingInvestments, splitsIndex, recurringSeries] = await Promise.all([
-    Store.get('creditcards', []),
-    Store.get('emiseries', []),
-    Store.get('sipseries', []),
-    Store.get('months-index', []),
-    Store.get('custom-spend-tags', []),
-    Store.get(`budget-data:${monthKey}`, null),
-    Store.get('price-track-dict', {}),
-    Store.get('price-items', []),
-    Store.get('existinginvestments', 0),
-    Store.get('splits-index', []),
-    Store.get('recurringseries', []),
-  ]);
-  if (!budgetData) {
-     budgetData = await Store.get('budget-data', []);
+
+  const budgetKey = `budget-data:${monthKey}`;
+  const records = await Store.bulkGet([
+    'creditcards',
+    'emiseries',
+    'sipseries',
+    'months-index',
+    'custom-spend-tags',
+    budgetKey,
+    'budget-data',
+    'price-track-dict',
+    'price-items',
+    'existinginvestments',
+    'splits-index',
+    'recurringseries',
+  ], {});
+
+  cards = records.creditcards || [];
+  emiSeries = records.emiseries || [];
+  sipSeries = records.sipseries || [];
+  monthsIndex = records['months-index'] || [];
+  customTags = records['custom-spend-tags'] || [];
+  priceTrackDictionary = records['price-track-dict'] || {};
+  priceItems = records['price-items'] || [];
+  existingInvestments = records.existinginvestments || 0;
+  splitsIndex = records['splits-index'] || [];
+  recurringSeries = records.recurringseries || [];
+
+  const hasMonthBudget = Object.prototype.hasOwnProperty.call(records, budgetKey);
+  const rawBudget = hasMonthBudget ? records[budgetKey] : (records['budget-data'] || []);
+  budgetData = migrateBudgetData(rawBudget);
+
+  // Preserve the existing legacy-to-month copy, but do not rewrite an
+  // unchanged month budget on every first render.
+  if (!hasMonthBudget || JSON.stringify(budgetData) !== JSON.stringify(rawBudget)) {
+    await Store.set(budgetKey, budgetData);
   }
-  budgetData = migrateBudgetData(budgetData);
-  await Store.set(`budget-data:${monthKey}`, budgetData);
+
   domainLoaded = true;
 }
 
@@ -182,10 +230,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   if (isFirstDateRow) {
     let dateContent = '—';
     if (e.date) {
-      const dt = new Date(e.date + 'T00:00:00');
-      const day = dt.toLocaleDateString('en-IN', { day: '2-digit' });
-      const month = dt.toLocaleDateString('en-IN', { month: 'short' });
-      const weekday = dt.toLocaleDateString('en-IN', { weekday: 'short' });
+      const { day, month, weekday } = tableDateDisplay(e.date);
       dateContent = `
         <div class="dv-date-badge" style="display: inline-flex; flex-wrap: wrap; flex-direction: column;">
           <div class="dv-date-top" style="white-space: nowrap;">
@@ -1165,21 +1210,123 @@ function renderAddEntryPanel() {
 
 
 /* ---------- Main render ---------- */
-async function renderMonth() {
+function renderMonthSipCard(e) {
+  const catConfig = {
+    'mutual fund': { label: 'MF', cls: 'mf' },
+    'etf': { label: 'ETF', cls: 'etf' },
+    'stock': { label: 'STOCK', cls: 'stock' }
+  };
+  const dayNum = new Date(e.date + 'T00:00:00').getDate();
+  const cat = catConfig[(e.category || '').toLowerCase()] || { label: 'MF', cls: 'mf' };
+
+  const skipTargetMonth =
+    monthKey === currentMonthKey() && e.date <= todayStr()
+      ? addMonths(monthKey, 1)
+      : monthKey;
+
+  const sipSeriesItem = sipSeries.find(s => s.id === e.seriesId);
+  const isSkippedForTarget =
+    !!sipSeriesItem?.skipMonths?.includes(skipTargetMonth);
+
+  const today = todayStr();
+
+  let nextDeductionMonth = monthKey;
+
+  if (monthKey === currentMonthKey() && e.date < today) {
+    nextDeductionMonth = addMonths(monthKey, 1);
+  }
+
+  if (isSkippedForTarget && nextDeductionMonth === skipTargetMonth) {
+    nextDeductionMonth = addMonths(skipTargetMonth, 1);
+  }
+
+  const [nextYear, nextMonth] = nextDeductionMonth.split('-').map(Number);
+  const daysInNextMonth = new Date(nextYear, nextMonth, 0).getDate();
+
+  const configuredDay = Math.max(
+    1,
+    Number(sipSeriesItem?.dayOfMonth) || dayNum
+  );
+
+  const nextDeductionDay = Math.min(configuredDay, daysInNextMonth);
+
+  const nextDeductionLabel = new Date(
+    nextYear,
+    nextMonth - 1,
+    nextDeductionDay
+  ).toLocaleDateString('en-IN', {
+    month: 'short',
+    year: '2-digit'
+  });
+
+  return `
+  <div class="month-sip-card ${isSkippedForTarget ? 'is-skipped' : ''}" data-sip-card-id="${e.seriesId}">
+    <div class="month-sip-card-header">
+      <div style="width: 100%;">
+        <h4 style="margin-bottom: 0; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
+          <span style="word-break: break-word;">${escapeHtml(e.description)}</span>
+          <span style="display: inline-flex; gap: 4px; align-items: center; flex-shrink: 0;">
+            <span class="src-badge ${cat.cls}">${cat.label}</span>
+            <span class="src-badge sip">SIP</span>
+          </span>
+        </h4>
+      </div>
+    </div>
+    <div
+      class="emi-stats"
+      style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: auto; margin-bottom: 4px;"
+    >
+      Next deduction:
+      ${nextDeductionDay}${ordinalSuffix(nextDeductionDay)}
+      <strong>${escapeHtml(nextDeductionLabel)}</strong>
+    </div>
+
+    <div class="month-sip-card-footer" style="margin-top: 0;">
+      <div class="num recurring-card" style="font-size: 1.15rem; font-weight: 600; color: var(--blue);">
+        -${fmtINR(e.amount)}
+      </div>
+
+      ${isSkippedForTarget ? `
+        <button
+          class="btn danger small month-sip-unskip-btn"
+          data-unskip-sip="${skipTargetMonth}|${e.seriesId}"
+          type="button"
+          title="Restore ${escapeHtml(nextDeductionLabel)} deduction"
+        >
+          Unskip
+        </button>
+      ` : `
+        <button
+          class="icon-btn"
+          data-popover-trigger
+          data-skip-sip="${skipTargetMonth}|${e.seriesId}"
+          type="button"
+          title="Skip ${escapeHtml(nextDeductionLabel)}f deduction"
+          style="background: var(--ice-2); border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;"
+        >
+          ⤵
+        </button>
+      `}
+    </div>
+  </div>`;
+}
+
+async function refreshSipCard(seriesId) {
+  const data = await loadMonth(monthKey);
+  const sipCardSeries = sipSeries.map(sip => ({ ...sip, skipMonths: [] }));
+  const row = sipRowsForMonth(sipCardSeries, monthKey, [], data.sipOverrides)
+    .find(item => item.seriesId === seriesId);
+  const existing = root.querySelector(`[data-sip-card-id="${CSS.escape(seriesId)}"]`);
+
+  if (!existing || !row) return;
+  existing.outerHTML = renderMonthSipCard(row);
+}
+
+async function renderMonth({ reuseGlobalStats = false } = {}) {
   try {
-    console.log('[renderMonth] before loadDomain');
     await loadDomain();
-    console.log('[renderMonth] after loadDomain');
-
-    console.log('[renderMonth] before ensureMonthIndexed');
     await ensureMonthIndexed(monthKey, monthsIndex);
-    console.log('[renderMonth] after ensureMonthIndexed');
-
-    console.log('[renderMonth] before loadMonth');
     const data = await loadMonth(monthKey);
-    console.log('[renderMonth] after loadMonth');
-
-    console.log('[renderMonth] before computeGlobalStats');
 
     let scrollToTransactions = false;
 
@@ -1275,8 +1422,10 @@ async function renderMonth() {
     const spendingBreakdown = computeSpendingBreakdown(postedSpendRows);
     const monthTotals = computeMonthTotals(postedSpendRows);
 
-    const stats = await computeGlobalStats({ cards, emiSeries, sipSeries, recurringSeries, monthsIndex, existingInvestments, isShared: false, sharedSplitId: null, splitsIndex });
-    console.log('[renderMonth] after computeGlobalStats');
+    const stats = reuseGlobalStats && cachedGlobalStats
+      ? cachedGlobalStats
+      : await computeGlobalStats({ cards, emiSeries, sipSeries, recurringSeries, monthsIndex, existingInvestments, isShared: false, sharedSplitId: null, splitsIndex });
+    cachedGlobalStats = stats;
     const monthInvestList = [];
     for (const e of data.entries) {
       if (e.type === 'investment') monthInvestList.push({ description: e.description, amount: Number(e.amount) || 0, monthKey: null });
@@ -1676,106 +1825,7 @@ async function renderMonth() {
       }
 
       if (sortedSips.length) {
-        const catConfig = {
-          'mutual fund': { label: 'MF', cls: 'mf' },
-          'etf': { label: 'ETF', cls: 'etf' },
-          'stock': { label: 'STOCK', cls: 'stock' }
-        };
-        const cardsHtml = sortedSips.map(e => {
-          const dayNum = new Date(e.date + 'T00:00:00').getDate();
-          const cat = catConfig[(e.category || '').toLowerCase()] || { label: 'MF', cls: 'mf' };
-
-          const skipTargetMonth =
-            monthKey === currentMonthKey() && e.date <= todayStr()
-              ? addMonths(monthKey, 1)
-              : monthKey;
-
-          const sipSeriesItem = sipSeries.find(s => s.id === e.seriesId);
-          const isSkippedForTarget =
-            !!sipSeriesItem?.skipMonths?.includes(skipTargetMonth);
-
-          const today = todayStr();
-
-          let nextDeductionMonth = monthKey;
-
-          if (monthKey === currentMonthKey() && e.date < today) {
-            nextDeductionMonth = addMonths(monthKey, 1);
-          }
-
-          if (isSkippedForTarget && nextDeductionMonth === skipTargetMonth) {
-            nextDeductionMonth = addMonths(skipTargetMonth, 1);
-          }
-
-          const [nextYear, nextMonth] = nextDeductionMonth.split('-').map(Number);
-          const daysInNextMonth = new Date(nextYear, nextMonth, 0).getDate();
-
-          const configuredDay = Math.max(
-            1,
-            Number(sipSeriesItem?.dayOfMonth) || dayNum
-          );
-
-          const nextDeductionDay = Math.min(configuredDay, daysInNextMonth);
-
-          const nextDeductionLabel = new Date(
-            nextYear,
-            nextMonth - 1,
-            nextDeductionDay
-          ).toLocaleDateString('en-IN', {
-            month: 'short',
-            year: '2-digit'
-          });
-
-          return `
-          <div class="month-sip-card ${isSkippedForTarget ? 'is-skipped' : ''}">
-            <div class="month-sip-card-header">
-              <div style="width: 100%;">
-                <h4 style="margin-bottom: 0; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
-                  <span style="word-break: break-word;">${escapeHtml(e.description)}</span>
-                  <span style="display: inline-flex; gap: 4px; align-items: center; flex-shrink: 0;">
-                    <span class="src-badge ${cat.cls}">${cat.label}</span>
-                    <span class="src-badge sip">SIP</span>
-                  </span>
-                </h4>
-              </div>
-            </div>
-            <div
-              class="emi-stats"
-              style="font-size: 0.8rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: auto; margin-bottom: 4px;"
-            >
-              Next deduction:
-              ${nextDeductionDay}${ordinalSuffix(nextDeductionDay)}
-              <strong>${escapeHtml(nextDeductionLabel)}</strong>
-            </div>
-
-            <div class="month-sip-card-footer" style="margin-top: 0;">
-              <div class="num recurring-card" style="font-size: 1.15rem; font-weight: 600; color: var(--blue);">
-                -${fmtINR(e.amount)}
-              </div>
-
-              ${isSkippedForTarget ? `
-                <button
-                  class="btn danger small month-sip-unskip-btn"
-                  data-unskip-sip="${skipTargetMonth}|${e.seriesId}"
-                  type="button"
-                  title="Restore ${escapeHtml(nextDeductionLabel)} deduction"
-                >
-                  Unskip
-                </button>
-              ` : `
-                <button
-                  class="icon-btn"
-                  data-popover-trigger
-                  data-skip-sip="${skipTargetMonth}|${e.seriesId}"
-                  type="button"
-                  title="Skip ${escapeHtml(nextDeductionLabel)}f deduction"
-                  style="background: var(--ice-2); border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;"
-                >
-                  ⤵
-                </button>
-              `}
-            </div>
-          </div>`;
-        }).join('');
+        const cardsHtml = sortedSips.map(renderMonthSipCard).join('');
 
         sipCardsHtml = `<div class="month-sip-grid">${cardsHtml}</div>`;
       } else {
@@ -2229,16 +2279,9 @@ async function renderMonth() {
           }
         };
         
-        // Sync exactly once after rendering. Avoids ResizeObserver layout-thrashing on mobile scrolls.
-        // A tiny timeout ensures the browser has finished computing the table's contents.
+        // Sync once after rendering. The module-level resize handler
+        // re-queries the current table instead of retaining detached tables.
         setTimeout(syncTableWidth, 10);
-        
-        // Only re-sync on actual device rotations/resizes, safely debounced
-        let resizeTimer;
-        window.addEventListener('resize', () => {
-          clearTimeout(resizeTimer);
-          resizeTimer = setTimeout(syncTableWidth, 150);
-        });
       }
 
       tableWrapEl.addEventListener('scroll', () => {
@@ -2319,6 +2362,7 @@ async function syncToPriceTracker(name, amount, date, tag) {
 /* ---------- Submit handler ---------- */
 async function handleSubmit(kind) {
   const data = await loadMonth(monthKey);
+  let monthChanged = true;
   const desc = ($('#f-desc')?.value || '').trim();
   const amount = Number($('#f-amount')?.value);
   const date = $('#f-date')?.value || todayStr();
@@ -2426,6 +2470,8 @@ async function handleSubmit(kind) {
     const tag = await resolveTagFromForm();
     emiSeries.push({ id: uid(), description: desc, monthlyAmount: amount, totalMonths: months, startMonth, dayOfMonth, tag });
     await Store.set('emiseries', emiSeries);
+    invalidateAllMonthDerivedCaches();
+    monthChanged = false;
   } else if (kind === 'goal') {
     const goalId = $('#f-goal-id')?.value;
     if (!desc || !amount || amount <= 0 || !goalId) { showToast('Enter description, amount, and select a goal'); return; }
@@ -2452,7 +2498,7 @@ async function handleSubmit(kind) {
 
     recurringSeries.push({ id: uid(), description: desc, amount, dayOfMonth, paymentMode, cardId, startMonth: monthKey });
     await Store.set('recurringseries', recurringSeries);
-    await saveMonth(monthKey);
+    invalidateMonthDerivedCache(monthKey);
     openForm = null;
     expenseMenuOpen = false;
     await renderMonth();
@@ -2460,7 +2506,7 @@ async function handleSubmit(kind) {
     return;
   }
 
-  await saveMonth(monthKey);
+  if (monthChanged) await saveMonth(monthKey);
   openForm = null;
   expenseMenuOpen = false;
   await renderMonth();
@@ -2516,7 +2562,7 @@ root.addEventListener('click', async (ev) => {
       );
     }
 
-    await renderMonth();
+    await renderMonth({ reuseGlobalStats: true });
     return;
   }
 
@@ -2524,7 +2570,7 @@ root.addEventListener('click', async (ev) => {
 
   if (sortDirectionBtn) {
     currentSort.asc = !currentSort.asc;
-    await renderMonth();
+    await renderMonth({ reuseGlobalStats: true });
     return;
   }
 
@@ -2547,17 +2593,17 @@ root.addEventListener('click', async (ev) => {
       if (qaWrap) qaWrap.classList.remove('expanded');
       
       qaToggle.classList.remove('active');
-      animTimeout = setTimeout(async () => { await renderMonth(); }, 250);
+      animTimeout = setTimeout(async () => { await renderMonth({ reuseGlobalStats: true }); }, 250);
       return;
     } else {
       if (wasOtherActionOpen) {
         openForm = null;
-        await renderMonth();
+        await renderMonth({ reuseGlobalStats: true });
         return;
       }
       
       isExpenseMenuOpening = true;
-      await renderMonth();
+      await renderMonth({ reuseGlobalStats: true });
       isExpenseMenuOpening = false;
 
       const qaWrap = $('#qa-sub-anim-inner');
@@ -2667,20 +2713,20 @@ root.addEventListener('click', async (ev) => {
       formBtn.classList.remove('active');
       const wrap = $('#form-panel-anim-inner');
       if (wrap) wrap.classList.remove('expanded');
-      animTimeout = setTimeout(async () => { await renderMonth(); }, 250);
+      animTimeout = setTimeout(async () => { await renderMonth({ reuseGlobalStats: true }); }, 250);
       return;
     }
     
     if (oldForm || (wasExpenseMenuOpen && !isExpenseSubForm)) {
       openForm = newForm;
-      await renderMonth();
+      await renderMonth({ reuseGlobalStats: true });
       setTimeout(() => $('#form-panel-anim-inner')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
       return;
     }
     
     isFormOpening = true;
     openForm = newForm;
-    await renderMonth();
+    await renderMonth({ reuseGlobalStats: true });
     isFormOpening = false;
     
     const wrap = $('#form-panel-anim-inner');
@@ -2701,7 +2747,7 @@ root.addEventListener('click', async (ev) => {
     
     document.querySelectorAll('[data-form], [data-qa-toggle]').forEach(btn => btn.classList.remove('active'));
     
-    animTimeout = setTimeout(async () => { await renderMonth(); }, 250);
+    animTimeout = setTimeout(async () => { await renderMonth({ reuseGlobalStats: true }); }, 250);
     return;
   }
 
@@ -2975,7 +3021,7 @@ root.addEventListener('click', async (ev) => {
 
   const cancelEdit = ev.target.closest('[data-cancel-edit]');
   if (cancelEdit) {
-    await renderMonth();
+    await renderMonth({ reuseGlobalStats: true });
     return;
   }
 
@@ -3004,7 +3050,7 @@ root.addEventListener('click', async (ev) => {
     const container = saveEmiDay.closest('.emi-stats');
     const newDay = Number(container.querySelector('.inline-edit-emi-day').value);
     
-    if (!newDay || newDay < 1 || newDay > 31) {
+   if (!newDay || newDay < 1 || newDay > 31) {
       showToast("Enter a valid day (1-31).");
       return;
     }
@@ -3013,6 +3059,7 @@ root.addEventListener('click', async (ev) => {
     if (series) {
       series.dayOfMonth = newDay;
       await Store.set('emiseries', emiSeries);
+      invalidateAllMonthDerivedCaches();
       await renderMonth();
       showToast("Deduction date updated");
     }
@@ -3021,7 +3068,7 @@ root.addEventListener('click', async (ev) => {
 
   const cancelEditEmi = ev.target.closest('[data-cancel-edit-emi]');
   if (cancelEditEmi) {
-    await renderMonth();
+    await renderMonth({ reuseGlobalStats: true });
     return;
   }
 
@@ -3178,7 +3225,7 @@ root.addEventListener('click', async (ev) => {
         }
       }
     }
-    data.entries = data.entries.filter(e => e.id !== id);
+     data.entries = data.entries.filter(e => e.id !== id);
     await saveMonth(mk);
     await renderMonth();
     showToast('Entry removed');
@@ -3188,17 +3235,16 @@ root.addEventListener('click', async (ev) => {
   const delEmiSeriesBtn = ev.target.closest('[data-del-emi-series]');
   if (delEmiSeriesBtn) {
     ev.stopPropagation();
-    const { showDeleteCallout } = await import('../components/delete-popover.js');
     showDeleteCallout(delEmiSeriesBtn, 'confirm-del-emi-series', delEmiSeriesBtn.dataset.delEmiSeries);
     return;
   }
   const confirmDelEmiSeries = ev.target.closest('[data-confirm-del-emi-series]');
   if (confirmDelEmiSeries) {
     ev.stopPropagation();
-    const { hideDeleteCallout } = await import('../components/delete-popover.js');
     const seriesId = confirmDelEmiSeries.dataset.confirmDelEmiSeries;
     emiSeries = emiSeries.filter(s => s.id !== seriesId);
     await Store.set('emiseries', emiSeries);
+    invalidateAllMonthDerivedCaches();
     hideDeleteCallout();
     await renderMonth();
     showToast('EMI deleted entirely');
@@ -3214,22 +3260,23 @@ root.addEventListener('click', async (ev) => {
 
     const recurring = recurringSeries.find(s => s.id === seriesId);
 
+    const writes = [];
     if (recurring) {
       recurring.skipMonths = (recurring.skipMonths || [])
         .filter(m => m !== targetMonth);
-
-      await Store.set('recurringseries', recurringSeries);
+      writes.push(Store.set('recurringseries', recurringSeries));
     }
 
     if (targetMonth === monthKey) {
       const data = await loadMonth(targetMonth);
       data.deletedRecurring = (data.deletedRecurring || [])
         .filter(id => id !== seriesId);
-
-      await saveMonth(targetMonth);
+      writes.push(saveMonth(targetMonth));
     }
 
-    await renderMonth();
+    await Promise.all(writes);
+    if (targetMonth === monthKey) cachedGlobalStats = null;
+    await renderMonth({ reuseGlobalStats: targetMonth !== monthKey });
 
     showToast(
       `Recurring deduction restored for ${monthKeyLabel(targetMonth)}`
@@ -3240,7 +3287,6 @@ root.addEventListener('click', async (ev) => {
   const skipRecurringBtn = ev.target.closest('[data-skip-recurring]');
   if (skipRecurringBtn) {
     ev.stopPropagation();
-    const { showDeleteCallout } = await import('../components/delete-popover.js');
     showDeleteCallout(skipRecurringBtn, 'confirm-skip-recurring', skipRecurringBtn.dataset.skipRecurring, 'Confirm skip');
     return;
   }
@@ -3248,20 +3294,19 @@ root.addEventListener('click', async (ev) => {
   if (confirmSkipRecurring) {
     ev.stopPropagation();
 
-    const { hideDeleteCallout } = await import('../components/delete-popover.js');
     const [targetMonth, seriesId] =
       confirmSkipRecurring.dataset.confirmSkipRecurring.split('|');
 
     const recurring = recurringSeries.find(s => s.id === seriesId);
 
+    const writes = [];
     if (recurring) {
       recurring.skipMonths = recurring.skipMonths || [];
 
       if (!recurring.skipMonths.includes(targetMonth)) {
         recurring.skipMonths.push(targetMonth);
       }
-
-      await Store.set('recurringseries', recurringSeries);
+      writes.push(Store.set('recurringseries', recurringSeries));
     }
 
     if (targetMonth === monthKey) {
@@ -3271,12 +3316,13 @@ root.addEventListener('click', async (ev) => {
       if (!data.deletedRecurring.includes(seriesId)) {
         data.deletedRecurring.push(seriesId);
       }
-
-      await saveMonth(targetMonth);
+      writes.push(saveMonth(targetMonth));
     }
 
+    await Promise.all(writes);
     hideDeleteCallout();
-    await renderMonth();
+    if (targetMonth === monthKey) cachedGlobalStats = null;
+    await renderMonth({ reuseGlobalStats: targetMonth !== monthKey });
 
     showToast(
       `Recurring deduction skipped for ${monthKeyLabel(targetMonth)}`
@@ -3287,7 +3333,7 @@ root.addEventListener('click', async (ev) => {
   const sipFilterBtn = ev.target.closest('[data-sip-filter]');
   if (sipFilterBtn) {
     currentSipFilter = sipFilterBtn.dataset.sipFilter;
-    await renderMonth();
+    await renderMonth({ reuseGlobalStats: true });
     return;
   }
 
@@ -3301,16 +3347,22 @@ root.addEventListener('click', async (ev) => {
     if (!sip) return;
 
     sip.skipMonths = (sip.skipMonths || []).filter(m => m !== targetMonth);
-    await Store.set('sipseries', sipSeries);
+    const writes = [Store.set('sipseries', sipSeries)];
 
     if (targetMonth === monthKey) {
       const data = await loadMonth(targetMonth);
       data.deletedSip = data.deletedSip || [];
       data.deletedSip = data.deletedSip.filter(id => id !== seriesId);
-      await saveMonth(targetMonth);
+      writes.push(saveMonth(targetMonth));
     }
 
-    await renderMonth();
+    await Promise.all(writes);
+    if (targetMonth === monthKey) {
+      cachedGlobalStats = null;
+      await renderMonth();
+    } else {
+      await refreshSipCard(seriesId);
+    }
     showToast(`SIP restored for ${monthKeyLabel(targetMonth)}`);
     return;
   }
@@ -3318,15 +3370,15 @@ root.addEventListener('click', async (ev) => {
   const skipSipBtn = ev.target.closest('[data-skip-sip]');
   if (skipSipBtn) {
     ev.stopPropagation();
-    const { showDeleteCallout } = await import('../components/delete-popover.js');
     showDeleteCallout(skipSipBtn, 'confirm-skip-sip', skipSipBtn.dataset.skipSip, 'Confirm skip');
     return;
   }
   const confirmSkipSip = ev.target.closest('[data-confirm-skip-sip]');
   if (confirmSkipSip) {
     ev.stopPropagation();
-    const { hideDeleteCallout } = await import('../components/delete-popover.js');
     const [targetMonth, seriesId] = confirmSkipSip.dataset.confirmSkipSip.split('|');
+
+    const writes = [];
 
     // If the current month's deduction already exists, the SIP card passes
     // the next month here. In that case this month's transaction is untouched.
@@ -3337,8 +3389,7 @@ root.addEventListener('click', async (ev) => {
       if (!data.deletedSip.includes(seriesId)) {
         data.deletedSip.push(seriesId);
       }
-
-      await saveMonth(targetMonth);
+      writes.push(saveMonth(targetMonth));
     }
 
     const sip = sipSeries.find(s => s.id === seriesId);
@@ -3349,12 +3400,17 @@ root.addEventListener('click', async (ev) => {
       if (!sip.skipMonths.includes(targetMonth)) {
         sip.skipMonths.push(targetMonth);
       }
-
-      await Store.set('sipseries', sipSeries);
+      writes.push(Store.set('sipseries', sipSeries));
     }
 
+    await Promise.all(writes);
     hideDeleteCallout();
-    await renderMonth();
+    if (targetMonth === monthKey) {
+      cachedGlobalStats = null;
+      await renderMonth();
+    } else {
+      await refreshSipCard(seriesId);
+    }
     showToast(`Skipping SIP deduction for ${monthKeyLabel(targetMonth)}`);
     return;
   }
@@ -3438,7 +3494,7 @@ root.addEventListener('click', async (ev) => {
         linkedLent: { spendMonthKey, spendId: entry.id, lentId: l.id },
       } : {
         id: paybackId,
-        type: 'payback',
+       type: 'payback',
         description: `Payback @${entry.description} (${l.person})`,
         amount: Number(l.amount) || 0,
         date: todayStr(),
@@ -3448,6 +3504,7 @@ root.addEventListener('click', async (ev) => {
       l.paybackRef = { monthKey: paybackKey, id: paybackId };
       if (paybackKey === monthKey) data.entries.push(paybackEntry);
 
+      invalidateMonthDerivedCache(monthKey);
       await renderMonth();
       showToast('Marked as paid back');
 
@@ -3477,7 +3534,7 @@ root.addEventListener('click', async (ev) => {
       // before that field existed.
       const ref = l.paybackRef;
       l.settled = false;
-      delete l.paybackRef;
+       delete l.paybackRef;
       if (ref && ref.monthKey === monthKey) {
         data.entries = data.entries.filter(pe => pe.id !== ref.id);
       } else if (!ref) {
@@ -3487,6 +3544,7 @@ root.addEventListener('click', async (ev) => {
         ));
       }
 
+      invalidateMonthDerivedCache(monthKey);
       await renderMonth();
       showToast('Marked as unpaid');
 
@@ -3559,7 +3617,7 @@ root.addEventListener('change', async (ev) => {
     } else if (tLow === 'rent') {
         metaHtml = `<div class="ie-input-group" style="flex:1; min-width:120px;">${meta2Svg}<input type="text" class="ie-meta-1 field-input" placeholder="Location"></div>`;
     }
-    if (metaZone) {
+   if (metaZone) {
       metaZone.innerHTML = metaHtml;
       metaZone.style.display = metaHtml ? 'flex' : 'none';
     }
@@ -3569,7 +3627,7 @@ root.addEventListener('change', async (ev) => {
   if (ev.target.id === 'deduct-cc-cash-toggle') {
     deductCcCash = ev.target.checked;
     setTimeout(async () => {
-      await renderMonth();
+      await renderMonth({ reuseGlobalStats: true });
     }, 200);
     return;
   }
@@ -3582,7 +3640,7 @@ root.addEventListener('change', async (ev) => {
     }
 
     ev.target.value = '';
-    await renderMonth();
+    await renderMonth({ reuseGlobalStats: true });
     return;
   }
 
@@ -3594,7 +3652,7 @@ root.addEventListener('change', async (ev) => {
     }
 
     ev.target.value = '';
-    await renderMonth();
+    await renderMonth({ reuseGlobalStats: true });
     return;
   }
 
@@ -3609,7 +3667,7 @@ root.addEventListener('change', async (ev) => {
       currentSort.key = key;
     }
 
-    await renderMonth();
+    await renderMonth({ reuseGlobalStats: true });
     return;
   }
 
@@ -3696,7 +3754,7 @@ root.addEventListener('input', (ev) => {
   }
 });
 
-import('../components/delete-popover.js').then(({ wireDeletePopoverDismiss }) => wireDeletePopoverDismiss(root));
+wireDeletePopoverDismiss(root);
 window.addEventListener('auth:signed-in', renderMonth);
 window.addEventListener('auth:checked', renderMonth);
 // Wait for the first /api/auth/me round trip so we never flash the

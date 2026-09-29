@@ -40,19 +40,31 @@ let cache = null; // Domain data + dashboard snapshots for KPIs, obligations, bu
 async function loadDomain() {
   const budgetKey = `budget-data:${currentMonthKey()}`;
 
-  const [cards, emiSeries, sipSeries, monthsIndex, splitsIndex, existingInvestments, recurringSeries, storedBudgetData, legacyBudgetData, goals, priceItems] = await Promise.all([
-    Store.get('creditcards', []),
-    Store.get('emiseries', []),
-    Store.get('sipseries', []),
-    Store.get('months-index', []),
-    Store.get('splits-index', []),
-    Store.get('existinginvestments', 0),
-    Store.get('recurringseries', []),
-    Store.get(budgetKey, null),
-    Store.get('budget-data', null),
-    Store.get('goals', []),
-    Store.get('price-items', []),
-  ]);
+  const records = await Store.bulkGet([
+    'creditcards',
+    'emiseries',
+    'sipseries',
+    'months-index',
+    'splits-index',
+    'existinginvestments',
+    'recurringseries',
+    budgetKey,
+    'budget-data',
+    'goals',
+    'price-items',
+  ], {});
+
+  const cards = records.creditcards || [];
+  const emiSeries = records.emiseries || [];
+  const sipSeries = records.sipseries || [];
+  const monthsIndex = records['months-index'] || [];
+  const splitsIndex = records['splits-index'] || [];
+  const existingInvestments = records.existinginvestments || 0;
+  const recurringSeries = records.recurringseries || [];
+  const storedBudgetData = Object.prototype.hasOwnProperty.call(records, budgetKey) ? records[budgetKey] : null;
+  const legacyBudgetData = Object.prototype.hasOwnProperty.call(records, 'budget-data') ? records['budget-data'] : null;
+  const goals = records.goals || [];
+  const priceItems = records['price-items'] || [];
 
   // PRE-WARM CACHE: Perform a single bulk fetch to grab all historical months and splits.
   // This completely eliminates the N+1 API queries when domain functions later call Store.get().

@@ -47,12 +47,18 @@ let currentSort = { key: 'date', asc: false };
 // Every mutation to splitsIndex/monthsIndex already happens in place
 // before persisting, so the cache never goes stale.
 async function loadDomain() {
-  [splitsIndex, monthsIndex, cards, customTags] = await Promise.all([
-    Store.get('splits-index', []),
-    Store.get('months-index', []),
-    Store.get('creditcards', []),
-    Store.get('custom-spend-tags', []),
-  ]);
+  if (domainLoaded) return;
+
+  const records = await Store.bulkGet([
+    'splits-index',
+    'months-index',
+    'creditcards',
+    'custom-spend-tags',
+  ], {});
+  splitsIndex = records['splits-index'] || [];
+  monthsIndex = records['months-index'] || [];
+  cards = records.creditcards || [];
+  customTags = records['custom-spend-tags'] || [];
 
   const params = new URLSearchParams(window.location.search);
   const requestedGroupId = params.get('group');

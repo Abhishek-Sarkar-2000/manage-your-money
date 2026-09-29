@@ -16,12 +16,9 @@ let recurringAddPending = false;
 
 async function renderSubscriptions() {
   if (!domainLoaded) {
-    const [rs, c] = await Promise.all([
-      Store.get('recurringseries', []),
-      Store.get('creditcards', [])
-    ]);
-    recurringSeries = rs;
-    cards = c;
+    const records = await Store.bulkGet(['recurringseries', 'creditcards'], {});
+    recurringSeries = records.recurringseries || [];
+    cards = records.creditcards || [];
     domainLoaded = true;
   }
 

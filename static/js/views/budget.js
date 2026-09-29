@@ -69,6 +69,11 @@ let draggedItem = null;
 let goals = [];
 let budgetDataByMonthMemo = {};
 let entriesByMonthMemo = {};
+let budgetContextKey = null;
+let budgetContextReady = false;
+let usedAmountMemo = new Map();
+let spendingBreakdownMemo = null;
+let forecastMemo = new Map();
 
 let currentKey = currentMonthKey();
 let isPastMonth = false;
@@ -77,15 +82,24 @@ let includeCcCashInSpent = false;
 async function loadDomain() {
   if (domainLoaded) return;
 
-  [customTags, emiSeries, sipSeries, recurringSeries, monthsIndex, goals] = await Promise.all([
-    Store.get('custom-spend-tags', []),
-    Store.get('emiseries', []),
-    Store.get('sipseries', []),
-    Store.get('recurringseries', []),
-    Store.get('months-index', []),
-    Store.get('goals', []),
-  ]);
+  const keys = [
+    'custom-spend-tags',
+    'emiseries',
+    'sipseries',
+    'recurringseries',
+    'months-index',
+    'goals',
+    'creditcards',
+  ];
+  const domain = await Store.bulkGet(keys, {});
 
+  customTags = domain['custom-spend-tags'] || [];
+  emiSeries = domain.emiseries || [];
+  sipSeries = domain.sipseries || [];
+  recurringSeries = domain.recurringseries || [];
+  monthsIndex = domain['months-index'] || [];
+  goals = domain.goals || [];
+  cards = domain.creditcards || [];
   domainLoaded = true;
 }
 
@@ -353,6 +367,15 @@ function renderCreditCardSpendAlert() {
 function calculateUsed(name, isSub, parentName, systemRef = null) {
   if (!name || !currentMonthEntries) return 0;
 
+  const memoKey = [
+    isSub ? 'sub' : 'cat',
+    String(parentName || '').trim().toLowerCase(),
+    String(name).trim().toLowerCase(),
+    systemRef?.cardId || '',
+    systemRef?.seriesId || '',
+  ].join('|');
+  if (usedAmountMemo.has(memoKey)) return usedAmountMemo.get(memoKey);
+
   let total = 0;
   const target = String(name).trim().toLowerCase();
 
@@ -389,6 +412,7 @@ function calculateUsed(name, isSub, parentName, systemRef = null) {
     if (matchesCategory(e, name, isSub, parentName)) total += amt;
   }
 
+  usedAmountMemo.set(memoKey, total);
   return total;
 }
 
@@ -412,6 +436,22 @@ function getStatusInfo(pct) {
   return { label: 'On track', cls: 'status-ontrack' };
 }
 
+function getBudgetForecast(item, isSub, parentName, shouldShow) {
+  if (!shouldShow) return null;
+  const memoKey = [
+    currentKey,
+    isSub ? 'sub' : 'cat',
+    String(parentName || '').trim().toLowerCase(),
+    String(item.name || '').trim().toLowerCase(),
+    Number(item.budget) || 0,
+  ].join('|');
+
+  if (forecastMemo.has(memoKey)) return forecastMemo.get(memoKey);
+  const forecast = forecastCategorySpend(item.name, isSub, parentName, item.budget, currentKey, scheduledMonthEntries);
+  forecastMemo.set(memoKey, forecast);
+  return forecast;
+}
+
 // Goal funding never enters totalBudget, totalUsed, or totalSpent — only the Goals section's own numbers.
 function computeSummary() {
   let totalBudget = 0;
@@ -424,7 +464,7 @@ function computeSummary() {
     }
   }
 
-  const spending = computeSpendingBreakdown(currentMonthEntries);
+  const spending = spendingBreakdownMemo || (spendingBreakdownMemo = computeSpendingBreakdown(currentMonthEntries));
   const ccCashSpends =
     spending.creditCardSpends +
     spending.cashPayments;
@@ -747,9 +787,7 @@ function renderBudgetRow(item, isSub, parentId, groupId) {
 
   let forecastHtml = '';
   const shouldShowForecast = !isSystemRow || parentGroup?.systemType === AUTO_SYSTEM_TYPE;
-  const forecast = shouldShowForecast
-    ? forecastCategorySpend(item.name, isSub, parentName, item.budget, currentKey, scheduledMonthEntries)
-    : null;
+  const forecast = getBudgetForecast(item, isSub, parentName, shouldShowForecast);
   if (forecast) {
     const svgs = {
       'ok': `<svg class="forecast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
@@ -1035,7 +1073,7 @@ function renderGoalsSection() {
         </div>
       </div>
     `;
-  }).join('');
+ }).join('');
 
   return `
     <div class="financial-goals-section" style="margin-bottom: 24px;">
@@ -1045,45 +1083,53 @@ function renderGoalsSection() {
   `;
 }
 
-async function renderBudget() {
-  await loadDomain();
-
+async function loadBudgetContext() {
   currentKey = root.dataset.monthKey || currentMonthKey();
   isPastMonth = currentKey < currentMonthKey();
 
-  budgetData = await Store.get(`budget-data:${currentKey}`, null);
-  if (!budgetData) {
-    const legacy = await Store.get('budget-data', null);
-    if (legacy && currentKey === currentMonthKey()) {
-      budgetData = legacy;
-    } else if (currentKey === currentMonthKey()) {
-      const lastLogged = monthsIndex.length ? monthsIndex[monthsIndex.length - 1] : null;
-      if (lastLogged && lastLogged !== currentKey) {
-        const lastBudget = await Store.get(`budget-data:${lastLogged}`, []) || [];
+  const keyChanged = budgetContextKey !== currentKey;
+  if (budgetContextReady && !keyChanged) return;
+
+  let shouldPersistBudget = false;
+
+  if (keyChanged) {
+    const budgetKey = `budget-data:${currentKey}`;
+    const lastLogged = monthsIndex.length ? monthsIndex[monthsIndex.length - 1] : null;
+    const keys = [budgetKey, 'budget-data'];
+    if (currentKey === currentMonthKey() && lastLogged && lastLogged !== currentKey) {
+      keys.push(`budget-data:${lastLogged}`);
+    }
+
+    const stored = await Store.bulkGet(keys, {});
+    const hasCurrentBudget = Object.prototype.hasOwnProperty.call(stored, budgetKey);
+    const storedCurrentBudget = hasCurrentBudget ? stored[budgetKey] : null;
+    budgetData = storedCurrentBudget;
+
+    if (!budgetData) {
+      const legacy = Object.prototype.hasOwnProperty.call(stored, 'budget-data')
+        ? stored['budget-data']
+        : null;
+      if (legacy && currentKey === currentMonthKey()) {
+        budgetData = legacy;
+      } else if (currentKey === currentMonthKey() && lastLogged && lastLogged !== currentKey) {
+        const lastBudget = stored[`budget-data:${lastLogged}`] || [];
         const copiedBudget = JSON.parse(JSON.stringify(lastBudget)).filter(group => !isSystemGroup(group));
         budgetData = stripManagedAutoCategories(copiedBudget);
       } else {
         budgetData = [];
       }
-    } else {
-      budgetData = [];
+      shouldPersistBudget = true;
     }
+
+    const beforeNormalize = JSON.stringify(budgetData);
+    const normalizedBudget = stripManagedAutoCategories(migrateBudgetData(budgetData));
+    if (JSON.stringify(normalizedBudget) !== beforeNormalize) {
+      shouldPersistBudget = true;
+    }
+    budgetData = normalizedBudget;
   }
-  budgetData = stripManagedAutoCategories(migrateBudgetData(budgetData));
 
-  const [monthData, freshEmi, freshSip, freshRec, freshCards] = await Promise.all([
-    loadMonth(currentKey),
-    Store.get('emiseries', []),
-    Store.get('sipseries', []),
-    Store.get('recurringseries', []),
-    Store.get('creditcards', []),
-  ]);
-
-  emiSeries = freshEmi;
-  sipSeries = freshSip;
-  recurringSeries = freshRec;
-  cards = freshCards;
-
+  const monthData = await loadMonth(currentKey);
   const balanceMonthKeys = [...new Set([...(monthsIndex || []), currentKey])].sort();
   const monthlyBreakdown = await computeMonthlyBreakdown(balanceMonthKeys, emiSeries, sipSeries, recurringSeries);
   const currentBreakdown = monthlyBreakdown.find(row => row.monthKey === currentKey);
@@ -1100,15 +1146,34 @@ async function renderBudget() {
 
   scheduledMonthEntries = [...(monthData.entries || []), ...scheduledGeneratedRows];
   currentMonthEntries = [...(monthData.entries || []), ...postedGeneratedRows];
+  usedAmountMemo.clear();
+  spendingBreakdownMemo = null;
+  forecastMemo.clear();
 
-  const ccDueSnapshot = await computeCreditCardDueBudget(cards, recurringSeries, currentKey);
-  currentCcDueSnapshot = currentKey === currentMonthKey()
-    ? await computeCreditCardDueBudget(cards, recurringSeries, addMonths(currentKey, 1))
-    : null;
+  const [ccDueSnapshot, nextCcDueSnapshot] = await Promise.all([
+    computeCreditCardDueBudget(cards, recurringSeries, currentKey),
+    currentKey === currentMonthKey()
+      ? computeCreditCardDueBudget(cards, recurringSeries, addMonths(currentKey, 1))
+      : Promise.resolve(null),
+  ]);
+  currentCcDueSnapshot = nextCcDueSnapshot;
 
+  const beforeSystemSync = JSON.stringify(budgetData);
   await ensureCreditCardDuesGroup(ccDueSnapshot);
   await ensureAutoSpendGroup(scheduledGeneratedRows);
-  await Store.set(`budget-data:${currentKey}`, budgetData);
+  if (JSON.stringify(budgetData) !== beforeSystemSync) shouldPersistBudget = true;
+
+  if (shouldPersistBudget) {
+    await Store.set(`budget-data:${currentKey}`, budgetData);
+  }
+
+  budgetContextKey = currentKey;
+  budgetContextReady = true;
+}
+
+async function renderBudget() {
+  await loadDomain();
+  await loadBudgetContext();
 
   // Handle deep links from Month and Dashboard.
   const openReq = sessionStorage.getItem('month-to-budget-open');
@@ -1279,9 +1344,9 @@ async function renderBudget() {
   </div>
 
   <div class="section">
-    ${renderSummaryCards()}
+    <div data-budget-summary>${renderSummaryCards()}</div>
     ${renderCreditCardSpendAlert()}
-    ${renderGoalsSection()}
+    <div data-budget-goals>${renderGoalsSection()}</div>
     ${renderUnbudgetedCallout()}
     
     <div class="pill-grid" style="margin: 16px 0px;">
@@ -1318,6 +1383,23 @@ async function renderBudget() {
   }
 }
 
+function refreshBudgetSummary() {
+  const host = root.querySelector('[data-budget-summary]');
+  if (host) host.innerHTML = renderSummaryCards();
+}
+
+function refreshBudgetGoals() {
+  const host = root.querySelector('[data-budget-goals]');
+  if (host) host.innerHTML = renderGoalsSection();
+}
+
+function refreshClassificationButtons(catId, activeClass) {
+  const selector = `[data-set-classification][data-cat-id="${CSS.escape(catId)}"]`;
+  root.querySelectorAll(selector).forEach(button => {
+    button.classList.toggle('active', button.dataset.setClassification === activeClass);
+  });
+}
+
 // Drag & Drop Handlers
 root.addEventListener('dragstart', (ev) => {
   if (isPastMonth) return;
@@ -1334,12 +1416,24 @@ root.addEventListener('dragstart', (ev) => {
   row.style.opacity = '0.4';
 });
 
+let dragHoverRow = null;
+let dragHoverGroup = null;
+
+function clearDragHover() {
+  if (dragHoverRow) {
+    dragHoverRow.classList.remove('drop-above', 'drop-below');
+    dragHoverRow = null;
+  }
+  if (dragHoverGroup) {
+    dragHoverGroup.classList.remove('drag-target-active');
+    dragHoverGroup = null;
+  }
+}
+
 root.addEventListener('dragend', (ev) => {
   const row = ev.target.closest('.budget-row');
   if (row) row.style.opacity = '1';
-  document.querySelectorAll('.drop-above, .drop-below, .drag-target-active').forEach(el => {
-    el.classList.remove('drop-above', 'drop-below', 'drag-target-active');
-  });
+  clearDragHover();
   draggedItem = null;
 });
 
@@ -1352,11 +1446,22 @@ root.addEventListener('dragover', (ev) => {
     const destGroup = budgetData.find(group => group.id === groupHeader.dataset.groupDropTarget);
     if (isSystemGroup(destGroup)) {
       ev.dataTransfer.dropEffect = 'none';
+      clearDragHover();
       return;
     }
+
     ev.dataTransfer.dropEffect = 'move';
-    document.querySelectorAll('.drag-target-active').forEach(el => el.classList.remove('drag-target-active'));
-    groupHeader.closest('.budget-group').classList.add('drag-target-active');
+    if (dragHoverRow) {
+      dragHoverRow.classList.remove('drop-above', 'drop-below');
+      dragHoverRow = null;
+    }
+
+    const group = groupHeader.closest('.budget-group');
+    if (dragHoverGroup !== group) {
+      if (dragHoverGroup) dragHoverGroup.classList.remove('drag-target-active');
+      dragHoverGroup = group;
+      if (dragHoverGroup) dragHoverGroup.classList.add('drag-target-active');
+    }
     return;
   }
   
@@ -1366,39 +1471,45 @@ root.addEventListener('dragover', (ev) => {
   const targetType = row.dataset.type;
   const targetParentId = row.dataset.parentId || null;
 
-  if (draggedItem.type === 'sub') {
-    if (targetType === 'cat' || targetParentId !== draggedItem.parentId) {
-      ev.dataTransfer.dropEffect = 'none';
-      document.querySelectorAll('.drop-above, .drop-below').forEach(el => el.classList.remove('drop-above', 'drop-below'));
-      return;
+  if (
+    (draggedItem.type === 'sub' && (targetType === 'cat' || targetParentId !== draggedItem.parentId)) ||
+    (draggedItem.type === 'cat' && targetType === 'sub')
+  ) {
+    ev.dataTransfer.dropEffect = 'none';
+    if (dragHoverRow) {
+      dragHoverRow.classList.remove('drop-above', 'drop-below');
+      dragHoverRow = null;
     }
+    return;
   }
 
-  if (draggedItem.type === 'cat' && targetType === 'sub') {
-    ev.dataTransfer.dropEffect = 'none';
-    document.querySelectorAll('.drop-above, .drop-below').forEach(el => el.classList.remove('drop-above', 'drop-below'));
-    return;
+  ev.dataTransfer.dropEffect = 'move';
+  if (dragHoverGroup) {
+    dragHoverGroup.classList.remove('drag-target-active');
+    dragHoverGroup = null;
+  }
+
+  if (dragHoverRow !== row) {
+    if (dragHoverRow) dragHoverRow.classList.remove('drop-above', 'drop-below');
+    dragHoverRow = row;
   }
 
   const rect = row.getBoundingClientRect();
   const isBottomHalf = ev.clientY > rect.top + rect.height / 2;
-
-  document.querySelectorAll('.drop-above, .drop-below, .drag-target-active').forEach(el => {
-    if (el !== row) el.classList.remove('drop-above', 'drop-below', 'drag-target-active');
-  });
-
-  row.classList.remove('drop-above', 'drop-below');
-  row.classList.add(isBottomHalf ? 'drop-below' : 'drop-above');
+  row.classList.toggle('drop-below', isBottomHalf);
+  row.classList.toggle('drop-above', !isBottomHalf);
 });
 
 root.addEventListener('dragleave', (ev) => {
   const row = ev.target.closest('.budget-row');
-  if (row && !row.contains(ev.relatedTarget)) {
+  if (row === dragHoverRow && !row.contains(ev.relatedTarget)) {
     row.classList.remove('drop-above', 'drop-below');
+    dragHoverRow = null;
   }
   const group = ev.target.closest('.budget-group');
-  if (group && !group.contains(ev.relatedTarget)) {
+  if (group === dragHoverGroup && !group.contains(ev.relatedTarget)) {
     group.classList.remove('drag-target-active');
+    dragHoverGroup = null;
   }
 });
 
@@ -1538,7 +1649,7 @@ root.addEventListener('click', async (ev) => {
   const spentToggle = ev.target.closest('[data-budget-spent-toggle]');
   if (spentToggle) {
     includeCcCashInSpent = !includeCcCashInSpent;
-    await renderBudget();
+    refreshBudgetSummary();
     return;
   }
 
@@ -1561,12 +1672,19 @@ root.addEventListener('click', async (ev) => {
     ev.stopPropagation();
     const catId = classBtn.dataset.catId;
     const newClass = classBtn.dataset.setClassification;
+    let targetCat = null;
+
     for (const g of budgetData) {
-      const cat = (g.categories || []).find(c => c.id === catId);
-      if (cat) { cat.classification = newClass; break; }
+      targetCat = (g.categories || []).find(c => c.id === catId) || null;
+      if (targetCat) break;
     }
+
+    if (!targetCat || classificationOf(targetCat) === newClass) return;
+
+    targetCat.classification = newClass;
+    refreshClassificationButtons(catId, newClass);
+    refreshBudgetGoals();
     await Store.set(`budget-data:${currentKey}`, budgetData);
-    await renderBudget();
     return;
   }
 

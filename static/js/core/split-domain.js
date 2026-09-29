@@ -87,11 +87,24 @@ export async function deleteSplitGroup(splitsIndex, id) {
 }
 
 export async function loadAllSplitGroups(splitsIndex) {
-  const groups = [];
-  for (const id of splitsIndex) {
-    const g = await loadSplit(id, false);
-    if (g) groups.push(g);
+  const ids = Array.isArray(splitsIndex) ? splitsIndex : [];
+  const missingIds = [...new Set(ids)].filter(id => !splitCache[id]);
+
+  if (missingIds.length) {
+    const keys = missingIds.map(id => 'split:' + id);
+    const records = await Store.bulkGet(keys, {});
+
+    for (const id of missingIds) {
+      const data = records['split:' + id];
+      if (!data) continue;
+      data.spends = data.spends || [];
+      data.settlements = data.settlements || [];
+      data.people = data.people && data.people.length ? data.people : [SPLIT_YOU];
+      splitCache[id] = data;
+    }
   }
+
+  const groups = ids.map(id => splitCache[id]).filter(Boolean);
   groups.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '') || (b.id || '').localeCompare(a.id || ''));
   return groups;
 }

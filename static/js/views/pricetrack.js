@@ -28,11 +28,10 @@ let domainLoaded = false;
 // before persisting, so later re-renders never need to refetch them.
 async function loadDomain() {
   if (domainLoaded) return;
-  [priceItems, priceTrackDictionary, customTags] = await Promise.all([
-    Store.get('price-items', []),
-    Store.get('price-track-dict', {}),
-    Store.get('custom-spend-tags', []),
-  ]);
+  const records = await Store.bulkGet(['price-items', 'price-track-dict', 'custom-spend-tags'], {});
+  priceItems = records['price-items'] || [];
+  priceTrackDictionary = records['price-track-dict'] || {};
+  customTags = records['custom-spend-tags'] || [];
 
   const requestedItemId = new URLSearchParams(window.location.search).get('item');
   if (requestedItemId && priceItems.some(item => item.id === requestedItemId)) {

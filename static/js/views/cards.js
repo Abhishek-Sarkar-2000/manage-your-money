@@ -199,10 +199,9 @@ async function renderCards() {
   // Fetched once; add/delete mutate `cards` in memory and persist it, so
   // later re-renders reuse the in-memory array instead of refetching.
   if (!domainLoaded) {
-    [cards, recurringSeries] = await Promise.all([
-      Store.get('creditcards', []),
-      Store.get('recurringseries', []),
-    ]);
+    const records = await Store.bulkGet(['creditcards', 'recurringseries'], {});
+    cards = records.creditcards || [];
+    recurringSeries = records.recurringseries || [];
 
     let migrated = false;
     cards = cards.map(card => {

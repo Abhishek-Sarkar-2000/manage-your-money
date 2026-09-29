@@ -9,6 +9,47 @@ import { computeSplitPageData } from './split-domain.js';
 /* In-memory per-page-load cache. Fresh on every navigation (a real page
    load now), so there's no cross-route staleness to manage. */
 const monthCache = {};
+const globalMonthSnapshotCache = new Map();
+
+export function invalidateMonthDerivedCache(key) {
+  globalMonthSnapshotCache.delete(key);
+}
+
+export function invalidateAllMonthDerivedCaches() {
+  globalMonthSnapshotCache.clear();
+}
+
+function normalizeMonthData(data) {
+  const month = data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+  if (!month.startingBalanceMode) month.startingBalanceMode = 'manual';
+  if (!Array.isArray(month.entries)) month.entries = [];
+  if (!Array.isArray(month.deletedEmi)) month.deletedEmi = [];
+  if (!Array.isArray(month.deletedSip)) month.deletedSip = [];
+  if (!Array.isArray(month.deletedRecurring)) month.deletedRecurring = [];
+  if (!month.sipOverrides || typeof month.sipOverrides !== 'object' || Array.isArray(month.sipOverrides)) month.sipOverrides = {};
+  if (!month.recurringOverrides || typeof month.recurringOverrides !== 'object' || Array.isArray(month.recurringOverrides)) month.recurringOverrides = {};
+  return month;
+}
+
+// Prime the same in-memory cache used by loadMonth() with one bulk request.
+// Missing records are intentionally left uncached so loadMonth() keeps its
+// existing fallback/error semantics for genuinely absent months.
+export async function preloadMonths(keys) {
+  const missing = [...new Set((keys || []).filter(Boolean))]
+    .filter(key => !monthCache[key]);
+
+  if (!missing.length) return;
+
+  const storageKeys = missing.map(key => 'month:' + key);
+  const records = await Store.bulkGet(storageKeys, {});
+
+  for (const key of missing) {
+    const storageKey = 'month:' + key;
+    if (Object.prototype.hasOwnProperty.call(records, storageKey)) {
+      monthCache[key] = normalizeMonthData(records[storageKey]);
+    }
+  }
+}
 
 export function migrateBudgetData(raw) {
   if (!raw || !Array.isArray(raw) || raw.length === 0) return [];
@@ -116,22 +157,12 @@ export async function loadMonth(key) {
   const data = await Store.get('month:' + key, {
     startingBalanceMode: 'manual', startingBalance: 0, entries: [], deletedEmi: [], deletedSip: [], deletedRecurring: [], sipOverrides: {},
   });
-  if (!data.startingBalanceMode) data.startingBalanceMode = 'manual';
-  if (!data.deletedSip) data.deletedSip = [];
-  if (!data.deletedRecurring) data.deletedRecurring = [];
-  if (
-    !data.recurringOverrides ||
-    typeof data.recurringOverrides !== 'object' ||
-    Array.isArray(data.recurringOverrides)
-  ) {
-    data.recurringOverrides = {};
-  }
-  if (!data.sipOverrides || typeof data.sipOverrides !== 'object' || Array.isArray(data.sipOverrides)) data.sipOverrides = {};
-  monthCache[key] = data;
-  return data;
+  monthCache[key] = normalizeMonthData(data);
+  return monthCache[key];
 }
 
 export async function saveMonth(key) {
+  invalidateMonthDerivedCache(key);
   await Store.set('month:' + key, monthCache[key]);
 }
 
@@ -852,6 +883,7 @@ export function monthCashOutflow(totals) {
 /* Chronological per-month running balance, honouring each month's carry/manual mode. */
 export async function computeMonthlyBreakdown(monthsIndex, emiSeries, sipSeries, recurringSeries) {
   const sortedKeys = [...monthsIndex].sort();
+  await preloadMonths(sortedKeys);
   const rows = [];
   let prevEnding = null;
   for (const k of sortedKeys) {
@@ -1038,12 +1070,167 @@ export async function computeGlobalCardDues(monthsIndex, cards, recurringSeries)
  * existingInvestments) — nothing is fetched implicitly here.
  */
 export async function computeGlobalStats({ cards, emiSeries, sipSeries, recurringSeries, monthsIndex, existingInvestments, isShared, sharedSplitId, splitsIndex }) {
-  const [owed, invested, cardDues, breakdown] = await Promise.all([
-    computeGlobalOwed(monthsIndex, isShared, sharedSplitId, splitsIndex),
-    computeGlobalInvestments(monthsIndex, sipSeries, existingInvestments),
-    computeGlobalCardDues(monthsIndex, cards, recurringSeries),
-    computeMonthlyBreakdown(monthsIndex, emiSeries, sipSeries, recurringSeries),
-  ]);
+  const today = todayStr();
+  const keys = Array.isArray(monthsIndex) ? monthsIndex : [];
+  const uniqueKeys = [...new Set(keys)];
+
+  // Month records and Split groups are the only I/O needed here. Start both
+  // bulkable loads together, then derive every dashboard aggregate from the
+  // same per-month snapshots instead of scanning all history four times.
+  const splitPromise = computeSplitPageData(isShared, sharedSplitId, splitsIndex);
+  await preloadMonths(uniqueKeys);
+
+  const snapshotByKey = new Map();
+  for (const key of uniqueKeys) {
+    let snapshot = globalMonthSnapshotCache.get(key);
+    if (!snapshot || snapshot.today !== today) {
+      const data = await loadMonth(key);
+      const emiRows = emiRowsForMonth(emiSeries, key, data.deletedEmi).filter(row => row.date <= today);
+      const sipRows = sipRowsForMonth(sipSeries, key, data.deletedSip, data.sipOverrides).filter(row => row.date <= today);
+      const recurringRows = recurringRowsForMonth(
+        recurringSeries || [],
+        key,
+        data.deletedRecurring,
+        data.recurringOverrides
+      ).filter(row => row.date <= today);
+
+      const owedItems = [];
+      const cardDeltas = {};
+      let investmentAmount = sipRows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+
+      for (const entry of data.entries) {
+        if (entry.type === 'investment') investmentAmount += Number(entry.amount) || 0;
+
+        if (entry.type === 'owed' && !entry.settled) {
+          owedItems.push({
+            person: entry.description || 'Unknown',
+            amount: Number(entry.amount) || 0,
+            rawAmount: entry.amount,
+            source: 'Owed',
+          });
+        }
+
+        if ((entry.type === 'spend' || entry.type === 'cardcharge' || entry.type === 'cashpayment') && Array.isArray(entry.lent)) {
+          for (const lent of entry.lent) {
+            if (lent.splitOwed || lent.settled) continue;
+            owedItems.push({
+              person: lent.person || 'Unknown',
+              amount: Number(lent.amount) || 0,
+              rawAmount: lent.amount,
+              source: 'Lent · ' + entry.description,
+            });
+          }
+        }
+
+        if (entry.type === 'cardcharge' && entry.cardId) {
+          cardDeltas[entry.cardId] = (cardDeltas[entry.cardId] || 0) + (Number(entry.amount) || 0);
+        }
+        if (entry.type === 'spend' && entry.paymentMode === 'card' && entry.cardId) {
+          cardDeltas[entry.cardId] = (cardDeltas[entry.cardId] || 0) - (Number(entry.amount) || 0);
+        }
+      }
+
+      for (const entry of recurringRows) {
+        if (entry.paymentMode === 'card' && entry.cardId) {
+          cardDeltas[entry.cardId] = (cardDeltas[entry.cardId] || 0) + (Number(entry.amount) || 0);
+        }
+      }
+
+      snapshot = {
+        today,
+        startingBalanceMode: data.startingBalanceMode,
+        startingBalance: data.startingBalance,
+        totals: computeMonthTotals(data.entries.concat(emiRows, sipRows, recurringRows)),
+        investmentAmount,
+        owedItems,
+        cardDeltas,
+      };
+      globalMonthSnapshotCache.set(key, snapshot);
+    }
+    snapshotByKey.set(key, snapshot);
+  }
+
+  const byPerson = {};
+  let investedTotal = Number(existingInvestments) || 0;
+  const monthlyInvestments = [];
+  const perCard = {};
+  for (const card of (cards || [])) perCard[card.id] = { card, dues: 0 };
+
+  for (const key of keys) {
+    const snapshot = snapshotByKey.get(key);
+    if (!snapshot) continue;
+
+    for (const item of snapshot.owedItems) {
+      byPerson[item.person] = byPerson[item.person] || { amount: 0, items: [] };
+      byPerson[item.person].amount += item.amount;
+      byPerson[item.person].items.push({ amount: item.rawAmount, monthKey: key, source: item.source });
+    }
+
+    for (const [cardId, delta] of Object.entries(snapshot.cardDeltas)) {
+      perCard[cardId] = perCard[cardId] || { card: cardById(cards, cardId), dues: 0 };
+      perCard[cardId].dues += delta;
+    }
+
+    if (snapshot.investmentAmount > 0) {
+      monthlyInvestments.push({ description: 'Investments for', amount: snapshot.investmentAmount, monthKey: key });
+      investedTotal += snapshot.investmentAmount;
+    }
+  }
+
+  const { owedToYou } = await splitPromise;
+  for (const [person, amount] of Object.entries(owedToYou)) {
+    if (amount <= 0) continue;
+    byPerson[person] = byPerson[person] || { amount: 0, items: [] };
+    byPerson[person].amount += amount;
+    byPerson[person].items.push({ amount, monthKey: 'Split', source: 'Split Money' });
+  }
+
+  const owedList = Object.entries(byPerson)
+    .map(([person, value]) => ({ person, amount: value.amount, items: value.items }))
+    .sort((a, b) => b.amount - a.amount);
+  const owed = {
+    total: owedList.reduce((sum, item) => sum + item.amount, 0),
+    list: owedList,
+  };
+
+  monthlyInvestments.sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+  const investedList = [];
+  if (Number(existingInvestments) > 0) {
+    investedList.push({ description: 'Base Portfolio', amount: Number(existingInvestments), monthKey: null });
+  }
+  investedList.push(...monthlyInvestments);
+  const invested = { total: investedTotal, list: investedList };
+
+  const cardList = Object.values(perCard)
+    .filter(item => item.card)
+    .map(item => ({
+      cardId: item.card.id,
+      name: item.card.name,
+      billingDay: Number(item.card.billingDay) || 1,
+      dueDay: Number(item.card.dueDay) || 1,
+      dues: item.dues,
+    }));
+  const cardDues = {
+    total: cardList.reduce((sum, item) => sum + item.dues, 0),
+    list: cardList,
+  };
+
+  const breakdown = [];
+  let prevEnding = null;
+  for (const key of [...keys].sort()) {
+    const snapshot = snapshotByKey.get(key);
+    if (!snapshot) continue;
+    const { totals } = snapshot;
+
+    const starting = snapshot.startingBalanceMode === 'auto' && prevEnding !== null
+      ? prevEnding
+      : (Number(snapshot.startingBalance) || 0);
+    const outflow = monthCashOutflow(totals);
+    const ending = starting + totals.income - outflow;
+    breakdown.push({ monthKey: key, starting, income: totals.income, outflow, ending, totals });
+    prevEnding = ending;
+  }
+
   const amountLeft = breakdown.length ? breakdown[breakdown.length - 1].ending : 0;
   return { owed, invested, cardDues, breakdown, amountLeft };
 }

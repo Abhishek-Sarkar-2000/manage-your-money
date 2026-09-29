@@ -31,14 +31,20 @@ let currentKeysAsc = [];
 // and persists it, so later re-renders never need to refetch it.
 async function loadDomain() {
   if (domainLoaded) return;
-  [monthsIndex, emiSeries, sipSeries, recurringSeries, customTags, budgetData] = await Promise.all([
-    Store.get('months-index', []),
-    Store.get('emiseries', []),
-    Store.get('sipseries', []),
-    Store.get('recurringseries', []),
-    Store.get('custom-spend-tags', []),
-    Store.get('budget-data', []),
-  ]);
+  const records = await Store.bulkGet([
+    'months-index',
+    'emiseries',
+    'sipseries',
+    'recurringseries',
+    'custom-spend-tags',
+    'budget-data',
+  ], {});
+  monthsIndex = records['months-index'] || [];
+  emiSeries = records.emiseries || [];
+  sipSeries = records.sipseries || [];
+  recurringSeries = records.recurringseries || [];
+  customTags = records['custom-spend-tags'] || [];
+  budgetData = records['budget-data'] || [];
   domainLoaded = true;
 }
 
