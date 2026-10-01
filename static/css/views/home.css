@@ -18,36 +18,142 @@
 
 .home-loading-state {
   min-height: calc(100vh - var(--app-header-height) - 80px);
+}
+
+.home-loading-shell {
+  width: 100%;
   display: grid;
-  place-items: center;
+  gap: 18px;
+  animation: home-skeleton-pulse 1.25s ease-in-out infinite alternate;
 }
 
-.home-loading-card {
-  width: min(100%, 360px);
-  min-height: 200px;
-  padding: 40px 30px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+.home-skeleton,
+.home-skeleton-line {
+  display: block;
+  border: 1px solid color-mix(in srgb, var(--hair) 82%, transparent);
+  background: color-mix(in srgb, var(--hair) 52%, var(--paper));
 }
 
-.home-loading-spinner {
-  width: 36px;
-  height: 36px;
-  margin-bottom: 24px;
-  border: 3px solid var(--ice);
-  border-top-color: var(--blue);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+.home-skeleton {
+  overflow: hidden;
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm);
 }
 
-.home-loading-copy {
-  margin-top: auto;
-  color: var(--muted);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.85rem;
-  text-align: center;
+.home-skeleton-line {
+  height: 10px;
+  border: 0;
+  border-radius: 999px;
+}
+
+.home-skeleton-line.is-kicker {
+  width: 92px;
+  height: 8px;
+}
+
+.home-skeleton-line.is-title {
+  width: min(420px, 58%);
+  height: 28px;
+}
+
+.home-skeleton-line.is-hero-title {
+  width: min(280px, 46%);
+  height: 25px;
+}
+
+.home-skeleton-line.is-copy {
+  width: min(620px, 76%);
+}
+
+.home-skeleton-line.is-value {
+  width: 68%;
+  height: 24px;
+}
+
+.home-skeleton-line.is-meta {
+  width: 82%;
+  height: 8px;
+}
+
+.home-loading-heading {
+  display: grid;
+  gap: 9px;
+  padding: 6px 2px 2px;
+}
+
+.home-loading-hero {
+  min-height: 112px;
+  padding: 22px 24px;
+  display: grid;
+  align-content: center;
+  gap: 10px;
+}
+
+.home-loading-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.home-loading-kpi {
+  min-height: 116px;
+  padding: 17px 18px;
+  display: grid;
+  align-content: center;
+  gap: 11px;
+}
+
+.home-loading-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.home-loading-panel {
+  grid-column: span 4;
+  min-height: 240px;
+}
+
+.home-loading-panel.is-wide {
+  grid-column: span 8;
+}
+
+@keyframes home-skeleton-pulse {
+  from { opacity: 0.62; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 980px) {
+  .home-loading-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-loading-panel,
+  .home-loading-panel.is-wide {
+    grid-column: span 6;
+  }
+}
+
+@media (max-width: 600px) {
+  .home-loading-shell {
+    gap: 14px;
+  }
+
+  .home-loading-kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .home-loading-panel-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .home-loading-panel,
+  .home-loading-panel.is-wide {
+    min-height: 190px;
+  }
 }
 
 /* ---------- Dashboard header ---------- */
@@ -4115,6 +4221,81 @@
   border-color: var(--sky);
 }
 
+/* ---------- Home motion + interaction polish ---------- */
+
+@keyframes home-section-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.home-view:not(.no-entrance-anim) .dashboard-heading {
+  animation: home-section-enter 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.home-view:not(.no-entrance-anim) .current-month-card {
+  animation-delay: 0.04s;
+}
+
+.home-view:not(.no-entrance-anim) .dashboard-kpi-section {
+  animation: home-section-enter 0.3s 0.08s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.home-view:not(.no-entrance-anim) .dashboard-grid {
+  animation: home-section-enter 0.32s 0.12s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.home-view .current-month-card:active {
+  transform: translateY(0) scale(0.995);
+}
+
+.home-view .dashboard-chart-mode button,
+.home-view .range-btn,
+.home-view .dashboard-pager-arrow,
+.home-view .dashboard-pager-dot,
+.home-view .dashboard-panel-link {
+  transition-property: transform, color, background-color, border-color, opacity, width, box-shadow;
+  transition-duration: 0.14s;
+  transition-timing-function: ease;
+}
+
+.home-view .dashboard-chart-mode button:active,
+.home-view .range-btn:active,
+.home-view .dashboard-pager-arrow:active:not(:disabled),
+.home-view .dashboard-pager-dot:active,
+.home-view .dashboard-panel-link:active {
+  transform: scale(0.96);
+}
+
+.home-view .dashboard-pager-page {
+  transform-origin: center;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.home-view .dashboard-pager-page[aria-hidden="true"] {
+  opacity: 0.72;
+  transform: scale(0.988);
+}
+
+.home-view .dashboard-pager.is-dragging .dashboard-pager-page {
+  transition: none;
+}
+
+.home-view .current-month-card:focus-visible,
+.home-view .dashboard-chart-mode button:focus-visible,
+.home-view .range-btn:focus-visible,
+.home-view .dashboard-pager-arrow:focus-visible,
+.home-view .dashboard-pager-dot:focus-visible,
+.home-view .dashboard-panel-link:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+
 /* ---------- Accessibility / themes ---------- */
 
 :root[data-theme="hi-contrast"] .dashboard-pager-arrow,
@@ -4123,8 +4304,22 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dashboard-pager-track {
-    transition: none;
+  .home-loading-shell,
+  .home-view:not(.no-entrance-anim) .dashboard-heading,
+  .home-view:not(.no-entrance-anim) .current-month-card,
+  .home-view:not(.no-entrance-anim) .dashboard-kpi-section,
+  .home-view:not(.no-entrance-anim) .dashboard-grid {
+    animation: none !important;
+  }
+
+  .dashboard-pager-track,
+  .home-view .dashboard-pager-page,
+  .home-view .dashboard-chart-mode button,
+  .home-view .range-btn,
+  .home-view .dashboard-pager-arrow,
+  .home-view .dashboard-pager-dot,
+  .home-view .dashboard-panel-link {
+    transition: none !important;
   }
 }
 

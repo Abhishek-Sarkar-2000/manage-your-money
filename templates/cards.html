@@ -4,7 +4,38 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/views/cards.css') }}?v={{ static_version }}" />
 {% endblock %}
 {% block content %}
-  <div id="cards-root" class="cards-view" data-loading="true"></div>
+  <div id="cards-root" class="cards-view" data-loading="true" aria-busy="true">
+    <div class="cards-loading-state" role="status" aria-label="Loading credit cards">
+      <div class="cards-loading-shell" aria-hidden="true">
+        <div class="cards-skeleton-panel cards-loading-collection">
+          <div class="cards-loading-heading">
+            <span class="cards-skeleton-line is-title"></span>
+            <span class="cards-skeleton-line is-copy"></span>
+          </div>
+          <div class="cards-loading-items">
+            <div class="cards-skeleton-item"><div><span class="cards-skeleton-line is-card-name"></span><span class="cards-skeleton-line is-card-meta"></span></div><span class="cards-skeleton-circle"></span></div>
+            <div class="cards-skeleton-item"><div><span class="cards-skeleton-line is-card-name"></span><span class="cards-skeleton-line is-card-meta"></span></div><span class="cards-skeleton-circle"></span></div>
+            <div class="cards-skeleton-item"><div><span class="cards-skeleton-line is-card-name"></span><span class="cards-skeleton-line is-card-meta"></span></div><span class="cards-skeleton-circle"></span></div>
+          </div>
+          <div class="cards-skeleton-form">
+            <span class="cards-skeleton-line is-input"></span>
+            <span class="cards-skeleton-line is-input"></span>
+            <span class="cards-skeleton-line is-input"></span>
+          </div>
+        </div>
+        <div class="cards-skeleton-panel cards-loading-ledger">
+          <div class="cards-loading-heading">
+            <span class="cards-skeleton-line is-title"></span>
+            <span class="cards-skeleton-line is-copy"></span>
+          </div>
+          <div class="cards-skeleton-toolbar"><span class="cards-skeleton-line is-select"></span><span class="cards-skeleton-line is-toggle"></span></div>
+          <div class="cards-skeleton-cycle"></div>
+          <div class="cards-skeleton-stats"><span></span><span></span><span></span><span></span></div>
+          <div class="cards-skeleton-table"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
 {% endblock %}
 {% block page_script %}
   <script type="module" src="{{ url_for('static', filename='js/views/cards.js') }}"></script>

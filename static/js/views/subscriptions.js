@@ -9,10 +9,14 @@ import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '
 import { markRendered } from '../components/render-guard.js';
 
 const root = document.getElementById('subscriptions-root');
+
+const deleteBinSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>`;
+
 let recurringSeries = [];
 let cards = [];
 let domainLoaded = false;
 let recurringAddPending = false;
+let editingRecurringId = null;
 
 async function renderSubscriptions() {
   if (!domainLoaded) {
@@ -22,7 +26,13 @@ async function renderSubscriptions() {
     domainLoaded = true;
   }
 
-  const cardOptions = cards.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  const editData = editingRecurringId
+    ? recurringSeries.find(s => s.id === editingRecurringId)
+    : null;
+
+  const cardOptions = cards.map(c =>
+    `<option value="${c.id}" ${editData?.cardId === c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`
+  ).join('');
 
   const rows = recurringSeries.map(s => {
     let modeText = 'Bank Transfer';
@@ -36,7 +46,12 @@ async function renderSubscriptions() {
         <div class="cc-name">${escapeHtml(s.description)}</div>
         <div class="cc-cycle">${fmtINR(s.amount)} / month · deducted on the ${s.dayOfMonth}${ordinalSuffix(s.dayOfMonth)} via ${escapeHtml(modeText)}</div>
       </div>
-      <button class="icon-btn" data-popover-trigger data-del-recurring-series="${s.id}" title="Delete recurring expense">✕</button>
+      <div style="display:flex; align-items:center; gap:4px;">
+        <button class="icon-btn" data-edit-recurring-series="${s.id}" title="Edit recurring expense" type="button">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+        </button>
+        <button class="icon-btn" data-popover-trigger data-del-recurring-series="${s.id}" title="Delete recurring expense" type="button">${deleteBinSvg}</button>
+      </div>
     </div>
     `;
   }).join('') || `<div class="empty-chart">No recurring expenses added yet — add one below.</div>`;
@@ -54,24 +69,27 @@ async function renderSubscriptions() {
           <div class="form-note" style="margin-top:0;">Deducted every month on the date you choose — clamped to the last day of the month when it doesn't have that many days.</div>
           
           <div class="pill-grid" style="margin-bottom: 12px;" id="sub-mode-selector">
-            <button class="pill-btn sub-pill active" data-sub-mode="bank" type="button">Bank Transfer</button>
-            <button class="pill-btn sub-pill" data-sub-mode="card" type="button" ${cards.length ? '' : 'disabled'}>Credit Card</button>
+            <button class="pill-btn sub-pill ${!editData || editData.paymentMode !== 'card' ? 'active' : ''}" data-sub-mode="bank" type="button">Bank Transfer</button>
+            <button class="pill-btn sub-pill ${editData?.paymentMode === 'card' ? 'active' : ''}" data-sub-mode="card" type="button" ${cards.length ? '' : 'disabled'}>Credit Card</button>
           </div>
 
           <div class="form-row">
-            <div class="field"><label>Details</label><input id="recurring-desc" type="text" placeholder="e.g. Netflix" /></div>
-            <div class="field"><label>Amount (₹ / month)</label><input id="recurring-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
-            <div class="field"><label>Date of deduction</label><input id="recurring-day" type="number" step="1" min="1" max="31" placeholder="e.g. 5" /></div>
+            <div class="field"><label>Details</label><input id="recurring-desc" type="text" placeholder="e.g. Netflix" value="${editData ? escapeHtml(editData.description) : ''}" /></div>
+            <div class="field"><label>Amount (₹ / month)</label><input id="recurring-amount" type="number" step="0.01" min="0" placeholder="0.00" value="${editData ? editData.amount : ''}" /></div>
+            <div class="field"><label>Date of deduction</label><input id="recurring-day" type="number" step="1" min="1" max="31" placeholder="e.g. 5" value="${editData ? editData.dayOfMonth : ''}" /></div>
           </div>
           
-          <div class="form-row" id="sub-card-row" style="display:none;">
+          <div class="form-row" id="sub-card-row" style="${editData?.paymentMode === 'card' ? 'display:contents;' : 'display:none;'}">
             <div class="field">
               <label>Card</label>
               <select id="recurring-card">${cardOptions || '<option value="">No cards added</option>'}</select>
             </div>
           </div>
           
-          <div class="form-actions"><button class="btn" id="recurring-add">Add Recurring Expense</button></div>
+          <div class="form-actions">
+            <button class="btn" id="recurring-add">${editData ? 'Save Changes' : 'Add Recurring Expense'}</button>
+            ${editData ? '<button class="btn ghost" id="recurring-edit-cancel" type="button">Cancel</button>' : ''}
+          </div>
         </div>
     </div>
   </div>
@@ -81,6 +99,24 @@ async function renderSubscriptions() {
 }
 
 root.addEventListener('click', async (ev) => {
+  const editRecurring = ev.target.closest('[data-edit-recurring-series]');
+  if (editRecurring) {
+    editingRecurringId = editRecurring.dataset.editRecurringSeries;
+    await renderSubscriptions();
+
+    const form = root.querySelector('.form-panel');
+    if (form) {
+      form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    return;
+  }
+
+  if (ev.target.closest('#recurring-edit-cancel')) {
+    editingRecurringId = null;
+    await renderSubscriptions();
+    return;
+  }
+
   const subModeBtn = ev.target.closest('[data-sub-mode]');
   if (subModeBtn) {
     if (subModeBtn.disabled) return;
@@ -126,19 +162,38 @@ root.addEventListener('click', async (ev) => {
     addRecurring.disabled = true;
 
     try {
-      recurringSeries.push({
-        id: uid(),
-        description: desc,
-        amount,
-        dayOfMonth,
-        paymentMode,
-        cardId,
-        startMonth: currentMonthKey()
-      });
+      if (editingRecurringId) {
+        const recurring = recurringSeries.find(
+          s => s.id === editingRecurringId
+        );
 
-      await Store.set('recurringseries', recurringSeries);
-      await renderSubscriptions();
-      showToast(`Recurring spend will be deducted on the ${dayOfMonth}${ordinalSuffix(dayOfMonth)} of every month`);
+        if (recurring) {
+          recurring.description = desc;
+          recurring.amount = amount;
+          recurring.dayOfMonth = dayOfMonth;
+          recurring.paymentMode = paymentMode;
+          recurring.cardId = cardId;
+        }
+
+        editingRecurringId = null;
+        await Store.set('recurringseries', recurringSeries);
+        await renderSubscriptions();
+        showToast('Recurring expense updated');
+      } else {
+        recurringSeries.push({
+          id: uid(),
+          description: desc,
+          amount,
+          dayOfMonth,
+          paymentMode,
+          cardId,
+          startMonth: currentMonthKey()
+        });
+
+        await Store.set('recurringseries', recurringSeries);
+        await renderSubscriptions();
+        showToast(`Recurring spend will be deducted on the ${dayOfMonth}${ordinalSuffix(dayOfMonth)} of every month`);
+      }
     } finally {
       recurringAddPending = false;
       addRecurring.disabled = false;

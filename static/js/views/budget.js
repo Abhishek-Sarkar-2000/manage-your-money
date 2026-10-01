@@ -66,6 +66,7 @@ let isFormOpen = false;
 let isGoalFormOpen = false;
 let monthEntries = [];
 let draggedItem = null;
+let pendingDropAnimationId = null;
 let goals = [];
 let budgetDataByMonthMemo = {};
 let entriesByMonthMemo = {};
@@ -78,6 +79,88 @@ let forecastMemo = new Map();
 let currentKey = currentMonthKey();
 let isPastMonth = false;
 let includeCcCashInSpent = false;
+
+function captureBudgetProgressState() {
+  const rows = new Map();
+  const goalSegments = new Map();
+
+  root.querySelectorAll('.budget-row[data-id]').forEach(row => {
+    const fill = row.querySelector('.bp-fill');
+    if (fill) rows.set(row.dataset.id, fill.style.width);
+  });
+
+  root.querySelectorAll('.goal-card[data-goal-id]').forEach(card => {
+    const saved = card.querySelector('.goal-seg-saved');
+    const current = card.querySelector('.goal-seg-this-month');
+    goalSegments.set(card.dataset.goalId, { saved: saved?.style.width || '0%', current: current?.style.width || '0%' });
+  });
+
+  return { rows, goalSegments };
+}
+
+function animateBudgetProgressFrom(previousState) {
+  if (!previousState) return;
+
+  root.querySelectorAll('.budget-row[data-id]').forEach(row => {
+    const fill = row.querySelector('.bp-fill');
+    const previousWidth = previousState.rows.get(row.dataset.id);
+    if (!fill || previousWidth == null) return;
+
+    const targetWidth = fill.style.width;
+    if (previousWidth === targetWidth) return;
+
+    fill.style.width = previousWidth;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (fill.isConnected) fill.style.width = targetWidth;
+    }));
+  });
+
+  root.querySelectorAll('.goal-card[data-goal-id]').forEach(card => {
+    const previous = previousState.goalSegments.get(card.dataset.goalId);
+    if (!previous) return;
+
+    const saved = card.querySelector('.goal-seg-saved');
+    const current = card.querySelector('.goal-seg-this-month');
+
+    [[saved, previous.saved], [current, previous.current]].forEach(([segment, oldWidth]) => {
+      if (!segment) return;
+      const targetWidth = segment.style.width;
+      if (targetWidth === oldWidth) return;
+
+      segment.style.width = oldWidth;
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (segment.isConnected) segment.style.width = targetWidth;
+      }));
+    });
+  });
+}
+
+function beginBudgetBusy(button, label = 'Saving…') {
+  if (!button) return () => {};
+
+  const originalHtml = button.innerHTML;
+  const originalMinWidth = button.style.minWidth;
+  const originalDisabled = button.disabled;
+  const width = button.getBoundingClientRect().width;
+
+  button.disabled = true;
+  button.style.minWidth = `${Math.ceil(width)}px`;
+
+  const timer = setTimeout(() => {
+    if (!button.isConnected) return;
+    button.classList.add('is-budget-busy');
+    button.innerHTML = `<span class="budget-busy-spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span>`;
+  }, 140);
+
+  return () => {
+    clearTimeout(timer);
+    if (!button.isConnected) return;
+    button.classList.remove('is-budget-busy');
+    button.innerHTML = originalHtml;
+    button.style.minWidth = originalMinWidth;
+    button.disabled = originalDisabled;
+  };
+}
 
 async function loadDomain() {
   if (domainLoaded) return;
@@ -896,10 +979,10 @@ function renderBudgetRow(item, isSub, parentId, groupId) {
   }
 
   return `
-  <div class="budget-row ${isSub ? 'is-sub' : ''} ${parentGroup?.systemType === CC_DUES_SYSTEM_TYPE ? 'system-cc-due-row' : ''} ${parentGroup?.systemType === AUTO_SYSTEM_TYPE ? 'system-auto-row' : ''}" data-id="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" data-parent-id="${parentId ? parentId : ''}" data-group-id="${groupId}" draggable="${!isPastMonth && !isSystemRow}">
+  <div class="budget-row ${isSub ? 'is-sub' : ''} ${!isPastMonth && !isSystemRow ? 'is-draggable-row' : ''} ${parentGroup?.systemType === CC_DUES_SYSTEM_TYPE ? 'system-cc-due-row' : ''} ${parentGroup?.systemType === AUTO_SYSTEM_TYPE ? 'system-auto-row' : ''}" data-id="${item.id}" data-type="${isSub ? 'sub' : 'cat'}" data-parent-id="${parentId ? parentId : ''}" data-group-id="${groupId}">
     <div class="cat-name-col">
       ${classificationHtml}
-      <div class="cat-name-inner" style="display:flex; align-items:center; gap:8px;">
+      <div class="cat-name-inner" draggable="${!isPastMonth && !isSystemRow}" style="display:flex; align-items:center; gap:8px;">
         ${isSystemRow ? '' : dragHandleSvg}
         <span style="font-weight:600; color:var(--navy); font-family:'Source Serif 4', Georgia, serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(item.displayName || item.name)}</span>
       </div>
@@ -1172,8 +1255,12 @@ async function loadBudgetContext() {
 }
 
 async function renderBudget() {
-  await loadDomain();
-  await loadBudgetContext();
+  const hadRenderedBudget = root.dataset.rendered === '1';
+  const previousProgressState = captureBudgetProgressState();
+
+  try {
+    await loadDomain();
+    await loadBudgetContext();
 
   // Handle deep links from Month and Dashboard.
   const openReq = sessionStorage.getItem('month-to-budget-open');
@@ -1326,8 +1413,11 @@ async function renderBudget() {
   if (tb) tb.style.display = '';
 
   markRendered(root);
+  root.removeAttribute('data-loading');
+  root.setAttribute('aria-busy', 'false');
+
   root.innerHTML = `
-  <div class="section">
+  <div class="section budget-load-stage budget-load-stage--header">
     <div class="month-header" style="display: flex; justify-content: space-between; gap: 24px;">
       <h1>Budget</h1>
       <div class="range-toggle" style="align-self: center;">
@@ -1344,28 +1434,47 @@ async function renderBudget() {
   </div>
 
   <div class="section">
-    <div data-budget-summary>${renderSummaryCards()}</div>
-    ${renderCreditCardSpendAlert()}
-    <div data-budget-goals>${renderGoalsSection()}</div>
-    ${renderUnbudgetedCallout()}
-    
-    <div class="pill-grid" style="margin: 16px 0px;">
-      ${!isPastMonth ? `<button class="pill-btn ${isFormOpen ? '' : 'active'}" data-budget-form-toggle type="button">+ Add Group</button>` : ''}
-      ${catsWithSubs.length > 0 ? `
-      <button class="pill-btn expand-all-btn ${allExpanded ? 'expanded' : ''}" data-expand-all type="button">
-        <svg class="expand-all-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-        <span data-expand-all-label>${allExpanded ? 'Collapse All' : 'Expand All'}</span>
-      </button>` : ''}
+    <div class="budget-load-stage budget-load-stage--summary">
+      <div data-budget-summary>${renderSummaryCards()}</div>
+      ${renderCreditCardSpendAlert()}
     </div>
+
+    <div class="budget-load-stage budget-load-stage--goals">
+      <div data-budget-goals>${renderGoalsSection()}</div>
     </div>
-    ${!isPastMonth ? formHtml : ''}
-    <div class="budget-list">
-      ${tableRows}
+
+    <div class="budget-load-stage budget-load-stage--table">
+      ${renderUnbudgetedCallout()}
+
+      <div class="pill-grid" style="margin: 16px 0px;">
+        ${!isPastMonth ? `<button class="pill-btn ${isFormOpen ? '' : 'active'}" data-budget-form-toggle type="button">+ Add Group</button>` : ''}
+        ${catsWithSubs.length > 0 ? `
+        <button class="pill-btn expand-all-btn ${allExpanded ? 'expanded' : ''}" data-expand-all type="button">
+          <svg class="expand-all-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          <span data-expand-all-label>${allExpanded ? 'Collapse All' : 'Expand All'}</span>
+        </button>` : ''}
+      </div>
+
+      ${!isPastMonth ? formHtml : ''}
+
+      <div class="budget-list">
+        ${tableRows}
+      </div>
     </div>
   </div>
   `;
 
   appendPageChrome(root);
+  animateBudgetProgressFrom(previousProgressState);
+
+  if (pendingDropAnimationId) {
+    const settledRow = root.querySelector(`.budget-row[data-id="${CSS.escape(pendingDropAnimationId)}"]`);
+    if (settledRow) {
+      settledRow.classList.add('budget-row-settle');
+      setTimeout(() => settledRow.classList.remove('budget-row-settle'), 260);
+    }
+    pendingDropAnimationId = null;
+  }
 
   if (scrollTargetId || scrollTargetSelector) {
     setTimeout(() => {
@@ -1381,6 +1490,24 @@ async function renderBudget() {
       }
     }, 100);
   }
+  } catch (error) {
+    console.error('Budget render failed:', error);
+    root.removeAttribute('data-loading');
+    root.setAttribute('aria-busy', 'false');
+
+    if (!hadRenderedBudget) {
+      root.innerHTML = `
+        <div class="section">
+          <div class="empty-chart budget-load-error">
+            Budget data could not be loaded right now. Please check your connection and try again.
+          </div>
+        </div>
+      `;
+      appendPageChrome(root);
+    }
+
+    showToast("We couldn't load the budget. Please try again.");
+  }
 }
 
 function refreshBudgetSummary() {
@@ -1395,25 +1522,62 @@ function refreshBudgetGoals() {
 
 function refreshClassificationButtons(catId, activeClass) {
   const selector = `[data-set-classification][data-cat-id="${CSS.escape(catId)}"]`;
+
   root.querySelectorAll(selector).forEach(button => {
-    button.classList.toggle('active', button.dataset.setClassification === activeClass);
+    const isActive = button.dataset.setClassification === activeClass;
+    button.classList.toggle('active', isActive);
+
+    if (isActive) {
+      button.classList.remove('classification-pop');
+      requestAnimationFrame(() => {
+        button.classList.add('classification-pop');
+        setTimeout(() => button.classList.remove('classification-pop'), 220);
+      });
+    }
   });
+}
+
+function createBudgetDragPreview(row) {
+  const preview = row.cloneNode(true);
+  preview.classList.add('budget-drag-preview');
+  preview.classList.remove('is-dragging', 'drop-above', 'drop-below', 'budget-row-settle');
+  preview.removeAttribute('data-id');
+  preview.removeAttribute('data-type');
+  preview.removeAttribute('data-parent-id');
+  preview.removeAttribute('data-group-id');
+
+  preview.querySelectorAll('[draggable]').forEach(el => el.removeAttribute('draggable'));
+  preview.querySelectorAll('.actions-col, .cat-classification-toggle, .budget-forecast').forEach(el => el.remove());
+
+  document.body.appendChild(preview);
+  return preview;
 }
 
 // Drag & Drop Handlers
 root.addEventListener('dragstart', (ev) => {
   if (isPastMonth) return;
-  const row = ev.target.closest('.budget-row');
+
+  const dragSurface = ev.target.closest('.cat-name-inner[draggable="true"]');
+  if (!dragSurface) return;
+
+  const row = dragSurface.closest('.budget-row');
   if (!row) return;
+
   draggedItem = {
     id: row.dataset.id,
     type: row.dataset.type,
     parentId: row.dataset.parentId || null,
     groupId: row.dataset.groupId
   };
+
   ev.dataTransfer.effectAllowed = 'move';
   ev.dataTransfer.setData('text/plain', draggedItem.id);
-  row.style.opacity = '0.4';
+
+  const preview = createBudgetDragPreview(row);
+  ev.dataTransfer.setDragImage(preview, 28, 24);
+  requestAnimationFrame(() => preview.remove());
+
+  row.classList.add('is-dragging');
 });
 
 let dragHoverRow = null;
@@ -1432,15 +1596,20 @@ function clearDragHover() {
 
 root.addEventListener('dragend', (ev) => {
   const row = ev.target.closest('.budget-row');
-  if (row) row.style.opacity = '1';
+
+  if (row) {
+    row.classList.remove('is-dragging');
+    row.style.opacity = '';
+  }
+
   clearDragHover();
+  root.querySelectorAll('.drop-above, .drop-below, .drag-target-active').forEach(el => el.classList.remove('drop-above', 'drop-below', 'drag-target-active'));
   draggedItem = null;
 });
 
 root.addEventListener('dragover', (ev) => {
   if (isPastMonth || !draggedItem) return;
-  ev.preventDefault();
-  
+
   const groupHeader = ev.target.closest('.budget-group-header');
   if (groupHeader && draggedItem.type === 'cat') {
     const destGroup = budgetData.find(group => group.id === groupHeader.dataset.groupDropTarget);
@@ -1450,6 +1619,7 @@ root.addEventListener('dragover', (ev) => {
       return;
     }
 
+    ev.preventDefault();
     ev.dataTransfer.dropEffect = 'move';
     if (dragHoverRow) {
       dragHoverRow.classList.remove('drop-above', 'drop-below');
@@ -1483,6 +1653,7 @@ root.addEventListener('dragover', (ev) => {
     return;
   }
 
+  ev.preventDefault();
   ev.dataTransfer.dropEffect = 'move';
   if (dragHoverGroup) {
     dragHoverGroup.classList.remove('drag-target-active');
@@ -1516,18 +1687,21 @@ root.addEventListener('dragleave', (ev) => {
 root.addEventListener('drop', async (ev) => {
   if (isPastMonth || !draggedItem) return;
   ev.preventDefault();
-  
+
+  const droppedItem = { ...draggedItem };
+  clearDragHover();
+
   const groupHeader = ev.target.closest('.budget-group-header');
-  if (groupHeader && draggedItem.type === 'cat') {
+  if (groupHeader && droppedItem.type === 'cat') {
     const destGroupId = groupHeader.dataset.groupDropTarget;
-    if (destGroupId !== draggedItem.groupId) {
-      const sourceGroup = budgetData.find(g => g.id === draggedItem.groupId);
+    if (destGroupId !== droppedItem.groupId) {
+      const sourceGroup = budgetData.find(g => g.id === droppedItem.groupId);
       const destGroup = budgetData.find(g => g.id === destGroupId);
       if (isSystemGroup(destGroup)) {
         showToast(`${destGroup.name} is a system-managed group`);
         return;
       }
-      const catToMove = sourceGroup.categories.find(c => c.id === draggedItem.id);
+      const catToMove = sourceGroup.categories.find(c => c.id === droppedItem.id);
       
       if (!validateCategoryMove(destGroup, catToMove)) {
         showToast('Not enough budget in target group');
@@ -1535,13 +1709,14 @@ root.addEventListener('drop', async (ev) => {
         return;
       }
       
-      const idx = sourceGroup.categories.findIndex(c => c.id === draggedItem.id);
+      const idx = sourceGroup.categories.findIndex(c => c.id === droppedItem.id);
       sourceGroup.categories.splice(idx, 1);
       destGroup.categories = destGroup.categories || [];
       destGroup.categories.push(catToMove);
       destGroup.expanded = true;
       
       await Store.set(`budget-data:${currentKey}`, budgetData);
+      pendingDropAnimationId = catToMove.id;
       await renderBudget();
       showToast('Moved to group');
     }
@@ -1562,31 +1737,31 @@ root.addEventListener('drop', async (ev) => {
     return;
   }
 
-  if (draggedItem.type === 'sub') {
-    if (targetType === 'cat' || targetParentId !== draggedItem.parentId) {
+  if (droppedItem.type === 'sub') {
+    if (targetType === 'cat' || targetParentId !== droppedItem.parentId) {
       document.querySelectorAll('.drop-above, .drop-below').forEach(el => el.classList.remove('drop-above', 'drop-below'));
       return;
     }
   }
 
-  if (draggedItem.type === 'cat' && targetType === 'sub') {
+  if (droppedItem.type === 'cat' && targetType === 'sub') {
     document.querySelectorAll('.drop-above, .drop-below').forEach(el => el.classList.remove('drop-above', 'drop-below'));
     return;
   }
 
-  if (draggedItem.id === targetId) {
+  if (droppedItem.id === targetId) {
      document.querySelectorAll('.drop-above, .drop-below').forEach(el => el.classList.remove('drop-above', 'drop-below'));
      return;
   }
 
   let itemToMove;
   let sourceGroup;
-  if (draggedItem.type === 'cat') {
-    sourceGroup = budgetData.find(g => g.id === draggedItem.groupId);
-    const idx = sourceGroup.categories.findIndex(c => c.id === draggedItem.id);
+  if (droppedItem.type === 'cat') {
+    sourceGroup = budgetData.find(g => g.id === droppedItem.groupId);
+    const idx = sourceGroup.categories.findIndex(c => c.id === droppedItem.id);
     if (idx > -1) itemToMove = sourceGroup.categories[idx];
     
-    if (targetGroupId !== draggedItem.groupId) {
+    if (targetGroupId !== droppedItem.groupId) {
       const destGroup = budgetData.find(g => g.id === targetGroupId);
       if (!validateCategoryMove(destGroup, itemToMove)) {
         showToast('Not enough budget in target group');
@@ -1600,9 +1775,9 @@ root.addEventListener('drop', async (ev) => {
     if (idx > -1) sourceGroup.categories.splice(idx, 1);
   } else {
     for (const g of budgetData) {
-      const parent = (g.categories || []).find(c => c.id === draggedItem.parentId);
+      const parent = (g.categories || []).find(c => c.id === droppedItem.parentId);
       if (parent && parent.subcategories) {
-        const idx = parent.subcategories.findIndex(s => s.id === draggedItem.id);
+        const idx = parent.subcategories.findIndex(s => s.id === droppedItem.id);
         if (idx > -1) { itemToMove = parent.subcategories.splice(idx, 1)[0]; break; }
       }
     }
@@ -1633,6 +1808,7 @@ root.addEventListener('drop', async (ev) => {
   document.querySelectorAll('.drop-above, .drop-below').forEach(el => el.classList.remove('drop-above', 'drop-below'));
   
   await Store.set(`budget-data:${currentKey}`, budgetData);
+  pendingDropAnimationId = itemToMove.id;
   await renderBudget();
   showToast('Order updated');
 });
@@ -1826,9 +2002,19 @@ root.addEventListener('click', async (ev) => {
     parentCat.subcategories = tempParent.subcategories;
     parentCat.expanded = true;
 
-    await Store.set(`budget-data:${currentKey}`, budgetData);
-    await renderBudget();
-    showToast('Subcategory added');
+    const stopBusy = beginBudgetBusy(inlineSaveBtn);
+
+    try {
+      const saved = await Store.set(`budget-data:${currentKey}`, budgetData);
+      if (saved === false) {
+        showToast('Could not save subcategory');
+        return;
+      }
+      await renderBudget();
+      showToast('Subcategory added');
+    } finally {
+      stopBusy();
+    }
     return;
   }
 
@@ -1942,22 +2128,28 @@ root.addEventListener('click', async (ev) => {
     const goalId = fundGoalBtn.dataset.fundGoal;
     const amount = Number(fundGoalBtn.closest('.goal-card').querySelector('.inline-edit-input').value);
     if (!amount || amount <= 0) { showToast('Invalid amount'); return; }
-    
-    await ensureMonthIndexed(currentKey, monthsIndex);
-    const data = await loadMonth(currentKey);
-    const entryId = uid();
-    data.entries.push({ id: entryId, type: 'goal_funding', amount, date: new Date().toISOString().split('T')[0], description: 'Goal Funding', goalId });
-    await saveMonth(currentKey);
-    
-    const goal = goals.find(g => g.id === goalId);
-    if (goal) {
+
+    const stopBusy = beginBudgetBusy(fundGoalBtn, 'Funding…');
+
+    try {
+      await ensureMonthIndexed(currentKey, monthsIndex);
+      const data = await loadMonth(currentKey);
+      const entryId = uid();
+      data.entries.push({ id: entryId, type: 'goal_funding', amount, date: new Date().toISOString().split('T')[0], description: 'Goal Funding', goalId });
+      await saveMonth(currentKey);
+
+      const goal = goals.find(g => g.id === goalId);
+      if (goal) {
         goal.fundingHistory = goal.fundingHistory || [];
         goal.fundingHistory.push({ id: uid(), amount, monthKey: currentKey, date: new Date().toISOString().split('T')[0], entryId });
         await Store.set('goals', goals);
+      }
+
+      await renderBudget();
+      showToast('Goal funded');
+    } finally {
+      stopBusy();
     }
-    
-    await renderBudget();
-    showToast('Goal funded');
     return;
   }
 

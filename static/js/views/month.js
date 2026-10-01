@@ -48,16 +48,6 @@ let cachedGlobalStats = null;
 const tableCollator = new Intl.Collator(undefined, { sensitivity: 'base' });
 const tableDateSortCache = new Map();
 const tableDateDisplayCache = new Map();
-let tableResizeTimer = null;
-
-window.addEventListener('resize', () => {
-  clearTimeout(tableResizeTimer);
-  tableResizeTimer = setTimeout(() => {
-    const bodyTable = root.querySelector('.transactions-container .table-wrap table');
-    const headerTable = root.querySelector('.transactions-container .table-header-wrap table');
-    if (bodyTable && headerTable) headerTable.style.width = bodyTable.offsetWidth + 'px';
-  }, 150);
-});
 
 const PILL_ORDER = ['spend', 'cardcharge', 'cashpayment', 'recurring', 'income', 'owed', 'emi', 'invest'];
 
@@ -66,6 +56,101 @@ let activeTagFilters = [];
 let currentSort = { key: 'date', asc: false };
 let deductCcCash = false;
 let dashboardEntryFocusId = null;
+
+const monthReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+let pendingMonthFx = [];
+let stickyControlsObserver = null;
+let tableResizeHandler = null;
+
+function monthScrollBehavior() {
+  return monthReducedMotion.matches ? 'auto' : 'smooth';
+}
+
+function queueMonthFx(selector, kind = 'update') {
+  pendingMonthFx.push({ selector, kind });
+}
+
+function playPendingMonthFx() {
+  const effects = pendingMonthFx.splice(0);
+  if (!effects.length || monthReducedMotion.matches) return;
+
+  for (const { selector, kind } of effects) {
+    const target = root.querySelector(selector);
+    if (!target) continue;
+
+    const className = target.matches('tr')
+      ? (kind === 'add' ? 'month-row-fx-add' : 'month-row-fx-update')
+      : 'month-card-fx';
+
+    target.classList.remove(className);
+    void target.offsetWidth;
+    target.classList.add(className);
+    target.addEventListener('animationend', () => target.classList.remove(className), { once: true });
+  }
+}
+
+async function animateMonthRowExit(row) {
+  if (!row || monthReducedMotion.matches || !row.animate) return;
+  const cells = Array.from(row.children);
+  if (!cells.length) return;
+  const animations = cells.map(cell => cell.animate(
+    [
+      { opacity: 1, transform: 'translateX(0)' },
+      { opacity: 0, transform: 'translateX(6px)' },
+    ],
+    { duration: 130, easing: 'ease-in', fill: 'forwards' },
+  ));
+  await Promise.all(animations.map(animation => animation.finished.catch(() => {})));
+}
+
+async function runWithMonthBusy(button, task, label = 'Saving…') {
+  if (!button) return task();
+  const originalHtml = button.innerHTML;
+  const originalMinWidth = button.style.minWidth;
+  const width = button.getBoundingClientRect().width;
+  let busyVisible = false;
+
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  if (width > 0) button.style.minWidth = `${Math.ceil(width)}px`;
+
+  const timer = window.setTimeout(() => {
+    if (!button.isConnected) return;
+    busyVisible = true;
+    button.classList.add('is-month-busy');
+    button.innerHTML = `<span class="month-busy-spinner" aria-hidden="true"></span><span>${label}</span>`;
+  }, 140);
+
+  try {
+    return await task();
+  } finally {
+    window.clearTimeout(timer);
+    if (!button.isConnected) return;
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+    button.style.minWidth = originalMinWidth;
+    if (busyVisible) {
+      button.classList.remove('is-month-busy');
+      button.innerHTML = originalHtml;
+    }
+  }
+}
+
+function wireMonthStickyFeedback() {
+  stickyControlsObserver?.disconnect();
+  stickyControlsObserver = null;
+
+  const sentinel = root.querySelector('.sticky-controls-sentinel');
+  const sticky = root.querySelector('.sticky-controls-wrap');
+  if (!sentinel || !sticky || typeof IntersectionObserver === 'undefined') return;
+
+  stickyControlsObserver = new IntersectionObserver(([entry]) => {
+    const isStuck = !entry.isIntersecting && entry.boundingClientRect.top < 52;
+    sticky.classList.toggle('is-stuck', isStuck);
+  }, { rootMargin: '-52px 0px 0px 0px', threshold: 0 });
+
+  stickyControlsObserver.observe(sentinel);
+}
 
 const TABLE_TYPE_LABELS = {
   spend: 'Spend',
@@ -1260,7 +1345,11 @@ function renderMonthSipCard(e) {
   });
 
   return `
-  <div class="month-sip-card ${isSkippedForTarget ? 'is-skipped' : ''}" data-sip-card-id="${e.seriesId}">
+  <div
+    class="month-sip-card ${isSkippedForTarget ? 'is-skipped' : ''}"
+    data-sip-series-id="${escapeHtml(String(e.seriesId))}"
+    data-sip-card-id="${e.seriesId}"
+  >
     <div class="month-sip-card-header">
       <div style="width: 100%;">
         <h4 style="margin-bottom: 0; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
@@ -1730,6 +1819,7 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
   `;
 
   const tableControlsHtml = `
+    <span class="sticky-controls-sentinel" aria-hidden="true"></span>
     <div class="sticky-controls-wrap">
       <div
         class="table-controls"
@@ -1777,7 +1867,7 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
       const pct = totalBill > 0 ? Math.min(100, (totalPaid / totalBill) * 100) : 0;
       const dayNum = e.dayOfMonth || 1;
       return `
-      <div class="emi-card">
+      <div class="emi-card" data-emi-series-id="${escapeHtml(String(e.seriesId))}">
         <div style="flex: 1; min-width: 0;">
           <h4><span class="tag emi">EMI</span> ${escapeHtml(e.description)}</h4>
           <div class="emi-stats" style="margin-bottom: 6px;">
@@ -1910,7 +2000,10 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
           }
 
           return `
-          <div class="month-sip-card ${isSkippedForTarget ? 'is-skipped' : ''}">
+          <div
+            class="month-sip-card ${isSkippedForTarget ? 'is-skipped' : ''}"
+            data-recurring-series-id="${escapeHtml(String(e.seriesId))}"
+          >
             <div class="month-sip-card-header">
               <div style="width: 100%;">
                 <h4 style="margin-bottom: 0; font-weight: 600; color: var(--navy); font-family: 'Fraunces', serif; font-size: 1.05rem; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
@@ -2037,8 +2130,10 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
     if (tb) tb.style.display = '';
 
     markRendered(root);
+    root.removeAttribute('data-loading');
+    root.setAttribute('aria-busy', 'false');
     root.innerHTML = `
-    <div class="section">
+    <div class="section month-load-stage month-load-stage--header">
       <div class="month-header">
         <h1>${monthKeyLabel(monthKey)}</h1>
         <h3 style="margin-bottom: 2px;">Starting balance: ${fmtINR(displayedStarting)}</h3>
@@ -2054,10 +2149,10 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
       </div>
     </div>
 
-    <div class="section">
+    <div class="section month-load-stage month-load-stage--actions">
       ${renderAddEntryPanel()}
     </div>
-     <div class="section">
+     <div class="section month-load-stage month-load-stage--kpis">
       <div class="section-title" style="margin-bottom: 12px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="color: var(--blue); display: flex;">
@@ -2076,7 +2171,7 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
 
       ${renderDashboardKpis(monthKpis)}
     </div>
-    <div class="section">
+    <div class="section month-load-stage month-load-stage--charts">
       <div class="section-title" style="margin-bottom: 12px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="color: var(--blue); display: flex;">
@@ -2158,7 +2253,7 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
       </div>
     </div>
 
-    <div class="section">
+    <div class="section month-load-stage month-load-stage--transactions">
       <div class="section-title" style="margin-bottom: 12px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="color: var(--blue); display: flex;">
@@ -2226,7 +2321,7 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
     </div>
   </div>
   ${sipRows.length ? `
-    <div class="section">
+    <div class="section month-load-stage month-load-stage--secondary">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px;">
         <h2>SIPs</h2>
         <a href="/sips" class="pill-btn sub-pill active hyperlink" style="text-decoration: none; white-sace: nowrap; pflex-shrink: 0; margin-right: 4px;">Manage SIPs</a>
@@ -2236,7 +2331,7 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
       ${sipCardsHtml}
     </div>` : ''}
     ${recurringRows.length ? `
-    <div class="section">
+    <div class="section month-load-stage month-load-stage--secondary">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 8px;">
         <h2 style="min-width: 0; margin: 0;">Recurring Expenses</h2>
         <a href="/subscriptions" class="pill-btn sub-pill active hyperlink" style="text-decoration: none; white-space: nowrap !important; flex-shrink: 0; display: inline-flex; align-items: center; line-height: 1; height: fit-content; margin-right: 4px;">Manage Recurring</a>
@@ -2249,6 +2344,8 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
     appendPageChrome(root);
     setupScrollWrappers(root);
     setupTableScrollIndicators(root);
+    wireMonthStickyFeedback();
+    playPendingMonthFx();
 
     const requestedEntryId = new URLSearchParams(window.location.search).get('entry');
     if (requestedEntryId) {
@@ -2256,7 +2353,7 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
         const target = root.querySelector(`[data-entry-id="${CSS.escape(requestedEntryId)}"]`);
         if (!target) return;
 
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.scrollIntoView({ behavior: monthScrollBehavior(), block: 'center' });
         target.classList.add('dashboard-deep-link-target');
         target.setAttribute('tabindex', '-1');
         target.focus({ preventScroll: true });
@@ -2282,6 +2379,19 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
         // Sync once after rendering. The module-level resize handler
         // re-queries the current table instead of retaining detached tables.
         setTimeout(syncTableWidth, 10);
+        // Only keep one debounced resize listener for the current table.
+        // renderMonth() replaces these nodes, so retaining older closures would
+        // otherwise make every resize touch detached tables.
+        if (tableResizeHandler) {
+              window.removeEventListener('resize', tableResizeHandler);
+        }
+
+        let resizeTimer;
+        tableResizeHandler = () => {
+              clearTimeout(resizeTimer);
+              resizeTimer = setTimeout(syncTableWidth, 150);
+        };
+        window.addEventListener('resize', tableResizeHandler, { passive: true });
       }
 
       tableWrapEl.addEventListener('scroll', () => {
@@ -2297,7 +2407,7 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
           const target = root.querySelector(`[data-entry-id="${CSS.escape(dashboardEntryFocusId)}"]`);
 
           if (target) {
-            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.scrollIntoView({ behavior: monthScrollBehavior(), block: 'center' });
             target.classList.add('dashboard-deep-link-target');
             target.setAttribute('tabindex', '-1');
             target.focus({ preventScroll: true });
@@ -2312,7 +2422,7 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
           if (txns) {
             const yOffset = -88;
             const y = txns.getBoundingClientRect().top + window.scrollY + yOffset;
-            window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+            window.scrollTo({ top: Math.max(0, y), behavior: monthScrollBehavior() });
             didScroll = true;
           }
         }
@@ -2325,6 +2435,8 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
       }, 250);
     }
   } catch (err) {
+    root.removeAttribute('data-loading');
+    root.setAttribute('aria-busy', 'false');
     console.error('renderMonth failed:', err);
     console.error('Stack:', err?.stack);
 
@@ -2497,18 +2609,36 @@ async function handleSubmit(kind) {
     }
 
     recurringSeries.push({ id: uid(), description: desc, amount, dayOfMonth, paymentMode, cardId, startMonth: monthKey });
+    const addedRecurringId = recurringSeries[recurringSeries.length - 1]?.id;
     await Store.set('recurringseries', recurringSeries);
     invalidateMonthDerivedCache(monthKey);
     openForm = null;
     expenseMenuOpen = false;
+    if (addedRecurringId) {
+      queueMonthFx(`[data-recurring-series-id="${CSS.escape(String(addedRecurringId))}"]`, 'add');
+    }
     await renderMonth();
     showToast(`Recurring spend will be deducted on the ${dayOfMonth}${ordinalSuffix(dayOfMonth)} of every month`);
     return;
   }
+  
+  const addedEntryId = kind === 'emi'
+    ? null
+    : data.entries[data.entries.length - 1]?.id;
+  const addedEmiId = kind === 'emi'
+    ? emiSeries[emiSeries.length - 1]?.id
+    : null;
 
   if (monthChanged) await saveMonth(monthKey);
   openForm = null;
   expenseMenuOpen = false;
+
+  if (addedEntryId) {
+    queueMonthFx(`[data-entry-id="${CSS.escape(String(addedEntryId))}"]`, 'add');
+  } else if (addedEmiId) {
+    queueMonthFx(`[data-emi-series-id="${CSS.escape(String(addedEmiId))}"]`, 'add');
+  }
+
   await renderMonth();
   showToast('Added');
 }
@@ -2720,7 +2850,7 @@ root.addEventListener('click', async (ev) => {
     if (oldForm || (wasExpenseMenuOpen && !isExpenseSubForm)) {
       openForm = newForm;
       await renderMonth({ reuseGlobalStats: true });
-      setTimeout(() => $('#form-panel-anim-inner')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+      setTimeout(() => $('#form-panel-anim-inner')?.scrollIntoView({ behavior: monthScrollBehavior(), block: 'center' }), 100);
       return;
     }
     
@@ -2733,7 +2863,7 @@ root.addEventListener('click', async (ev) => {
     if (wrap) {
       void wrap.offsetWidth;
       wrap.classList.add('expanded');
-      setTimeout(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
+      setTimeout(() => wrap.scrollIntoView({ behavior: monthScrollBehavior(), block: 'center' }), 200);
     }
     return;
   }
@@ -2755,7 +2885,7 @@ root.addEventListener('click', async (ev) => {
   if (addLentRow) {
     const wrap = $('#lent-rows');
     const row = document.createElement('div');
-    row.className = 'lent-row';
+    row.className = 'lent-row month-inline-enter';
     row.innerHTML = `
       <div class="field"><label>Person</label><input class="lent-person" type="text" placeholder="Name" /></div>
       <div class="field"><label>Amount (₹)</label><input class="lent-amount" type="number" step="0.01" placeholder="0.00" /></div>
@@ -2766,13 +2896,31 @@ root.addEventListener('click', async (ev) => {
   }
   const removeLentRow = ev.target.closest('[data-remove-lent-row]');
   if (removeLentRow) {
-    removeLentRow.closest('.lent-row').remove();
+    const row = removeLentRow.closest('.lent-row');
+    if (row && !monthReducedMotion.matches && row.animate) {
+      const animation = row.animate(
+        [
+          { opacity: 1, transform: 'translateY(0)' },
+          { opacity: 0, transform: 'translateY(-4px)' },
+        ],
+        { duration: 110, easing: 'ease-in', fill: 'forwards' },
+      );
+      await animation.finished.catch(() => {});
+    }
+    row?.remove();
     distributeLentShares(Number($('#f-amount')?.value) || 0);
     return;
   }
 
   const submitBtn = ev.target.closest('[data-submit]');
-  if (submitBtn) { await handleSubmit(submitBtn.dataset.submit); return; }
+  if (submitBtn) {
+    await runWithMonthBusy(
+      submitBtn,
+      () => handleSubmit(submitBtn.dataset.submit),
+      'Saving…',
+    );
+    return;
+  }
 
   const editSipEntry = ev.target.closest('[data-edit-sip-entry]');
   if (editSipEntry) {
@@ -2891,8 +3039,14 @@ root.addEventListener('click', async (ev) => {
       data.sipOverrides[seriesId] = newAmt;
     }
 
-    await saveMonth(mk);
-    await renderMonth();
+    await runWithMonthBusy(saveSipEntry, async () => {
+      await saveMonth(mk);
+      queueMonthFx(
+        `[data-entry-id="${CSS.escape(`sip-${seriesId}-${mk}`)}"]`,
+        'update',
+      );
+      await renderMonth();
+    }, 'Saving…');
     showToast('SIP amount updated for this month');
     return;
   }
@@ -2930,8 +3084,14 @@ root.addEventListener('click', async (ev) => {
       data.recurringOverrides[seriesId] = newAmt;
     }
 
-    await saveMonth(mk);
-    await renderMonth();
+    await runWithMonthBusy(saveRecurringEntry, async () => {
+      await saveMonth(mk);
+      queueMonthFx(
+        `[data-entry-id="${CSS.escape(`recurring-${seriesId}-${mk}`)}"]`,
+        'update',
+      );
+      await renderMonth();
+    }, 'Saving…');
 
     showToast('Recurring amount updated for this month');
     return;
@@ -3012,8 +3172,11 @@ root.addEventListener('click', async (ev) => {
         entryToEdit.subCategory = newSubcat;
         entryToEdit.meta = meta;
       }
-      await saveMonth(mk);
-      await renderMonth();
+      await runWithMonthBusy(saveEntry, async () => {
+        await saveMonth(mk);
+        queueMonthFx(`[data-entry-id="${CSS.escape(String(id))}"]`, 'update');
+        await renderMonth();
+      }, 'Saving…');
       showToast("Entry updated");
     }
     return;
@@ -3157,6 +3320,7 @@ root.addEventListener('click', async (ev) => {
     delete data.sipOverrides[seriesId];
 
     await saveMonth(mk);
+    await animateMonthRowExit(delSipEntry.closest('tr'));
     await renderMonth();
     showToast('SIP entry removed for this month');
     return;
@@ -3179,6 +3343,7 @@ root.addEventListener('click', async (ev) => {
     delete data.recurringOverrides[seriesId];
 
     await saveMonth(mk);
+    await animateMonthRowExit(delRecurringEntry.closest('tr'));
     await renderMonth();
 
     showToast('Recurring entry removed for this month');
@@ -3227,6 +3392,7 @@ root.addEventListener('click', async (ev) => {
     }
      data.entries = data.entries.filter(e => e.id !== id);
     await saveMonth(mk);
+    await animateMonthRowExit(delEntry.closest('tr'));
     await renderMonth();
     showToast('Entry removed');
     return;
@@ -3275,7 +3441,20 @@ root.addEventListener('click', async (ev) => {
     }
 
     await Promise.all(writes);
-    if (targetMonth === monthKey) cachedGlobalStats = null;
+
+    if (targetMonth === monthKey) {
+      cachedGlobalStats = null;
+      queueMonthFx(
+        `[data-entry-id="${CSS.escape(`recurring-${seriesId}-${targetMonth}`)}"]`,
+        'add',
+      );
+    }
+
+    queueMonthFx(
+      `[data-recurring-series-id="${CSS.escape(String(seriesId))}"]`,
+      'update',
+    );
+
     await renderMonth({ reuseGlobalStats: targetMonth !== monthKey });
 
     showToast(
@@ -3321,7 +3500,21 @@ root.addEventListener('click', async (ev) => {
 
     await Promise.all(writes);
     hideDeleteCallout();
-    if (targetMonth === monthKey) cachedGlobalStats = null;
+
+    if (targetMonth === monthKey) {
+      cachedGlobalStats = null;
+      await animateMonthRowExit(
+        root.querySelector(
+          `[data-entry-id="${CSS.escape(`recurring-${seriesId}-${targetMonth}`)}"]`
+        ),
+      );
+    }
+
+    queueMonthFx(
+      `[data-recurring-series-id="${CSS.escape(String(seriesId))}"]`,
+      'update',
+    );
+
     await renderMonth({ reuseGlobalStats: targetMonth !== monthKey });
 
     showToast(
@@ -3354,8 +3547,16 @@ root.addEventListener('click', async (ev) => {
       data.deletedSip = data.deletedSip || [];
       data.deletedSip = data.deletedSip.filter(id => id !== seriesId);
       writes.push(saveMonth(targetMonth));
+      queueMonthFx(
+        `[data-entry-id="${CSS.escape(`sip-${seriesId}-${targetMonth}`)}"]`,
+        'add',
+      );
     }
-
+    
+    queueMonthFx(
+      `[data-sip-series-id="${CSS.escape(String(seriesId))}"]`,
+      'update',
+    );
     await Promise.all(writes);
     if (targetMonth === monthKey) {
       cachedGlobalStats = null;
@@ -3407,6 +3608,13 @@ root.addEventListener('click', async (ev) => {
     hideDeleteCallout();
     if (targetMonth === monthKey) {
       cachedGlobalStats = null;
+      await animateMonthRowExit(
+        root.querySelector(`[data-entry-id="${CSS.escape(`sip-${seriesId}-${targetMonth}`)}"]`),
+      );
+      queueMonthFx(
+        `[data-sip-series-id="${CSS.escape(String(seriesId))}"]`,
+        'update',
+      );
       await renderMonth();
     } else {
       await refreshSipCard(seriesId);
@@ -3441,6 +3649,7 @@ root.addEventListener('click', async (ev) => {
       });
       await saveMonth(paybackKey);
 
+      queueMonthFx(`[data-entry-id="${CSS.escape(String(id))}"]`, 'update');
       await renderMonth();
       showToast('Marked as paid back');
       return;
@@ -3462,6 +3671,7 @@ root.addEventListener('click', async (ev) => {
       l.settled = !l.settled;
       delete l.paybackRef;
       await saveMonth(monthKey);
+      queueMonthFx(`[data-entry-id="${CSS.escape(String(entryId))}"]`, 'update');
       await renderMonth();
       showToast(l.settled ? 'Split owed marked settled' : 'Split owed restored');
       return;
@@ -3504,6 +3714,10 @@ root.addEventListener('click', async (ev) => {
       l.paybackRef = { monthKey: paybackKey, id: paybackId };
       if (paybackKey === monthKey) data.entries.push(paybackEntry);
 
+      queueMonthFx(`[data-entry-id="${CSS.escape(String(entryId))}"]`, 'update');
+      if (paybackKey === monthKey) {
+        queueMonthFx(`[data-entry-id="${CSS.escape(String(paybackId))}"]`, 'add');
+      }
       invalidateMonthDerivedCache(monthKey);
       await renderMonth();
       showToast('Marked as paid back');
@@ -3544,6 +3758,7 @@ root.addEventListener('click', async (ev) => {
         ));
       }
 
+      queueMonthFx(`[data-entry-id="${CSS.escape(String(entryId))}"]`, 'update');
       invalidateMonthDerivedCache(monthKey);
       await renderMonth();
       showToast('Marked as unpaid');

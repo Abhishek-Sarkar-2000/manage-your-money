@@ -9,21 +9,39 @@
 {% endblock %}
 
 {% block content %}
-  <div id="home-root" class="home-view" data-loading="true">
-    <div class="home-loading-state">
-      <div class="home-loading-card card">
-        <div class="home-loading-spinner" aria-hidden="true"></div>
-        <div class="home-loading-copy">Loading dashboard...</div>
+  <div id="home-root" class="home-view" data-loading="true" aria-busy="true">
+    <div class="home-loading-state" role="status" aria-label="Loading dashboard">
+      <div class="home-loading-shell" aria-hidden="true">
+        <div class="home-loading-heading">
+          <span class="home-skeleton-line is-kicker"></span>
+          <span class="home-skeleton-line is-title"></span>
+          <span class="home-skeleton-line is-copy"></span>
+        </div>
+
+        <div class="home-skeleton home-loading-hero">
+          <span class="home-skeleton-line is-kicker"></span>
+          <span class="home-skeleton-line is-hero-title"></span>
+          <span class="home-skeleton-line is-copy"></span>
+        </div>
+
+        <div class="home-loading-kpi-grid">
+          {% for _ in range(4) %}
+            <div class="home-skeleton home-loading-kpi">
+              <span class="home-skeleton-line is-kicker"></span>
+              <span class="home-skeleton-line is-value"></span>
+              <span class="home-skeleton-line is-meta"></span>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="home-loading-panel-grid">
+          <div class="home-skeleton home-loading-panel is-wide"></div>
+          <div class="home-skeleton home-loading-panel"></div>
+          <div class="home-skeleton home-loading-panel"></div>
+        </div>
       </div>
     </div>
   </div>
-  
-  <!-- Add the spinner keyframes if not already globally defined -->
-  <style>
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-  </style>
 {% endblock %}
 
 {% block page_script %}

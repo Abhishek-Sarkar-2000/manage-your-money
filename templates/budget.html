@@ -4,7 +4,59 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/views/budget.css') }}?v={{ static_version }}" />
 {% endblock %}
 {% block content %}
-  <div id="budget-root" class="budget-view" data-loading="true" {% if month_key %}data-month-key="{{ month_key }}"{% endif %}></div>
+  <div id="budget-root" class="budget-view" data-loading="true" aria-busy="true" {% if month_key %}data-month-key="{{ month_key }}"{% endif %}>
+    <div class="budget-loading-shell" role="status" aria-label="Loading budget">
+      <div class="budget-loading-header" aria-hidden="true">
+        <div class="budget-loading-heading-copy">
+          <span class="budget-skeleton-line is-title"></span>
+          <span class="budget-skeleton-line is-copy"></span>
+        </div>
+        <span class="budget-skeleton-line is-month"></span>
+      </div>
+
+      <div class="budget-loading-kpis" aria-hidden="true">
+        {% for _ in range(4) %}
+          <div class="budget-skeleton-card budget-loading-kpi">
+            <span class="budget-skeleton-dot"></span>
+            <div class="budget-loading-kpi-copy">
+              <span class="budget-skeleton-line is-label"></span>
+              <span class="budget-skeleton-line is-value"></span>
+              <span class="budget-skeleton-line is-meta"></span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="budget-skeleton-card budget-loading-goal" aria-hidden="true">
+        <div class="budget-loading-goal-head">
+          <span class="budget-skeleton-line is-section-title"></span>
+          <span class="budget-skeleton-line is-button"></span>
+        </div>
+        <span class="budget-skeleton-line is-goal-name"></span>
+        <span class="budget-skeleton-line is-progress"></span>
+        <span class="budget-skeleton-line is-goal-copy"></span>
+      </div>
+
+      <div class="budget-loading-groups" aria-hidden="true">
+        {% for _ in range(3) %}
+          <div class="budget-skeleton-card budget-loading-group">
+            <div class="budget-loading-group-head">
+              <span class="budget-skeleton-dot is-small"></span>
+              <span class="budget-skeleton-line is-group-name"></span>
+              <span class="budget-skeleton-line is-group-value"></span>
+            </div>
+            {% for _ in range(2) %}
+              <div class="budget-loading-row">
+                <span class="budget-skeleton-line is-row-name"></span>
+                <span class="budget-skeleton-line is-row-value"></span>
+                <span class="budget-skeleton-line is-row-progress"></span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
 {% endblock %}
 {% block page_script %}
   <script type="module" src="{{ url_for('static', filename='js/views/budget.js') }}"></script>

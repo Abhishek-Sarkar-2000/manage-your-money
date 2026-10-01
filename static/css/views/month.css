@@ -894,3 +894,135 @@
     padding-left: 6px;
   }
 }
+
+/* ---------- Month loading + local motion ---------- */
+.month-loading-shell {
+  display: grid;
+  gap: 16px;
+  min-height: calc(100vh - var(--app-header-height) - 72px);
+  animation: month-skeleton-pulse 1.2s ease-in-out infinite alternate;
+}
+
+.month-skeleton-card,
+.month-skeleton-line,
+.month-skeleton-dot {
+  background: color-mix(in srgb, var(--hair) 58%, var(--paper));
+}
+
+.month-skeleton-card {
+  border: 1px solid color-mix(in srgb, var(--hair) 82%, transparent);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+}
+
+.month-skeleton-line { display: block; height: 10px; border-radius: 999px; }
+.month-skeleton-dot { width: 32px; height: 32px; border-radius: 10px; flex: 0 0 auto; }
+.month-loading-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 4px 2px; }
+.month-skeleton-line.is-title { width: min(280px, 44%); height: 30px; }
+.month-skeleton-line.is-balance { width: min(210px, 34%); height: 18px; }
+.month-skeleton-line.is-label { width: 92px; height: 8px; }
+.month-skeleton-line.is-control { width: min(360px, 70%); height: 32px; }
+.month-skeleton-line.is-action-copy { width: 70%; }
+.month-skeleton-line.is-value { width: 62%; height: 24px; }
+.month-skeleton-line.is-filter { width: 122px; height: 34px; border-radius: 7px; }
+.month-skeleton-line.is-date { width: 70px; }
+.month-skeleton-line.is-type { width: 82px; }
+.month-skeleton-line.is-description { width: min(280px, 48%); }
+.month-skeleton-line.is-amount { width: 88px; margin-left: auto; }
+.month-loading-balance { min-height: 70px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px 18px; }
+.month-loading-actions { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.month-loading-action { min-height: 66px; display: flex; align-items: center; gap: 10px; padding: 12px; }
+.month-loading-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.month-loading-kpi { min-height: 104px; display: grid; align-content: center; gap: 12px; padding: 16px; }
+.month-loading-table { overflow: hidden; padding: 16px; }
+.month-loading-table-controls { display: flex; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--hair); }
+.month-loading-table-row { min-height: 58px; display: grid; grid-template-columns: 90px 110px minmax(180px, 1fr) 120px; align-items: center; gap: 18px; border-bottom: 1px solid var(--hair); }
+.month-loading-table-row:last-child { border-bottom: 0; }
+
+@keyframes month-skeleton-pulse { from { opacity: 0.62; } to { opacity: 1; } }
+
+@keyframes month-section-enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.month-view:not(.no-entrance-anim) > .month-load-stage { animation: month-section-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.month-view:not(.no-entrance-anim) > .month-load-stage--header { animation-delay: 0s; }
+.month-view:not(.no-entrance-anim) > .month-load-stage--actions { animation-delay: 0.04s; }
+.month-view:not(.no-entrance-anim) > .month-load-stage--kpis { animation-delay: 0.08s; }
+.month-view:not(.no-entrance-anim) > .month-load-stage--charts { animation-delay: 0.12s; }
+.month-view:not(.no-entrance-anim) > .month-load-stage--transactions { animation-delay: 0.16s; }
+.month-view:not(.no-entrance-anim) > .month-load-stage--secondary { animation-delay: 0.2s; }
+
+.month-view:not(.no-entrance-anim) > .month-load-stage .action-card,
+.month-view:not(.no-entrance-anim) > .month-load-stage .stat-card,
+.month-view:not(.no-entrance-anim) > .month-load-stage .chart-card,
+.month-view:not(.no-entrance-anim) > .month-load-stage .card,
+.month-view:not(.no-entrance-anim) > .month-load-stage .form-panel,
+.month-view:not(.no-entrance-anim) > .month-load-stage .month-row { animation: none; }
+
+.month-view .is-month-busy { cursor: progress !important; justify-content: center; }
+.month-busy-spinner { width: 13px; height: 13px; flex: 0 0 auto; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: month-control-spin 0.65s linear infinite; }
+@keyframes month-control-spin { to { transform: rotate(360deg); } }
+
+.sticky-controls-sentinel { display: block; height: 1px; margin-bottom: -1px; pointer-events: none; }
+.month-view .sticky-controls-wrap { transition: background-color 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
+.month-view .sticky-controls-wrap.is-stuck { box-shadow: 0 10px 24px -20px rgba(11, 37, 69, 0.75); border-bottom: 1px solid color-mix(in srgb, var(--sky) 68%, transparent); }
+
+.month-row-fx-add > td { animation: month-row-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.month-row-fx-update > td { animation: month-row-highlight 0.7s ease-out both; }
+.month-card-fx { animation: month-card-settle 0.3s cubic-bezier(0.16, 1, 0.3, 1) both !important; }
+@keyframes month-row-enter { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes month-row-highlight { 0% { background-color: color-mix(in srgb, var(--blue) 13%, transparent); } 100% { background-color: transparent; } }
+@keyframes month-card-settle { 0% { transform: scale(0.985); box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 22%, transparent), var(--shadow-sm); } 100% { transform: scale(1); box-shadow: var(--shadow-sm); } }
+
+.divisions-table tr.is-editing .inline-edit-container,
+.month-inline-enter { animation: month-inline-edit-enter 0.18s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes month-inline-edit-enter { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+.month-view .qa-card:active,
+.month-view .txn-option-card:active,
+.month-view .month-sip-card .icon-btn:active,
+.month-view .month-sip-unskip-btn:active,
+.month-view .month-skip-unskip-btn:active { transform: scale(0.97); }
+
+.month-view .qa-card:focus-visible,
+.month-view .txn-option-card:focus-visible,
+.month-view .month-sip-card button:focus-visible,
+.month-view .table-controls button:focus-visible,
+.month-view .table-controls select:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+
+.qa-card { transition-property: transform, border-color, box-shadow, background-color; transition-duration: 0.16s; transition-timing-function: ease; }
+
+@media (max-width: 760px) {
+  .month-loading-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .month-loading-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .month-loading-table-row { grid-template-columns: 66px 82px minmax(140px, 1fr) 86px; gap: 10px; }
+}
+
+@media (max-width: 480px) {
+  .month-loading-header { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .month-skeleton-line.is-title, .month-skeleton-line.is-balance { width: 62%; }
+  .month-loading-actions, .month-loading-kpis { grid-template-columns: 1fr; }
+  .month-loading-table-controls .is-filter:nth-child(n + 3) { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .month-loading-shell,
+  .month-view:not(.no-entrance-anim) > .month-load-stage,
+  .month-busy-spinner,
+  .month-row-fx-add > td,
+  .month-row-fx-update > td,
+  .month-card-fx,
+  .month-inline-enter,
+  .divisions-table tr.is-editing .inline-edit-container,
+  .month-view .action-card,
+  .month-view .stat-card,
+  .month-view .chart-card,
+  .month-view .card,
+  .month-view .form-panel { animation: none !important; }
+  .month-view .qa-sub-wrap,
+  .month-view .form-panel-wrap,
+  .month-view .qa-card,
+  .month-view .txn-option-card,
+  .month-view .month-sip-card,
+  .month-view .emi-card,
+  .month-view .sticky-controls-wrap { transition: none !important; }
+}

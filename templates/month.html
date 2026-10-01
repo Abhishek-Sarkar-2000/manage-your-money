@@ -6,7 +6,59 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/views/month.css') }}?v={{ static_version }}" />
 {% endblock %}
 {% block content %}
-  <div id="month-root" class="month-view" data-loading="true" data-month-key="{{ month_key }}"></div>
+  <div
+    id="month-root"
+    class="month-view"
+    data-loading="true"
+    data-month-key="{{ month_key }}"
+    aria-busy="true"
+  >
+    <div class="month-loading-shell" role="status" aria-label="Loading month">
+      <div class="month-loading-header" aria-hidden="true">
+        <span class="month-skeleton-line is-title"></span>
+        <span class="month-skeleton-line is-balance"></span>
+      </div>
+
+      <div class="month-skeleton-card month-loading-balance" aria-hidden="true">
+        <span class="month-skeleton-line is-label"></span>
+        <span class="month-skeleton-line is-control"></span>
+      </div>
+
+      <div class="month-loading-actions" aria-hidden="true">
+        {% for _ in range(5) %}
+          <div class="month-skeleton-card month-loading-action">
+            <span class="month-skeleton-dot"></span>
+            <span class="month-skeleton-line is-action-copy"></span>
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="month-loading-kpis" aria-hidden="true">
+        {% for _ in range(4) %}
+          <div class="month-skeleton-card month-loading-kpi">
+            <span class="month-skeleton-line is-label"></span>
+            <span class="month-skeleton-line is-value"></span>
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="month-skeleton-card month-loading-table" aria-hidden="true">
+        <div class="month-loading-table-controls">
+          <span class="month-skeleton-line is-filter"></span>
+          <span class="month-skeleton-line is-filter"></span>
+          <span class="month-skeleton-line is-filter"></span>
+        </div>
+        {% for _ in range(5) %}
+          <div class="month-loading-table-row">
+            <span class="month-skeleton-line is-date"></span>
+            <span class="month-skeleton-line is-type"></span>
+            <span class="month-skeleton-line is-description"></span>
+            <span class="month-skeleton-line is-amount"></span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
 {% endblock %}
 {% block page_script %}
   <script type="module" src="{{ url_for('static', filename='js/views/month.js') }}"></script>

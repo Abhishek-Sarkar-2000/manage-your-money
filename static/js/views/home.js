@@ -36,6 +36,7 @@ root.classList.add('home-view');
 let balanceChartRange = 1;
 let dashboardChartMode = 'balance';
 let cache = null; // Domain data + dashboard snapshots for KPIs, obligations, budgets, cards, goals, splits, prices and charts
+const dashboardReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 async function loadDomain() {
   const budgetKey = `budget-data:${currentMonthKey()}`;
@@ -884,19 +885,64 @@ async function buildCache() {
   };
 }
 
-/* Cheap: only re-slices dailySeries for the chosen range and rebuilds markup
-   from data already sitting in memory. Safe to call on every click. */
-function renderFromCache() {
+function dashboardChartMarkup() {
   const windowedSeries = windowSeries(cache.dailySeries, balanceChartRange);
-  const dashboardChartHtml = dashboardChartMode === 'cashflow'
+  return dashboardChartMode === 'cashflow'
     ? renderDashboardCashflowChart(cache.cashflowSeries, balanceChartRange, cache.dashboardKpis.monthKey)
     : dailyBalanceChart(windowedSeries, balanceChartRange);
+}
+
+function refreshDashboardChart({ animate = true } = {}) {
+  const panel = root.querySelector('[data-dashboard-slot="balance-chart"]');
+  if (!panel || !cache) return;
+
+  const body = panel.querySelector('.dashboard-chart-body');
+  const title = panel.querySelector('.dashboard-panel-header h3');
+  if (!body || !title) return;
+
+  title.textContent = dashboardChartMode === 'balance'
+    ? 'Balance over time'
+    : 'Monthly cash flow';
+
+  panel.querySelectorAll('[data-dashboard-chart-mode]').forEach(button => {
+    const isActive = button.dataset.dashboardChartMode === dashboardChartMode;
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
+
+  panel.querySelectorAll('[data-range]').forEach(button => {
+    const isActive = Number(button.dataset.range) === balanceChartRange;
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
+
+  body.innerHTML = dashboardChartMarkup();
+
+  if (animate && !dashboardReducedMotion.matches && body.animate) {
+    body.animate(
+      [
+        { opacity: 0.35, transform: 'translateY(4px)' },
+        { opacity: 1, transform: 'translateY(0)' },
+      ],
+      {
+        duration: 180,
+        easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+      },
+    );
+  }
+}
+
+/* Cheap: builds the complete dashboard only for first paint/domain refresh.
+   Chart controls use refreshDashboardChart() so they never rebuild unrelated DOM. */
+function renderFromCache() {
+  const dashboardChartHtml = dashboardChartMarkup();
 
   const tb = document.getElementById('global-topbar');
   if (tb) tb.style.display = '';
 
   markRendered(root);
   root.removeAttribute('data-loading');
+  root.setAttribute('aria-busy', 'false');
 
   root.innerHTML = `
     <section class="dashboard-heading">
@@ -984,19 +1030,21 @@ function renderFromCache() {
                   class="${dashboardChartMode === 'balance' ? 'active' : ''}"
                   data-dashboard-chart-mode="balance"
                   type="button"
+                  aria-pressed="${dashboardChartMode === 'balance' ? 'true' : 'false'}"
                 >Balance</button>
 
                 <button
                   class="${dashboardChartMode === 'cashflow' ? 'active' : ''}"
                   data-dashboard-chart-mode="cashflow"
                   type="button"
+                  aria-pressed="${dashboardChartMode === 'cashflow' ? 'true' : 'false'}"
                 >Cash Flow</button>
               </div>
 
               <div class="range-toggle" role="group" aria-label="Chart range">
-                <button class="range-btn ${balanceChartRange === 1 ? 'active' : ''}" data-range="1" type="button">1M</button>
-                <button class="range-btn ${balanceChartRange === 3 ? 'active' : ''}" data-range="3" type="button">3M</button>
-                <button class="range-btn ${balanceChartRange === 6 ? 'active' : ''}" data-range="6" type="button">6M</button>
+                <button class="range-btn ${balanceChartRange === 1 ? 'active' : ''}" data-range="1" type="button" aria-pressed="${balanceChartRange === 1 ? 'true' : 'false'}">1M</button>
+                <button class="range-btn ${balanceChartRange === 3 ? 'active' : ''}" data-range="3" type="button" aria-pressed="${balanceChartRange === 3 ? 'true' : 'false'}">3M</button>
+                <button class="range-btn ${balanceChartRange === 6 ? 'active' : ''}" data-range="6" type="button" aria-pressed="${balanceChartRange === 6 ? 'true' : 'false'}">6M</button>
               </div>
             </div>
           </div>
@@ -1348,15 +1396,19 @@ root.addEventListener('click', (ev) => {
 
   const chartModeBtn = ev.target.closest('[data-dashboard-chart-mode]');
   if (chartModeBtn) {
-    dashboardChartMode = chartModeBtn.dataset.dashboardChartMode === 'cashflow' ? 'cashflow' : 'balance';
-    renderFromCache();
+    const nextMode = chartModeBtn.dataset.dashboardChartMode === 'cashflow' ? 'cashflow' : 'balance';
+    if (nextMode === dashboardChartMode) return;
+    dashboardChartMode = nextMode;
+    refreshDashboardChart();
     return;
   }
 
   const rangeBtn = ev.target.closest('[data-range]');
   if (rangeBtn) {
-    balanceChartRange = Number(rangeBtn.dataset.range);
-    renderFromCache();
+    const nextRange = Number(rangeBtn.dataset.range);
+    if (!Number.isFinite(nextRange) || nextRange === balanceChartRange) return;
+    balanceChartRange = nextRange;
+    refreshDashboardChart();
   }
 });
 
@@ -1373,7 +1425,7 @@ const dashboardChartViewport =
   window.matchMedia('(max-width: 1023px)');
 
 dashboardChartViewport.addEventListener('change', () => {
-  if (cache) renderFromCache();
+  if (cache) refreshDashboardChart({ animate: false });
 });
 
 authReady.then(renderHome);

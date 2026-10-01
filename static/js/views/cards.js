@@ -10,6 +10,7 @@ import {
 import { authReady } from '../core/auth.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
+import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
 import { markRendered } from '../components/render-guard.js';
 
 const root = document.getElementById('cards-root');
@@ -19,6 +20,96 @@ let domainLoaded = false;
 let editingCardId = null;
 let selectedCardId = null;
 let selectedCycleView = 'current';
+let pendingCardEnterId = null;
+
+const cardsReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+function beginCardsBusy(button, label = 'Saving…') {
+  if (!button) return () => {};
+
+  const originalHtml = button.innerHTML;
+  const originalDisabled = button.disabled;
+  const originalMinWidth = button.style.minWidth;
+  const width = button.getBoundingClientRect().width;
+
+  button.disabled = true;
+  button.style.minWidth = `${Math.ceil(width)}px`;
+
+  const timer = setTimeout(() => {
+    if (!button.isConnected) return;
+    button.classList.add('is-cards-busy');
+    button.innerHTML = `<span class="cards-busy-spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span>`;
+  }, 140);
+
+  return () => {
+    clearTimeout(timer);
+    if (!button.isConnected) return;
+    button.classList.remove('is-cards-busy');
+    button.innerHTML = originalHtml;
+    button.disabled = originalDisabled;
+    button.style.minWidth = originalMinWidth;
+  };
+}
+
+function animateCardRemoval(cardEl) {
+  if (!cardEl || cardsReducedMotion.matches) return Promise.resolve();
+  cardEl.classList.add('cc-item-removing');
+  return new Promise(resolve => setTimeout(resolve, 180));
+}
+
+async function loadSelectedCardLedger() {
+  const selectedCard = cards.find(card => card.id === selectedCardId) || null;
+  if (!selectedCard) return { selectedCard: null, ledger: null };
+
+  const currentStatementMonth = creditCardCurrentStatementMonthKey(selectedCard);
+  const statementMonth = selectedCycleView === 'last' ? addMonths(currentStatementMonth, -1) : currentStatementMonth;
+  const ledger = await creditCardCycleLedger(selectedCard, recurringSeries, statementMonth);
+
+  return { selectedCard, ledger };
+}
+
+async function refreshCardStatementExplorer({ direction = 0, settlementFlash = false } = {}) {
+  const host = root.querySelector('[data-card-statement-host]');
+  if (!host) return;
+
+  const shouldAnimate = direction !== 0 && !cardsReducedMotion.matches;
+  const oldContent = host.querySelector('[data-card-cycle-content]');
+  const ledgerPromise = loadSelectedCardLedger();
+
+  if (shouldAnimate && oldContent) {
+    oldContent.classList.add(direction > 0 ? 'cc-cycle-fade-out-left' : 'cc-cycle-fade-out-right');
+    await new Promise(resolve => setTimeout(resolve, 85));
+  }
+
+  const { selectedCard, ledger } = await ledgerPromise;
+  host.innerHTML = renderCardStatementExplorer(selectedCard, ledger);
+
+  if (shouldAnimate) {
+    const newContent = host.querySelector('[data-card-cycle-content]');
+
+    if (newContent) {
+      newContent.classList.add(direction > 0 ? 'cc-cycle-fade-in-right' : 'cc-cycle-fade-in-left');
+      void newContent.offsetWidth;
+
+      requestAnimationFrame(() => {
+        newContent.classList.add('is-visible');
+      });
+
+      setTimeout(() => {
+        if (!newContent.isConnected) return;
+        newContent.classList.remove('cc-cycle-fade-in-right', 'cc-cycle-fade-in-left', 'is-visible');
+      }, 140);
+    }
+  }
+
+  if (settlementFlash) {
+    const outstanding = host.querySelector('.cc-ledger-summary .cc-ledger-stat:nth-child(2)');
+    if (outstanding) {
+      outstanding.classList.add('cc-settlement-success');
+      setTimeout(() => outstanding.classList.remove('cc-settlement-success'), 380);
+    }
+  }
+}
 
 function formatCardDate(dateStr) {
   if (!dateStr) return '—';
@@ -142,60 +233,63 @@ function renderCardStatementExplorer(selectedCard, ledger) {
         </div>
       </div>
 
-      <div class="cc-ledger-cycle-strip">
-        <div>
-          <span class="cc-ledger-eyebrow">${selectedCycleView === 'last' ? 'Previous statement' : 'Active statement cycle'}</span>
-          <strong>${formatCardFullDate(ledger.cycleStart)} – ${formatCardFullDate(ledger.cycleEnd)}</strong>
+      <div class="cc-ledger-cycle-content" data-card-cycle-content>
+        <div class="cc-ledger-cycle-strip">
+          <div>
+            <span class="cc-ledger-eyebrow">${selectedCycleView === 'last' ? 'Previous statement' : 'Active statement cycle'}</span>
+            <strong>${formatCardFullDate(ledger.cycleStart)} – ${formatCardFullDate(ledger.cycleEnd)}</strong>
+          </div>
+          <div class="cc-ledger-due-copy">
+            <span>Payment due</span>
+            <strong>${formatCardFullDate(ledger.dueDate)}</strong>
+          </div>
         </div>
-        <div class="cc-ledger-due-copy">
-          <span>Payment due</span>
-          <strong>${formatCardFullDate(ledger.dueDate)}</strong>
-        </div>
-      </div>
 
-      <div class="cc-ledger-summary">
-        <div class="cc-ledger-stat">
-          <span>Cycle spend</span>
-          <strong>${fmtINR(ledger.grossAmount)}</strong>
-          <small>Gross card activity</small>
+        <div class="cc-ledger-summary">
+          <div class="cc-ledger-stat">
+            <span>Cycle spend</span>
+            <strong>${fmtINR(ledger.grossAmount)}</strong>
+            <small>Gross card activity</small>
+          </div>
+          <div class="cc-ledger-stat ${ledger.fullySettled ? 'settled' : ''}">
+            <span>Outstanding due</span>
+            <strong>${fmtINR(ledger.dueAmount)}</strong>
+            <small>${ledger.fullySettled ? 'Marked fully settled' : 'Statement liability'}</small>
+          </div>
+          <div class="cc-ledger-stat">
+            <span>Transactions</span>
+            <strong>${ledger.transactions.length}</strong>
+            <small>In this billing cycle</small>
+          </div>
+          <div class="cc-ledger-stat">
+            <span>Statement closes</span>
+            <strong>${formatCardDate(ledger.cycleEnd)}</strong>
+          </div>
         </div>
-        <div class="cc-ledger-stat ${ledger.fullySettled ? 'settled' : ''}">
-          <span>Outstanding due</span>
-          <strong>${fmtINR(ledger.dueAmount)}</strong>
-          <small>${ledger.fullySettled ? 'Marked fully settled' : 'Statement liability'}</small>
-        </div>
-        <div class="cc-ledger-stat">
-          <span>Transactions</span>
-          <strong>${ledger.transactions.length}</strong>
-          <small>In this billing cycle</small>
-        </div>
-        <div class="cc-ledger-stat">
-          <span>Statement closes</span>
-          <strong>${formatCardDate(ledger.cycleEnd)}</strong>
-        </div>
-      </div>
 
-      ${settlementControl}
+        ${settlementControl}
 
-      <div class="cc-ledger-table-wrap">
-        <table class="cc-ledger-table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Transaction</th>
-              <th class="cc-ledger-amount">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${transactionRows || `<tr><td colspan="3" class="cc-ledger-empty">No card transactions recorded in this billing cycle.</td></tr>`}
-          </tbody>
-        </table>
+        <div class="cc-ledger-table-wrap">
+          <table class="cc-ledger-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Transaction</th>
+                <th class="cc-ledger-amount">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${transactionRows || `<tr><td colspan="3" class="cc-ledger-empty">No card transactions recorded in this billing cycle.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   `;
 }
 
 async function renderCards() {
+  try {
   // Fetched once; add/delete mutate `cards` in memory and persist it, so
   // later re-renders reuse the in-memory array instead of refetching.
   if (!domainLoaded) {
@@ -229,21 +323,7 @@ async function renderCards() {
     selectedCardId = cards[0].id;
   }
 
-  const selectedCard = cards.find(card => card.id === selectedCardId) || null;
-  let ledger = null;
-
-  if (selectedCard) {
-    const currentStatementMonth = creditCardCurrentStatementMonthKey(selectedCard);
-    const statementMonth = selectedCycleView === 'last'
-      ? addMonths(currentStatementMonth, -1)
-      : currentStatementMonth;
-
-    ledger = await creditCardCycleLedger(
-      selectedCard,
-      recurringSeries,
-      statementMonth
-    );
-  }
+  const { selectedCard, ledger } = await loadSelectedCardLedger();
 
   const rows = cards.map(c => {
     const isEditing = editingCardId === c.id;
@@ -260,7 +340,7 @@ async function renderCards() {
           </button>
         </div>
 
-        ${isEditing ? `
+        <div class="cc-card-editor-wrap ${isEditing ? 'expanded' : ''}" data-card-editor-wrap="${c.id}">
           <div class="cc-card-editor">
             <div class="form-row">
               <div class="field">
@@ -316,7 +396,7 @@ async function renderCards() {
               <button class="btn ghost" data-popover-trigger data-del-card="${c.id}" type="button">Delete</button>
             </div>
           </div>
-        ` : ''}
+        </div>
       </div>
     `;
   }).join('') || `<div class="empty-chart">No cards added yet — add one below.</div>`;
@@ -325,9 +405,12 @@ async function renderCards() {
   if (tb) tb.style.display = '';
 
   markRendered(root);
+  root.removeAttribute('data-loading');
+  root.setAttribute('aria-busy', 'false');
+
   root.innerHTML = `
   <div class="section">
-    <div class="card">
+    <div class="card cards-load-stage cards-load-stage--collection">
       <div class="section-title"><h2>Credit cards</h2><span class="hint">Card charges and payments are tracked per card</span></div>
         <div class="cc-list">${rows}</div>
         <div class="form-panel">
@@ -383,11 +466,22 @@ async function renderCards() {
         </div>
     </div>
 
-    ${renderCardStatementExplorer(selectedCard, ledger)}
+    <div class="cards-load-stage cards-load-stage--ledger" data-card-statement-host>
+      ${renderCardStatementExplorer(selectedCard, ledger)}
+    </div>
   </div>
   `;
 
   appendPageChrome(root);
+
+  if (pendingCardEnterId) {
+    const addedCard = root.querySelector(`.cc-item[data-card-id="${CSS.escape(pendingCardEnterId)}"]`);
+    if (addedCard) {
+      addedCard.classList.add('cc-item-enter');
+      setTimeout(() => addedCard.classList.remove('cc-item-enter'), 280);
+    }
+    pendingCardEnterId = null;
+  }
 
   const requestedCardId = new URLSearchParams(window.location.search).get('card');
   if (requestedCardId && selectedCardId === requestedCardId) {
@@ -400,20 +494,61 @@ async function renderCards() {
       explorer.focus({ preventScroll: true });
     }, 100);
   }
+  } catch (error) {
+    console.error('Cards render failed:', error);
+    root.removeAttribute('data-loading');
+    root.setAttribute('aria-busy', 'false');
+    root.innerHTML = `<div class="section"><div class="empty-chart cards-load-error">Credit-card data could not be loaded right now. Please try again.</div></div>`;
+    appendPageChrome(root);
+    showToast("We couldn't load your cards. Please try again.");
+  }
 }
 
 root.addEventListener('click', async (ev) => {
   const cycleView = ev.target.closest('[data-cycle-view]');
   if (cycleView) {
-    selectedCycleView = cycleView.dataset.cycleView === 'last' ? 'last' : 'current';
-    await renderCards();
+    const nextCycle = cycleView.dataset.cycleView === 'last' ? 'last' : 'current';
+    if (nextCycle === selectedCycleView) return;
+
+    const direction = nextCycle === 'current' ? 1 : -1;
+    selectedCycleView = nextCycle;
+    await refreshCardStatementExplorer({ direction });
     return;
   }
 
   const editCard = ev.target.closest('[data-edit-card]');
   if (editCard) {
-    editingCardId = editingCardId === editCard.dataset.editCard ? null : editCard.dataset.editCard;
-    await renderCards();
+    const cardId = editCard.dataset.editCard;
+    const row = editCard.closest('.cc-item');
+    const editorWrap = row?.querySelector(`[data-card-editor-wrap="${CSS.escape(cardId)}"]`);
+    const isOpening = editingCardId !== cardId;
+
+    const previouslyOpenId = editingCardId;
+    if (previouslyOpenId && previouslyOpenId !== cardId) {
+      const previousRow = root.querySelector(`.cc-item[data-card-id="${CSS.escape(previouslyOpenId)}"]`);
+      const previousButton = previousRow?.querySelector(`[data-edit-card="${CSS.escape(previouslyOpenId)}"]`);
+      const previousWrap = previousRow?.querySelector(`[data-card-editor-wrap="${CSS.escape(previouslyOpenId)}"]`);
+
+      previousRow?.classList.remove('editing');
+      previousButton?.classList.remove('expanded');
+      previousButton?.setAttribute('aria-expanded', 'false');
+      previousButton?.setAttribute('title', 'Edit card');
+      previousWrap?.classList.remove('expanded');
+    }
+
+    editingCardId = isOpening ? cardId : null;
+
+    row?.classList.toggle('editing', isOpening);
+    editCard.classList.toggle('expanded', isOpening);
+    editCard.setAttribute('aria-expanded', String(isOpening));
+    editCard.setAttribute('title', isOpening ? 'Close editor' : 'Edit card');
+    editorWrap?.classList.toggle('expanded', isOpening);
+
+    if (isOpening) {
+      const firstInput = editorWrap?.querySelector('.cc-edit-name');
+      setTimeout(() => firstInput?.focus({ preventScroll: true }), 180);
+    }
+
     return;
   }
 
@@ -444,18 +579,44 @@ root.addEventListener('click', async (ev) => {
     card.billingDay = billingDay;
     card.dueDay = dueDay;
 
-    await Store.set('creditcards', cards);
-    editingCardId = null;
-    await renderCards();
-    showToast('Card updated');
+    const stopBusy = beginCardsBusy(saveCard);
+
+    try {
+      await Store.set('creditcards', cards);
+      editingCardId = null;
+      await renderCards();
+      showToast('Card updated');
+    } finally {
+      stopBusy();
+    }
     return;
   }
 
   const delCard = ev.target.closest('[data-del-card]');
   if (delCard) {
-    cards = cards.filter(c => c.id !== delCard.dataset.delCard);
-    if (editingCardId === delCard.dataset.delCard) editingCardId = null;
-    if (selectedCardId === delCard.dataset.delCard) selectedCardId = cards[0]?.id || null;
+    ev.stopPropagation();
+
+    const card = cards.find(c => c.id === delCard.dataset.delCard);
+    if (!card) return;
+
+    showDeleteCallout(delCard, 'confirm-del-card', card.id, `Delete ${card.name}?`);
+    return;
+  }
+
+  const confirmDelCard = ev.target.closest('[data-confirm-del-card]');
+  if (confirmDelCard) {
+    ev.stopPropagation();
+
+    const cardId = confirmDelCard.dataset.confirmDelCard;
+    const cardEl = root.querySelector(`.cc-item[data-card-id="${CSS.escape(cardId)}"]`);
+
+    hideDeleteCallout();
+    await animateCardRemoval(cardEl);
+
+    cards = cards.filter(c => c.id !== cardId);
+    if (editingCardId === cardId) editingCardId = null;
+    if (selectedCardId === cardId) selectedCardId = cards[0]?.id || null;
+
     await Store.set('creditcards', cards);
     await renderCards();
     showToast('Card removed');
@@ -477,11 +638,19 @@ root.addEventListener('click', async (ev) => {
     }
 
     const card = { id: uid(), name, billingDay: day, dueDay };
+    const stopBusy = beginCardsBusy(addCard, 'Adding…');
+
     cards.push(card);
     if (!selectedCardId) selectedCardId = card.id;
-    await Store.set('creditcards', cards);
-    await renderCards();
-    showToast('Card added');
+
+    try {
+      await Store.set('creditcards', cards);
+      pendingCardEnterId = card.id;
+      await renderCards();
+      showToast('Card added');
+    } finally {
+      stopBusy();
+    }
   }
 });
 
@@ -489,7 +658,7 @@ root.addEventListener('change', async (ev) => {
   if (ev.target.matches('[data-card-ledger-select]')) {
     selectedCardId = ev.target.value || null;
     selectedCycleView = 'current';
-    await renderCards();
+    await refreshCardStatementExplorer({ direction: 1 });
     return;
   }
 
@@ -497,17 +666,25 @@ root.addEventListener('change', async (ev) => {
     const selectedCard = cards.find(card => card.id === selectedCardId);
     if (!selectedCard || selectedCycleView !== 'last') return;
 
-    const cycleEnd = ev.target.dataset.cycleSettled;
-    await setCreditCardCycleSettled(
-      selectedCard.id,
-      cycleEnd,
-      ev.target.checked
-    );
+    const toggle = ev.target;
+    const checked = toggle.checked;
+    const cycleEnd = toggle.dataset.cycleSettled;
+    toggle.disabled = true;
 
-    await renderCards();
-    showToast(ev.target.checked ? 'Statement marked fully settled' : 'Statement settlement reopened');
+    try {
+      await setCreditCardCycleSettled(selectedCard.id, cycleEnd, checked);
+      await refreshCardStatementExplorer({ settlementFlash: true });
+      showToast(checked ? 'Statement marked fully settled' : 'Statement settlement reopened');
+    } catch (error) {
+      toggle.checked = !checked;
+      showToast('Could not update statement settlement');
+    } finally {
+      if (toggle.isConnected) toggle.disabled = false;
+    }
   }
 });
+
+wireDeletePopoverDismiss(root);
 
 window.addEventListener('auth:signed-in', renderCards);
 window.addEventListener('auth:checked', renderCards);
