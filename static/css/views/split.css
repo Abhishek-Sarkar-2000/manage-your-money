@@ -1,3 +1,99 @@
+/* ---------- Split loading skeleton ---------- */
+.split-loading-state {
+  display: grid;
+  gap: 18px;
+}
+
+.split-loading-heading {
+  padding: 4px 2px;
+}
+
+.split-skeleton-panel,
+.split-skeleton-group-card,
+.split-skeleton-settle-card {
+  background: linear-gradient(100deg, color-mix(in srgb, var(--paper) 94%, var(--hair)) 20%, color-mix(in srgb, var(--ice) 72%, var(--paper)) 40%, color-mix(in srgb, var(--paper) 94%, var(--hair)) 60%);
+  background-size: 220% 100%;
+  animation: split-skeleton-shimmer 1.4s ease-in-out infinite;
+  border: 1px solid color-mix(in srgb, var(--hair) 82%, transparent);
+  box-shadow: var(--shadow-sm);
+}
+
+.split-skeleton-panel {
+  padding: 18px;
+  border-radius: var(--radius);
+}
+
+.split-loading-card-row {
+  display: flex;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.split-skeleton-group-card {
+  flex: 0 0 260px;
+  min-width: 230px;
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px;
+  border-radius: var(--radius);
+}
+
+.split-skeleton-settle-card {
+  flex: 0 0 250px;
+  min-width: 220px;
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: var(--radius-sm);
+}
+
+.split-loading-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.split-skeleton-chart {
+  min-height: 230px;
+}
+
+.split-skeleton-chart-body {
+  display: block;
+  width: min(180px, 70%);
+  aspect-ratio: 1;
+  margin: 22px auto 2px;
+  border-radius: 50%;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--hair) 62%, var(--paper)) 20%, color-mix(in srgb, var(--hair) 30%, var(--paper)) 40%, color-mix(in srgb, var(--hair) 62%, var(--paper)) 60%);
+  background-size: 220% 100%;
+  animation: split-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.split-skeleton-line {
+  display: block;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--hair) 62%, var(--paper)) 20%, color-mix(in srgb, var(--hair) 30%, var(--paper)) 40%, color-mix(in srgb, var(--hair) 62%, var(--paper)) 60%);
+  background-size: 220% 100%;
+  animation: split-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.split-skeleton-line.is-title { width: min(260px, 55%); height: 30px; }
+.split-skeleton-line.is-section-title { width: 150px; height: 18px; margin-bottom: 14px; }
+.split-skeleton-line.is-card-title { width: 72%; height: 18px; }
+.split-skeleton-line.is-short { width: 38%; }
+.split-skeleton-line.is-medium { width: 68%; }
+.split-skeleton-line.is-value { width: 46%; height: 22px; }
+
+@keyframes split-skeleton-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -120% 0; }
+}
+
+@media (max-width: 700px) {
+  .split-loading-chart-grid { grid-template-columns: 1fr; }
+}
+
 /* ---------- Split Money ---------- */
 .split-group-card {
   flex: 0 0 260px;
@@ -219,7 +315,154 @@
   color: var(--credit);
 }
 
+.split-settle-card {
+  transition: border-color 0.17s ease, background-color 0.17s ease, transform 0.17s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
+.split-settle-card.settled {
+  border-color: color-mix(in srgb, var(--credit) 38%, var(--hair));
+}
+
+.split-settlement-changing {
+  transform: scale(0.985);
+}
+
+.split-settlement-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 3px;
+  border-radius: 50%;
+  background: var(--credit-bg);
+  color: var(--credit);
+  font-size: 0.7rem;
+  font-weight: 700;
+  animation: split-check-pop 0.17s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.split-group-enter {
+  animation: split-group-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+.split-spend-enter > td {
+  animation: split-spend-enter 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.is-split-busy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.split-busy-spinner {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: split-busy-spin 0.65s linear infinite;
+}
+
+.split-share-copied {
+  color: var(--credit) !important;
+  border-color: color-mix(in srgb, var(--credit) 45%, var(--hair)) !important;
+}
+
+@keyframes split-group-enter {
+  from { opacity: 0; transform: translateY(7px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes split-spend-enter {
+  from { opacity: 0; transform: translateX(-7px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes split-check-pop {
+  from { opacity: 0; transform: scale(0.65); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes split-busy-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- Split add-form disclosure ---------- */
+.split-form-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: 0;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: grid-template-rows 0.26s cubic-bezier(0.16, 1, 0.3, 1), margin-top 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.16s ease, transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.split-form-reveal.is-open {
+  grid-template-rows: 1fr;
+  margin-top: 14px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.split-form-reveal.is-closing {
+  pointer-events: none;
+}
+
+.split-form-reveal-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.split-form-reveal .split-local-form {
+  margin-top: 0 !important;
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.split-details-panel > .section-title {
+  margin-top: 16px;
+}
+
+#split-root.no-entrance-anim .split-details-panel > .form-note,
+#split-root.no-entrance-anim .split-details-panel > .transactions-container {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+/* ---------- Split local add-form reveal ---------- */
+.split-form-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: grid-template-rows 0.26s cubic-bezier(0.16, 1, 0.3, 1), margin-top 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.16s ease, transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.split-form-reveal.is-open {
+  grid-template-rows: 1fr;
+  margin-top: 14px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.split-form-reveal-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+#split-root .split-form-reveal .split-local-form {
+  margin-top: 0 !important;
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
 
 .split-member-row {
   display: grid;
@@ -236,42 +479,124 @@
   margin-bottom: 14px;
 }
 
+#split-root [data-split-form-toggle],
+#split-root [data-open-split-spend-form],
+#split-root [data-open-split-member-form][data-member-form-source="details"] {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.08s ease;
+}
+
+.split-person-share-box {
+  display: grid;
+  grid-template-rows: auto 40px;
+  align-content: start;
+  min-width: 0;
+}
+
+.split-person-share-box > label {
+  margin-top: 0;
+}
+
+.split-share-control-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.split-share-control-row .sp-share {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+.split-person-share-box .split-share-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  gap: 0;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+  flex-shrink: 0;
+}
+
+.split-person-share-box .split-share-toggle input {
+  display: block;
+  margin: 0;
+}
+.split-person-share-box .split-share-toggle input::before {
+  height: 14px;
+  width: 14px;
+}
+
 .split-ledger-mode-wrap {
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .split-ledger-mode-grid {
+  position: relative;
+  isolation: isolate;
   display: inline-grid;
-  grid-template-columns: repeat(2, minmax(110px, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  width: max-content;
+  max-width: 100%;
   gap: 0;
   overflow: hidden;
-  border: 1px solid var(--blue);
+  border: 1px solid var(--sky);
   border-radius: 999px;
-  background: transparent;
+  background: var(--paper);
+}
+
+.split-ledger-mode-slider {
+  position: absolute;
+  z-index: 0;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: max(0px, calc(var(--split-pill-width, 0px) - 6px));
+  border-radius: 999px;
+  background: var(--blue);
+  transform: translateX(calc(var(--split-pill-left, 0px) + 3px));
+  pointer-events: none;
+}
+
+.split-ledger-mode-grid.is-ready .split-ledger-mode-slider {
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), width 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .split-ledger-mode-grid .pill-btn {
-  min-width: 110px;
+  position: relative;
+  z-index: 1;
+  width: auto;
+  min-width: max-content;
   margin: 0;
-  padding: 3px;
+  padding: 5px 16px;
   border: 0;
   border-radius: 0;
-  background: transparent;
+  background: transparent !important;
   white-space: nowrap;
   text-align: center;
   box-shadow: none;
-}
-
-.split-ledger-mode-grid .pill-btn + .pill-btn {
-  border-left: 1.5px solid var(--blue);
+  transition: color 0.14s ease, transform 0.08s ease;
 }
 
 .split-ledger-mode-grid .pill-btn.active {
-  background: var(--blue);
+  color: var(--ice-2);
 }
 
-.split-ledger-mode-grid .pill-btn:not(.active):hover {
-  background: var(--ice);
+.split-ledger-mode-grid .pill-btn:not(.active) {
+  color: var(--blue);
+}
+
+.split-ledger-mode-grid .pill-btn:active {
+  transform: scale(0.97);
 }
 
 .split-ledger-mode-grid .pill-btn:disabled {
@@ -279,11 +604,91 @@
   cursor: not-allowed;
 }
 
+.split-ledger-options {
+  width: 100%;
+  min-width: 0;
+  margin: 0 0 14px;
+  padding: 0;
+}
+
 .split-ledger-fields {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0fr);
+  gap: 0;
+  width: 100%;
+  min-width: 0;
   align-items: end;
+  transition: grid-template-columns 0.2s cubic-bezier(0.16, 1, 0.3, 1), gap 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.split-ledger-fields.is-card-mode {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.split-ledger-tag-zone,
+.split-ledger-card-zone {
+  min-width: 0;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.split-ledger-tag-zone {
+  width: 100%;
+}
+
+.split-ledger-card-zone {
+  min-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-6px);
+  pointer-events: none;
+  transition: opacity 0.14s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.2s;
+}
+
+.split-ledger-fields.is-card-mode .split-ledger-card-zone {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+  pointer-events: auto;
+  transition-delay: 0.03s, 0s, 0s;
+}
+
+.split-ledger-card-zone > .field,
+.split-ledger-tag-zone > .field,
+.split-ledger-card-zone select,
+.split-ledger-tag-zone select,
+.split-ledger-tag-zone input {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 680px) {
+  .split-ledger-fields,
+  .split-ledger-fields.is-card-mode {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .split-ledger-card-zone {
+    max-height: 0;
+    margin-top: 0;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    overflow: hidden;
+    transition: max-height 0.18s cubic-bezier(0.16, 1, 0.3, 1), margin-top 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.12s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.18s;
+  }
+
+  .split-ledger-fields.is-card-mode .split-ledger-card-zone {
+    max-height: 90px;
+    margin-top: 10px;
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    transition-delay: 0s;
+  }
 }
 
 /* ---------- Shared Split Chart: Who Owes How Much ---------- */
@@ -702,6 +1107,15 @@
 
 /* ---------- Split shares member management ---------- */
 
+.split-share-member-enter > td {
+  animation: split-share-member-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes split-share-member-enter {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .split-share-amount {
   display: inline-flex;
   align-items: center;
@@ -849,6 +1263,86 @@
 
   .split-inline-member-btn {
     flex: 1 1 0;
+  }
+}
+
+/* ---------- Split first-render reveal ---------- */
+@keyframes split-section-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.split-view:not(.no-entrance-anim) .split-load-stage--header {
+  animation: split-section-enter 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.split-view:not(.no-entrance-anim) .split-load-stage--create {
+  animation: split-section-enter 0.3s 0.04s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.split-view:not(.no-entrance-anim) .split-load-stage--overview {
+  animation: split-section-enter 0.3s 0.08s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.split-view:not(.no-entrance-anim) .split-load-stage--groups {
+  animation: split-section-enter 0.3s 0.12s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.split-view:not(.no-entrance-anim) .split-load-stage--charts {
+  animation: split-section-enter 0.3s 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.split-view:not(.no-entrance-anim) .split-load-stage--shares {
+  animation: split-section-enter 0.3s 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.split-view:not(.no-entrance-anim) .split-load-stage--settle {
+  animation: split-section-enter 0.32s 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.split-view:not(.no-entrance-anim) .split-load-stage .chart-card,
+.split-view:not(.no-entrance-anim) .split-load-stage .card,
+.split-view:not(.no-entrance-anim) .split-load-stage .form-panel,
+.split-view:not(.no-entrance-anim) .split-load-stage .split-group-card,
+.split-view:not(.no-entrance-anim) .split-load-stage .split-settle-card,
+.split-view:not(.no-entrance-anim) .split-load-stage .split-details-panel {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .split-ledger-mode-slider,
+  .split-ledger-mode-grid .pill-btn,
+  .split-ledger-fields,
+  .split-ledger-card-zone,
+  .split-form-reveal,
+  #split-root [data-split-form-toggle],
+  #split-root [data-open-split-spend-form],
+  #split-root [data-open-split-member-form][data-member-form-source="details"] {
+    transition: none !important;
+    transform: none !important;
+  }
+
+  .split-skeleton-panel,
+  .split-skeleton-group-card,
+  .split-skeleton-settle-card,
+  .split-skeleton-line,
+  .split-skeleton-chart-body,
+  .split-group-enter,
+  .split-spend-enter > td,
+  .split-share-member-enter > td,
+  .split-settlement-check,
+  .split-busy-spinner {
+    animation: none !important;
+    background-position: 0 0 !important;
+  }
+
+  .split-settle-card,
+  .split-group-card {
+    transition: none !important;
+  }
+
+  .split-settlement-changing {
+    transform: none !important;
   }
 }
 

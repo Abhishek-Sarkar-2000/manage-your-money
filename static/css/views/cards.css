@@ -580,8 +580,10 @@
   padding: 20px;
   border: 1px solid var(--hair);
   border-radius: var(--radius);
-  background: var(--paper);
+  background: linear-gradient(100deg, color-mix(in srgb, var(--paper) 94%, var(--hair)) 20%, color-mix(in srgb, var(--paper) 82%, var(--hair)) 40%, color-mix(in srgb, var(--paper) 94%, var(--hair)) 60%);
+  background-size: 220% 100%;
   box-shadow: var(--shadow-sm);
+  animation: cards-skeleton-shimmer 1.4s ease-in-out infinite;
 }
 
 .cards-skeleton-line,
@@ -789,9 +791,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .cards-skeleton-panel,
   .cards-skeleton-line,
   .cards-skeleton-circle,
-  .cards-skeleton-cycle,
+  .cards-skeleton-cycle
   .cards-skeleton-stats > span,
   .cards-skeleton-table > span,
   .cards-load-stage,

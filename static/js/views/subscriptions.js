@@ -17,8 +17,45 @@ let cards = [];
 let domainLoaded = false;
 let recurringAddPending = false;
 let editingRecurringId = null;
+let pendingRecurringEnterId = null;
+
+const subscriptionsReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+function beginSubscriptionBusy(button, label = 'Saving…') {
+  if (!button) return () => {};
+
+  const originalHtml = button.innerHTML;
+  const originalDisabled = button.disabled;
+  const originalMinWidth = button.style.minWidth;
+  const width = button.getBoundingClientRect().width;
+
+  button.disabled = true;
+  button.style.minWidth = `${Math.ceil(width)}px`;
+
+  const timer = setTimeout(() => {
+    if (!button.isConnected) return;
+    button.classList.add('is-subscription-busy');
+    button.innerHTML = `<span class="subscription-busy-spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span>`;
+  }, 140);
+
+  return () => {
+    clearTimeout(timer);
+    if (!button.isConnected) return;
+    button.classList.remove('is-subscription-busy');
+    button.innerHTML = originalHtml;
+    button.disabled = originalDisabled;
+    button.style.minWidth = originalMinWidth;
+  };
+}
+
+function animateSubscriptionRemoval(row) {
+  if (!row || subscriptionsReducedMotion.matches) return Promise.resolve();
+  row.classList.add('subscription-item-removing');
+  return new Promise(resolve => setTimeout(resolve, 180));
+}
 
 async function renderSubscriptions() {
+  try {
   if (!domainLoaded) {
     const records = await Store.bulkGet(['recurringseries', 'creditcards'], {});
     recurringSeries = records.recurringseries || [];
@@ -41,7 +78,7 @@ async function renderSubscriptions() {
       modeText = c ? c.name : 'Credit Card';
     }
     return `
-    <div class="cc-item">
+    <div class="cc-item subscription-item" data-recurring-id="${s.id}">
       <div>
         <div class="cc-name">${escapeHtml(s.description)}</div>
         <div class="cc-cycle">${fmtINR(s.amount)} / month · deducted on the ${s.dayOfMonth}${ordinalSuffix(s.dayOfMonth)} via ${escapeHtml(modeText)}</div>
@@ -60,15 +97,19 @@ async function renderSubscriptions() {
   if (tb) tb.style.display = '';
 
   markRendered(root);
+  root.removeAttribute('data-loading');
+  root.setAttribute('aria-busy', 'false');
+
   root.innerHTML = `
-  <div class="section">
+  <div class="section subscriptions-load-stage">
     <div class="card">
       <div class="section-title"><h2>Recurring Expenses</h2><span class="hint">Bills and subscriptions, auto-deducted every month automatically</span></div>
         <div class="cc-list">${rows}</div>
         <div class="form-panel">
           <div class="form-note" style="margin-top:0;">Deducted every month on the date you choose — clamped to the last day of the month when it doesn't have that many days.</div>
           
-          <div class="pill-grid" style="margin-bottom: 12px;" id="sub-mode-selector">
+          <div class="pill-grid subscription-mode-selector" id="sub-mode-selector" data-mode="${editData?.paymentMode === 'card' ? 'card' : 'bank'}" style="margin-bottom: 12px;">
+            <span class="subscription-mode-slider" aria-hidden="true"></span>
             <button class="pill-btn sub-pill ${!editData || editData.paymentMode !== 'card' ? 'active' : ''}" data-sub-mode="bank" type="button">Bank Transfer</button>
             <button class="pill-btn sub-pill ${editData?.paymentMode === 'card' ? 'active' : ''}" data-sub-mode="card" type="button" ${cards.length ? '' : 'disabled'}>Credit Card</button>
           </div>
@@ -79,10 +120,14 @@ async function renderSubscriptions() {
             <div class="field"><label>Date of deduction</label><input id="recurring-day" type="number" step="1" min="1" max="31" placeholder="e.g. 5" value="${editData ? editData.dayOfMonth : ''}" /></div>
           </div>
           
-          <div class="form-row" id="sub-card-row" style="${editData?.paymentMode === 'card' ? 'display:contents;' : 'display:none;'}">
-            <div class="field">
-              <label>Card</label>
-              <select id="recurring-card">${cardOptions || '<option value="">No cards added</option>'}</select>
+          <div class="subscription-card-field-wrap ${editData?.paymentMode === 'card' ? 'expanded' : ''}" id="sub-card-row">
+            <div class="subscription-card-field-inner">
+              <div class="form-row">
+                <div class="field">
+                  <label>Card</label>
+                  <select id="recurring-card">${cardOptions || '<option value="">No cards added</option>'}</select>
+                </div>
+              </div>
             </div>
           </div>
           
@@ -96,6 +141,23 @@ async function renderSubscriptions() {
   `;
 
   appendPageChrome(root);
+
+  if (pendingRecurringEnterId) {
+    const addedItem = root.querySelector(`.subscription-item[data-recurring-id="${CSS.escape(pendingRecurringEnterId)}"]`);
+    if (addedItem) {
+      addedItem.classList.add('subscription-item-enter');
+      setTimeout(() => addedItem.classList.remove('subscription-item-enter'), 280);
+    }
+    pendingRecurringEnterId = null;
+  }
+  } catch (error) {
+    console.error('Subscriptions render failed:', error);
+    root.removeAttribute('data-loading');
+    root.setAttribute('aria-busy', 'false');
+    root.innerHTML = `<div class="section"><div class="empty-chart">Subscriptions could not be loaded right now. Please try again.</div></div>`;
+    appendPageChrome(root);
+    showToast("We couldn't load your subscriptions. Please try again.");
+  }
 }
 
 root.addEventListener('click', async (ev) => {
@@ -125,12 +187,13 @@ root.addEventListener('click', async (ev) => {
     subModeBtn.classList.add('active');
 
     const mode = subModeBtn.dataset.subMode;
+    wrap.dataset.mode = mode;
+
     const cardRow = $('#sub-card-row');
-    if (mode === 'card') {
-      if (cardRow) cardRow.style.display = 'contents';
-    } else {
-      if (cardRow) cardRow.style.display = 'none';
+    if (cardRow) {
+      cardRow.classList.toggle('expanded', mode === 'card');
     }
+
     return;
   }
 
@@ -159,7 +222,7 @@ root.addEventListener('click', async (ev) => {
     }
 
     recurringAddPending = true;
-    addRecurring.disabled = true;
+    const stopBusy = beginSubscriptionBusy(addRecurring, editingRecurringId ? 'Saving…' : 'Adding…');
 
     try {
       if (editingRecurringId) {
@@ -180,7 +243,7 @@ root.addEventListener('click', async (ev) => {
         await renderSubscriptions();
         showToast('Recurring expense updated');
       } else {
-        recurringSeries.push({
+        const recurring = {
           id: uid(),
           description: desc,
           amount,
@@ -188,15 +251,18 @@ root.addEventListener('click', async (ev) => {
           paymentMode,
           cardId,
           startMonth: currentMonthKey()
-        });
+        };
+
+        recurringSeries.push(recurring);
 
         await Store.set('recurringseries', recurringSeries);
+        pendingRecurringEnterId = recurring.id;
         await renderSubscriptions();
         showToast(`Recurring spend will be deducted on the ${dayOfMonth}${ordinalSuffix(dayOfMonth)} of every month`);
       }
     } finally {
       recurringAddPending = false;
-      addRecurring.disabled = false;
+      stopBusy();
     }
     return;
   }
@@ -209,10 +275,15 @@ root.addEventListener('click', async (ev) => {
   const confirmDelRecurringSeries = ev.target.closest('[data-confirm-del-recurring-series]');
   if (confirmDelRecurringSeries) {
     ev.stopPropagation();
+
     const seriesId = confirmDelRecurringSeries.dataset.confirmDelRecurringSeries;
+    const row = root.querySelector(`.subscription-item[data-recurring-id="${CSS.escape(seriesId)}"]`);
+
+    hideDeleteCallout();
+    await animateSubscriptionRemoval(row);
+
     recurringSeries = recurringSeries.filter(s => s.id !== seriesId);
     await Store.set('recurringseries', recurringSeries);
-    hideDeleteCallout();
     await renderSubscriptions();
     showToast('Recurring expense deleted entirely');
   }

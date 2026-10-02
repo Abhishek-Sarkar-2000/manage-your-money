@@ -66,6 +66,24 @@ function monthScrollBehavior() {
   return monthReducedMotion.matches ? 'auto' : 'smooth';
 }
 
+function syncMonthPillSlider(wrap, activeButton = null, animate = true) {
+  if (!wrap) return;
+
+  const button = activeButton || wrap.querySelector('.pill-btn.active');
+  if (!button) return;
+
+  if (!animate) wrap.classList.remove('is-ready');
+
+  wrap.style.setProperty('--month-pill-left', `${button.offsetLeft}px`);
+  wrap.style.setProperty('--month-pill-width', `${button.offsetWidth}px`);
+
+  if (!animate) requestAnimationFrame(() => requestAnimationFrame(() => wrap.classList.add('is-ready')));
+}
+
+function syncAllMonthPillSliders() {
+  root.querySelectorAll('.month-pill-switch').forEach(wrap => syncMonthPillSlider(wrap, null, false));
+}
+
 function queueMonthFx(selector, kind = 'update') {
   pendingMonthFx.push({ selector, kind });
 }
@@ -929,26 +947,35 @@ function renderForm(kind) {
   if (kind === 'spend') {
     return `
     <div class="form-panel">
-      <div class="spend-mode-grid" id="f-spend-mode-selector" role="group" aria-label="Spend type">
+      <div class="spend-mode-grid month-pill-switch" id="f-spend-mode-selector" role="group" aria-label="Spend type">
+        <span class="month-pill-slider" aria-hidden="true"></span>
         <button class="pill-btn sub-pill active" data-spend-mode="regular" type="button" aria-pressed="true">Regular</button>
-        <button class="pill-btn sub-pill" data-spend-mode="atm" type="button" aria-pressed="false">Cash withdrawal</button>
+        <button class="pill-btn sub-pill" data-spend-mode="atm" type="button" aria-pressed="false"><span class="spend-mode-label-full">Cash withdrawal</span><span class="spend-mode-label-short">ATM</span></button>
         <button class="pill-btn sub-pill" data-spend-mode="card" type="button" aria-pressed="false" ${cards.length ? '' : 'disabled'}>CC due payment</button>
       </div>
       <div class="form-note" id="f-mode-info" style="margin-top:0; margin-bottom:14px;">Add regular spends with tag for instant transfer modes like UPI.</div>
 
-      <div class="form-row">
-        <div class="field" id="f-desc-wrap"><label>Spend</label><input id="f-desc" type="text" placeholder="e.g. Groceries" /></div>
-        <div class="field"><label>Amount (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
-        <div class="field"><label>Date</label><input id="f-date" type="date" value="${todayStr()}" /></div>
-      </div>
-      <div class="form-row" style="align-items: flex-end;">
-        <div class="field" id="f-card-wrap" style="display:none;">
-          <label>Card being paid off</label>
-          <select id="f-card">${cardOptions || '<option value="">No cards added</option>'}</select>
+      <div class="spend-primary-row" id="f-spend-primary-row">
+        <div class="field spend-desc-field" id="f-desc-wrap"><label>Spend</label><input id="f-desc" type="text" placeholder="e.g. Groceries" /></div>
+        <div class="spend-primary-core">
+          <div class="field spend-amount-field"><label>Amount (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+          <div class="field spend-date-field"><label>Date</label><input id="f-date" type="date" value="${todayStr()}" /></div>
         </div>
-        ${renderTagField()}
       </div>
-      <div class="form-row" id="spend-dynamic-fields" style="display:none; margin-top: 14px;"></div>
+      <div class="spend-secondary-row" id="f-spend-secondary-row">
+        <div class="spend-secondary-inner">
+          <div class="spend-tag-zone is-visible" id="f-tag-row">
+            ${renderTagField()}
+          </div>
+          <div class="spend-card-field" id="f-card-wrap" aria-hidden="true">
+            <div class="field">
+              <label>Card being paid off</label>
+              <select id="f-card" tabindex="-1">${cardOptions || '<option value="">No cards added</option>'}</select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spend-meta-row is-collapsed" id="spend-dynamic-fields"><div class="spend-meta-inner"></div></div>
       <div id="f-price-track-wrap" style="margin-bottom: 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <button class="pill-btn sub-pill" id="f-price-track-btn" type="button">+ Add to Price Tracker</button>
         <button class="pill-btn sub-pill dashed-subcat-btn" id="f-add-subcat-btn" type="button" disabled>+ Add Subcategory</button>
@@ -1046,7 +1073,8 @@ function renderForm(kind) {
         <span>Auto-deducted every month on the date you choose. If a month doesn't have that many days, it deducts on the last valid day instead.</span>
         <a class="pill-btn sub-pill active hyperlink" href="/subscriptions">Manage Subscriptions</a>
       </div>
-      <div class="pill-grid" style="margin-bottom: 12px;" id="f-recurring-mode-selector">
+      <div class="pill-grid month-recurring-mode-switch month-pill-switch" id="f-recurring-mode-selector" style="margin-bottom: 12px;">
+        <span class="month-pill-slider" aria-hidden="true"></span>
         <button class="pill-btn sub-pill active" data-recurring-mode="bank" type="button">Bank Transfer</button>
         <button class="pill-btn sub-pill" data-recurring-mode="card" type="button" ${cards.length ? '' : 'disabled'}>Credit Card</button>
       </div>
@@ -1055,10 +1083,14 @@ function renderForm(kind) {
         <div class="field"><label>Amount (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
         <div class="field"><label>Date of deduction</label><input id="f-recurring-day" type="number" step="1" min="1" max="31" placeholder="e.g. 5" /></div>
       </div>
-      <div class="form-row" id="f-recurring-card-row" style="display:none;">
-        <div class="field">
-          <label>Card</label>
-          <select id="f-recurring-card">${cardOptions || '<option value="">No cards added</option>'}</select>
+      <div class="month-mode-field-wrap" id="f-recurring-card-row">
+        <div class="month-mode-field-inner">
+          <div class="form-row">
+            <div class="field">
+              <label>Card</label>
+              <select id="f-recurring-card">${cardOptions || '<option value="">No cards added</option>'}</select>
+            </div>
+          </div>
         </div>
       </div>
       <div class="form-actions">
@@ -1398,6 +1430,32 @@ function renderMonthSipCard(e) {
       `}
     </div>
   </div>`;
+}
+
+function renderSipFilterCards(sipCardRows, filter = currentSipFilter) {
+  const displayNames = { 'All': 'All', 'Mutual Fund': 'Mutual Funds', 'ETF': 'ETFs', 'Stock': 'Stocks' };
+  let sortedSips = [...sipCardRows].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
+
+  if (filter !== 'All') {
+    sortedSips = sortedSips.filter(s => (s.category || 'Mutual Fund') === filter);
+  }
+
+  if (sortedSips.length) {
+    return `<div class="month-sip-grid">${sortedSips.map(renderMonthSipCard).join('')}</div>`;
+  }
+
+  return `<div class="empty-chart" style="margin-top: 20px;">No ${displayNames[filter]} SIPs running this month.</div>`;
+}
+
+async function refreshSipFilterResults() {
+  const results = root.querySelector('[data-sip-filter-results]');
+  if (!results) return;
+
+  const data = await loadMonth(monthKey);
+  const sipCardSeries = sipSeries.map(sip => ({ ...sip, skipMonths: [] }));
+  const sipCardRows = sipRowsForMonth(sipCardSeries, monthKey, [], data.sipOverrides);
+
+  results.innerHTML = renderSipFilterCards(sipCardRows);
 }
 
 async function refreshSipCard(seriesId) {
@@ -1895,32 +1953,18 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
     let sipFilterHtml = '';
 
     if (sipCardRows.length) {
-      let sortedSips = [...sipCardRows].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
-
       const categories = ['All', 'Mutual Fund', 'ETF', 'Stock'];
       const displayNames = { 'All': 'All', 'Mutual Fund': 'Mutual Funds', 'ETF': 'ETFs', 'Stock': 'Stocks' };
 
       sipFilterHtml = `
-      <div class="pill-grid sip-filter-grid">
+      <div class="pill-grid sip-filter-grid month-pill-switch">
+        <span class="month-pill-slider" aria-hidden="true"></span>
         ${categories.map(cat => `
-          <button class="pill-btn sub-pill ${currentSipFilter === cat ? 'active' : ''}" 
-                  data-sip-filter="${cat}" type="button">
-            ${displayNames[cat]}
-          </button>
+          <button class="pill-btn sub-pill ${currentSipFilter === cat ? 'active' : ''}" data-sip-filter="${cat}" type="button">${displayNames[cat]}</button>
         `).join('')}
       </div>`;
 
-      if (currentSipFilter !== 'All') {
-        sortedSips = sortedSips.filter(s => (s.category || 'Mutual Fund') === currentSipFilter);
-      }
-
-      if (sortedSips.length) {
-        const cardsHtml = sortedSips.map(renderMonthSipCard).join('');
-
-        sipCardsHtml = `<div class="month-sip-grid">${cardsHtml}</div>`;
-      } else {
-        sipCardsHtml = `<div class="empty-chart" style="margin-top: 20px;">No ${displayNames[currentSipFilter]} SIPs running this month.</div>`;
-      }
+      sipCardsHtml = renderSipFilterCards(sipCardRows);
     }
 
     const recurringCardsHtml = recurringCardRows.length
@@ -2328,7 +2372,7 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
       </div>
       <span class="hint" style="display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 12px;">${sipRows.length} running this month</span>
       ${sipFilterHtml}
-      ${sipCardsHtml}
+      <div class="sip-filter-results" data-sip-filter-results>${sipCardsHtml}</div>
     </div>` : ''}
     ${recurringRows.length ? `
     <div class="section month-load-stage month-load-stage--secondary">
@@ -2342,6 +2386,10 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
     `;
 
     appendPageChrome(root);
+
+    requestAnimationFrame(() => {
+      syncAllMonthPillSliders();
+    });
     setupScrollWrappers(root);
     setupTableScrollIndicators(root);
     wireMonthStickyFeedback();
@@ -2759,37 +2807,74 @@ root.addEventListener('click', async (ev) => {
   if (spendModeBtn) {
     if (spendModeBtn.disabled) return;
     const wrap = spendModeBtn.closest('#f-spend-mode-selector');
-    wrap.querySelectorAll('.pill-btn').forEach(b => {
+    const modeButtons = Array.from(wrap.querySelectorAll('[data-spend-mode]'));
+
+    modeButtons.forEach(b => {
       const active = b === spendModeBtn;
       b.classList.toggle('active', active);
       b.setAttribute('aria-pressed', String(active));
     });
 
+    syncMonthPillSlider(wrap, spendModeBtn);
+
     const mode = spendModeBtn.dataset.spendMode;
     const descWrap = $('#f-desc-wrap');
-    const cardWrap = $('#f-card-wrap');
+    const descInput = $('#f-desc');
+    const primaryRow = $('#f-spend-primary-row');
+    const secondaryRow = $('#f-spend-secondary-row');
     const tagRow = $('#f-tag-row');
+    const cardWrap = $('#f-card-wrap');
+    const cardSelect = $('#f-card');
     const infoBox = $('#f-mode-info');
     const lentContainer = $('#f-lent-container');
     const lentWrap = $('#f-lent-wrap');
     const lentToggle = $('#f-lent-toggle');
     const priceTrackWrap = $('#f-price-track-wrap');
 
+    const metaRow = $('#spend-dynamic-fields');
+    const metaInner = metaRow?.querySelector('.spend-meta-inner');
+
     if (mode === 'regular') {
-      if (priceTrackWrap) priceTrackWrap.style.display = 'block';
-      descWrap.style.display = 'block'; cardWrap.style.display = 'none'; tagRow.style.display = 'contents';
+      if (priceTrackWrap) priceTrackWrap.style.display = 'flex';
+      if (primaryRow) primaryRow.classList.remove('is-compact');
+      if (descWrap) descWrap.setAttribute('aria-hidden', 'false');
+      if (descInput) descInput.tabIndex = 0;
+      if (secondaryRow) secondaryRow.classList.remove('is-collapsed', 'is-card-mode');
+      if (tagRow) tagRow.classList.add('is-visible');
+      if (cardWrap) cardWrap.classList.remove('is-visible');
+      if (cardWrap) cardWrap.setAttribute('aria-hidden', 'true');
+      if (cardSelect) cardSelect.tabIndex = -1;
+      if (metaRow) metaRow.classList.toggle('is-collapsed', !metaInner?.innerHTML);
       infoBox.textContent = 'Add regular spends with tag for instant transfer modes like UPI.';
       if (lentContainer) lentContainer.style.display = 'flex';
     } else if (mode === 'atm') {
       if (priceTrackWrap) priceTrackWrap.style.display = 'none';
-      descWrap.style.display = 'none'; cardWrap.style.display = 'none'; tagRow.style.display = 'none';
+      if (primaryRow) primaryRow.classList.add('is-compact');
+      if (descWrap) descWrap.setAttribute('aria-hidden', 'true');
+      if (descInput) descInput.tabIndex = -1;
+      if (secondaryRow) secondaryRow.classList.add('is-collapsed');
+      if (secondaryRow) secondaryRow.classList.remove('is-card-mode');
+      if (tagRow) tagRow.classList.remove('is-visible');
+      if (cardWrap) cardWrap.classList.remove('is-visible');
+      if (cardWrap) cardWrap.setAttribute('aria-hidden', 'true');
+      if (cardSelect) cardSelect.tabIndex = -1;
+      if (metaRow) metaRow.classList.add('is-collapsed');
       infoBox.textContent = 'Note down debit from bank account upon cash withdrawal.';
       if (lentContainer) lentContainer.style.display = 'none';
       if (lentWrap) lentWrap.style.display = 'none';
       if (lentToggle) lentToggle.checked = false;
     } else if (mode === 'card') {
       if (priceTrackWrap) priceTrackWrap.style.display = 'none';
-      descWrap.style.display = 'none'; cardWrap.style.display = 'block'; tagRow.style.display = 'none';
+      if (primaryRow) primaryRow.classList.add('is-compact');
+      if (descWrap) descWrap.setAttribute('aria-hidden', 'true');
+      if (descInput) descInput.tabIndex = -1;
+      if (secondaryRow) secondaryRow.classList.remove('is-collapsed');
+      if (secondaryRow) secondaryRow.classList.add('is-card-mode');
+      if (tagRow) tagRow.classList.remove('is-visible');
+      if (cardWrap) cardWrap.classList.add('is-visible');
+      if (cardWrap) cardWrap.setAttribute('aria-hidden', 'false');
+      if (cardSelect) cardSelect.tabIndex = 0;
+      if (metaRow) metaRow.classList.add('is-collapsed');
       infoBox.textContent = 'Pays down your credit card dues and reduces overall balance.';
       if (lentContainer) lentContainer.style.display = 'none';
       if (lentWrap) lentWrap.style.display = 'none';
@@ -2802,16 +2887,18 @@ root.addEventListener('click', async (ev) => {
   if (recurringModeBtn) {
     if (recurringModeBtn.disabled) return;
     const wrap = recurringModeBtn.closest('#f-recurring-mode-selector');
-    wrap.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
-    recurringModeBtn.classList.add('active');
+    const modeButtons = Array.from(wrap.querySelectorAll('[data-recurring-mode]'));
+
+    modeButtons.forEach(button => button.classList.toggle('active', button === recurringModeBtn));
+    syncMonthPillSlider(wrap, recurringModeBtn);
 
     const mode = recurringModeBtn.dataset.recurringMode;
     const cardRow = $('#f-recurring-card-row');
-    if (mode === 'card') {
-      if (cardRow) cardRow.style.display = 'contents';
-    } else {
-      if (cardRow) cardRow.style.display = 'none';
+
+    if (cardRow) {
+      cardRow.classList.toggle('expanded', mode === 'card');
     }
+
     return;
   }
 
@@ -3525,8 +3612,45 @@ root.addEventListener('click', async (ev) => {
 
   const sipFilterBtn = ev.target.closest('[data-sip-filter]');
   if (sipFilterBtn) {
-    currentSipFilter = sipFilterBtn.dataset.sipFilter;
-    await renderMonth({ reuseGlobalStats: true });
+    const nextFilter = sipFilterBtn.dataset.sipFilter;
+    if (nextFilter === currentSipFilter) return;
+
+    const wrap = sipFilterBtn.closest('.sip-filter-grid');
+    const buttons = Array.from(wrap?.querySelectorAll('[data-sip-filter]') || []);
+    const oldIndex = buttons.findIndex(button => button.dataset.sipFilter === currentSipFilter);
+    const newIndex = buttons.indexOf(sipFilterBtn);
+    const slider = wrap?.querySelector('.month-pill-slider');
+
+    buttons.forEach(button => button.classList.toggle('active', button === sipFilterBtn));
+    syncMonthPillSlider(wrap, sipFilterBtn);
+    currentSipFilter = nextFilter;
+
+    if (slider && !monthReducedMotion.matches) {
+      await new Promise(resolve => {
+        let finished = false;
+        const done = () => {
+          if (finished) return;
+          finished = true;
+          slider.removeEventListener('transitionend', onEnd);
+          resolve();
+        };
+        const onEnd = event => {
+          if (event.propertyName === 'transform') done();
+        };
+        slider.addEventListener('transitionend', onEnd);
+        setTimeout(done, 220);
+      });
+    }
+
+    await refreshSipFilterResults();
+
+    const results = root.querySelector('[data-sip-filter-results]');
+    if (results && !monthReducedMotion.matches) {
+      results.classList.remove('sip-filter-results-from-left', 'sip-filter-results-from-right');
+      void results.offsetWidth;
+      results.classList.add(newIndex > oldIndex ? 'sip-filter-results-from-right' : 'sip-filter-results-from-left');
+    }
+
     return;
   }
 
@@ -3938,15 +4062,16 @@ root.addEventListener('change', async (ev) => {
     }
 
     const spendDynamicWrap = $('#spend-dynamic-fields');
-    if (spendDynamicWrap) {
+    const spendDynamicInner = spendDynamicWrap?.querySelector('.spend-meta-inner');
+    if (spendDynamicWrap && spendDynamicInner) {
       const vLow = val.toLowerCase();
-      if (vLow === 'groceries') spendDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="sp-quantity" type="text" placeholder="e.g. 1kg or 1L" /></div>`;
-      else if (vLow === 'transport') spendDynamicWrap.innerHTML = `<div class="field"><label>Source</label><input id="sp-source" type="text" placeholder="e.g. Home" /></div><div class="field"><label>Destination</label><input id="sp-destination" type="text" placeholder="e.g. Office" /></div>`;
-      else if (vLow === 'fuel') spendDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="sp-quantity" type="text" placeholder="e.g. 5L" /></div><div class="field"><label>Location</label><input id="sp-location" type="text" placeholder="e.g. IOCL Bengaluru" /></div>`;
-      else if (vLow === 'rent') spendDynamicWrap.innerHTML = `<div class="field"><label>Location</label><input id="sp-location" type="text" placeholder="e.g. Sunflower Heights Whitefield" /></div>`;
-      else spendDynamicWrap.innerHTML = '';
-      
-      spendDynamicWrap.style.display = spendDynamicWrap.innerHTML ? 'grid' : 'none';
+      if (vLow === 'groceries') spendDynamicInner.innerHTML = `<div class="field"><label>Quantity</label><input id="sp-quantity" type="text" placeholder="e.g. 1kg or 1L" /></div>`;
+      else if (vLow === 'transport') spendDynamicInner.innerHTML = `<div class="field"><label>Source</label><input id="sp-source" type="text" placeholder="e.g. Home" /></div><div class="field"><label>Destination</label><input id="sp-destination" type="text" placeholder="e.g. Office" /></div>`;
+      else if (vLow === 'fuel') spendDynamicInner.innerHTML = `<div class="field"><label>Quantity</label><input id="sp-quantity" type="text" placeholder="e.g. 5L" /></div><div class="field"><label>Location</label><input id="sp-location" type="text" placeholder="e.g. IOCL Bengaluru" /></div>`;
+      else if (vLow === 'rent') spendDynamicInner.innerHTML = `<div class="field"><label>Location</label><input id="sp-location" type="text" placeholder="e.g. Sunflower Heights Whitefield" /></div>`;
+      else spendDynamicInner.innerHTML = '';
+
+      spendDynamicWrap.classList.toggle('is-collapsed', !spendDynamicInner.innerHTML);
     }
   }
   if (ev.target.id === 'f-lent-toggle') {

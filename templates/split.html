@@ -5,7 +5,22 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/views/split.css') }}?v={{ static_version }}" />
 {% endblock %}
 {% block content %}
-  <div id="split-root" class="split-view" data-loading="true"></div>
+  <div id="split-root" class="split-view" data-loading="true" aria-busy="true">
+    <div class="split-loading-state" aria-hidden="true">
+      <div class="split-loading-heading"><span class="split-skeleton-line is-title"></span></div>
+      <div class="split-skeleton-panel split-loading-groups">
+        <span class="split-skeleton-line is-section-title"></span>
+        <div class="split-loading-card-row">
+          {% for _ in range(3) %}
+          <div class="split-skeleton-group-card"><span class="split-skeleton-line is-card-title"></span><span class="split-skeleton-line is-short"></span><span class="split-skeleton-line"></span><span class="split-skeleton-line"></span><span class="split-skeleton-line is-medium"></span></div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="split-loading-chart-grid"><div class="split-skeleton-panel split-skeleton-chart"><span class="split-skeleton-line is-section-title"></span><span class="split-skeleton-chart-body"></span></div><div class="split-skeleton-panel split-skeleton-chart"><span class="split-skeleton-line is-section-title"></span><span class="split-skeleton-chart-body"></span></div></div>
+      <div class="split-skeleton-panel split-loading-ledger"><span class="split-skeleton-line is-section-title"></span><span class="split-skeleton-line"></span><span class="split-skeleton-line"></span><span class="split-skeleton-line is-medium"></span></div>
+      <div class="split-loading-card-row">{% for _ in range(3) %}<div class="split-skeleton-settle-card"><span class="split-skeleton-line is-short"></span><span class="split-skeleton-line is-medium"></span><span class="split-skeleton-line is-value"></span></div>{% endfor %}</div>
+    </div>
+  </div>
 {% endblock %}
 {% block page_script %}
   <script type="module" src="{{ url_for('static', filename='js/views/split.js') }}"></script>

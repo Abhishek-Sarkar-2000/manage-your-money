@@ -6,7 +6,41 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/views/sips.css') }}?v={{ static_version }}" />
 {% endblock %}
 {% block content %}
-  <div id="subscriptions-root" class="sips-view" data-loading="true"></div>
+  <div id="subscriptions-root" class="sips-view subscriptions-view" data-loading="true" aria-busy="true">
+    <div class="subscriptions-loading-state" role="status" aria-label="Loading subscriptions">
+      <div class="subscriptions-loading-shell" aria-hidden="true">
+        <div class="subscriptions-skeleton-panel">
+          <div class="subscriptions-loading-heading">
+            <span class="subscriptions-skeleton-line is-title"></span>
+            <span class="subscriptions-skeleton-line is-copy"></span>
+          </div>
+          <div class="subscriptions-loading-list">
+            {% for _ in range(3) %}
+              <div class="subscriptions-skeleton-item">
+                <div class="subscriptions-skeleton-copy">
+                  <span class="subscriptions-skeleton-line is-name"></span>
+                  <span class="subscriptions-skeleton-line is-meta"></span>
+                </div>
+                <div class="subscriptions-skeleton-actions">
+                  <span></span>
+                  <span></span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+          <div class="subscriptions-skeleton-form">
+            <span class="subscriptions-skeleton-line is-mode"></span>
+            <div class="subscriptions-skeleton-fields">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <span class="subscriptions-skeleton-line is-button"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 {% endblock %}
 {% block page_script %}
   <script type="module" src="{{ url_for('static', filename='js/views/subscriptions.js') }}"></script>

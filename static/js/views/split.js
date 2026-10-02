@@ -41,6 +41,109 @@ let domainLoaded = false;
 let currentPayeeFilter = '';
 let currentSort = { key: 'date', asc: false };
 
+function syncSplitLedgerModeSlider(wrap, activeButton = null, animate = true) {
+  if (!wrap) return;
+  const button = activeButton || wrap.querySelector('[data-split-ledger-mode].active');
+  if (!button) return;
+  if (!animate) wrap.classList.remove('is-ready');
+  wrap.style.setProperty('--split-pill-left', `${button.offsetLeft}px`);
+  wrap.style.setProperty('--split-pill-width', `${button.offsetWidth}px`);
+  if (!animate) requestAnimationFrame(() => requestAnimationFrame(() => wrap.classList.add('is-ready')));
+}
+
+function syncAllSplitLedgerModeSliders() {
+  root.querySelectorAll('.split-ledger-mode-grid').forEach(wrap => syncSplitLedgerModeSlider(wrap, null, false));
+}
+let pendingSplitSpendEnterId = null;
+let pendingSplitGroupEnterId = null;
+let pendingSplitMemberEnterName = null;
+let pendingSplitFormReveal = '';
+let pendingSplitActionButtonFx = '';
+const splitReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+async function closeSplitFormReveal(type, finalize) {
+  const reveal = root.querySelector(`[data-split-form-reveal="${type}"]`);
+  const actionButton = type === 'group' ? root.querySelector('[data-split-form-toggle]') : type === 'spend' ? root.querySelector('[data-open-split-spend-form]') : root.querySelector('[data-open-split-member-form][data-member-form-source="details"]');
+  pendingSplitFormReveal = '';
+  pendingSplitActionButtonFx = '';
+  if (actionButton) actionButton.classList.remove('active');
+
+  if (reveal && reveal.classList.contains('is-open') && !splitReducedMotion.matches) {
+    reveal.classList.add('is-closing');
+    reveal.classList.remove('is-open');
+
+    await new Promise(resolve => {
+      let finished = false;
+      const done = () => {
+        if (finished) return;
+        finished = true;
+        reveal.removeEventListener('transitionend', onEnd);
+        resolve();
+      };
+      const onEnd = event => {
+        if (event.target === reveal && event.propertyName === 'grid-template-rows') done();
+      };
+      reveal.addEventListener('transitionend', onEnd);
+      window.setTimeout(done, 340);
+    });
+  }
+
+  finalize();
+  await renderSplit();
+}
+
+function beginSplitBusy(button, label = 'Saving…') {
+  if (!button) return () => {};
+  const originalHtml = button.innerHTML;
+  const originalMinWidth = button.style.minWidth;
+  const width = button.getBoundingClientRect().width;
+  let shown = false;
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  if (width > 0) button.style.minWidth = `${Math.ceil(width)}px`;
+  const timer = window.setTimeout(() => {
+    if (!button.isConnected) return;
+    shown = true;
+    button.classList.add('is-split-busy');
+    button.innerHTML = `<span class="split-busy-spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span>`;
+  }, 140);
+  return () => {
+    window.clearTimeout(timer);
+    if (!button.isConnected) return;
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+    button.style.minWidth = originalMinWidth;
+    if (shown) {
+      button.classList.remove('is-split-busy');
+      button.innerHTML = originalHtml;
+    }
+  };
+}
+
+async function animateSplitSpendRemoval(row) {
+  if (!row || splitReducedMotion.matches || !row.animate) return;
+  const startHeight = row.getBoundingClientRect().height;
+  await row.animate([{ opacity: 1, transform: 'translateX(0)', height: `${startHeight}px` }, { opacity: 0, transform: 'translateX(8px)', height: '0px' }], { duration: 180, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' }).finished.catch(() => {});
+}
+
+async function animateSplitShareMemberRemoval(row) {
+  if (!row || splitReducedMotion.matches || !row.animate) return;
+  const cells = Array.from(row.children);
+  if (!cells.length) return;
+  const animations = cells.map(cell => cell.animate([{ opacity: 1, transform: 'translateX(0)' }, { opacity: 0, transform: 'translateX(6px)' }], { duration: 130, easing: 'ease-in', fill: 'forwards' }));
+  await Promise.all(animations.map(animation => animation.finished.catch(() => {})));
+}
+
+async function animateSplitSettlement(card, settled) {
+  if (!card) return;
+  card.classList.toggle('settled', settled);
+  card.classList.add('split-settlement-changing');
+  const status = card.querySelector('[data-settlement-status]');
+  if (status) status.innerHTML = settled ? '<span class="split-settlement-check" aria-hidden="true">✓</span> Settled' : 'Mark settled';
+  if (!splitReducedMotion.matches) await new Promise(resolve => setTimeout(resolve, 170));
+  card.classList.remove('split-settlement-changing');
+}
+
 // Fetched once; renderSplit() runs on nearly every interaction (settle
 // toggles, expanding a card, adding a spend), so refetching these two
 // index arrays every time would mean a network round trip per click.
@@ -97,45 +200,59 @@ function syncSplitLedgerFormVisibility() {
   const modeWrap = $('#sp-ledger-mode-wrap');
   const ledgerWrap = $('#sp-ledger-options');
   if (!ledgerWrap) return;
+
   const paidByYou = $('#sp-payee')?.value === SPLIT_YOU;
   if (modeWrap) modeWrap.style.display = paidByYou ? 'block' : 'none';
   ledgerWrap.style.display = paidByYou ? 'block' : 'none';
   if (!paidByYou) return;
-  const mode = root.querySelector('[data-split-ledger-mode].active')?.dataset.splitLedgerMode || 'regular';
+
+  const modeGrid = root.querySelector('.split-ledger-mode-grid');
+  const activeModeButton = modeGrid?.querySelector('[data-split-ledger-mode].active');
+  const mode = activeModeButton?.dataset.splitLedgerMode || 'regular';
+  const fields = $('#sp-ledger-fields');
   const cardWrap = $('#sp-ledger-card-wrap');
-  if (cardWrap) cardWrap.style.display = mode === 'card' ? 'block' : 'none';
+  const cardSelect = $('#sp-ledger-card');
+
+  if (fields) fields.classList.toggle('is-card-mode', mode === 'card');
+  if (cardWrap) cardWrap.setAttribute('aria-hidden', String(mode !== 'card'));
+  if (cardSelect) cardSelect.tabIndex = mode === 'card' ? 0 : -1;
+  if (modeGrid) syncSplitLedgerModeSlider(modeGrid, activeModeButton, modeGrid.classList.contains('is-ready'));
 }
 
 function renderSplitAddForm() {
   return `
-  <div class="form-panel">
-    <div class="form-row">
-      <div class="field"><label>Group description</label><input id="sf-desc" type="text" placeholder="e.g. Goa Trip" /></div>
-    </div>
-    <div id="sf-members">
-      <div class="split-member-row">
-        <div class="field">
-          <label>Person 1</label>
-          <div style="display: flex; gap: 8px; width: 100%;">
-            <input class="sf-member" type="text" value="YOU" readonly style="background:var(--ice-2); color:var(--muted); cursor:not-allowed; flex: 1;" />
-            <button class="btn small ghost" data-remove-split-member type="button" style="flex-shrink: 0;">Remove</button>
+  <div class="split-form-reveal" data-split-form-reveal="group">
+    <div class="split-form-reveal-inner">
+      <div class="form-panel split-local-form">
+        <div class="form-row">
+          <div class="field"><label>Group description</label><input id="sf-desc" type="text" placeholder="e.g. Goa Trip" /></div>
+        </div>
+        <div id="sf-members">
+          <div class="split-member-row">
+            <div class="field">
+              <label>Person 1</label>
+              <div style="display: flex; gap: 8px; width: 100%;">
+                <input class="sf-member" type="text" value="YOU" readonly style="background:var(--ice-2); color:var(--muted); cursor:not-allowed; flex: 1;" />
+                <button class="btn small ghost" data-remove-split-member type="button" style="flex-shrink: 0;">Remove</button>
+              </div>
+            </div>
+          </div>
+          <div class="split-member-row">
+            <div class="field">
+              <label>Person 2</label>
+              <div style="display: flex; gap: 8px; width: 100%;">
+                <input class="sf-member" type="text" placeholder="Name" style="flex: 1;" />
+                <button class="btn small ghost" data-remove-split-member type="button" style="flex-shrink: 0;">Remove</button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="split-member-row">
-        <div class="field">
-          <label>Person 2</label>
-          <div style="display: flex; gap: 8px; width: 100%;">
-            <input class="sf-member" type="text" placeholder="Name" style="flex: 1;" />
-            <button class="btn small ghost" data-remove-split-member type="button" style="flex-shrink: 0;">Remove</button>
-          </div>
+        <button class="btn small ghost" data-add-split-member type="button">+ Add person</button>
+        <div class="form-actions">
+          <button class="btn primary" data-submit-split type="button">Save split</button>
+          <button class="btn ghost" data-close-split-form type="button">Cancel</button>
         </div>
       </div>
-    </div>
-    <button class="btn small ghost" data-add-split-member type="button">+ Add person</button>
-    <div class="form-actions">
-      <button class="btn primary" data-submit-split type="button">Save split</button>
-      <button class="btn ghost" data-close-split-form type="button">Cancel</button>
     </div>
   </div>`;
 }
@@ -339,17 +456,13 @@ function renderSplitSettleCard(c) {
   const from = c.from === SPLIT_YOU ? youLabel() : escapeHtml(c.from.toUpperCase());
   const to = c.to === SPLIT_YOU ? youLabel() : escapeHtml(c.to.toUpperCase());
   return `
-  <div class="split-settle-card ${c.settled ? 'settled' : ''}">
+  <div class="split-settle-card ${c.settled ? 'settled' : ''}" data-settlement-card="${escapeHtml(c.id)}">
     <div class="ssc-group">${escapeHtml(c.groupDesc || '')}</div>
     <div class="ssc-line"><strong>${from}</strong> ${c.from === SPLIT_YOU ? 'pay' : 'pays'} <strong>${to}</strong></div>
     <div class="ssc-amount num">${fmtINR(c.amount)}</div>
     <label class="toggle-switch">
-      <input type="checkbox" data-settle-toggle
-        data-group-id="${c.groupId}" data-transfer-id="${c.id}"
-        data-from="${escapeHtml(c.from)}" data-to="${escapeHtml(c.to)}"
-        data-amount="${c.amount}" data-group-desc="${escapeHtml(c.groupDesc || '')}"
-        ${c.settled ? 'checked' : ''} />
-      ${c.settled ? 'Settled' : 'Mark settled'}
+      <input type="checkbox" data-settle-toggle data-group-id="${c.groupId}" data-transfer-id="${c.id}" data-from="${escapeHtml(c.from)}" data-to="${escapeHtml(c.to)}" data-amount="${c.amount}" data-group-desc="${escapeHtml(c.groupDesc || '')}" ${c.settled ? 'checked' : ''} />
+      <span data-settlement-status>${c.settled ? '<span class="split-settlement-check" aria-hidden="true">✓</span> Settled' : 'Mark settled'}</span>
     </label>
   </div>`;
 }
@@ -373,9 +486,9 @@ function renderSplitDetailsPanel(group) {
     return `
     <div class="field split-person-share-box">
       <label>${personLabel} (₹)</label>
-      <div style="display:flex; align-items:center; gap:8px;">
-        <input class="sp-share" data-person="${escapeHtml(p)}" type="number" step="0.01" min="0" placeholder="0.00" style="flex:1;" />
-        <label class="toggle-switch" title="Toggle inclusion in this spend" style="margin:0; flex-shrink:0;">
+      <div class="split-share-control-row">
+        <input class="sp-share" data-person="${escapeHtml(p)}" type="number" step="0.01" min="0" placeholder="0.00" />
+        <label class="toggle-switch split-share-toggle" title="Toggle inclusion in this spend">
           <input type="checkbox" class="sp-member-toggle" data-person="${escapeHtml(p)}" checked />
         </label>
       </div>
@@ -494,10 +607,13 @@ function renderSplitDetailsPanel(group) {
     </div>`;
 
   const formHtml = splitSpendFormOpen ? `
-  <div class="form-panel slide-down-fade" style="margin-top:14px;">
-    <div class="form-note" style="margin-top:0; margin-bottom:4px;">Add a transaction. The amount is split equally among active members by default.</div>
+  <div class="split-form-reveal" data-split-form-reveal="spend">
+    <div class="split-form-reveal-inner">
+      <div class="form-panel split-local-form">
+        <div class="form-note" style="margin-top:0; margin-bottom:4px;">Add a transaction. The amount is split equally among active members by default.</div>
     <div class="split-ledger-mode-wrap" id="sp-ledger-mode-wrap" style="${defaultPayee === SPLIT_YOU ? '' : 'display:none;'}">
       <div class="split-ledger-mode-grid" role="group" aria-label="Month ledger spend type">
+        <span class="split-ledger-mode-slider" aria-hidden="true"></span>
         <button class="pill-btn sub-pill active" data-split-ledger-mode="regular" type="button" aria-pressed="true">Regular</button>
         <button class="pill-btn sub-pill" data-split-ledger-mode="card" type="button" aria-pressed="false" ${cards.length ? '' : 'disabled'}>Credit card</button>
       </div>
@@ -508,21 +624,32 @@ function renderSplitDetailsPanel(group) {
       <div class="field"><label>Date</label><input id="sp-date" type="date" value="${todayStr()}" /></div>
       <div class="field"><label>Total amount (₹)</label><input id="sp-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
     </div>
-    <div class="form-row" id="sp-ledger-options" style="${defaultPayee === SPLIT_YOU ? '' : 'display:none;'}">
-      <div class="split-ledger-fields">
-        ${renderSplitLedgerTagField()}
-        <div class="field" id="sp-ledger-card-wrap" style="display:none;"><label>Credit card</label><select id="sp-ledger-card">${cardOptions || '<option value="">No cards added</option>'}</select></div>
+    <div class="split-ledger-options" id="sp-ledger-options" style="${defaultPayee === SPLIT_YOU ? '' : 'display:none;'}">
+      <div class="split-ledger-fields" id="sp-ledger-fields">
+        <div class="split-ledger-tag-zone">
+          ${renderSplitLedgerTagField()}
+        </div>
+        <div class="split-ledger-card-zone" id="sp-ledger-card-wrap" aria-hidden="true">
+          <div class="field">
+            <label>Credit card</label>
+            <select id="sp-ledger-card" tabindex="-1">${cardOptions || '<option value="">No cards added</option>'}</select>
+          </div>
+        </div>
       </div>
     </div>
     <div class="split-share-grid">${shareInputs}</div>
     <div class="form-actions" style="margin-top: 16px;">
-      <button class="btn primary" data-submit-split-spend="${group.id}" type="button">Add spend</button>
-      <button class="btn ghost" data-close-split-spend-form type="button">Cancel</button>
+          <button class="btn primary" data-submit-split-spend="${group.id}" type="button">Add spend</button>
+          <button class="btn ghost" data-close-split-spend-form type="button">Cancel</button>
+        </div>
+      </div>
     </div>
   </div>` : '';
   const addMemberFormHtml = (splitAddMemberFormOpen && splitAddMemberFormSource !== 'shares') ? `
-  <div class="form-panel slide-down-fade" style="margin-top:14px;">
-    <div class="form-note" style="margin-top:0;margin-bottom: 0px;padding-bottom: 8px;">Add a new person to this split group.</div>
+  <div class="split-form-reveal" data-split-form-reveal="member">
+    <div class="split-form-reveal-inner">
+      <div class="form-panel split-local-form">
+        <div class="form-note" style="margin-top:0;margin-bottom: 0px;padding-bottom: 8px;">Add a new person to this split group.</div>
     <div class="split-member-row">
       <div class="field">
         <label>Person Name</label>
@@ -532,16 +659,18 @@ function renderSplitDetailsPanel(group) {
       </div>
     </div>
     <div class="form-actions" style="margin-top: 16px;">
-      <button class="btn primary" data-submit-new-member="${group.id}" type="button">Add person</button>
-      <button class="btn ghost" data-close-split-member-form type="button">Cancel</button>
+          <button class="btn primary" data-submit-new-member="${group.id}" type="button">Add person</button>
+          <button class="btn ghost" data-close-split-member-form type="button">Cancel</button>
+        </div>
+      </div>
     </div>
   </div>` : '';
 
-  const addBtnHtml = (!splitSpendFormOpen && !splitAddMemberFormOpen) ? `
+  const addBtnHtml = `
   <div class="pill-grid" style="margin-top: 14px;">
-    <button class="pill-btn" data-open-split-spend-form type="button">+ Add Spend</button>
-    <button class="pill-btn alt" data-open-split-member-form data-member-form-source="details" type="button">+ Add Member</button>
-  </div>` : '';
+    <button class="pill-btn ${splitSpendFormOpen ? 'active' : ''}" data-open-split-spend-form type="button">+ Add Spend</button>
+    <button class="pill-btn alt ${splitAddMemberFormOpen && splitAddMemberFormSource === 'details' ? 'active' : ''}" data-open-split-member-form data-member-form-source="details" type="button">+ Add Member</button>
+  </div>`;
 
   const totalSpends = (group.spends || []).reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
 
@@ -617,6 +746,7 @@ function distributeSplitShares(amount) {
 }
 
 async function renderSplit() {
+  try {
   await loadDomain();
 
   const { groups, owedByYou, owedToYou } = await computeSplitPageData(false, null, splitsIndex);
@@ -631,7 +761,7 @@ async function renderSplit() {
 
   let settleCardsHtml = `<div class="empty-chart" style="flex:1 0 100%;">Tap a group card above to see settlement options.</div>`;
   let groupChartsHtml = `
-  <div class="section">
+  <div class="section split-load-stage split-load-stage--charts">
     <div class="section-title" style="margin-bottom: 12px;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="color: var(--blue); display: flex;">
@@ -646,7 +776,7 @@ async function renderSplit() {
     </div>
   </div>`;
   let sharesTableHtml = `
-  <div class="section">
+  <div class="section split-load-stage split-load-stage--shares">
     <div class="section-title" style="margin-bottom: 12px;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="color: var(--blue); display: flex;">
@@ -672,7 +802,7 @@ async function renderSplit() {
       : `<div class="empty-chart" style="flex:1 0 100%;">No settlement transfers for this group.</div>`;
 
     groupChartsHtml = `
-    <div class="section">
+    <div class="section split-load-stage split-load-stage--charts">
       <div class="section-title" style="margin-bottom: 12px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="color: var(--blue); display: flex;">
@@ -735,7 +865,7 @@ async function renderSplit() {
       ` : '';
 
       return `
-        <tr>
+        <tr data-split-share-member="${escapeHtml(person)}">
           <td>${label}</td>
           <td class="num">${fmtINR(totalPaid)}</td>
           <td class="num">
@@ -789,7 +919,7 @@ async function renderSplit() {
         </tr>`;
 
     sharesTableHtml = `
-    <div class="section">
+    <div class="section split-load-stage split-load-stage--shares">
       <div class="section-title" style="margin-bottom: 12px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="color: var(--blue); display: flex;">
@@ -815,12 +945,14 @@ async function renderSplit() {
   if (tb) tb.style.display = '';
 
   markRendered(root);
+  root.removeAttribute('data-loading');
+  root.setAttribute('aria-busy', 'false');
   root.innerHTML = `
-  <div class="section">
+  <div class="section split-load-stage split-load-stage--header">
     <div class="month-header"><h1>Split Money</h1></div>
   </div>
 
-  <div class="section">
+  <div class="section split-load-stage split-load-stage--create">
     <div class="section-title" style="margin-bottom: 12px;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="color: var(--blue); display: flex;">
@@ -836,7 +968,7 @@ async function renderSplit() {
     ${splitFormOpen ? renderSplitAddForm() : ''}
   </div>
 
-  <div class="section">
+  <div class="section split-load-stage split-load-stage--overview">
     <div class="section-title" style="margin-bottom: 12px;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="color: var(--blue); display: flex;">
@@ -861,7 +993,7 @@ async function renderSplit() {
     </div>
   </div>
 
-  <div class="section">
+  <div class="section split-load-stage split-load-stage--groups">
     <div class="section-title" style="margin-bottom: 12px;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="color: var(--blue); display: flex;">
@@ -881,7 +1013,7 @@ async function renderSplit() {
   ${groupChartsHtml}
   ${sharesTableHtml}
 
-  <div class="section">
+  <div class="section split-load-stage split-load-stage--settle">
     <div class="section-title" style="margin-bottom: 12px;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="color: var(--blue); display: flex;">
@@ -898,6 +1030,52 @@ async function renderSplit() {
   appendPageChrome(root);
   setupScrollWrappers(root);
   setupTableScrollIndicators(root);
+
+  splitSlideDirection = '';
+
+  requestAnimationFrame(() => {
+    syncAllSplitLedgerModeSliders();
+  });
+
+  if (pendingSplitFormReveal) {
+    const revealType = pendingSplitFormReveal;
+    pendingSplitFormReveal = '';
+    const reveal = root.querySelector(`[data-split-form-reveal="${revealType}"]`);
+    if (reveal) requestAnimationFrame(() => requestAnimationFrame(() => reveal.classList.add('is-open')));
+  }
+
+  if (pendingSplitActionButtonFx) {
+    const actionType = pendingSplitActionButtonFx;
+    pendingSplitActionButtonFx = '';
+    const actionButton = actionType === 'group' ? root.querySelector('[data-split-form-toggle]') : actionType === 'spend' ? root.querySelector('[data-open-split-spend-form]') : root.querySelector('[data-open-split-member-form][data-member-form-source="details"]');
+    if (actionButton && !splitReducedMotion.matches) {
+      actionButton.classList.remove('active');
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (actionButton.isConnected) actionButton.classList.add('active');
+      }));
+    }
+  }
+
+  if (pendingSplitGroupEnterId) {
+    const groupCard = root.querySelector(`[data-split-card="${CSS.escape(String(pendingSplitGroupEnterId))}"]`);
+    pendingSplitGroupEnterId = null;
+    if (groupCard && !splitReducedMotion.matches) groupCard.classList.add('split-group-enter');
+  }
+
+  if (pendingSplitSpendEnterId) {
+    const spendRow = root.querySelector(`[data-split-spend-id="${CSS.escape(String(pendingSplitSpendEnterId))}"]`);
+    pendingSplitSpendEnterId = null;
+    if (spendRow && !splitReducedMotion.matches) spendRow.classList.add('split-spend-enter');
+  }
+
+  if (pendingSplitMemberEnterName) {
+    const memberRow = root.querySelector(`[data-split-share-member="${CSS.escape(String(pendingSplitMemberEnterName))}"]`);
+    pendingSplitMemberEnterName = null;
+    if (memberRow && !splitReducedMotion.matches) {
+      memberRow.classList.add('split-share-member-enter');
+      memberRow.addEventListener('animationend', () => memberRow.classList.remove('split-share-member-enter'), { once: true });
+    }
+  }
 
   if (dashboardSpendFocusId) {
     const spendId = dashboardSpendFocusId;
@@ -943,6 +1121,14 @@ async function renderSplit() {
       headerWrapEl.scrollLeft = tableWrapEl.scrollLeft;
     }, { passive: true });
   }
+  } catch (error) {
+    console.error('Split render failed', error);
+    root.removeAttribute('data-loading');
+    root.setAttribute('aria-busy', 'false');
+    root.innerHTML = `<div class="section"><div class="empty-chart">Split Money could not be loaded. Please try again.</div></div>`;
+    appendPageChrome(root);
+    showToast('Could not load Split Money');
+  }
 }
 
 root.addEventListener('click', async (ev) => {
@@ -955,6 +1141,7 @@ root.addEventListener('click', async (ev) => {
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', String(active));
     });
+    syncSplitLedgerModeSlider(wrap, splitLedgerModeBtn);
     syncSplitLedgerFormVisibility();
     return;
   }
@@ -974,10 +1161,27 @@ root.addEventListener('click', async (ev) => {
   }
 
   const splitFormToggle = ev.target.closest('[data-split-form-toggle]');
-  if (splitFormToggle) { splitFormOpen = !splitFormOpen; await renderSplit(); return; }
+  if (splitFormToggle) {
+    if (splitFormOpen) {
+      await closeSplitFormReveal('group', () => {
+        splitFormOpen = false;
+      });
+    } else {
+      splitFormOpen = true;
+      pendingSplitFormReveal = 'group';
+      pendingSplitActionButtonFx = 'group';
+      await renderSplit();
+    }
+    return;
+  }
 
   const closeSplitForm = ev.target.closest('[data-close-split-form]');
-  if (closeSplitForm) { splitFormOpen = false; await renderSplit(); return; }
+  if (closeSplitForm) {
+    await closeSplitFormReveal('group', () => {
+      splitFormOpen = false;
+    });
+    return;
+  }
 
   const addSplitMember = ev.target.closest('[data-add-split-member]');
   if (addSplitMember) {
@@ -1008,10 +1212,17 @@ root.addEventListener('click', async (ev) => {
     const seen = new Set();
     const people = [];
     for (const m of members) { const key = m.toLowerCase(); if (seen.has(key)) continue; seen.add(key); people.push(m); }
-    await createSplitGroup(splitsIndex, desc, people);
-    splitFormOpen = false;
-    await renderSplit();
-    showToast('Split group created');
+    const stopBusy = beginSplitBusy(submitSplit, 'Saving…');
+    try {
+      const createdGroupId = await createSplitGroup(splitsIndex, desc, people);
+      pendingSplitGroupEnterId = createdGroupId;
+      await closeSplitFormReveal('group', () => {
+        splitFormOpen = false;
+      });
+      showToast('Split group created');
+    } finally {
+      stopBusy();
+    }
     return;
   }
 
@@ -1086,6 +1297,10 @@ root.addEventListener('click', async (ev) => {
       return;
     }
 
+    const memberRow = root.querySelector(`[data-split-share-member="${CSS.escape(String(person))}"]`);
+    hideDeleteCallout();
+    await animateSplitShareMemberRemoval(memberRow);
+
     group.people = group.people.filter(p => p !== person);
 
     // Remove zero-value share keys left behind by forms/older transactions.
@@ -1102,7 +1317,6 @@ root.addEventListener('click', async (ev) => {
     );
 
     await saveSplit(groupId);
-    hideDeleteCallout();
 
     splitAddMemberFormOpen = false;
     splitAddMemberFormSource = null;
@@ -1199,6 +1413,18 @@ root.addEventListener('click', async (ev) => {
       }
 
       await navigator.clipboard.writeText(shareUrl.toString());
+      const originalShareHtml = shareBtn.innerHTML;
+      shareBtn.classList.add('split-share-copied');
+      shareBtn.innerHTML = '<span aria-hidden="true">✓</span>';
+      shareBtn.setAttribute('aria-label', 'Link copied');
+      shareBtn.title = 'Link copied';
+      window.setTimeout(() => {
+        if (!shareBtn.isConnected) return;
+        shareBtn.classList.remove('split-share-copied');
+        shareBtn.innerHTML = originalShareHtml;
+        shareBtn.setAttribute('aria-label', 'Copy share link');
+        shareBtn.title = 'Copy share link';
+      }, 1200);
       showToast('Link copied! Anyone with this link can view the split.');
     } catch (e) {
       console.error('share link failed', e);
@@ -1242,29 +1468,53 @@ root.addEventListener('click', async (ev) => {
 
   const openSplitSpendForm = ev.target.closest('[data-open-split-spend-form]');
   if (openSplitSpendForm) {
+    if (splitSpendFormOpen) {
+      await closeSplitFormReveal('spend', () => {
+        splitSpendFormOpen = false;
+      });
+      return;
+    }
     splitSpendFormOpen = true;
     splitAddMemberFormOpen = false;
     splitAddMemberFormSource = null;
+    pendingSplitFormReveal = 'spend';
+    pendingSplitActionButtonFx = 'spend';
     await renderSplit();
     return;
   }
   const closeSplitSpendForm = ev.target.closest('[data-close-split-spend-form]');
-  if (closeSplitSpendForm) { splitSpendFormOpen = false; await renderSplit(); return; }
+  if (closeSplitSpendForm) {
+    await closeSplitFormReveal('spend', () => {
+      splitSpendFormOpen = false;
+    });
+    return;
+  }
 
   const openSplitMemberForm = ev.target.closest('[data-open-split-member-form]');
   if (openSplitMemberForm) {
+    const memberFormSource = openSplitMemberForm.dataset.memberFormSource || 'details';
+    if (splitAddMemberFormOpen && splitAddMemberFormSource === memberFormSource) {
+      await closeSplitFormReveal('member', () => {
+        splitAddMemberFormOpen = false;
+        splitAddMemberFormSource = null;
+      });
+      return;
+    }
     splitAddMemberFormOpen = true;
-    splitAddMemberFormSource = openSplitMemberForm.dataset.memberFormSource || 'details';
+    splitAddMemberFormSource = memberFormSource;
     splitSpendFormOpen = false;
+    pendingSplitFormReveal = 'member';
+    if (memberFormSource === 'details') pendingSplitActionButtonFx = 'member';
     await renderSplit();
     return;
   }
 
   const closeSplitMemberForm = ev.target.closest('[data-close-split-member-form]');
   if (closeSplitMemberForm) {
-    splitAddMemberFormOpen = false;
-    splitAddMemberFormSource = null;
-    await renderSplit();
+    await closeSplitFormReveal('member', () => {
+      splitAddMemberFormOpen = false;
+      splitAddMemberFormSource = null;
+    });
     return;
   }
 
@@ -1286,9 +1536,11 @@ root.addEventListener('click', async (ev) => {
     
     group.people.push(name);
     await saveSplit(groupId);
-    splitAddMemberFormOpen = false;
-    splitAddMemberFormSource = null;
-    await renderSplit();
+    pendingSplitMemberEnterName = name;
+    await closeSplitFormReveal('member', () => {
+      splitAddMemberFormOpen = false;
+      splitAddMemberFormSource = null;
+    });
     showToast('Member added');
     return;
   }
@@ -1337,16 +1589,24 @@ root.addEventListener('click', async (ev) => {
     }
 
     group.spends.push({ id: spendId, description: desc, payee, amount, date, shares, ledgerEntryId, monthKey: ledgerMonthKey, ledgerMode, ledgerTag, ledgerCardId, ledgerLentId });
-    await saveSplit(groupId);
-    splitSpendFormOpen = false;
-    await renderSplit();
-    showToast('Spend added to split');
+    const stopBusy = beginSplitBusy(submitSplitSpend, 'Adding…');
+    try {
+      await saveSplit(groupId);
+      pendingSplitSpendEnterId = spendId;
+      await closeSplitFormReveal('spend', () => {
+        splitSpendFormOpen = false;
+      });
+      showToast('Spend added to split');
+    } finally {
+      stopBusy();
+    }
     return;
   }
 
   const delSplitSpend = ev.target.closest('[data-del-split-spend]');
   if (delSplitSpend) {
     const [groupId, spendId] = delSplitSpend.dataset.delSplitSpend.split('|');
+    await animateSplitSpendRemoval(delSplitSpend.closest('tr'));
     const group = await loadSplit(groupId, false);
     if (group) {
       const spend = group.spends.find(s => s.id === spendId);
@@ -1407,9 +1667,16 @@ root.addEventListener('change', async (ev) => {
   if (ev.target.matches('[data-settle-toggle]')) {
     const el = ev.target;
     const willSettle = el.checked;
-    await toggleSplitSettlement(el.dataset.groupId, el.dataset.transferId, el.dataset.from, el.dataset.to, Number(el.dataset.amount), el.dataset.groupDesc, willSettle, monthsIndex);
-    await renderSplit();
-    showToast(willSettle ? "Marked as settled — synced to this month's ledger" : 'Settlement undone — removed from ledger');
+    const settleCard = el.closest('.split-settle-card');
+    el.disabled = true;
+    try {
+      await toggleSplitSettlement(el.dataset.groupId, el.dataset.transferId, el.dataset.from, el.dataset.to, Number(el.dataset.amount), el.dataset.groupDesc, willSettle, monthsIndex);
+      await animateSplitSettlement(settleCard, willSettle);
+      await renderSplit();
+      showToast(willSettle ? "Marked as settled — synced to this month's ledger" : 'Settlement undone — removed from ledger');
+    } finally {
+      if (el.isConnected) el.disabled = false;
+    }
     return;
   }
   if (ev.target.matches('[data-settle-group-toggle]')) {
