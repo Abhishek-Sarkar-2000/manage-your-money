@@ -103,6 +103,29 @@ let importDuplicateState = null; // { clonedGroup, splitsIndex, existingId, exis
 let activePayeeFilters = [];
 let currentSort = { key: 'date', asc: false };
 
+function beginSharedImportBusy(button, label = 'Importing…') {
+  if (!button) return () => {};
+  const originalHtml = button.innerHTML;
+  const originalDisabled = button.disabled;
+  const originalMinWidth = button.style.minWidth;
+  const width = button.getBoundingClientRect().width;
+  button.disabled = true;
+  button.style.minWidth = `${Math.ceil(width)}px`;
+  const timer = setTimeout(() => {
+    if (!button.isConnected) return;
+    button.classList.add('is-split-busy');
+    button.innerHTML = `<span class="split-busy-spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span>`;
+  }, 140);
+  return () => {
+    clearTimeout(timer);
+    if (!button.isConnected) return;
+    button.classList.remove('is-split-busy');
+    button.innerHTML = originalHtml;
+    button.disabled = originalDisabled;
+    button.style.minWidth = originalMinWidth;
+  };
+}
+
 function renderSplitGroupCardReadOnly(group, youLabel) {
   const paid = computeGroupPaid(group);
   const dateLabel = group.createdAt ? new Date(group.createdAt + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
@@ -336,7 +359,7 @@ function renderImportMemberOptions(group, youLabel) {
 function renderImportSection(group, youLabel) {
   if (importDuplicateState) {
     return `
-    <div class="section shared-import-section" data-import-section>
+    <div class="section shared-import-section split-load-stage split-load-stage--create" data-import-section>
       <div class="section-title" style="margin-bottom: 12px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="color: var(--blue); display: flex;">
@@ -351,7 +374,7 @@ function renderImportSection(group, youLabel) {
   }
 
   return `
-  <div class="section shared-import-section" data-import-section>
+  <div class="section shared-import-section split-load-stage split-load-stage--create" data-import-section>
     <div class="section-title" style="margin-bottom: 12px;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="color: var(--blue); display: flex;">
@@ -488,6 +511,7 @@ async function handleImportConfirm() {
 }
 
 async function renderSharedSplitPage() {
+  try {
   document.body.dataset.isShared = 'true';
   document.body.classList.add('shared-mode');
 
@@ -496,7 +520,10 @@ async function renderSharedSplitPage() {
 
   if (!group) {
     markRendered(root);
+    root.removeAttribute('data-loading');
+    root.setAttribute('aria-busy', 'false');
     root.innerHTML = `<div class="section"><div class="empty-chart">${error || 'This shared Split Money group could not be found.'}</div></div>`;
+    appendPageChrome(root, { isShared: true });
     return;
   }
 
@@ -540,8 +567,10 @@ async function renderSharedSplitPage() {
   }
 
   markRendered(root);
+  root.removeAttribute('data-loading');
+  root.setAttribute('aria-busy', 'false');
   root.innerHTML = `
-  <div class="section shared-page-header">
+  <div class="section shared-page-header split-load-stage split-load-stage--header">
     <div class="month-header">
       <h1>${escapeHtml(group.description)}</h1>
       <h4 style="margin: 8px 0px 2px 0px;">Total Spends: ${fmtINR(totalSpends)}</h4>
@@ -551,7 +580,7 @@ async function renderSharedSplitPage() {
 
   <div id="import-section-slot">${currentUser ? renderImportSection(group, youLabel) : ''}</div>
 
-  <div class="section">
+  <div class="section split-load-stage split-load-stage--groups">
     <div class="section-title" style="margin-bottom: 12px;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="color: var(--blue); display: flex;">
@@ -564,7 +593,7 @@ async function renderSharedSplitPage() {
     ${groupCardHtml}
   </div>
 
-  <div class="section">
+  <div class="section split-load-stage split-load-stage--charts">
     <div class="section-title" style="margin-bottom: 12px;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="color: var(--blue); display: flex;">
@@ -588,11 +617,11 @@ async function renderSharedSplitPage() {
     </div>
   </div>
 
-  <div class="shared-details-always-visible">
+  <div class="shared-details-always-visible split-load-stage split-load-stage--overview">
     ${renderSplitDetailsPanelReadOnly(group, youLabel)}
   </div>
 
-  <div class="section">
+  <div class="section split-load-stage split-load-stage--shares">
     <div class="section-title" style="margin-bottom: 12px;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="color: var(--blue); display: flex;">
@@ -610,7 +639,7 @@ async function renderSharedSplitPage() {
     </div>
   </div>
 
-  <div class="section">
+  <div class="section split-load-stage split-load-stage--settle">
     <div class="section-title" style="margin-bottom: 12px;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="color: var(--blue); display: flex;">
@@ -656,6 +685,13 @@ async function renderSharedSplitPage() {
       headerWrapEl.scrollLeft = tableWrapEl.scrollLeft;
     }, { passive: true });
   }
+  } catch (error) {
+    console.error('Shared Split render failed:', error);
+    root.removeAttribute('data-loading');
+    root.setAttribute('aria-busy', 'false');
+    root.innerHTML = `<div class="section"><div class="empty-chart">This shared Split Money group could not be loaded right now. Please try again.</div></div>`;
+    appendPageChrome(root, { isShared: true });
+  }
 }
 
 root.addEventListener('click', async (ev) => {
@@ -676,28 +712,45 @@ root.addEventListener('click', async (ev) => {
 
   const confirmBtn = ev.target.closest('[data-confirm-import]');
   if (confirmBtn) {
-    confirmBtn.disabled = true;
+    const stopBusy = beginSharedImportBusy(confirmBtn, 'Importing…');
     try {
       await handleImportConfirm();
+    } catch (error) {
+      console.error('Shared Split import failed:', error);
+      showToast('Could not import this Split group');
     } finally {
-      confirmBtn.disabled = false;
+      stopBusy();
     }
     return;
   }
 
   const replaceBtn = ev.target.closest('[data-replace-import]');
   if (replaceBtn) {
-    replaceBtn.disabled = true;
-    const { clonedGroup, splitsIndex, existingId } = importDuplicateState;
-    await finalizeImport(clonedGroup, splitsIndex, existingId);
+    const stopBusy = beginSharedImportBusy(replaceBtn, 'Replacing…');
+    try {
+      const { clonedGroup, splitsIndex, existingId } = importDuplicateState;
+      await finalizeImport(clonedGroup, splitsIndex, existingId);
+    } catch (error) {
+      console.error('Shared Split replace failed:', error);
+      showToast('Could not replace the existing Split group');
+    } finally {
+      stopBusy();
+    }
     return;
   }
 
   const newCopyBtn = ev.target.closest('[data-new-copy-import]');
   if (newCopyBtn) {
-    newCopyBtn.disabled = true;
-    const { clonedGroup, splitsIndex } = importDuplicateState;
-    await finalizeImport(clonedGroup, splitsIndex, null);
+    const stopBusy = beginSharedImportBusy(newCopyBtn, 'Importing…');
+    try {
+      const { clonedGroup, splitsIndex } = importDuplicateState;
+      await finalizeImport(clonedGroup, splitsIndex, null);
+    } catch (error) {
+      console.error('Shared Split new-copy import failed:', error);
+      showToast('Could not import a new copy of this Split group');
+    } finally {
+      stopBusy();
+    }
     return;
   }
 

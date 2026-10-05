@@ -24,6 +24,81 @@ let priceSlideDirection = '';
 let animTimeout = null;
 let domainLoaded = false;
 
+const priceFormMotionReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+function revealPriceForm(type) {
+  const reveal = root.querySelector(`[data-price-form-reveal="${type}"]`);
+  if (!reveal) return;
+  if (priceFormMotionReduced.matches) { reveal.classList.add('is-open'); return; }
+  requestAnimationFrame(() => requestAnimationFrame(() => { if (reveal.isConnected) reveal.classList.add('is-open'); }));
+}
+
+function restoreOpenPriceForms() {
+  if (priceFormOpen) root.querySelector('[data-price-form-reveal="item"]')?.classList.add('is-open');
+  if (priceLogFormOpen) root.querySelector('[data-price-form-reveal="log"]')?.classList.add('is-open');
+}
+
+async function closePriceFormReveal(type, finalize) {
+  const reveal = root.querySelector(`[data-price-form-reveal="${type}"]`);
+  if (reveal && reveal.classList.contains('is-open') && !priceFormMotionReduced.matches) {
+    reveal.classList.add('is-closing');
+    reveal.classList.remove('is-open');
+    await new Promise(resolve => {
+      let finished = false;
+      const done = () => {
+        if (finished) return;
+        finished = true;
+        reveal.removeEventListener('transitionend', onEnd);
+        resolve();
+      };
+      const onEnd = event => {
+        if (event.target === reveal && event.propertyName === 'grid-template-rows') done();
+      };
+      reveal.addEventListener('transitionend', onEnd);
+      window.setTimeout(done, 340);
+    });
+  }
+  finalize();
+  await renderPriceTrack();
+  restoreOpenPriceForms();
+}
+
+let priceWritePending = false;
+let pendingPriceItemId = null;
+let pendingPricePoint = null;
+let priceChartAnimateId = null;
+
+const priceReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+function beginPriceBusy(button, label = 'Saving…') {
+  if (!button) return () => {};
+  const originalHtml = button.innerHTML;
+  const originalDisabled = button.disabled;
+  const originalMinWidth = button.style.minWidth;
+  const width = button.getBoundingClientRect().width;
+  button.disabled = true;
+  button.style.minWidth = `${Math.ceil(width)}px`;
+  const timer = setTimeout(() => {
+    if (!button.isConnected) return;
+    button.classList.add('is-price-busy');
+    button.innerHTML = `<span class="price-busy-spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span>`;
+  }, 140);
+  return () => {
+    clearTimeout(timer);
+    if (!button.isConnected) return;
+    button.classList.remove('is-price-busy');
+    button.innerHTML = originalHtml;
+    button.disabled = originalDisabled;
+    button.style.minWidth = originalMinWidth;
+  };
+}
+
+function animatePriceRemoval(element, className, duration = 180) {
+  if (!element || priceReducedMotion.matches) return Promise.resolve();
+  element.classList.add(className);
+  return new Promise(resolve => setTimeout(resolve, duration));
+}
+
 // Fetched once; every mutation below updates these arrays/objects in place
 // before persisting, so later re-renders never need to refetch them.
 async function loadDomain() {
@@ -36,6 +111,7 @@ async function loadDomain() {
   const requestedItemId = new URLSearchParams(window.location.search).get('item');
   if (requestedItemId && priceItems.some(item => item.id === requestedItemId)) {
     priceExpandedId = requestedItemId;
+    priceChartAnimateId = requestedItemId;
   }
 
   domainLoaded = true;
@@ -124,7 +200,7 @@ function renderPriceItemCard(item) {
 
 function renderPriceDetailsPanel(item) {
   const hist = sortedPriceHistory(item);
-  const chart = priceLineChart(hist);
+  const chart = priceLineChart(hist, { animate: priceChartAnimateId === item.id });
 
   let metaHtml = '';
   if (item.meta) {
@@ -137,7 +213,7 @@ function renderPriceDetailsPanel(item) {
   const rowsHtml = [...hist].reverse().map(h => {
     const dateLabel = h.date ? new Date(h.date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
     return `
-    <tr>
+    <tr data-price-point-row="${h.id}">
       <td>${dateLabel}</td>
       <td class="num">${fmtINR(h.price)}</td>
       <td>${h.note ? escapeHtml(h.note) : '<span class="subnote">—</span>'}</td>
@@ -146,22 +222,26 @@ function renderPriceDetailsPanel(item) {
   }).join('');
 
   const formHtml = priceLogFormOpen ? `
-  <div class="form-panel slide-down-fade" style="margin-top:14px;">
-    <div class="form-row">
-      <div class="field"><label>Date</label><input id="pp-date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></div>
-      <div class="field"><label>Price (₹)</label><input id="pp-price" type="number" step="0.01" min="0" placeholder="0.00" /></div>
-      <div class="field"><label>Note (optional)</label><input id="pp-note" type="text" placeholder="e.g. Supermarket" /></div>
-    </div>
-    <div class="form-actions">
-      <button class="btn primary" data-submit-price-point="${item.id}" type="button">Add price</button>
-      <button class="btn ghost" data-close-price-log-form type="button">Cancel</button>
+  <div class="price-form-reveal" data-price-form-reveal="log">
+    <div class="price-form-reveal-inner">
+      <div class="form-panel price-local-form">
+        <div class="form-row">
+          <div class="field"><label>Date</label><input id="pp-date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></div>
+          <div class="field"><label>Price (₹)</label><input id="pp-price" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+          <div class="field"><label>Note (optional)</label><input id="pp-note" type="text" placeholder="e.g. Supermarket" /></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn primary" data-submit-price-point="${item.id}" type="button">Add price</button>
+          <button class="btn ghost" data-close-price-log-form type="button">Cancel</button>
+        </div>
+      </div>
     </div>
   </div>` : '';
 
-  const addBtnHtml = !priceLogFormOpen ? `
+  const addBtnHtml = `
   <div class="pill-grid" style="margin-top:14px;">
-    <button class="pill-btn" data-open-price-log-form type="button">+ Log Price</button>
-  </div>` : '';
+    <button class="pill-btn ${priceLogFormOpen ? 'active' : ''}" data-open-price-log-form type="button" aria-expanded="${priceLogFormOpen ? 'true' : 'false'}">+ Log Price</button>
+  </div>`;
 
   return `
   <div class="price-details-panel" data-price-details="${item.id}" style="margin-top:2px;">
@@ -186,21 +266,26 @@ function renderPriceDetailsPanel(item) {
 }
 
 async function renderPriceTrack() {
+  try {
   await loadDomain();
 
   const items = [...priceItems].sort((a, b) => a.name.localeCompare(b.name));
   const expandedItem = priceExpandedId ? priceItems.find(i => i.id === priceExpandedId) : null;
 
   const addFormHtml = priceFormOpen ? `
-  <div class="form-panel">
-    <div class="form-row">
-      <div class="field"><label>Item name</label><input id="pi-name" type="text" placeholder="e.g. Milk 1L" /></div>
-      ${renderTagField()}
-      <div id="pt-dynamic-fields" style="display:contents;"></div>
-    </div>
-    <div class="form-actions">
-      <button class="btn primary" data-submit-price-item type="button">Save item</button>
-      <button class="btn ghost" data-close-price-form type="button">Cancel</button>
+  <div class="price-form-reveal" data-price-form-reveal="item">
+    <div class="price-form-reveal-inner">
+      <div class="form-panel price-local-form">
+        <div class="form-row">
+          <div class="field"><label>Item name</label><input id="pi-name" type="text" placeholder="e.g. Milk 1L" /></div>
+          ${renderTagField()}
+          <div id="pt-dynamic-fields" style="display:contents;"></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn primary" data-submit-price-item type="button">Save item</button>
+          <button class="btn ghost" data-close-price-form type="button">Cancel</button>
+        </div>
+      </div>
     </div>
   </div>` : '';
 
@@ -236,13 +321,15 @@ async function renderPriceTrack() {
   if (tb) tb.style.display = '';
 
   markRendered(root);
+  root.removeAttribute('data-loading');
+  root.setAttribute('aria-busy', 'false');
   root.innerHTML = `
-  <div class="section">
+  <div class="section pricetrack-load-stage pricetrack-load-stage--header">
     <div class="month-header"><h1>Price Tracker</h1></div>
     <p style="color:var(--muted); max-width:56ch; margin-top:6px;">Note down what things cost over time — groceries, transport, subscriptions — and watch how prices move.</p>
   </div>
 
-  <div class="section">
+  <div class="section pricetrack-load-stage pricetrack-load-stage--create">
     <div class="section-title" style="margin-bottom: 12px;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="color: var(--blue); display: flex;">
@@ -262,7 +349,7 @@ async function renderPriceTrack() {
     ${addFormHtml}
   </div>
 
-  <div class="section">
+  <div class="section pricetrack-load-stage pricetrack-load-stage--items">
     <div class="section-title" style="margin-bottom: 12px;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="color: var(--blue); display: flex;">
@@ -284,6 +371,34 @@ async function renderPriceTrack() {
   setupScrollWrappers(root);
   setupTableScrollIndicators(root);
 
+  if (pendingPriceItemId) {
+    const card = root.querySelector(`[data-price-card="${CSS.escape(pendingPriceItemId)}"]`);
+    if (card) {
+      card.classList.add('price-item-enter');
+      setTimeout(() => card.classList.remove('price-item-enter'), 300);
+    }
+    pendingPriceItemId = null;
+  }
+
+  if (pendingPricePoint) {
+    const { itemId, pointId } = pendingPricePoint;
+    const row = root.querySelector(`[data-price-point-row="${CSS.escape(pointId)}"]`);
+    const card = root.querySelector(`[data-price-card="${CSS.escape(itemId)}"]`);
+    const dots = root.querySelectorAll('.price-linechart .linechart-dot');
+    const latestDot = dots.length ? dots[dots.length - 1] : null;
+    if (row) row.classList.add('price-point-row-enter');
+    if (card) card.classList.add('price-value-emphasis');
+    if (latestDot) latestDot.classList.add('price-point-dot-enter');
+    setTimeout(() => {
+      row?.classList.remove('price-point-row-enter');
+      card?.classList.remove('price-value-emphasis');
+      latestDot?.classList.remove('price-point-dot-enter');
+    }, 650);
+    pendingPricePoint = null;
+  }
+
+  priceChartAnimateId = null;
+
   const requestedItemId = new URLSearchParams(window.location.search).get('item');
   if (requestedItemId && priceExpandedId === requestedItemId) {
     setTimeout(() => {
@@ -297,33 +412,72 @@ async function renderPriceTrack() {
       setTimeout(() => target.classList.remove('dashboard-deep-link-target'), 1800);
     }, 100);
   }
+  } catch (error) {
+    console.error('Price Tracker render failed:', error);
+    root.removeAttribute('data-loading');
+    root.setAttribute('aria-busy', 'false');
+    root.innerHTML = `<div class="section"><div class="empty-chart">Price Tracker could not be loaded right now. Please try again.</div></div>`;
+    appendPageChrome(root);
+    showToast("We couldn't load Price Tracker. Please try again.");
+  }
 }
 
 root.addEventListener('click', async (ev) => {
   const priceFormToggle = ev.target.closest('[data-price-form-toggle]');
-  if (priceFormToggle) { priceFormOpen = !priceFormOpen; await renderPriceTrack(); return; }
+  if (priceFormToggle) {
+    if (priceFormOpen) {
+      await closePriceFormReveal('item', () => {
+        priceFormOpen = false;
+      });
+    } else {
+      priceFormOpen = true;
+      await renderPriceTrack();
+      if (priceLogFormOpen) root.querySelector('[data-price-form-reveal="log"]')?.classList.add('is-open');
+      revealPriceForm('item');
+    }
+    return;
+  }
   const closePriceForm = ev.target.closest('[data-close-price-form]');
-  if (closePriceForm) { priceFormOpen = false; await renderPriceTrack(); return; }
+  if (closePriceForm) {
+    await closePriceFormReveal('item', () => {
+      priceFormOpen = false;
+    });
+    return;
+  }
 
   const submitPriceItem = ev.target.closest('[data-submit-price-item]');
   if (submitPriceItem) {
+    if (priceWritePending) return;
     const name = ($('#pi-name').value || '').trim();
     if (!name) { showToast('Enter an item name'); return; }
-    const category = (await resolveTagFromForm()) || 'Other';
-    let meta = {};
-    const catLower = category.toLowerCase();
-    if (catLower === 'groceries') meta.quantity = $('#pt-quantity')?.value || '';
-    if (catLower === 'transport') { meta.source = $('#pt-source')?.value || ''; meta.destination = $('#pt-destination')?.value || ''; }
-    if (catLower === 'fuel') { meta.quantity = $('#pt-quantity')?.value || ''; meta.location = $('#pt-location')?.value || ''; }
-    if (catLower === 'rent') meta.location = $('#pt-location')?.value || '';
+    priceWritePending = true;
+    const stopBusy = beginPriceBusy(submitPriceItem, 'Saving…');
+    try {
+      const category = (await resolveTagFromForm()) || 'Other';
+      let meta = {};
+      const catLower = category.toLowerCase();
+      if (catLower === 'groceries') meta.quantity = $('#pt-quantity')?.value || '';
+      if (catLower === 'transport') { meta.source = $('#pt-source')?.value || ''; meta.destination = $('#pt-destination')?.value || ''; }
+      if (catLower === 'fuel') { meta.quantity = $('#pt-quantity')?.value || ''; meta.location = $('#pt-location')?.value || ''; }
+      if (catLower === 'rent') meta.location = $('#pt-location')?.value || '';
 
-    priceTrackDictionary[name] = { category, meta };
-    await Store.set('price-track-dict', priceTrackDictionary);
-    priceItems.push({ id: uid(), name, category, history: [], meta });
-    await Store.set('price-items', priceItems);
-    priceFormOpen = false;
-    await renderPriceTrack();
-    showToast('Item added');
+      priceTrackDictionary[name] = { category, meta };
+      await Store.set('price-track-dict', priceTrackDictionary);
+      const item = { id: uid(), name, category, history: [], meta };
+      priceItems.push(item);
+      pendingPriceItemId = item.id;
+      await Store.set('price-items', priceItems);
+      await closePriceFormReveal('item', () => {
+        priceFormOpen = false;
+      });
+      showToast('Item added');
+    } catch (error) {
+      console.error('Could not add price item:', error);
+      showToast('Could not add this item');
+    } finally {
+      priceWritePending = false;
+      stopBusy();
+    }
     return;
   }
 
@@ -333,10 +487,12 @@ root.addEventListener('click', async (ev) => {
   if (confirmDelPriceItem) {
     ev.stopPropagation();
     const id = confirmDelPriceItem.dataset.confirmDelPriceItem;
+    const card = root.querySelector(`[data-price-card="${CSS.escape(id)}"]`);
+    hideDeleteCallout();
+    await animatePriceRemoval(card, 'price-item-removing');
     priceItems = priceItems.filter(i => i.id !== id);
     if (priceExpandedId === id) { priceExpandedId = null; priceLogFormOpen = false; }
     await Store.set('price-items', priceItems);
-    hideDeleteCallout();
     await renderPriceTrack();
     showToast('Item removed');
     return;
@@ -359,23 +515,42 @@ root.addEventListener('click', async (ev) => {
         animTimeout = setTimeout(async () => {
           priceExpandedId = id; priceLogFormOpen = false;
           priceSlideDirection = isRight ? 'slide-in-right' : 'slide-in-left';
+          priceChartAnimateId = id;
           await renderPriceTrack();
         }, 300);
-      } else { priceExpandedId = id; priceLogFormOpen = false; priceSlideDirection = ''; await renderPriceTrack(); }
+      } else { priceExpandedId = id; priceLogFormOpen = false; priceSlideDirection = ''; priceChartAnimateId = id; await renderPriceTrack(); }
       return;
     }
-    priceExpandedId = id; priceLogFormOpen = false; priceSlideDirection = '';
+    priceExpandedId = id; priceLogFormOpen = false; priceSlideDirection = ''; priceChartAnimateId = id;
     await renderPriceTrack();
     return;
   }
 
   const openPriceLogForm = ev.target.closest('[data-open-price-log-form]');
-  if (openPriceLogForm) { priceLogFormOpen = true; await renderPriceTrack(); return; }
+  if (openPriceLogForm) {
+    if (priceLogFormOpen) {
+      await closePriceFormReveal('log', () => {
+        priceLogFormOpen = false;
+      });
+    } else {
+      priceLogFormOpen = true;
+      await renderPriceTrack();
+      if (priceFormOpen) root.querySelector('[data-price-form-reveal="item"]')?.classList.add('is-open');
+      revealPriceForm('log');
+    }
+    return;
+  }
   const closePriceLogForm = ev.target.closest('[data-close-price-log-form]');
-  if (closePriceLogForm) { priceLogFormOpen = false; await renderPriceTrack(); return; }
+  if (closePriceLogForm) {
+    await closePriceFormReveal('log', () => {
+      priceLogFormOpen = false;
+    });
+    return;
+  }
 
   const submitPricePoint = ev.target.closest('[data-submit-price-point]');
   if (submitPricePoint) {
+    if (priceWritePending) return;
     const itemId = submitPricePoint.dataset.submitPricePoint;
     const item = priceItems.find(i => i.id === itemId);
     if (!item) return;
@@ -383,11 +558,24 @@ root.addEventListener('click', async (ev) => {
     const price = Number($('#pp-price').value);
     const note = ($('#pp-note').value || '').trim();
     if (Number.isNaN(price) || price < 0) { showToast('Enter a valid price'); return; }
-    item.history.push({ id: uid(), date, price, note });
-    await Store.set('price-items', priceItems);
-    priceLogFormOpen = false;
-    await renderPriceTrack();
-    showToast('Price logged');
+    priceWritePending = true;
+    const stopBusy = beginPriceBusy(submitPricePoint, 'Logging…');
+    try {
+      const point = { id: uid(), date, price, note };
+      item.history.push(point);
+      pendingPricePoint = { itemId, pointId: point.id };
+      await Store.set('price-items', priceItems);
+      await closePriceFormReveal('log', () => {
+        priceLogFormOpen = false;
+      });
+      showToast('Price logged');
+    } catch (error) {
+      console.error('Could not log price:', error);
+      showToast('Could not log this price');
+    } finally {
+      priceWritePending = false;
+      stopBusy();
+    }
     return;
   }
 
@@ -396,6 +584,8 @@ root.addEventListener('click', async (ev) => {
     const [itemId, pointId] = delPricePoint.dataset.delPricePoint.split('|');
     const item = priceItems.find(i => i.id === itemId);
     if (item) {
+      const row = root.querySelector(`[data-price-point-row="${CSS.escape(pointId)}"]`);
+      await animatePriceRemoval(row, 'price-point-row-removing', 160);
       item.history = item.history.filter(h => h.id !== pointId);
       await Store.set('price-items', priceItems);
       await renderPriceTrack();

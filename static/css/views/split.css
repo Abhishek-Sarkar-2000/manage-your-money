@@ -1,10 +1,25 @@
 /* ---------- Split loading skeleton ---------- */
+.split-view[data-loading="true"] {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
 .split-loading-state {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   gap: 18px;
+  overflow: hidden;
 }
 
 .split-loading-heading {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 4px 2px;
 }
 
@@ -23,6 +38,15 @@
   border-radius: var(--radius);
 }
 
+.split-loading-groups,
+.split-loading-ledger,
+.split-loading-card-row,
+.split-loading-chart-grid {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
 .split-loading-card-row {
   display: flex;
   gap: 14px;
@@ -31,7 +55,9 @@
 
 .split-skeleton-group-card {
   flex: 0 0 260px;
-  min-width: 230px;
+  width: auto;
+  max-width: calc(100% - 24px);
+  min-width: 0;
   display: grid;
   gap: 12px;
   padding: 18px 20px;
@@ -40,7 +66,9 @@
 
 .split-skeleton-settle-card {
   flex: 0 0 250px;
-  min-width: 220px;
+  width: auto;
+  max-width: calc(100% - 24px);
+  min-width: 0;
   display: grid;
   gap: 12px;
   padding: 16px 18px;
@@ -54,12 +82,17 @@
 }
 
 .split-skeleton-chart {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 230px;
+  overflow: hidden;
 }
 
 .split-skeleton-chart-body {
   display: block;
-  width: min(180px, 70%);
+  width: 70%;
+  max-width: 180px;
   aspect-ratio: 1;
   margin: 22px auto 2px;
   border-radius: 50%;
@@ -71,6 +104,7 @@
 .split-skeleton-line {
   display: block;
   width: 100%;
+  max-width: 100%;
   height: 10px;
   border-radius: 999px;
   background: linear-gradient(100deg, color-mix(in srgb, var(--hair) 62%, var(--paper)) 20%, color-mix(in srgb, var(--hair) 30%, var(--paper)) 40%, color-mix(in srgb, var(--hair) 62%, var(--paper)) 60%);
@@ -78,20 +112,44 @@
   animation: split-skeleton-shimmer 1.4s ease-in-out infinite;
 }
 
-.split-skeleton-line.is-title { width: min(260px, 55%); height: 30px; }
-.split-skeleton-line.is-section-title { width: 150px; height: 18px; margin-bottom: 14px; }
-.split-skeleton-line.is-card-title { width: 72%; height: 18px; }
-.split-skeleton-line.is-short { width: 38%; }
-.split-skeleton-line.is-medium { width: 68%; }
-.split-skeleton-line.is-value { width: 46%; height: 22px; }
+.split-skeleton-line.is-title { width: 55%; max-width: 260px; height: 30px; }
+.split-skeleton-line.is-section-title { width: 45%; max-width: 150px; height: 18px; margin-bottom: 14px; }
+.split-skeleton-line.is-card-title { width: 72%; max-width: 190px; height: 18px; }
+.split-skeleton-line.is-short { width: 38%; max-width: 100px; }
+.split-skeleton-line.is-medium { width: 68%; max-width: 180px; }
+.split-skeleton-line.is-value { width: 46%; max-width: 120px; height: 22px; }
 
 @keyframes split-skeleton-shimmer {
   from { background-position: 100% 0; }
   to { background-position: -120% 0; }
 }
 
+@media (max-width: 900px) {
+  .split-skeleton-group-card { flex-basis: 250px; width: 250px; max-width: calc(100vw - 72px); }
+  .split-skeleton-settle-card { flex-basis: 240px; width: 240px; max-width: calc(100vw - 72px); }
+  .split-skeleton-chart { min-height: 210px; }
+}
+
 @media (max-width: 700px) {
-  .split-loading-chart-grid { grid-template-columns: 1fr; }
+  .split-loading-chart-grid { grid-template-columns: minmax(0, 1fr); }
+  .split-skeleton-panel { width: 100%; max-width: 100%; min-width: 0; padding: 16px; }
+  .split-skeleton-group-card { flex-basis: 240px; width: auto; max-width: calc(100% - 20px); padding: 16px 18px; }
+  .split-skeleton-settle-card { flex-basis: 230px; width: auto; max-width: calc(100% - 20px); padding: 15px 16px; }
+  .split-skeleton-chart { min-height: 200px; }
+  .split-skeleton-line.is-title { width: 68%; max-width: 230px; }
+  .split-skeleton-line.is-section-title { width: 52%; max-width: 145px; }
+}
+
+@media (max-width: 480px) {
+  .split-loading-state { gap: 14px; }
+  .split-loading-card-row { gap: 10px; }
+  .split-skeleton-group-card { flex-basis: 220px; width: auto; max-width: calc(100% - 16px); padding: 15px 16px; }
+  .split-skeleton-settle-card { flex-basis: 210px; width: auto; max-width: calc(100% - 16px); padding: 14px 15px; }
+  .split-skeleton-chart { width: 100%; max-width: 100%; min-width: 0; min-height: 180px; }
+  .split-skeleton-chart-body { width: 62%; max-width: 150px; margin-top: 18px; }
+  .split-skeleton-line.is-title { width: 72%; max-width: 210px; height: 26px; }
+  .split-skeleton-line.is-card-title { max-width: 160px; }
+  .split-skeleton-line.is-medium { max-width: 150px; }
 }
 
 /* ---------- Split Money ---------- */
@@ -1327,6 +1385,7 @@
   .split-skeleton-settle-card,
   .split-skeleton-line,
   .split-skeleton-chart-body,
+  .split-view:not(.no-entrance-anim) .split-load-stage,
   .split-group-enter,
   .split-spend-enter > td,
   .split-share-member-enter > td,
@@ -1400,5 +1459,73 @@ body.shared-mode .shared-shares-table th:last-child {
   body.shared-mode .topbar .brand,
   body[data-is-shared="true"] .topbar .brand {
     font-size: 1.5rem;
+  }
+}
+
+/* ---------- Shared Split loading cadence & chart reveal ---------- */
+.share-split-view[data-loading="true"] .split-loading-heading { animation: shared-skeleton-step 0.24s ease-out both; }
+.share-split-view[data-loading="true"] .split-loading-groups { animation-delay: 0.04s; }
+.share-split-view[data-loading="true"] .split-loading-chart-grid { animation: shared-skeleton-step 0.24s 0.08s ease-out both; }
+.share-split-view[data-loading="true"] .split-loading-ledger { animation-delay: 0.12s; }
+.share-split-view[data-loading="true"] .split-loading-card-row:last-child { animation: shared-skeleton-step 0.24s 0.16s ease-out both; }
+
+@keyframes shared-skeleton-step {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shared-debt-reveal {
+  from { opacity: 0; transform: scaleX(0); }
+  to { opacity: 1; transform: scaleX(1); }
+}
+
+@keyframes shared-share-reveal {
+  from { opacity: 0; transform: scaleY(0); }
+  to { opacity: 1; transform: scaleY(1); }
+}
+
+@keyframes shared-chart-value-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.share-split-view:not(.no-entrance-anim) .split-load-stage--charts .shared-debt-segment {
+  transform-origin: left center;
+  animation: shared-debt-reveal 0.34s 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.share-split-view:not(.no-entrance-anim) .split-load-stage--charts .shared-share-bar {
+  transform-origin: center bottom;
+  animation: shared-share-reveal 0.38s 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.share-split-view:not(.no-entrance-anim) .split-load-stage--charts .shared-debt-total,
+.share-split-view:not(.no-entrance-anim) .split-load-stage--charts .shared-share-value-text {
+  animation: shared-chart-value-enter 0.24s 0.42s ease-out both;
+}
+
+body.shared-mode .split-settle-card,
+body.shared-mode .split-settle-card:hover {
+  cursor: default;
+  transform: none;
+}
+
+body.shared-mode .split-settle-card .toggle-switch {
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .share-split-view[data-loading="true"] .split-loading-heading,
+  .share-split-view[data-loading="true"] .split-loading-chart-grid,
+  .share-split-view[data-loading="true"] .split-loading-card-row:last-child,
+  .share-split-view:not(.no-entrance-anim) .shared-debt-segment,
+  .share-split-view:not(.no-entrance-anim) .shared-share-bar {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  .share-split-view:not(.no-entrance-anim) .shared-debt-total,
+  .share-split-view:not(.no-entrance-anim) .shared-share-value-text {
+    animation: none !important;
   }
 }

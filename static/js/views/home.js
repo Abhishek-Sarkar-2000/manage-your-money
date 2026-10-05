@@ -205,6 +205,7 @@ async function buildDashboardSharedExpenses(domain) {
 
   const owedToYouByPerson = new Map();
   const owedByYouByPerson = new Map();
+  const manualLentPaybacks = [];
 
   let owedByYou = 0;
   let owedToYou = 0;
@@ -273,6 +274,17 @@ async function buildDashboardSharedExpenses(domain) {
 
     for (const entry of (data.entries || [])) {
       const entryType = String(entry.type || '').toLowerCase();
+
+      if (entryType === 'payback' && entry?.meta?.paybackKind === 'lent') {
+        const amount = Number(entry.amount) || 0;
+        const person = String(entry.meta?.person || entry.description || 'Unknown').trim() || 'Unknown';
+
+        if (amount > 0) {
+          manualLentPaybacks.push({ person, amount });
+        }
+
+        continue;
+      }
 
       /*
        * Standalone "Add lent" entries use type === 'owed'.
@@ -344,6 +356,22 @@ async function buildDashboardSharedExpenses(domain) {
       }
     }
   }
+
+  for (const payback of manualLentPaybacks) {
+    const key = String(payback.person || 'Unknown').trim().toLocaleLowerCase('en-IN');
+    const balance = owedToYouByPerson.get(key);
+    if (!balance) continue;
+
+    balance.amount = Math.max(0, (Number(balance.amount) || 0) - (Number(payback.amount) || 0));
+
+    if (balance.amount <= 0.004) {
+      owedToYouByPerson.delete(key);
+    } else {
+      owedToYouByPerson.set(key, balance);
+    }
+  }
+
+  owedToYou = [...owedToYouByPerson.values()].reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 
   activity.sort(
     (a, b) =>

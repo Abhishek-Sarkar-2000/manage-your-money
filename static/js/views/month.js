@@ -184,11 +184,15 @@ const TABLE_TYPE_LABELS = {
 };
 
 function getTableTypeLabel(e) {
+  if (isIncomePaybackEntry(e)) return 'Income';
   if (e.type === 'spend' && Number(e.amount) < 0) return 'Payback';
   return TABLE_TYPE_LABELS[e.type] || String(e.type || 'Unknown');
 }
 
 function getTableTagLabel(e) {
+  if (isIncomePaybackEntry(e)) return 'Friends';
+  if (isSplitPaybackEntry(e)) return 'Owed';
+
   if (['spend', 'cardcharge', 'cashpayment'].includes(e.type)) {
     const tag = String(e.tag || '').trim();
     if (isSplitLedgerEntry(e) && tag.toLowerCase() === 'split') return 'Untagged';
@@ -210,6 +214,39 @@ function isSplitLedgerEntry(e) {
   return Boolean(e?.splitRef) || (['spend', 'cardcharge', 'cashpayment'].includes(e?.type) && String(e?.tag || '').trim().toLowerCase() === 'split');
 }
 
+function isManualLentPaybackEntry(e) {
+  return String(e?.type || '').toLowerCase() === 'payback' && e?.meta?.paybackKind === 'lent' && !e?.linkedLent && !e?.linkedOwed;
+}
+
+function isLentSettlementPaybackEntry(e) {
+  const type = String(e?.type || '').toLowerCase();
+  return ['payback', 'income'].includes(type) && Boolean(e?.linkedLent);
+}
+
+function isOwedSettlementPaybackEntry(e) {
+  const type = String(e?.type || '').toLowerCase();
+  return ['payback', 'income'].includes(type) && (Boolean(e?.linkedOwed) || ['owed', 'owed-settlement'].includes(String(e?.meta?.paybackKind || '').toLowerCase()));
+}
+
+function isReceivedSplitSettlement(e) {
+  if (e?.meta?.paybackKind === 'split-received') return true;
+  const type = String(e?.type || '').toLowerCase();
+  const description = String(e?.description || '');
+  if (type === 'spend' && Number(e?.amount) < 0 && String(e?.tag || '').trim().toLowerCase() === 'split' && /^Received settlement from\s/i.test(description)) return true;
+  return type === 'income' && String(e?.category || '').trim().toLowerCase() === 'friends' && /^Settlement from\s/i.test(description);
+}
+
+function isIncomePaybackEntry(e) {
+  const type = String(e?.type || '').toLowerCase();
+  const legacyPayback = type === 'payback' && /^Payback @/i.test(String(e?.description || ''));
+  return isManualLentPaybackEntry(e) || isLentSettlementPaybackEntry(e) || isOwedSettlementPaybackEntry(e) || isReceivedSplitSettlement(e) || legacyPayback;
+}
+
+function isSplitPaybackEntry(e) {
+  if (String(e?.type || '').toLowerCase() !== 'spend') return false;
+  if (e?.meta?.paybackKind === 'split') return true;
+  return String(e?.tag || '').trim().toLowerCase() === 'split' && /^Settled to\s/i.test(String(e?.description || ''));
+}
 
 function getTableSortDirectionLabel(key, asc) {
   if (key === 'date') return asc ? 'Oldest first' : 'Newest first';
@@ -360,12 +397,19 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   const editSvg = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`;
 
   const hasLent = Array.isArray(e.lent) && e.lent.length > 0;
+  const isIncomePayback = isIncomePaybackEntry(e);
+  const isSplitPayback = isSplitPaybackEntry(e);
+  const isReceivedSplitPayback = isReceivedSplitSettlement(e);
   const isLegacySplitLedgerEntry = !e.splitRef && String(e.tag || '').trim().toLowerCase() === 'split';
-  const splitTypeHtml = isSplitLedgerEntry(e) ? `<div style="margin-top: 6px;"><span class="tag split">Split</span></div>` : '';
+  const splitTypeHtml = isSplitLedgerEntry(e) && !isReceivedSplitPayback && !isSplitPayback ? `<div style="margin-top: 6px;"><span class="tag split">Split</span></div>` : '';
+  const splitPaybackTypeHtml = isSplitPayback ? `<div style="margin-top: 6px;"><span class="tag payback">Payback</span></div>` : '';
+  const receivedSplitTypeHtml = isReceivedSplitPayback ? `<div style="margin-top: 6px;"><span class="tag split">Split</span></div>` : '';
   const lentTypeHtml = hasLent ? `<div style="margin-top: 6px;"><span class="tag owed">LENT</span></div>` : '';
 
   let tagHtml = '';
-  if (e.tag && !isLegacySplitLedgerEntry) {
+  if (isIncomePayback) {
+    tagHtml = ` <span class="src-badge">Friends</span>`;
+  } else if (e.tag && !isLegacySplitLedgerEntry) {
     tagHtml = ` <button class="src-badge" data-view-budget="${escapeHtml(e.tag)}" title="View in Budget" style="border:none; cursor:pointer;">${escapeHtml(e.tag)}</button>`;
   }
   if (e.subCategory) {
@@ -385,10 +429,10 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
     if (isNegative) {
       return `<tr>
         ${dateCell}
-        <td class="type-cell"><span class="tag payback">Payback</span>${splitTypeHtml}${lentTypeHtml}</td>
+        <td class="type-cell">${isIncomePayback ? `<span class="tag income">Income</span><div style="margin-top: 6px;"><span class="tag payback">Payback</span></div>${receivedSplitTypeHtml}` : `<span class="tag payback">Payback</span>${splitTypeHtml}${lentTypeHtml}`}</td>
         <td class="desc-cell">
           <strong>${escapeHtml(e.description)}</strong><span class="tags-area">${tagHtml}</span>${metaHtml}
-          <div class="subnote">Cash / debit</div>
+          <div class="subnote">${isIncomePayback ? 'Settlement received' : 'Cash / debit'}</div>
           ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
         </td>
         <td class="num amt-credit">+${fmtINR(displayAmount)}</td>
@@ -398,7 +442,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
 
     return `<tr>
       ${dateCell}
-      <td class="type-cell"><span class="tag spend">Spend</span>${splitTypeHtml}${lentTypeHtml}</td>
+      <td class="type-cell"><span class="tag spend">Spend</span>${splitPaybackTypeHtml}${splitTypeHtml}${lentTypeHtml}</td>
       <td class="desc-cell">
         <strong>${escapeHtml(e.description)}</strong><span class="tags-area">${tagHtml}</span>${metaHtml}
         <div class="subnote">${card ? 'Paid for ' + escapeHtml(card.name) + ' — reduces card dues' : 'Cash / debit'}</div>
@@ -448,19 +492,23 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
   if (e.type === 'income') {
     return `<tr>
       ${dateCell}
-      <td class="type-cell"><span class="tag income">Income</span></td>
-      <td class="desc-cell"><strong>${escapeHtml(e.description)}</strong>${e.category ? ` <span class="src-badge">${escapeHtml(e.category)}</span>` : ''}</td>
+      <td class="type-cell"><span class="tag income">Income</span>${isIncomePayback ? `<div style="margin-top: 6px;"><span class="tag payback">Payback</span></div>${receivedSplitTypeHtml}` : ''}</td>
+      <td class="desc-cell"><strong>${escapeHtml(e.description)}</strong>${isIncomePayback ? ` <span class="src-badge">Friends</span>` : (e.category ? ` <span class="src-badge">${escapeHtml(e.category)}</span>` : '')}${isIncomePayback ? `<div class="subnote">Settlement received</div>` : ''}</td>
       <td class="num amt-credit">+${fmtINR(e.amount)}</td>
       <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">${editSvg}</button></span></td>
     </tr>`;
   }
   if (e.type === 'payback') {
+    const paybackTypeHtml = isIncomePayback ? `<span class="tag income">Income</span><div style="margin-top: 6px;"><span class="tag payback">Payback</span></div>` : `<span class="tag payback">Payback</span>`;
+    const paybackSourceHtml = isIncomePayback ? ` <span class="src-badge">Friends</span>` : (e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : '');
+    const paybackSubnote = isIncomePayback ? 'Settlement received' : 'Settlement of lent amount';
+
     return `<tr>
       ${dateCell}
-      <td class="type-cell"><span class="tag payback">Payback</span></td>
+      <td class="type-cell">${paybackTypeHtml}</td>
       <td class="desc-cell">
-        <strong>${escapeHtml(e.description)}</strong>${e.tag ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}
-        <div class="subnote">Settlement of lent amount</div>
+        <strong>${escapeHtml(e.description)}</strong>${paybackSourceHtml}
+        <div class="subnote">${paybackSubnote}</div>
       </td>
       <td class="num amt-credit">+${fmtINR(e.amount)}</td>
       <td class="actions-cell"><span class="row-actions"><button class="icon-btn" data-edit-entry="${key}|${e.id}" title="Edit">${editSvg}</button></span></td>
@@ -527,7 +575,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
     }
     return `<tr>
       ${dateCell}
-      <td class="type-cell"><span class="tag" style="background: #FCE8E6; color: #B0556F;">RECURRING</span></td>
+      <td class="type-cell"><span class="tag recurring">RECURRING</span></td>
       <td class="desc-cell">
         <strong>${escapeHtml(e.description)}</strong>
         <div class="subnote">${subnote}</div>
@@ -677,8 +725,7 @@ function renderRecurringInlineEdit(entry, mk) {
       >
         <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center;">
           <span
-            class="tag"
-            style="background:#FCE8E6; color:#B0556F;"
+            class="tag recurring"
           >RECURRING</span>
         </div>
       </div>
@@ -743,12 +790,28 @@ function renderRecurringInlineEdit(entry, mk) {
 function renderInlineEdit(entry, mk) {
   const isIncome = entry.type === 'income';
   const isInvest = entry.type === 'investment';
+  const isManualLentPayback = isManualLentPaybackEntry(entry);
+  const isIncomePayback = isIncomePaybackEntry(entry);
+  const isSplitPayback = isSplitPaybackEntry(entry);
+  const canEditSpendMode = ['spend', 'cardcharge', 'cashpayment'].includes(entry.type) && Number(entry.amount) > 0 && !isSplitLedgerEntry(entry) && !isSplitPayback;
+  const currentSpendMode = entry.type === 'cardcharge' ? 'card' : entry.type === 'cashpayment' ? 'cash' : 'regular';
+  const currentCardExists = Boolean(entry.cardId && cardById(cards, entry.cardId));
+  const inlineCardOptions = `${entry.type === 'cardcharge' && entry.cardId && !currentCardExists ? `<option value="${escapeHtml(entry.cardId)}" selected>Removed card</option>` : ''}${cards.map(card => `<option value="${escapeHtml(card.id)}" ${entry.cardId === card.id ? 'selected' : ''}>${escapeHtml(card.name)}</option>`).join('')}`;
+  const spendModeHtml = canEditSpendMode ? `<div class="ie-input-group" style="width:170px; flex-shrink:0;"><select class="ie-spend-mode field-input" aria-label="Spend mode"><option value="regular" ${currentSpendMode === 'regular' ? 'selected' : ''}>Regular spend</option><option value="card" ${currentSpendMode === 'card' ? 'selected' : ''} ${cards.length || currentSpendMode === 'card' ? '' : 'disabled'}>Card spend</option><option value="cash" ${currentSpendMode === 'cash' ? 'selected' : ''}>Cash payment</option></select></div><div class="ie-input-group ie-spend-card-wrap" style="width:180px; flex-shrink:0; display:${currentSpendMode === 'card' ? 'flex' : 'none'};"><select class="ie-spend-card field-input" aria-label="Credit card">${inlineCardOptions || '<option value="">No cards added</option>'}</select></div>` : '';
 
   let tagOpts = '';
   let showCustomTag = true;
   let showSubcat = true;
 
-  if (isIncome) {
+  if (isIncomePayback) {
+    tagOpts = `<option value="Friends" selected>Friends</option>`;
+    showCustomTag = false;
+    showSubcat = false;
+  } else if (isSplitPayback) {
+    tagOpts = `<option value="Owed" selected>Owed</option>`;
+    showCustomTag = false;
+    showSubcat = false;
+  } else if (isIncome) {
     const currentCat = (entry.category || entry.tag || '').toLowerCase();
     const incomeCats = ['Salary', 'Investments', 'Friends'];
     tagOpts = `<option value="">No category</option>` + incomeCats.map(c => `<option value="${c}" ${currentCat === c.toLowerCase() ? 'selected' : ''}>${c}</option>`).join('');
@@ -833,7 +896,11 @@ function renderInlineEdit(entry, mk) {
   }
 
   let typePill = '';
-  if (entry.type === 'spend' && entry.amount < 0) {
+  if (isIncomePayback) {
+      typePill = `<span class="tag income">Income</span><span class="tag payback">Payback</span>`;
+  } else if (isSplitPayback) {
+      typePill = `<span class="tag spend">Spend</span><span class="tag payback">Payback</span>`;
+  } else if (entry.type === 'spend' && entry.amount < 0) {
       typePill = `<span class="tag payback">Payback</span>`;
   } else if (entry.type === 'spend') {
       typePill = `<span class="tag spend">Spend</span>`;
@@ -850,7 +917,7 @@ function renderInlineEdit(entry, mk) {
   } else if (entry.type === 'investment' || entry.type === 'sip') {
       typePill = `<span class="tag invest">Investment</span>`;
   } else if (entry.type === 'recurring') {
-      typePill = `<span class="tag" style="background: #FCE8E6; color: #B0556F;">RECURRING</span>`;
+      typePill = `<span class="tag recurring">RECURRING</span>`;
   } else if (entry.type === 'emi') {
       typePill = `<span class="tag emi">EMI</span>`;
   }
@@ -923,8 +990,8 @@ function renderInlineEdit(entry, mk) {
         </div>
 
         <div style="display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-top: 4px; flex-wrap: wrap;">
-          <div style="display: flex; align-items: center; gap: 10px;">
-             <!-- mode or chips if needed -->
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            ${spendModeHtml}
           </div>
           <div style="display: flex; justify-content: flex-end; gap: 10px; align-items: center;">
             <button class="btn ghost small" style="padding: 4px 16px; font-size: 0.75rem;" data-cancel-edit type="button">Cancel</button>
@@ -1128,17 +1195,26 @@ function renderForm(kind) {
   if (kind === 'owed') {
     return `
     <div class="form-panel">
-      <div class="form-note">Carries forward automatically in your totals every month until you mark it settled.</div>
+      <div class="pill-grid month-owed-mode-switch month-pill-switch" id="f-owed-mode-selector" role="group" aria-label="Manage lent mode">
+        <span class="month-pill-slider" aria-hidden="true"></span>
+        <button class="pill-btn sub-pill active" data-owed-mode="lent" type="button" aria-pressed="true">Lent</button>
+        <button class="pill-btn sub-pill" data-owed-mode="payback" type="button" aria-pressed="false">Payback</button>
+      </div>
+      <div class="form-note" id="f-owed-mode-info">Carries forward automatically in your totals every month until money is paid back.</div>
       <div class="form-row">
         <div class="field"><label>Person</label><input id="f-desc" type="text" placeholder="Who owes you" /></div>
         <div class="field"><label>Amount (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
         <div class="field"><label>Date</label><input id="f-date" type="date" value="${todayStr()}" /></div>
       </div>
-      <div class="form-row">
-        <div class="field"><label>Purpose</label><input id="f-owed-purpose" type="text" placeholder="e.g. Dinner split, movie tickets" /></div>
+      <div class="month-mode-field-wrap expanded" id="f-owed-purpose-row" aria-hidden="false">
+        <div class="month-mode-field-inner">
+          <div class="form-row">
+            <div class="field"><label>Purpose</label><input id="f-owed-purpose" type="text" placeholder="e.g. Dinner split, movie tickets" /></div>
+          </div>
+        </div>
       </div>
       <div class="form-actions">
-        <button class="btn" data-submit="owed">Add</button>
+        <button class="btn" id="f-owed-submit" data-submit="owed">Add lent</button>
         <button class="btn ghost" data-close-form>Cancel</button>
       </div>
     </div>`;
@@ -1294,7 +1370,7 @@ function renderAddEntryPanel() {
       <button class="qa-card ${openForm === 'owed' ? 'active' : ''}" data-form="owed" type="button">
         <span class="qa-icon" style="background: var(--amber-bg); color: var(--amber);">${svgs.lent}</span>
         <span class="qa-text">
-          <span class="qa-title">Add lent</span>
+          <span class="qa-title">Manage Lent</span>
           <span class="qa-desc">Owed to you</span>
         </span>
       </button>
@@ -1701,6 +1777,11 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
         typeOptions.push(typeLabel);
       }
 
+      if ((isIncomePaybackEntry(e) || isSplitPaybackEntry(e)) && !seenTypeOptions.has('Payback')) {
+        seenTypeOptions.add('Payback');
+        typeOptions.push('Payback');
+      }
+
       if (hasLentData(e) && !seenTypeOptions.has('Lent')) {
         seenTypeOptions.add('Lent');
         typeOptions.push('Lent');
@@ -1729,8 +1810,9 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
       const typePass =
         activeTypeFilters.length === 0 ||
         activeTypeFilters.includes(typeLabel) ||
+        (activeTypeFilters.includes('Payback') && (isIncomePaybackEntry(e) || isSplitPaybackEntry(e))) ||
         (activeTypeFilters.includes('Lent') && hasLentData(e)) ||
-        (activeTypeFilters.includes('Split') && isSplitLedgerEntry(e));
+        (activeTypeFilters.includes('Split') && (isSplitLedgerEntry(e) || isReceivedSplitSettlement(e)));
 
       const tagPass =
         activeTagFilters.length === 0 ||
@@ -2137,6 +2219,8 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
       if (e.type === 'income') {
         const cat = e.category || 'Uncategorized';
         incomeCategories[cat] = (incomeCategories[cat] || 0) + (Number(e.amount) || 0);
+      } else if (isManualLentPaybackEntry(e)) {
+        incomeCategories.Friends = (incomeCategories.Friends || 0) + (Number(e.amount) || 0);
       }
     }
     const incomeColors = ['var(--credit)', 'var(--sky)', 'var(--blue-soft)', '#C98A3C', '#8E6FB0'];
@@ -2614,8 +2698,14 @@ async function handleSubmit(kind) {
     data.entries.push({ id: uid(), type: 'income', description: desc, amount, date, category });
   } else if (kind === 'owed') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a person and amount'); return; }
-    const owedPurpose = ($('#f-owed-purpose')?.value || '').trim();
-    data.entries.push({ id: uid(), type: 'owed', description: desc, amount, date, settled: false, meta: owedPurpose ? { purpose: owedPurpose } : null });
+    const owedMode = root.querySelector('#f-owed-mode-selector [data-owed-mode].active')?.dataset.owedMode || 'lent';
+
+    if (owedMode === 'payback') {
+      data.entries.push({ id: uid(), type: 'payback', description: desc, amount, date, tag: 'Owed', meta: { paybackKind: 'lent', person: desc } });
+    } else {
+      const owedPurpose = ($('#f-owed-purpose')?.value || '').trim();
+      data.entries.push({ id: uid(), type: 'owed', description: desc, amount, date, settled: false, meta: owedPurpose ? { purpose: owedPurpose } : null });
+    }
   } else if (kind === 'invest') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a description and amount'); return; }
     const category = $('#f-invest-category')?.value || 'Fixed Deposit';
@@ -2880,6 +2970,36 @@ root.addEventListener('click', async (ev) => {
       if (lentWrap) lentWrap.style.display = 'none';
       if (lentToggle) lentToggle.checked = false;
     }
+    return;
+  }
+
+  const owedModeBtn = ev.target.closest('[data-owed-mode]');
+  if (owedModeBtn) {
+    const wrap = owedModeBtn.closest('#f-owed-mode-selector');
+    if (!wrap) return;
+
+    const modeButtons = Array.from(wrap.querySelectorAll('[data-owed-mode]'));
+    modeButtons.forEach(button => {
+      const active = button === owedModeBtn;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+
+    syncMonthPillSlider(wrap, owedModeBtn);
+
+    const isLent = owedModeBtn.dataset.owedMode === 'lent';
+    const purposeRow = $('#f-owed-purpose-row');
+    const purposeInput = $('#f-owed-purpose');
+    const infoBox = $('#f-owed-mode-info');
+    const submitBtn = $('#f-owed-submit');
+
+    if (purposeRow) {
+      purposeRow.classList.toggle('expanded', isLent);
+      purposeRow.setAttribute('aria-hidden', String(!isLent));
+    }
+    if (purposeInput) purposeInput.disabled = !isLent;
+    if (infoBox) infoBox.textContent = isLent ? 'Carries forward automatically in your totals every month until money is paid back.' : 'Records money received back from this person and reduces their outstanding Month lending.';
+    if (submitBtn) submitBtn.textContent = isLent ? 'Add lent' : 'Add payback';
     return;
   }
 
@@ -3190,6 +3310,8 @@ root.addEventListener('click', async (ev) => {
     const container = saveEntry.closest('.inline-edit-container');
     const newDesc = container.querySelector('.ie-desc').value.trim();
     const newAmt = Number(container.querySelector('.ie-amount').value);
+    const newSpendMode = container.querySelector('.ie-spend-mode')?.value || null;
+    const newSpendCardId = container.querySelector('.ie-spend-card')?.value || '';
 
     if (!newDesc || isNaN(newAmt) || newAmt <= 0) {
       showToast("Invalid description or amount.");
@@ -3248,17 +3370,61 @@ root.addEventListener('click', async (ev) => {
     const data = await loadMonth(mk);
     const entryToEdit = data.entries.find(e => e.id === id);
     if (entryToEdit) {
+      const manualLentPayback = isManualLentPaybackEntry(entryToEdit);
+      const incomePayback = isIncomePaybackEntry(entryToEdit);
+      const receivedSplitPayback = isReceivedSplitSettlement(entryToEdit);
+      const splitPayback = isSplitPaybackEntry(entryToEdit);
+      const canEditSpendMode = ['spend', 'cardcharge', 'cashpayment'].includes(entryToEdit.type) && Number(entryToEdit.amount) > 0 && !isSplitLedgerEntry(entryToEdit) && !splitPayback;
+
+      if (canEditSpendMode && newSpendMode === 'card') {
+        const selectedCardExists = Boolean(cardById(cards, newSpendCardId));
+        const preservesRemovedCard = entryToEdit.type === 'cardcharge' && Boolean(entryToEdit.cardId) && entryToEdit.cardId === newSpendCardId;
+        if (!newSpendCardId || (!selectedCardExists && !preservesRemovedCard)) {
+          showToast('Select a credit card for this card spend.');
+          return;
+        }
+      }
+
       entryToEdit.description = newDesc;
       entryToEdit.amount = newAmt;
-      entryToEdit.tag = newTag;
-      if (entryToEdit.type === 'income' || entryToEdit.type === 'investment') {
-        entryToEdit.category = newTag;
-        entryToEdit.subCategory = '';
-        entryToEdit.meta = null;
-      } else {
-        entryToEdit.subCategory = newSubcat;
-        entryToEdit.meta = meta;
+
+      if (canEditSpendMode) {
+        if (newSpendMode === 'card') {
+          entryToEdit.type = 'cardcharge';
+          entryToEdit.cardId = newSpendCardId;
+          delete entryToEdit.paymentMode;
+        } else if (newSpendMode === 'cash') {
+          entryToEdit.type = 'cashpayment';
+          entryToEdit.cardId = null;
+          delete entryToEdit.paymentMode;
+        } else {
+          entryToEdit.type = 'spend';
+          entryToEdit.paymentMode = 'cash';
+          entryToEdit.cardId = null;
+        }
       }
+
+      if (incomePayback) {
+        entryToEdit.category = 'Friends';
+        entryToEdit.tag = receivedSplitPayback && entryToEdit.type === 'spend' ? 'split' : '';
+        entryToEdit.subCategory = '';
+        entryToEdit.meta = { ...(entryToEdit.meta || {}), ...(manualLentPayback ? { paybackKind: 'lent', person: newDesc } : {}) };
+      } else if (splitPayback) {
+        entryToEdit.tag = 'split';
+        entryToEdit.subCategory = '';
+        entryToEdit.meta = { ...(entryToEdit.meta || {}), paybackKind: 'split' };
+      } else {
+        entryToEdit.tag = newTag;
+        if (entryToEdit.type === 'income' || entryToEdit.type === 'investment') {
+          entryToEdit.category = newTag;
+          entryToEdit.subCategory = '';
+          entryToEdit.meta = null;
+        } else {
+          entryToEdit.subCategory = newSubcat;
+          entryToEdit.meta = meta;
+        }
+      }
+
       await runWithMonthBusy(saveEntry, async () => {
         await saveMonth(mk);
         queueMonthFx(`[data-entry-id="${CSS.escape(String(id))}"]`, 'update');
@@ -3753,25 +3919,22 @@ root.addEventListener('click', async (ev) => {
     const data = await loadMonth(mk);
     const entry = data.entries.find(e => e.id === id);
     if (entry && !entry.settled) {
-      // Same treatment as a Lent chip: the owed entry itself is left
-      // alone (still `settled: true`) and the money-back is recorded as
-      // its own Payback transaction in the real current month, so it
-      // restores balance without inflating the Income stat.
-      entry.settled = true;
-      await saveMonth(mk);
-
       const paybackKey = currentMonthKey();
+      const isCrossMonth = mk !== paybackKey;
+      const paybackId = uid();
+      const paybackEntry = isCrossMonth ? { id: paybackId, type: 'income', category: 'Friends', description: `Payback @${entry.description}`, amount: Number(entry.amount) || 0, date: todayStr(), meta: { paybackKind: 'owed-settlement', person: entry.description || 'Unknown' }, linkedOwed: { entryMonthKey: mk, entryId: entry.id } } : { id: paybackId, type: 'payback', category: 'Friends', description: `Payback @${entry.description}`, amount: Number(entry.amount) || 0, date: todayStr(), meta: { paybackKind: 'owed-settlement', person: entry.description || 'Unknown' }, linkedOwed: { entryMonthKey: mk, entryId: entry.id } };
+
+      entry.settled = true;
       await ensureMonthIndexed(paybackKey, monthsIndex);
-      const paybackData = await loadMonth(paybackKey);
-      paybackData.entries.push({
-        id: uid(),
-        type: 'payback',
-        description: `Payback @${entry.description}`,
-        amount: Number(entry.amount) || 0,
-        date: todayStr(),
-        linkedOwed: { entryMonthKey: mk, entryId: entry.id },
-      });
-      await saveMonth(paybackKey);
+
+      if (paybackKey === mk) {
+        data.entries.push(paybackEntry);
+        await saveMonth(mk);
+      } else {
+        const paybackData = await loadMonth(paybackKey);
+        paybackData.entries.push(paybackEntry);
+        await Promise.all([saveMonth(mk), saveMonth(paybackKey)]);
+      }
 
       queueMonthFx(`[data-entry-id="${CSS.escape(String(id))}"]`, 'update');
       await renderMonth();
@@ -3913,12 +4076,22 @@ root.addEventListener('click', async (ev) => {
 });
 
 root.addEventListener('change', async (ev) => {
+  if (ev.target.classList.contains('ie-spend-mode')) {
+    const container = ev.target.closest('.inline-edit-container');
+    const cardWrap = container?.querySelector('.ie-spend-card-wrap');
+    if (cardWrap) cardWrap.style.display = ev.target.value === 'card' ? 'flex' : 'none';
+    return;
+  }
+
   if (ev.target.classList.contains('ie-subcat-select')) {
      const val = ev.target.value;
+     const group = ev.target.closest('.ie-input-group');
      const customInput = ev.target.nextElementSibling;
+     const isCustom = val === '__custom__';
+     if (group) group.classList.toggle('is-custom-entry', isCustom);
      if (customInput && customInput.classList.contains('ie-subcat-custom')) {
-       customInput.style.display = val === '__custom__' ? 'inline-block' : 'none';
-       if (val === '__custom__') customInput.focus();
+       customInput.style.display = isCustom ? 'inline-block' : 'none';
+       if (isCustom) customInput.focus();
      }
      return;
   }
@@ -3932,7 +4105,13 @@ root.addEventListener('change', async (ev) => {
     }
 
     const customTag = container.querySelector('.ie-tag-custom');
-    if (customTag) customTag.style.display = val === '__custom__' ? 'inline-block' : 'none';
+    const tagGroup = ev.target.closest('.ie-input-group');
+    const isCustomTag = val === '__custom__';
+    if (tagGroup) tagGroup.classList.toggle('is-custom-entry', isCustomTag);
+    if (customTag) {
+      customTag.style.display = isCustomTag ? 'inline-block' : 'none';
+      if (isCustomTag) customTag.focus();
+    }
     
     const zone = container.querySelector('.ie-subcat-zone');
     if (val) {

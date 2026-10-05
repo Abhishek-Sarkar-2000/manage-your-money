@@ -244,6 +244,20 @@
   transform: scale(0.97);
 }
 
+.month-owed-mode-switch {
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  width: max-content;
+  max-width: 100%;
+  margin-bottom: 12px;
+}
+
+.month-owed-mode-switch .pill-btn {
+  width: auto;
+  min-width: max-content;
+  text-align: center;
+}
+
 .sip-filter-grid {
   display: inline-grid;
   gap: 0;

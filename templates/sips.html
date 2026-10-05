@@ -6,7 +6,24 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/views/sips.css') }}?v={{ static_version }}" />
 {% endblock %}
 {% block content %}
-  <div id="sips-root" class="sips-view" data-loading="true"></div>
+  <div id="sips-root" class="sips-view" data-loading="true" aria-busy="true">
+    <div class="sips-loading-state" role="status" aria-label="Loading SIPs">
+      <div class="sips-loading-shell" aria-hidden="true">
+        <div class="sips-loading-summary">
+          <div class="sips-skeleton-summary-card is-foundation"><span class="sips-skeleton-line is-kicker"></span><span class="sips-skeleton-line is-value"></span><span class="sips-skeleton-line is-copy"></span></div>
+          <div class="sips-skeleton-summary-card"><span class="sips-skeleton-line is-kicker"></span><span class="sips-skeleton-line is-value is-short"></span><span class="sips-skeleton-line is-copy"></span></div>
+        </div>
+        <div class="sips-skeleton-panel">
+          <div class="sips-loading-heading"><span class="sips-skeleton-line is-title"></span><span class="sips-skeleton-line is-button"></span></div>
+          <div class="sips-loading-grid">
+            {% for _ in range(3) %}
+              <div class="sips-skeleton-card"><div class="sips-skeleton-card-head"><span class="sips-skeleton-icon"></span><span class="sips-skeleton-line is-name"></span><span class="sips-skeleton-pill"></span></div><span class="sips-skeleton-line is-meta"></span><span class="sips-skeleton-line is-card-value"></span><div class="sips-skeleton-actions"><span></span><span></span><span></span></div></div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 {% endblock %}
 {% block page_script %}
   <script type="module" src="{{ url_for('static', filename='js/views/sips.js') }}"></script>

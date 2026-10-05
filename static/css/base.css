@@ -302,7 +302,7 @@ a {
 .field input,
 .field select {
   width: 100%;
-  padding: 6px 12px;
+  padding: 8px 12px 6px;
   height: 40px;
   border: 1px solid var(--hair);
   border-radius: 7px;
@@ -316,8 +316,7 @@ a {
   font-family: 'IBM Plex Mono', monospace;
 }
 
-.field input:focus,
-.field select:focus {
+.field input:focus {
   outline: none;
   border-color: var(--blue);
   background: #fff;
@@ -325,11 +324,314 @@ a {
     0 0 0 3px rgba(66, 118, 255, 0.12),
     0 2px 7px rgba(11, 37, 69, 0.08);
 }
+
+.field select:focus {
+  outline: none;
+  border-color: var(--blue);
+  background: #fff;
+  box-shadow: none;
+}
+
 .field input:hover,
 .field select:hover {
   border-color: var(--blue);
   background: #fff;
 }
+
+/* ---------- Select controls + dropdown menus ---------- */
+.field select:disabled,
+.table-controls select:disabled,
+.tag-select:disabled,
+.ie-input-group select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@supports (appearance: base-select) {
+  .field select,
+  .table-controls select,
+  .tag-select,
+  .ie-input-group select.field-input {
+    appearance: base-select;
+    cursor: pointer;
+  }
+
+  /* Inline-edit selects occupy the complete visual input group. */
+  .ie-input-group:has(> select.field-input) {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0;
+    overflow: visible;
+  }
+
+  .ie-input-group select.field-input {
+    grid-area: 1 / 1;
+    width: 100%;
+    min-width: 0;
+    margin: 0 !important;
+    padding: 8px 12px !important;
+    border-left: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    z-index: 1;
+  }
+
+  /* Only reserve icon space when this particular group actually has an icon. */
+  .ie-input-group:has(> svg + select.field-input) > svg {
+    grid-area: 1 / 1;
+    align-self: center;
+    justify-self: start;
+    margin-left: 10px;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .ie-input-group:has(> svg + select.field-input) > select.field-input {
+    padding-left: 42px !important;
+  }
+
+  .ie-input-group:has(> svg + select.field-input)::after {
+    content: "";
+    position: absolute;
+    left: 34px;
+    top: 50%;
+    height: 20px;
+    border-left: 1px dashed var(--sky);
+    transform: translateY(-50%);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* Custom category/subcategory stays one segmented inline-edit control: icon | select | new value. */
+  .ie-input-group.is-custom-entry:has(> select.field-input) {
+    position: relative;
+    display: inline-flex !important;
+    align-items: stretch;
+    flex: 1 1 320px !important;
+    flex-wrap: nowrap;
+    width: auto !important;
+    min-width: min(320px, 100%) !important;
+    max-width: 100%;
+    gap: 0;
+    padding: 0 10px !important;
+  }
+
+  .ie-input-group.is-custom-entry:has(> svg + select.field-input)::after {
+    content: none;
+  }
+
+  .ie-input-group.is-custom-entry:has(> svg + select.field-input) > svg {
+    position: static;
+    grid-area: auto;
+    align-self: center;
+    justify-self: auto;
+    margin: 0;
+    transform: none;
+    z-index: auto;
+    pointer-events: none;
+  }
+
+  .ie-input-group.is-custom-entry > select.field-input {
+    grid-area: auto;
+    grid-column: auto;
+    flex: 1 1 50%;
+    width: 0;
+    min-width: 0;
+    margin: 0 0 0 12px !important;
+    padding: 8px 8px !important;
+    border: 0 !important;
+    border-left: 1px dashed var(--sky) !important;
+    border-radius: 0;
+    background: transparent !important;
+    box-shadow: none !important;
+    white-space: nowrap;
+    z-index: auto;
+  }
+
+  .ie-input-group.is-custom-entry > input.field-input {
+    display: block !important;
+    grid-column: auto;
+    flex: 1 1 50%;
+    width: 0;
+    min-width: 0;
+    margin: 0 0 0 12px !important;
+    padding: 8px 0 8px 8px !important;
+    border: 0 !important;
+    border-left: 1px dashed var(--sky) !important;
+    border-radius: 0;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  :root[data-theme="dark"] .ie-input-group.is-custom-entry > select.field-input,
+  :root[data-theme="dark"] .ie-input-group.is-custom-entry > input.field-input {
+    border-left-color: var(--hair) !important;
+  }
+
+  .field select::picker-icon,
+  .table-controls select::picker-icon,
+  .tag-select::picker-icon,
+  .ie-input-group select.field-input::picker-icon {
+    color: var(--muted);
+    transition: transform 0.16s ease, color 0.16s ease;
+  }
+
+  .field select:open::picker-icon,
+  .table-controls select:open::picker-icon,
+  .tag-select:open::picker-icon,
+  .ie-input-group select.field-input:open::picker-icon {
+    color: var(--blue);
+    transform: rotate(180deg);
+  }
+
+  .field select::picker(select),
+  .table-controls select::picker(select),
+  .tag-select::picker(select),
+  .ie-input-group select.field-input::picker(select) {
+    appearance: base-select;
+    box-sizing: border-box;
+    max-height: min(320px, 50vh);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--sky) transparent;
+    margin-top: 6px;
+    padding: 6px;
+    border: 1px solid var(--hair);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--ink);
+    opacity: 0;
+    transform: translateY(-8px);
+    transform-origin: top center;
+    transition: opacity 150ms ease, transform 190ms cubic-bezier(0.16, 1, 0.3, 1), display 190ms allow-discrete, overlay 190ms allow-discrete;
+  }
+
+  .field select:open::picker(select),
+  .table-controls select:open::picker(select),
+  .tag-select:open::picker(select),
+  .ie-input-group select.field-input:open::picker(select) {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  @starting-style {
+    .field select:open::picker(select),
+    .table-controls select:open::picker(select),
+    .tag-select:open::picker(select),
+    .ie-input-group select.field-input:open::picker(select) {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+  }
+
+  /* Match the popup to the actual select anchor instead of using viewport-relative 100%. */
+  .ie-input-group select.field-input::picker(select) {
+    width: anchor-size(width);
+    min-width: 0;
+    max-width: min(360px, calc(100vw - 24px));
+  }
+
+  .ie-input-group.is-custom-entry > select.field-input::picker(select) {
+    width: anchor-size(width);
+    min-width: 0;
+    max-width: min(280px, calc(100vw - 24px));
+  }
+
+  .field select option,
+  .table-controls select option,
+  .tag-select option,
+  .ie-input-group select.field-input option {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    min-height: 36px;
+    margin: 0;
+    padding: 8px 10px;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--ink);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .field select option:hover,
+  .field select option:focus,
+  .table-controls select option:hover,
+  .table-controls select option:focus,
+  .tag-select option:hover,
+  .tag-select option:focus,
+  .ie-input-group select.field-input option:hover,
+  .ie-input-group select.field-input option:focus {
+    background: var(--ice);
+  }
+
+  .field select option:checked,
+  .table-controls select option:checked,
+  .tag-select option:checked,
+  .ie-input-group select.field-input option:checked {
+    background: var(--blue-bg);
+    color: var(--blue);
+    font-weight: 600;
+  }
+
+  .field select option::checkmark,
+  .table-controls select option::checkmark,
+  .tag-select option::checkmark,
+  .ie-input-group select.field-input option::checkmark {
+    order: 1;
+    flex: 0 0 auto;
+    margin-left: auto;
+    margin-right: 0;
+    color: var(--blue);
+  }
+
+  .field select::picker(select)::-webkit-scrollbar,
+  .table-controls select::picker(select)::-webkit-scrollbar,
+  .tag-select::picker(select)::-webkit-scrollbar,
+  .ie-input-group select.field-input::picker(select)::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .field select::picker(select)::-webkit-scrollbar-track,
+  .table-controls select::picker(select)::-webkit-scrollbar-track,
+  .tag-select::picker(select)::-webkit-scrollbar-track,
+  .ie-input-group select.field-input::picker(select)::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .field select::picker(select)::-webkit-scrollbar-thumb,
+  .table-controls select::picker(select)::-webkit-scrollbar-thumb,
+  .tag-select::picker(select)::-webkit-scrollbar-thumb,
+  .ie-input-group select.field-input::picker(select)::-webkit-scrollbar-thumb {
+    background: var(--sky);
+    border-radius: 999px;
+  }
+}
+
+@media (max-width: 620px) {
+  .ie-input-group.is-custom-entry {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ie-input-group.is-custom-entry > select.field-input {
+    grid-column: 1;
+  }
+
+  .ie-input-group.is-custom-entry > input.field-input {
+    grid-column: 1;
+  }
+
+  .ie-input-group.is-custom-entry > svg {
+    top: 18px;
+  }
+}
+
 .checkline {
   display: flex;
   align-items: center;
@@ -414,14 +716,13 @@ a {
 
 .table-controls select {
   min-height: 36px;
-  padding: 7px 32px 7px 11px;
+  padding: 8px 12px 6px;
   border: 1px solid var(--hair);
   border-radius: 7px;
   background: var(--ice-2);
   color: var(--royal);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.74rem;
-  line-height: 1.2;
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
@@ -434,7 +735,7 @@ a {
 .table-controls select:focus {
   outline: none;
   border-color: var(--blue);
-  box-shadow: 0 0 0 2px rgba(44, 105, 166, 0.12);
+  box-shadow: none;
 }
 
 .table-controls select:disabled {
@@ -457,7 +758,7 @@ a {
 .table-controls select:open {
   outline: none;
   border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(66, 118, 255, 0.12);
+  box-shadow: none;
 }
 
 #table-type-filter,
@@ -748,7 +1049,12 @@ color: #C07A2E;
 }
 
 .tag.split {
-  background: var(--blue-bg);
+  background: #f6ebee;
+  color: #b44c69;
+}
+
+.tag.invest {
+  background: #E4EEF9;
   color: var(--blue);
 }
 
@@ -785,11 +1091,27 @@ color: #C07A2E;
 :root[data-theme="dark"] .src-badge.stock {
   color: var(--royal);
 }
-
-.tag.invest {
-  background: #E4EEF9;
-  color: var(--blue);
+:root[data-theme="dark"] .tag.payback {
+  background: #244365;
+  color: #E4EEF9;
 }
+:root[data-theme="dark"] .tag.split {
+  background: #4b232e;
+  color: #f6ebee;
+}
+:root[data-theme="dark"] .tag.invest {
+  background: #1c3a70;
+  color: #E4EEF9;
+}
+:root[data-theme="dark"] .tag.emi {
+  background: #5B4B9E;
+  color: #EDEBF9;
+}
+:root[data-theme="dark"] .tag.recurring {
+  background: #57254c;
+  color: #FCE8E6;
+}
+
 
 .amt-credit {
   color: var(--credit);
@@ -934,7 +1256,7 @@ td.actions-cell {
     flex: 1 1 calc(50% - 7px);
     min-width: 0;
     font-size: 0.68rem;
-    padding: 7px 26px 7px 9px;
+    padding: 7px 10px 5px;
   }
 
   #table-type-filter,

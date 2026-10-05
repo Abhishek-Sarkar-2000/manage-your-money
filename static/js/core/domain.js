@@ -849,7 +849,11 @@ export function computeMonthTotals(entries) {
       if (e.paymentMode === 'card') cardCharge += amt;
       else recurringCash += amt;
     } else if (e.type === 'payback') {
-      cashSpend -= amt;
+      if (e?.meta?.paybackKind === 'lent' && !e?.linkedLent && !e?.linkedOwed) {
+        income += amt;
+      } else {
+        cashSpend -= amt;
+      }
       payback += amt;
     } else if (e.type === 'goal_funding') {
       goalFunding += amt;
@@ -967,21 +971,57 @@ export function windowSeries(series, rangeMonths) {
   return series.filter(p => new Date(p.date + 'T00:00:00') >= cutoff);
 }
 
+function getManualLentPayback(entry, monthKey = null) {
+  if (String(entry?.type || '').toLowerCase() !== 'payback' || entry?.meta?.paybackKind !== 'lent') return null;
+  const person = String(entry.meta?.person || entry.description || '').trim();
+  const amount = Number(entry.amount) || 0;
+  return person && amount > 0 ? { person, amount, monthKey } : null;
+}
+
+function applyManualLentPaybacks(byPerson, paybacks) {
+  for (const payback of paybacks) {
+    let remaining = Math.max(0, Number(payback.amount) || 0);
+    const target = String(payback.person || '').trim().toLocaleLowerCase('en-IN');
+    if (!target || remaining <= 0) continue;
+
+    for (const [person, bucket] of Object.entries(byPerson)) {
+      if (String(person).trim().toLocaleLowerCase('en-IN') !== target) continue;
+
+      const current = Math.max(0, Number(bucket.amount) || 0);
+      if (current <= 0) continue;
+
+      const applied = Math.min(current, remaining);
+      bucket.amount = Math.max(0, current - applied);
+      remaining -= applied;
+
+      if (remaining <= 0.004) break;
+    }
+  }
+}
+
 export async function computeGlobalOwed(monthsIndex, isShared, sharedSplitId, splitsIndex) {
   const byPerson = {};
+  const manualLentPaybacks = [];
+
   for (const k of monthsIndex) {
     const data = await loadMonth(k);
+
     for (const e of data.entries) {
+      const manualPayback = getManualLentPayback(e, k);
+      if (manualPayback) manualLentPaybacks.push(manualPayback);
+
       if (e.type === 'owed' && !e.settled) {
         const name = e.description || 'Unknown';
         byPerson[name] = byPerson[name] || { amount: 0, items: [] };
         byPerson[name].amount += Number(e.amount) || 0;
         byPerson[name].items.push({ amount: e.amount, monthKey: k, source: 'Owed' });
       }
+
       if ((e.type === 'spend' || e.type === 'cardcharge' || e.type === 'cashpayment') && Array.isArray(e.lent)) {
         for (const l of e.lent) {
           if (l.splitOwed) continue;
           if (l.settled) continue;
+
           const name = l.person || 'Unknown';
           byPerson[name] = byPerson[name] || { amount: 0, items: [] };
           byPerson[name].amount += Number(l.amount) || 0;
@@ -1000,9 +1040,14 @@ export async function computeGlobalOwed(monthsIndex, isShared, sharedSplitId, sp
     }
   }
 
-  const list = Object.entries(byPerson).map(([person, v]) => ({ person, amount: v.amount, items: v.items }))
+  applyManualLentPaybacks(byPerson, manualLentPaybacks);
+
+  const list = Object.entries(byPerson)
+    .filter(([, value]) => (Number(value.amount) || 0) > 0.004)
+    .map(([person, value]) => ({ person, amount: value.amount, items: value.items }))
     .sort((a, b) => b.amount - a.amount);
-  const total = list.reduce((s, x) => s + x.amount, 0);
+
+  const total = list.reduce((sum, item) => sum + item.amount, 0);
   return { total, list };
 }
 
@@ -1151,6 +1196,7 @@ export async function computeGlobalStats({ cards, emiSeries, sipSeries, recurrin
   }
 
   const byPerson = {};
+  const allManualLentPaybacks = [];
   let investedTotal = Number(existingInvestments) || 0;
   const monthlyInvestments = [];
   const perCard = {};
@@ -1185,7 +1231,10 @@ export async function computeGlobalStats({ cards, emiSeries, sipSeries, recurrin
     byPerson[person].items.push({ amount, monthKey: 'Split', source: 'Split Money' });
   }
 
+  applyManualLentPaybacks(byPerson, allManualLentPaybacks);
+
   const owedList = Object.entries(byPerson)
+    .filter(([, value]) => (Number(value.amount) || 0) > 0.004)
     .map(([person, value]) => ({ person, amount: value.amount, items: value.items }))
     .sort((a, b) => b.amount - a.amount);
   const owed = {

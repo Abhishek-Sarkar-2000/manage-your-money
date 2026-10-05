@@ -18,6 +18,74 @@ let isEditingFoundation = false;
 let currentMonthData = null;
 let currentMonthDataKey = null;
 
+const sipFormMotionReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+function revealSipForm() {
+  const reveal = root.querySelector('[data-sip-form-reveal]');
+  if (!reveal) return;
+  if (sipFormMotionReduced.matches) { reveal.classList.add('is-open'); return; }
+  requestAnimationFrame(() => requestAnimationFrame(() => { if (reveal.isConnected) reveal.classList.add('is-open'); }));
+}
+
+async function closeSipFormReveal(finalize) {
+  const reveal = root.querySelector('[data-sip-form-reveal]');
+  if (reveal && reveal.classList.contains('is-open') && !sipFormMotionReduced.matches) {
+    reveal.classList.add('is-closing');
+    reveal.classList.remove('is-open');
+    await new Promise(resolve => {
+      let finished = false;
+      const done = () => {
+        if (finished) return;
+        finished = true;
+        reveal.removeEventListener('transitionend', onEnd);
+        resolve();
+      };
+      const onEnd = event => {
+        if (event.target === reveal && event.propertyName === 'grid-template-rows') done();
+      };
+      reveal.addEventListener('transitionend', onEnd);
+      window.setTimeout(done, 340);
+    });
+  }
+  finalize();
+  await renderSips();
+}
+
+let sipWritePending = false;
+let pendingSipEnterId = null;
+let pendingSipStateId = null;
+
+const sipsReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+function beginSipBusy(button, label = 'Saving…', iconOnly = false) {
+  if (!button) return () => {};
+  const originalHtml = button.innerHTML;
+  const originalDisabled = button.disabled;
+  const originalMinWidth = button.style.minWidth;
+  const width = button.getBoundingClientRect().width;
+  button.disabled = true;
+  if (!iconOnly) button.style.minWidth = `${Math.ceil(width)}px`;
+  const timer = setTimeout(() => {
+    if (!button.isConnected) return;
+    button.classList.add('is-sip-busy');
+    button.innerHTML = iconOnly ? `<span class="sip-busy-spinner" aria-hidden="true"></span>` : `<span class="sip-busy-spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span>`;
+  }, 140);
+  return () => {
+    clearTimeout(timer);
+    if (!button.isConnected) return;
+    button.classList.remove('is-sip-busy');
+    button.innerHTML = originalHtml;
+    button.disabled = originalDisabled;
+    button.style.minWidth = originalMinWidth;
+  };
+}
+
+function animateSipRemoval(card) {
+  if (!card || sipsReducedMotion.matches) return Promise.resolve();
+  card.classList.add('sip-card-removing');
+  return new Promise(resolve => setTimeout(resolve, 180));
+}
+
 async function getCurrentMonthData() {
   const key = currentMonthKey();
   if (currentMonthData && currentMonthDataKey === key) return currentMonthData;
@@ -73,6 +141,7 @@ function sipActionMonth(sip, currentMonth, currentMonthData) {
 }
 
 async function renderSips() {
+  try {
   if (!domainLoaded) {
     const records = await Store.bulkGet(['sipseries', 'existinginvestments'], {});
     sipSeries = records.sipseries || [];
@@ -132,18 +201,18 @@ async function renderSips() {
       (skipTargetMonth === currentMonth && currentDeletedSips.includes(s.id));
     const skipTargetLabel = monthKeyLabel(skipTargetMonth);
 
+    const statusText = isPaused ? 'Paused' : (isSkippedTargetMonth ? `Skipped` : 'Active');
+    const statusClass = isPaused ? 'is-paused' : (isSkippedTargetMonth ? 'is-skipped' : 'is-active');
+
     return `
-    <div class="sip-card ${isPaused ? 'paused' : ''}">
+    <div class="sip-card ${isPaused ? 'paused' : ''}" data-sip-id="${s.id}">
       <div class="sip-card-header">
         <div class="sip-icon-wrap">${getAssetIcon(s.category)}</div>
         <div class="sip-meta" style="flex: 1; min-width: 0;">
           <div class="sip-name">${escapeHtml(s.description)}</div>
         </div>
-        <button data-edit-sip="${s.id}" title="Edit SIP" style="background: transparent; border: none; cursor: pointer; color: var(--muted); flex-shrink: 0; padding: 6px; border-radius: 8px; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin-top: -4px; transition: all 0.2s ease;" onmouseover="this.style.backgroundColor='var(--ice)'; this.style.color='var(--royal)';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--muted)';">
-          <div style="width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;">
-            ${ICONS.edit}
-          </div>
-        </button>
+        <div class="sip-status-badge ${statusClass}" aria-label="SIP status: ${escapeHtml(statusText)}"><span class="sip-status-dot" aria-hidden="true"></span><span>${escapeHtml(statusText)}</span></div>
+        <button class="sip-edit-btn" data-edit-sip="${s.id}" title="Edit SIP" type="button"><span>${ICONS.edit}</span></button>
       </div>
       <div class="sip-desc">Started ${monthKeyLabel(s.startMonth)} | Deducts every ${s.dayOfMonth}${ordinalSuffix(s.dayOfMonth)}</div>
       <div class="sip-card-footer">
@@ -162,25 +231,29 @@ async function renderSips() {
 
   let editData = editingSipId ? sipSeries.find(s => s.id === editingSipId) : null;
   const sipFormHtml = isSipFormOpen ? `
-    <div class="form-panel slide-down-fade sip-form-panel">
-      <div class="form-row">
-        <div class="field">
-          <label>Category</label>
-          <select id="sip-category">
-            <option value="Mutual Fund" ${editData && editData.category === 'Mutual Fund' ? 'selected' : ''}>Mutual Fund</option>
-            <option value="Stock" ${editData && editData.category === 'Stock' ? 'selected' : ''}>Stock</option>
-            <option value="ETF" ${editData && editData.category === 'ETF' ? 'selected' : ''}>ETF</option>
-          </select>
+    <div class="sip-form-reveal" data-sip-form-reveal>
+      <div class="sip-form-reveal-inner">
+        <div class="form-panel sip-form-panel">
+          <div class="form-row">
+            <div class="field">
+              <label>Category</label>
+              <select id="sip-category">
+                <option value="Mutual Fund" ${editData && editData.category === 'Mutual Fund' ? 'selected' : ''}>Mutual Fund</option>
+                <option value="Stock" ${editData && editData.category === 'Stock' ? 'selected' : ''}>Stock</option>
+                <option value="ETF" ${editData && editData.category === 'ETF' ? 'selected' : ''}>ETF</option>
+              </select>
+            </div>
+            <div class="field"><label>Fund / Stock Name</label><input id="sip-desc" type="text" placeholder="e.g. Nifty Index Fund" value="${editData ? escapeHtml(editData.description) : ''}" /></div>
+          </div>
+          <div class="form-row">
+            <div class="field"><label>Amount (₹ / month)</label><input id="sip-amount" type="number" step="0.01" min="0" placeholder="0.00" value="${editData ? editData.amount : ''}" /></div>
+            <div class="field"><label>Deduction Date</label><input id="sip-day" type="number" step="1" min="1" max="31" placeholder="e.g. 5" value="${editData ? editData.dayOfMonth : ''}" /></div>
+          </div>
+          <div class="form-actions">
+            <button class="btn primary" id="sip-add">${editData ? 'Save Changes' : 'Confirm Setup'}</button>
+            <button class="btn ghost" id="sip-cancel">Cancel</button>
+          </div>
         </div>
-        <div class="field"><label>Fund / Stock Name</label><input id="sip-desc" type="text" placeholder="e.g. Nifty Index Fund" value="${editData ? escapeHtml(editData.description) : ''}" /></div>
-      </div>
-      <div class="form-row">
-        <div class="field"><label>Amount (₹ / month)</label><input id="sip-amount" type="number" step="0.01" min="0" placeholder="0.00" value="${editData ? editData.amount : ''}" /></div>
-        <div class="field"><label>Deduction Date</label><input id="sip-day" type="number" step="1" min="1" max="31" placeholder="e.g. 5" value="${editData ? editData.dayOfMonth : ''}" /></div>
-      </div>
-      <div class="form-actions">
-        <button class="btn primary" id="sip-add">${editData ? 'Save Changes' : 'Confirm Setup'}</button>
-        <button class="btn ghost" id="sip-cancel">Cancel</button>
       </div>
     </div>
   ` : '';
@@ -189,8 +262,10 @@ async function renderSips() {
   if (tb) tb.style.display = '';
 
   markRendered(root);
+  root.removeAttribute('data-loading');
+  root.setAttribute('aria-busy', 'false');
   root.innerHTML = `
-  <div class="section">
+  <div class="section sips-load-stage sips-load-stage--summary">
     <div class="portfolio-summary-grid">
       <div class="invest-foundation-card">
         ${foundationContent}
@@ -206,7 +281,7 @@ async function renderSips() {
     </div>
   </div>
 
-  <div class="section">
+  <div class="section sips-load-stage sips-load-stage--active">
     <div class="section-title" style="margin-bottom: 12px;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="color: var(--blue); display: flex;">
@@ -221,14 +296,14 @@ async function renderSips() {
       <span class="hint">Automated recurring investments</span>
     </div>
     <div style="margin-top: 8px;">
-      ${!isSipFormOpen ? `<button class="pill-btn active" id="open-sip-form" type="button">+ Add New SIP</button>` : ''}
+      <button class="pill-btn ${isSipFormOpen ? 'active' : ''}" id="open-sip-form" type="button" aria-expanded="${isSipFormOpen ? 'true' : 'false'}">+ Add New SIP</button>
       ${sipFormHtml}
     </div>
     <div class="sip-grid">${sipCardsHtml}</div>
   </div>
 
   ${pausedSips.length > 0 ? `
-  <div class="section" style="margin-top: 40px; border-top: 1px solid var(--hair); padding-top: 30px;">
+  <div class="section sips-load-stage sips-load-stage--paused" style="margin-top: 40px; border-top: 1px solid var(--hair); padding-top: 30px;">
     <div class="section-title" style="margin-bottom: 12px;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="color: var(--blue); display: flex;">
@@ -248,24 +323,85 @@ async function renderSips() {
   `;
 
   appendPageChrome(root);
+
+  if (pendingSipEnterId) {
+    const card = root.querySelector(`.sip-card[data-sip-id="${CSS.escape(pendingSipEnterId)}"]`);
+    if (card) {
+      card.classList.add('sip-card-enter');
+      setTimeout(() => card.classList.remove('sip-card-enter'), 300);
+    }
+    pendingSipEnterId = null;
+  }
+
+  if (pendingSipStateId) {
+    const card = root.querySelector(`.sip-card[data-sip-id="${CSS.escape(pendingSipStateId)}"]`);
+    if (card) {
+      card.classList.add('sip-card-state-pulse');
+      card.querySelector('.sip-status-badge')?.classList.add('sip-status-pop');
+      setTimeout(() => {
+        card.classList.remove('sip-card-state-pulse');
+        card.querySelector('.sip-status-badge')?.classList.remove('sip-status-pop');
+      }, 420);
+    }
+    pendingSipStateId = null;
+  }
+  } catch (error) {
+    console.error('SIPs render failed:', error);
+    root.removeAttribute('data-loading');
+    root.setAttribute('aria-busy', 'false');
+    root.innerHTML = `<div class="section"><div class="empty-chart">SIPs could not be loaded right now. Please try again.</div></div>`;
+    appendPageChrome(root);
+    showToast("We couldn't load your SIPs. Please try again.");
+  }
 }
 
 root.addEventListener('click', async (ev) => {
   // Foundation Handlers
   if (ev.target.closest('#manage-base-btn')) { isEditingFoundation = true; await renderSips(); return; }
   if (ev.target.closest('#ext-invest-cancel')) { isEditingFoundation = false; await renderSips(); return; }
-  if (ev.target.closest('#ext-invest-save')) {
-    existingInvestments = Number($('#ext-invest-amount')?.value) || 0;
-    await Store.set('existinginvestments', existingInvestments);
-    isEditingFoundation = false;
-    await renderSips();
-    showToast('Investment foundation updated');
+  const foundationSaveBtn = ev.target.closest('#ext-invest-save');
+  if (foundationSaveBtn) {
+    if (sipWritePending) return;
+    sipWritePending = true;
+    const stopBusy = beginSipBusy(foundationSaveBtn, 'Saving…');
+    try {
+      existingInvestments = Number($('#ext-invest-amount')?.value) || 0;
+      await Store.set('existinginvestments', existingInvestments);
+      isEditingFoundation = false;
+      await renderSips();
+      showToast('Investment foundation updated');
+    } catch (error) {
+      console.error('Could not save investment foundation:', error);
+      showToast('Could not save your investment foundation');
+    } finally {
+      sipWritePending = false;
+      stopBusy();
+    }
     return;
   }
 
   // Form Toggles
-  if (ev.target.closest('#open-sip-form')) { isSipFormOpen = true; editingSipId = null; await renderSips(); return; }
-  if (ev.target.closest('#sip-cancel')) { isSipFormOpen = false; editingSipId = null; await renderSips(); return; }
+  if (ev.target.closest('#open-sip-form')) {
+    if (isSipFormOpen) {
+      await closeSipFormReveal(() => {
+        isSipFormOpen = false;
+        editingSipId = null;
+      });
+    } else {
+      isSipFormOpen = true;
+      editingSipId = null;
+      await renderSips();
+      revealSipForm();
+    }
+    return;
+  }
+  if (ev.target.closest('#sip-cancel')) {
+    await closeSipFormReveal(() => {
+      isSipFormOpen = false;
+      editingSipId = null;
+    });
+    return;
+  }
 
   // Edit SIP Action
   const editBtn = ev.target.closest('[data-edit-sip]');
@@ -273,50 +409,70 @@ root.addEventListener('click', async (ev) => {
     editingSipId = editBtn.dataset.editSip;
     isSipFormOpen = true;
     await renderSips();
+    revealSipForm();
     const form = document.querySelector('.sip-form-panel');
     if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
 
   // Add / Edit SIP
-  if (ev.target.closest('#sip-add')) {
+  const sipAddBtn = ev.target.closest('#sip-add');
+  if (sipAddBtn) {
     ev.preventDefault();
+    if (sipWritePending) return;
     const category = $('#sip-category').value;
     const desc = $('#sip-desc').value.trim();
     const amount = Number($('#sip-amount').value);
     const dayOfMonth = Number($('#sip-day').value);
-    if (!desc || !amount || amount <= 0 || !dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) { 
-      showToast('Enter a valid fund name, amount, and date (1-31)'); 
-      return; 
+    if (!desc || !amount || amount <= 0 || !dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) {
+      showToast('Enter a valid fund name, amount, and date (1-31)');
+      return;
     }
 
-    if (editingSipId) {
-      const sip = sipSeries.find(s => s.id === editingSipId);
-      if (sip) {
-        sip.category = category;
-        sip.description = desc;
-        sip.amount = amount;
-        sip.dayOfMonth = dayOfMonth;
+    sipWritePending = true;
+    const wasEditing = Boolean(editingSipId);
+    const stopBusy = beginSipBusy(sipAddBtn, wasEditing ? 'Saving…' : 'Adding…');
+    try {
+      if (editingSipId) {
+        const sip = sipSeries.find(s => s.id === editingSipId);
+        if (sip) {
+          sip.category = category;
+          sip.description = desc;
+          sip.amount = amount;
+          sip.dayOfMonth = dayOfMonth;
+          pendingSipStateId = sip.id;
+        }
+      } else {
+        const sip = { id: uid(), category, description: desc, amount, dayOfMonth, startMonth: currentMonthKey(), status: 'active', skipMonths: [] };
+        sipSeries.push(sip);
+        pendingSipEnterId = sip.id;
       }
-      showToast('SIP updated');
-    } else {
-      sipSeries.push({ id: uid(), category, description: desc, amount, dayOfMonth, startMonth: currentMonthKey(), status: 'active', skipMonths: [] });
-      showToast(`SIP added: deducts on the ${dayOfMonth}${ordinalSuffix(dayOfMonth)} every month`);
-    }
 
-    await Store.set('sipseries', sipSeries);
-    isSipFormOpen = false;
-    editingSipId = null;
-    await renderSips();
+      await Store.set('sipseries', sipSeries);
+      await closeSipFormReveal(() => {
+        isSipFormOpen = false;
+        editingSipId = null;
+      });
+      return;
+      showToast(wasEditing ? 'SIP updated' : `SIP added: deducts on the ${dayOfMonth}${ordinalSuffix(dayOfMonth)} every month`);
+    } catch (error) {
+      console.error('Could not save SIP:', error);
+      showToast('Could not save this SIP');
+    } finally {
+      sipWritePending = false;
+      stopBusy();
+    }
     return;
   }
 
   // Action: Skip
   const skipBtn = ev.target.closest('[data-skip-sip]');
   if (skipBtn) {
+    if (skipBtn.disabled) return;
+    const stopBusy = beginSipBusy(skipBtn, '', true);
     const sipId = skipBtn.dataset.skipSip;
     const sip = sipSeries.find(s => s.id === sipId);
-    if (!sip) return;
+    if (!sip) { stopBusy(); return; }
 
     const currentKey = currentMonthKey();
     const monthData = await getCurrentMonthData();
@@ -334,32 +490,40 @@ root.addEventListener('click', async (ev) => {
         monthData.deletedSip = monthData.deletedSip.filter(id => id !== sipId);
       }
 
-      showToast(`Skip cancelled for ${monthKeyLabel(targetKey)}`);
-    } else {
+      } else {
       sip.skipMonths.push(targetKey);
 
       if (targetKey === currentKey && !monthData.deletedSip.includes(sipId)) {
         monthData.deletedSip.push(sipId);
       }
 
-      showToast(`Skipping deduction for ${monthKeyLabel(targetKey)}`);
     }
 
     const writes = [Store.set('sipseries', sipSeries)];
     if (targetKey === currentKey) {
       writes.push(Store.set('month:' + currentKey, monthData));
     }
-    await Promise.all(writes);
-
-    await renderSips();
+    try {
+      await Promise.all(writes);
+      pendingSipStateId = sipId;
+      await renderSips();
+      showToast(isSkipped ? `Skip cancelled for ${monthKeyLabel(targetKey)}` : `Skipping deduction for ${monthKeyLabel(targetKey)}`);
+    } catch (error) {
+      console.error('Could not update SIP skip:', error);
+      showToast('Could not update this SIP');
+    } finally {
+      stopBusy();
+    }
     return;
   }
 
   // Action: Pause
   const pauseBtn = ev.target.closest('[data-pause-sip]');
   if (pauseBtn) {
+    if (pauseBtn.disabled) return;
+    const stopBusy = beginSipBusy(pauseBtn, '', true);
     const sip = sipSeries.find(s => s.id === pauseBtn.dataset.pauseSip);
-    if (!sip) return;
+    if (!sip) { stopBusy(); return; }
 
     const currentKey = currentMonthKey();
     const monthData = await getCurrentMonthData();
@@ -369,22 +533,40 @@ root.addEventListener('click', async (ev) => {
     sip.status = 'paused';
     sip.pausedMonth = pauseFromMonth;
 
-    await Store.set('sipseries', sipSeries);
-    await renderSips();
-
-    showToast(`SIP paused from ${monthKeyLabel(pauseFromMonth)}`);
+    try {
+      await Store.set('sipseries', sipSeries);
+      pendingSipStateId = sip.id;
+      await renderSips();
+      showToast(`SIP paused from ${monthKeyLabel(pauseFromMonth)}`);
+    } catch (error) {
+      console.error('Could not pause SIP:', error);
+      showToast('Could not pause this SIP');
+    } finally {
+      stopBusy();
+    }
     return;
   }
 
   // Action: Resume
   const resumeBtn = ev.target.closest('[data-resume-sip]');
   if (resumeBtn) {
+    if (resumeBtn.disabled) return;
+    const stopBusy = beginSipBusy(resumeBtn, '', true);
     const sip = sipSeries.find(s => s.id === resumeBtn.dataset.resumeSip);
+    if (!sip) { stopBusy(); return; }
     sip.status = 'active';
     sip.pausedMonth = null;
-    await Store.set('sipseries', sipSeries);
-    await renderSips();
-    showToast('SIP resumed');
+    try {
+      await Store.set('sipseries', sipSeries);
+      pendingSipStateId = sip.id;
+      await renderSips();
+      showToast('SIP resumed');
+    } catch (error) {
+      console.error('Could not resume SIP:', error);
+      showToast('Could not resume this SIP');
+    } finally {
+      stopBusy();
+    }
     return;
   }
 
@@ -400,9 +582,11 @@ root.addEventListener('click', async (ev) => {
   if (confirmDelSipSeries) {
     ev.stopPropagation();
     const seriesId = confirmDelSipSeries.dataset.confirmDelSipSeries;
+    const card = root.querySelector(`.sip-card[data-sip-id="${CSS.escape(seriesId)}"]`);
+    hideDeleteCallout();
+    await animateSipRemoval(card);
     sipSeries = sipSeries.filter(s => s.id !== seriesId);
     await Store.set('sipseries', sipSeries);
-    hideDeleteCallout();
     await renderSips();
     showToast('SIP permanently deleted');
   }

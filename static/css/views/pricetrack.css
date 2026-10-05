@@ -227,3 +227,249 @@
   }
 }
 
+/* ---------- Price Tracker local form disclosure ---------- */
+.price-form-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: grid-template-rows 0.26s cubic-bezier(0.16, 1, 0.3, 1), margin-top 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.16s ease, transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.price-form-reveal.is-open {
+  grid-template-rows: 1fr;
+  margin-top: 14px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.price-form-reveal.is-closing {
+  pointer-events: none;
+}
+
+.price-form-reveal-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+#pricetrack-root .price-form-reveal .price-local-form {
+  margin-top: 0 !important;
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .price-form-reveal {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+/* ---------- Price Tracker local motion & loading ---------- */
+.pricetrack-loading-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.pricetrack-loading-heading {
+  display: grid;
+  gap: 10px;
+  padding: 4px 2px;
+}
+
+.pricetrack-skeleton-panel,
+.pricetrack-skeleton-card {
+  background: linear-gradient(100deg, color-mix(in srgb, var(--paper) 94%, var(--hair)) 20%, color-mix(in srgb, var(--ice) 72%, var(--paper)) 40%, color-mix(in srgb, var(--paper) 94%, var(--hair)) 60%);
+  background-size: 220% 100%;
+  border: 1px solid color-mix(in srgb, var(--hair) 82%, transparent);
+  box-shadow: var(--shadow-sm);
+  animation: pricetrack-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.pricetrack-skeleton-panel {
+  padding: 18px;
+  border-radius: var(--radius);
+}
+
+.pricetrack-skeleton-panel:nth-child(3) { animation-delay: -0.16s; }
+.pricetrack-skeleton-panel:nth-child(4) { animation-delay: -0.32s; }
+
+.pricetrack-skeleton-line,
+.pricetrack-skeleton-fields span,
+.pricetrack-skeleton-chart {
+  display: block;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--hair) 62%, var(--paper)) 20%, color-mix(in srgb, var(--hair) 30%, var(--paper)) 40%, color-mix(in srgb, var(--hair) 62%, var(--paper)) 60%);
+  background-size: 220% 100%;
+  animation: pricetrack-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.pricetrack-skeleton-line { height: 10px; border-radius: 999px; }
+.pricetrack-skeleton-line.is-title { width: min(260px, 58%); height: 30px; }
+.pricetrack-skeleton-line.is-copy { width: min(430px, 76%); }
+.pricetrack-skeleton-line.is-section-title { width: 150px; height: 18px; }
+.pricetrack-skeleton-line.is-button { width: 126px; height: 34px; border-radius: 999px; }
+.pricetrack-skeleton-line.is-category { width: 112px; height: 28px; border-radius: 999px; margin-bottom: 14px; }
+.pricetrack-skeleton-line.is-card-title { width: 70%; height: 15px; }
+.pricetrack-skeleton-line.is-card-meta { width: 56%; }
+.pricetrack-skeleton-line.is-card-value { width: 48%; height: 24px; margin-top: 20px; }
+
+.pricetrack-skeleton-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+.pricetrack-skeleton-fields {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 12px;
+}
+
+.pricetrack-skeleton-fields span {
+  height: 40px;
+  border-radius: 8px;
+}
+
+.pricetrack-skeleton-card-row {
+  display: flex;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.pricetrack-skeleton-card {
+  flex: 0 0 220px;
+  min-height: 132px;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 16px;
+  border-radius: var(--radius);
+}
+
+.pricetrack-skeleton-card:nth-child(2) { animation-delay: -0.18s; }
+.pricetrack-skeleton-card:nth-child(3) { animation-delay: -0.36s; }
+
+.pricetrack-skeleton-chart-panel {
+  min-height: 230px;
+}
+
+.pricetrack-skeleton-chart {
+  height: 150px;
+  margin-top: 18px;
+  border-radius: 12px;
+}
+
+@keyframes pricetrack-skeleton-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -120% 0; }
+}
+
+@keyframes pricetrack-section-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pricetrack-view:not(.no-entrance-anim) .pricetrack-load-stage--header { animation: pricetrack-section-enter 0.28s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.pricetrack-view:not(.no-entrance-anim) .pricetrack-load-stage--create { animation: pricetrack-section-enter 0.3s 0.05s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.pricetrack-view:not(.no-entrance-anim) .pricetrack-load-stage--items { animation: pricetrack-section-enter 0.3s 0.1s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+.is-price-busy {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  pointer-events: none;
+}
+
+.price-busy-spinner {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: price-busy-spin 0.65s linear infinite;
+}
+
+@keyframes price-busy-spin { to { transform: rotate(360deg); } }
+@keyframes price-item-enter { from { opacity: 0; transform: translateY(8px) scale(0.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes price-item-remove { from { opacity: 1; transform: scale(1); max-height: 220px; } to { opacity: 0; transform: scale(0.985); max-height: 0; padding-top: 0; padding-bottom: 0; border-width: 0; } }
+@keyframes price-point-row-enter { from { opacity: 0; transform: translateX(-7px); background: color-mix(in srgb, var(--blue-bg) 72%, transparent); } to { opacity: 1; transform: translateX(0); background: transparent; } }
+@keyframes price-point-row-remove { from { opacity: 1; transform: scaleY(1); } to { opacity: 0; transform: scaleY(0.86); } }
+@keyframes price-value-emphasis { 0% { transform: scale(0.96); opacity: 0.65; } 55% { color: var(--blue); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes price-dot-pop { from { opacity: 0; transform: scale(0.45); transform-origin: center; } to { opacity: 1; transform: scale(1); transform-origin: center; } }
+@keyframes price-chart-line-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes price-chart-area-in { from { opacity: 0; } to { opacity: 1; } }
+
+.price-item-card.price-item-enter { animation: price-item-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.price-item-card.price-item-removing { overflow: hidden; pointer-events: none; animation: price-item-remove 0.18s ease forwards; }
+.price-point-row-enter > td { animation: price-point-row-enter 0.22s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.price-point-row-removing > td { transform-origin: center; animation: price-point-row-remove 0.16s ease forwards; }
+.price-value-emphasis .pic-price,
+.price-value-emphasis .price-trend { animation: price-value-emphasis 0.42s cubic-bezier(0.16, 1, 0.3, 1); }
+.price-point-dot-enter { animation: price-dot-pop 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
+.price-point-dot-enter,
+.price-linechart-animate .linechart-dot { transform-box: fill-box; transform-origin: center; }
+
+.price-linechart-animate .price-line-stroke {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: price-chart-line-draw 0.48s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.price-linechart-animate .price-line-area {
+  opacity: 0;
+  animation: price-chart-area-in 0.3s 0.1s ease forwards;
+}
+
+.price-linechart-animate .linechart-dot {
+  animation: price-dot-pop 0.22s 0.16s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+@media (max-width: 700px) {
+  .pricetrack-skeleton-fields { grid-template-columns: 1fr; }
+  .pricetrack-skeleton-card { flex-basis: 205px; }
+}
+
+@media (max-width: 480px) {
+  .pricetrack-loading-shell { gap: 14px; }
+  .pricetrack-skeleton-panel { padding: 16px; }
+  .pricetrack-skeleton-section-head { align-items: flex-start; flex-direction: column; }
+  .pricetrack-skeleton-card { flex-basis: 188px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pricetrack-skeleton-panel,
+  .pricetrack-skeleton-card,
+  .pricetrack-skeleton-line,
+  .pricetrack-skeleton-fields span,
+  .pricetrack-skeleton-chart,
+  .pricetrack-view:not(.no-entrance-anim) .pricetrack-load-stage,
+  .price-busy-spinner,
+  .price-item-enter,
+  .price-item-removing,
+  .price-point-row-enter > td,
+  .price-point-row-removing > td,
+  .price-value-emphasis .pic-price,
+  .price-value-emphasis .price-trend,
+  .price-point-dot-enter,
+  .price-linechart-animate .price-line-stroke,
+  .price-linechart-animate .price-line-area,
+  .price-linechart-animate .linechart-dot,
+  .slide-out-left,
+  .slide-out-right,
+  .slide-in-left,
+  .slide-in-right {
+    animation: none !important;
+    background-position: 0 0 !important;
+  }
+
+  .price-item-card {
+    transition: none !important;
+  }
+}
+

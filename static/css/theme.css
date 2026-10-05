@@ -299,8 +299,6 @@ body {
 :root[data-theme="dark"] .month-row,
 :root[data-theme="dark"] .profile-menu,
 :root[data-theme="dark"] tbody td,
-:root[data-theme="dark"] .field select,
-:root[data-theme="dark"] select option,
 :root[data-theme="dark"] .ie-input-group select,
 :root[data-theme="dark"] .burger-menu-panel,
 :root[data-theme="dark"] .donut::after,
@@ -315,12 +313,6 @@ body {
 :root[data-theme="dark"] .ie-input-group select {
   background: transparent !important;
   border-color: transparent !important;
-}
-
-:root[data-theme="dark"] .ie-input-group select option,
-:root[data-theme="dark"] .field select option {
-  background: var(--ice-2) !important;
-  color: var(--navy) !important;
 }
 
 :root[data-theme="dark"] .chart-card,
@@ -479,9 +471,7 @@ body {
 :root[data-theme="dark"] .field input:hover,
 :root[data-theme="dark"] .emi-stats input:hover,
 :root[data-theme="dark"] .balance-set-input input:hover,
-:root[data-theme="dark"] .field select:hover,
-:root[data-theme="dark"] .budget-amt-col input:hover,
-:root[data-theme="dark"] .table-controls select:hover {
+:root[data-theme="dark"] .budget-amt-col input:hover {
   background: rgba(31, 36, 55, 0.98) !important;
   border-color: rgba(125, 156, 255, 0.58) !important;
 }
@@ -489,14 +479,107 @@ body {
 :root[data-theme="dark"] .field input:focus,
 :root[data-theme="dark"] .emi-stats input:focus,
 :root[data-theme="dark"] .balance-set-input input:focus,
-:root[data-theme="dark"] .field select:focus,
 :root[data-theme="dark"] .budget-amt-col input:focus,
-:root[data-theme="dark"] .table-controls select:open  {
+:root[data-theme="dark"] .ie-input-group:focus-within {
   background: rgba(31, 36, 55, 1) !important;
   border-color: var(--blue) !important;
   box-shadow:
     0 0 0 3px rgba(89, 130, 255, 0.18),
     0 3px 10px rgba(0, 0, 0, 0.24);
+}
+
+:root[data-theme="dark"] .field select,
+:root[data-theme="dark"] .table-controls select,
+:root[data-theme="dark"] .tag-select {
+  color: var(--navy) !important;
+  background: var(--paper) !important;
+  border-color: var(--hair) !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="dark"] .ie-input-group select.field-input {
+  color: var(--navy) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="dark"] .field select:hover,
+:root[data-theme="dark"] .table-controls select:hover,
+:root[data-theme="dark"] .tag-select:hover {
+  background: rgba(31, 36, 55, 0.98) !important;
+  border-color: rgba(125, 156, 255, 0.58) !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="dark"] .field select:focus,
+:root[data-theme="dark"] .field select:focus-visible,
+:root[data-theme="dark"] .field select:open,
+:root[data-theme="dark"] .table-controls select:focus,
+:root[data-theme="dark"] .table-controls select:focus-visible,
+:root[data-theme="dark"] .table-controls select:open,
+:root[data-theme="dark"] .tag-select:focus,
+:root[data-theme="dark"] .tag-select:focus-visible,
+:root[data-theme="dark"] .tag-select:open {
+  outline: none;
+  background: rgba(31, 36, 55, 1) !important;
+  border-color: var(--blue) !important;
+  box-shadow: none !important;
+}
+
+@supports (appearance: base-select) {
+  :root[data-theme="dark"] .field select::picker-icon,
+  :root[data-theme="dark"] .table-controls select::picker-icon,
+  :root[data-theme="dark"] .tag-select::picker-icon,
+  :root[data-theme="dark"] .ie-input-group select.field-input::picker-icon {
+    color: var(--text-sky);
+  }
+
+  :root[data-theme="dark"] .field select::picker(select),
+  :root[data-theme="dark"] .table-controls select::picker(select),
+  :root[data-theme="dark"] .tag-select::picker(select),
+  :root[data-theme="dark"] .ie-input-group select.field-input::picker(select) {
+    background: #11163b;
+    color: var(--navy);
+    border: 1px solid var(--sky);
+    scrollbar-width: thin;
+    scrollbar-color: var(--sky) transparent;
+  }
+
+  :root[data-theme="dark"] .field select option,
+  :root[data-theme="dark"] .table-controls select option,
+  :root[data-theme="dark"] .tag-select option,
+  :root[data-theme="dark"] .ie-input-group select.field-input option {
+    background: transparent;
+    color: var(--navy);
+  }
+
+  :root[data-theme="dark"] .field select option:hover,
+  :root[data-theme="dark"] .field select option:focus,
+  :root[data-theme="dark"] .table-controls select option:hover,
+  :root[data-theme="dark"] .table-controls select option:focus,
+  :root[data-theme="dark"] .tag-select option:hover,
+  :root[data-theme="dark"] .tag-select option:focus,
+  :root[data-theme="dark"] .ie-input-group select.field-input option:hover,
+  :root[data-theme="dark"] .ie-input-group select.field-input option:focus {
+    background: #202653;
+    color: #FFFFFF;
+  }
+
+  :root[data-theme="dark"] .field select option:checked,
+  :root[data-theme="dark"] .table-controls select option:checked,
+  :root[data-theme="dark"] .tag-select option:checked,
+  :root[data-theme="dark"] .ie-input-group select.field-input option:checked {
+    background: var(--blue-bg);
+    color: var(--text-sky);
+  }
+
+  :root[data-theme="dark"] .field select option::checkmark,
+  :root[data-theme="dark"] .table-controls select option::checkmark,
+  :root[data-theme="dark"] .tag-select option::checkmark,
+  :root[data-theme="dark"] .ie-input-group select.field-input option::checkmark {
+    color: var(--text-sky);
+  }
 }
 
 :root[data-theme="dark"] thead th {

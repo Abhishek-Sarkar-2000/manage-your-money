@@ -280,7 +280,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  transition: all 0.2s ease;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.08s ease;
 }
 
 .sip-actions .icon-btn svg {
@@ -323,6 +323,326 @@
 
 :root[data-theme="dark"] .sip-actions .icon-btn {
   background: var(--paper);
+}
+
+/* ---------- SIP status, local motion & loading ---------- */
+.sip-edit-btn {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -4px;
+  padding: 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.08s ease;
+}
+
+.sip-edit-btn > span {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sip-edit-btn:hover {
+  background: var(--ice);
+  color: var(--royal);
+}
+
+.sip-edit-btn:active,
+.sip-actions .icon-btn:active {
+  transform: scale(0.96);
+}
+
+.sip-status-badge {
+  max-width: 132px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 4px 8px;
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  background: var(--ice-2);
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sip-status-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.sip-status-badge.is-active {
+  color: var(--credit);
+  background: var(--credit-bg);
+  border-color: color-mix(in srgb, var(--credit) 30%, var(--hair));
+}
+
+.sip-status-badge.is-skipped {
+  color: var(--amber);
+  background: var(--amber-bg);
+  border-color: color-mix(in srgb, var(--amber) 32%, var(--hair));
+}
+
+.sip-status-badge.is-paused {
+  color: var(--muted);
+  background: var(--ice);
+  border-color: var(--hair);
+}
+
+.is-sip-busy {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  pointer-events: none;
+}
+
+.sip-busy-spinner {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: sip-busy-spin 0.65s linear infinite;
+}
+
+@keyframes sip-busy-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes sip-card-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes sip-card-remove {
+  from { opacity: 1; transform: scale(1); max-height: 220px; }
+  to { opacity: 0; transform: scale(0.985); max-height: 0; padding-top: 0; padding-bottom: 0; border-width: 0; }
+}
+
+@keyframes sip-card-state-pulse {
+  0% { box-shadow: var(--shadow-sm); }
+  45% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 16%, transparent), var(--shadow); }
+  100% { box-shadow: var(--shadow-sm); }
+}
+
+@keyframes sip-status-pop {
+  0% { transform: scale(0.92); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.sip-card.sip-card-enter {
+  animation: sip-card-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.sip-card.sip-card-removing {
+  overflow: hidden;
+  pointer-events: none;
+  animation: sip-card-remove 0.18s ease forwards;
+}
+
+.sip-card.sip-card-state-pulse {
+  animation: sip-card-state-pulse 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sip-status-badge.sip-status-pop {
+  animation: sip-status-pop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sips-loading-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.sips-loading-summary {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr;
+  gap: 16px;
+}
+
+.sips-skeleton-summary-card,
+.sips-skeleton-panel,
+.sips-skeleton-card {
+  background: linear-gradient(100deg, color-mix(in srgb, var(--paper) 94%, var(--hair)) 20%, color-mix(in srgb, var(--ice) 72%, var(--paper)) 40%, color-mix(in srgb, var(--paper) 94%, var(--hair)) 60%);
+  background-size: 220% 100%;
+  border: 1px solid color-mix(in srgb, var(--hair) 82%, transparent);
+  box-shadow: var(--shadow-sm);
+  animation: sips-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.sips-skeleton-summary-card {
+  min-height: 156px;
+  display: grid;
+  align-content: center;
+  gap: 13px;
+  padding: 28px 30px;
+  border-radius: 16px;
+}
+
+.sips-skeleton-panel {
+  padding: 20px;
+  border-radius: var(--radius);
+  animation-delay: -0.12s;
+}
+
+.sips-loading-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.sips-loading-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.sips-skeleton-card {
+  min-height: 170px;
+  display: grid;
+  align-content: start;
+  gap: 13px;
+  padding: 20px;
+  border-radius: 14px;
+}
+
+.sips-skeleton-card:nth-child(2) { animation-delay: -0.18s; }
+.sips-skeleton-card:nth-child(3) { animation-delay: -0.36s; }
+
+.sips-skeleton-line,
+.sips-skeleton-icon,
+.sips-skeleton-pill,
+.sips-skeleton-actions span {
+  display: block;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--hair) 62%, var(--paper)) 20%, color-mix(in srgb, var(--hair) 30%, var(--paper)) 40%, color-mix(in srgb, var(--hair) 62%, var(--paper)) 60%);
+  background-size: 220% 100%;
+  animation: sips-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.sips-skeleton-line { height: 10px; border-radius: 999px; }
+.sips-skeleton-line.is-kicker { width: 118px; height: 9px; }
+.sips-skeleton-line.is-value { width: 210px; max-width: 72%; height: 34px; }
+.sips-skeleton-line.is-value.is-short { width: 150px; }
+.sips-skeleton-line.is-copy { width: min(330px, 78%); }
+.sips-skeleton-line.is-title { width: 150px; height: 20px; }
+.sips-skeleton-line.is-button { width: 118px; height: 34px; border-radius: 999px; }
+.sips-skeleton-line.is-name { width: min(160px, 54%); height: 15px; }
+.sips-skeleton-line.is-meta { width: 74%; }
+.sips-skeleton-line.is-card-value { width: 110px; height: 24px; margin-top: 12px; }
+
+.sips-skeleton-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sips-skeleton-icon {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 12px;
+}
+
+.sips-skeleton-pill {
+  width: 58px;
+  height: 22px;
+  margin-left: auto;
+  border-radius: 999px;
+}
+
+.sips-skeleton-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--hair);
+}
+
+.sips-skeleton-actions span {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+@keyframes sips-skeleton-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -120% 0; }
+}
+
+@keyframes sips-section-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sips-view:not(.no-entrance-anim) .sips-load-stage--summary { animation: sips-section-enter 0.28s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.sips-view:not(.no-entrance-anim) .sips-load-stage--active { animation: sips-section-enter 0.3s 0.06s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.sips-view:not(.no-entrance-anim) .sips-load-stage--paused { animation: sips-section-enter 0.3s 0.12s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@media (max-width: 819px) {
+  .sips-loading-summary,
+  .sips-loading-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sips-skeleton-card:nth-child(2),
+  .sips-skeleton-card:nth-child(3) {
+    display: none;
+  }
+}
+
+@media (max-width: 519px) {
+  .sips-skeleton-summary-card { min-height: 138px; padding: 22px 20px; }
+  .sips-skeleton-panel { padding: 16px; }
+  .sips-loading-heading { align-items: flex-start; flex-direction: column; }
+  .sip-status-badge { max-width: 108px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sips-skeleton-summary-card,
+  .sips-skeleton-panel,
+  .sips-skeleton-card,
+  .sips-skeleton-line,
+  .sips-skeleton-icon,
+  .sips-skeleton-pill,
+  .sips-skeleton-actions span,
+  .sip-card-enter,
+  .sip-card-removing,
+  .sip-card-state-pulse,
+  .sip-status-pop,
+  .sip-busy-spinner,
+  .sips-view:not(.no-entrance-anim) .sips-load-stage {
+    animation: none !important;
+    background-position: 0 0 !important;
+  }
+
+  .sip-card,
+  .sip-status-badge,
+  .sip-edit-btn,
+  .sip-actions .icon-btn {
+    transition: none !important;
+  }
 }
 
 /* 3. Sleek Add Form */
@@ -670,6 +990,46 @@
   .subscription-mode-selector .pill-btn,
   .subscription-card-field-wrap,
   .subscription-card-field-inner .form-row {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+/* ---------- SIP add-form disclosure ---------- */
+.sip-form-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: grid-template-rows 0.26s cubic-bezier(0.16, 1, 0.3, 1), margin-top 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.16s ease, transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sip-form-reveal.is-open {
+  grid-template-rows: 1fr;
+  margin-top: 14px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.sip-form-reveal.is-closing {
+  pointer-events: none;
+}
+
+.sip-form-reveal-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+#sips-root .sip-form-reveal .sip-form-panel {
+  margin-top: 0 !important;
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sip-form-reveal {
     transition: none !important;
     transform: none !important;
   }

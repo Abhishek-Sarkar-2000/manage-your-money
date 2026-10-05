@@ -5,7 +5,16 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/views/pricetrack.css') }}?v={{ static_version }}" />
 {% endblock %}
 {% block content %}
-  <div id="pricetrack-root" class="pricetrack-view" data-loading="true"></div>
+  <div id="pricetrack-root" class="pricetrack-view" data-loading="true" aria-busy="true">
+    <div class="pricetrack-loading-state" role="status" aria-label="Loading Price Tracker">
+      <div class="pricetrack-loading-shell" aria-hidden="true">
+        <div class="pricetrack-loading-heading"><span class="pricetrack-skeleton-line is-title"></span><span class="pricetrack-skeleton-line is-copy"></span></div>
+        <div class="pricetrack-skeleton-panel"><div class="pricetrack-skeleton-section-head"><span class="pricetrack-skeleton-line is-section-title"></span><span class="pricetrack-skeleton-line is-button"></span></div><div class="pricetrack-skeleton-fields"><span></span><span></span><span></span></div></div>
+        <div class="pricetrack-skeleton-panel"><span class="pricetrack-skeleton-line is-category"></span><div class="pricetrack-skeleton-card-row">{% for _ in range(3) %}<div class="pricetrack-skeleton-card"><span class="pricetrack-skeleton-line is-card-title"></span><span class="pricetrack-skeleton-line is-card-meta"></span><span class="pricetrack-skeleton-line is-card-value"></span></div>{% endfor %}</div></div>
+        <div class="pricetrack-skeleton-panel pricetrack-skeleton-chart-panel"><span class="pricetrack-skeleton-line is-section-title"></span><span class="pricetrack-skeleton-chart"></span></div>
+      </div>
+    </div>
+  </div>
 {% endblock %}
 {% block page_script %}
   <script type="module" src="{{ url_for('static', filename='js/views/pricetrack.js') }}"></script>

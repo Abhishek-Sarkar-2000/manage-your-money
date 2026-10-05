@@ -1496,7 +1496,7 @@ document.addEventListener(
    Price Tracker: per-item price-history trend line
    ========================================================= */
 
-export function priceLineChart(hist) {
+export function priceLineChart(hist, { animate = false } = {}) {
   if (!hist.length) {
     return `
       <div class="empty-chart">
@@ -1673,7 +1673,7 @@ export function priceLineChart(hist) {
   return `
     <div class="price-linechart-container">
     <svg
-      class="linechart price-linechart"
+      class="linechart price-linechart${animate ? ' price-linechart-animate' : ''}"
       viewBox="0 0 ${w} ${h}"
     >
       <defs>
@@ -1700,13 +1700,16 @@ export function priceLineChart(hist) {
       ${gridSvg}
 
       <path
+        class="price-line-area"
         d="${areaD}"
         fill="url(#priceLineFade)"
         stroke="none"
       />
 
       <path
+        class="price-line-stroke"
         d="${pathD}"
+        pathLength="1"
         fill="none"
         stroke="var(--blue)"
         stroke-width="2.5"
