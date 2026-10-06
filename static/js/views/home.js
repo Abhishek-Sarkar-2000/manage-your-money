@@ -7,7 +7,7 @@
 import { Store } from '../core/store.js';
 import { fmtINR, currentMonthKey, monthKeyLabel, todayStr, addMonths, diffMonths } from '../core/format.js';
 import { authReady } from '../core/auth.js';
-import { computeGlobalStats, computeMonthTotals, monthCashOutflow, emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth, loadMonth, computeDailyBalanceSeries, windowSeries, migrateBudgetData, creditCardCycleLedger, creditCardCurrentStatementMonthKey } from '../core/domain.js';
+import { computeGlobalStats, computeMonthTotals, monthCashOutflow, emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth, loadMonth, computeDailyBalanceSeries, windowSeries, migrateBudgetData, creditCardCycleLedger, creditCardCurrentStatementMonthKey, spendingAmountForEntry } from '../core/domain.js';
 import { renderDashboardKpis } from '../components/dashboard-kpis.js';
 import { analyzeDashboardBudget, applyBudgetForecastProjection } from '../core/budget-insights.js';
 import { renderMoneyInbox, renderUpcomingSpends } from '../components/dashboard-attention.js';
@@ -19,6 +19,7 @@ import {
   renderDashboardSharedExpenses,
   renderDashboardPrices,
   renderDashboardSipInvestments,
+  renderDashboardPager,
 } from '../components/dashboard-secondary.js';
 import { renderDashboardCashflowChart, renderMonthEndProjection } from '../components/dashboard-finance-overview.js';
 import { dailyBalanceChart, wireChartTooltips } from '../components/charts/line-chart.js';
@@ -867,6 +868,131 @@ function buildDashboardGoals(domain) {
   };
 }
 
+async function buildDashboardSpendHeatmap(domain) {
+  const currentKey = currentMonthKey();
+  const previousKeys = [...new Set(domain.monthsIndex || [])].filter(key => /^\d{4}-\d{2}$/.test(key) && key < currentKey).sort((a, b) => b.localeCompare(a)).slice(0, 3).reverse();
+  const monthKeys = [...previousKeys, currentKey];
+  const months = [];
+
+  for (const monthKey of monthKeys) {
+    const data = await dashboardMonthData(domain, monthKey);
+    const [year, month] = monthKey.split('-').map(Number);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const days = Array.from({ length: daysInMonth }, (_, index) => ({ day: index + 1, amount: 0, count: 0, scheduledAmount: 0, scheduledCount: 0 }));
+    const today = todayStr();
+
+    const emiRows = emiRowsForMonth(domain.emiSeries, monthKey, data.deletedEmi);
+    const recurringRows = recurringRowsForMonth(domain.recurringSeries, monthKey, data.deletedRecurring, data.recurringOverrides);
+    const heatmapRows = [...(data.entries || []), ...emiRows, ...recurringRows];
+
+    for (const entry of heatmapRows) {
+      const type = String(entry?.type || '').toLowerCase();
+      if (!['spend', 'cardcharge', 'cashpayment', 'emi', 'recurring'].includes(type)) continue;
+      if (['sip', 'investment'].includes(type)) continue;
+      if (!entry.date || !entry.date.startsWith(`${monthKey}-`)) continue;
+
+      const isFuture = monthKey === currentKey && entry.date > today;
+      const isFutureScheduled = isFuture && ['emi', 'recurring'].includes(type);
+      if (isFuture && !isFutureScheduled) continue;
+
+      const day = Number(entry.date.slice(-2));
+      if (!Number.isInteger(day) || day < 1 || day > daysInMonth) continue;
+
+      const amount = spendingAmountForEntry(entry);
+      if (amount <= 0) continue;
+
+      if (isFutureScheduled) {
+        days[day - 1].scheduledAmount += amount;
+        days[day - 1].scheduledCount += 1;
+        continue;
+      }
+
+      days[day - 1].amount += amount;
+      days[day - 1].count += 1;
+    }
+
+    const total = days.reduce((sum, day) => sum + day.amount, 0);
+    const activeDays = days.filter(day => day.amount > 0).length;
+    const peakDay = days.reduce((peak, day) => day.amount > peak.amount ? day : peak, { day: 0, amount: 0, count: 0 });
+
+    months.push({ monthKey, days, total, activeDays, peakDay, maxAmount: peakDay.amount, firstWeekday: new Date(year, month - 1, 1).getDay() });
+  }
+
+  return { months };
+}
+
+function compactDashboardSpendAmount(value) {
+  const amount = Number(value) || 0;
+  if (amount >= 100000) return `₹${(amount / 100000).toFixed(amount >= 1000000 ? 0 : 1).replace(/\.0$/, '')}L`;
+  if (amount >= 1000) return `₹${(amount / 1000).toFixed(amount >= 10000 ? 0 : 1).replace(/\.0$/, '')}k`;
+  return `₹${Math.round(amount)}`;
+}
+
+function renderDashboardSpendHeatmap(snapshot) {
+  const months = snapshot?.months || [];
+  if (!months.length) return `<div class="dashboard-secondary-empty"><strong>No spend history yet.</strong><span>Daily spend activity will appear here once transactions are logged.</span></div>`;
+
+  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const pageHtml = months.map(month => {
+    const leadingCells = Array.from({ length: month.firstWeekday }, () => `<span class="dashboard-heatmap-day is-empty" aria-hidden="true"></span>`).join('');
+    const dayCells = month.days.map(day => {
+      const ratio = month.maxAmount > 0 ? day.amount / month.maxAmount : 0;
+      const level = day.amount <= 0 ? 0 : ratio <= 0.25 ? 1 : ratio <= 0.5 ? 2 : ratio <= 0.75 ? 3 : 4;
+      const dateString = `${month.monthKey}-${String(day.day).padStart(2, '0')}`;
+      const dateLabel = new Date(`${dateString}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', weekday: 'short' });
+      const hasScheduled = day.scheduledAmount > 0;
+      const displayAmount = day.amount + day.scheduledAmount;
+      const spendLabel = `${day.count} posted spend${day.count === 1 ? '' : 's'}`;
+      const scheduledLabel = hasScheduled ? `, ${day.scheduledCount} scheduled payment${day.scheduledCount === 1 ? '' : 's'} worth ${fmtINR(day.scheduledAmount)}` : '';
+      return `<div class="dashboard-heatmap-day${hasScheduled ? ' is-scheduled' : ''}" data-level="${level}" title="${dateLabel}: ${fmtINR(displayAmount)}${scheduledLabel}" aria-label="${dateLabel}: ${fmtINR(displayAmount)}${scheduledLabel}"><span class="dashboard-heatmap-day-number">${day.day}</span>${hasScheduled ? '<span class="dashboard-heatmap-day-status">TBD</span>' : ''}<span class="dashboard-heatmap-day-amount">${displayAmount > 0 ? compactDashboardSpendAmount(displayAmount) : '—'}</span></div>`;
+    }).join('');
+
+    const peakLabel = month.peakDay.amount > 0 ? `${month.peakDay.day} ${new Date(`${month.monthKey}-${String(month.peakDay.day).padStart(2, '0')}T00:00:00`).toLocaleDateString('en-IN', { month: 'short' })} · ${fmtINR(month.peakDay.amount)}` : 'No spend yet';
+
+    return `
+      <div class="dashboard-spend-heatmap-page">
+        <div class="dashboard-heatmap-month-head">
+          <a class="dashboard-heatmap-month-link" href="/month/${month.monthKey}">Open month <span aria-hidden="true">→</span></a>
+          <div class="dashboard-heatmap-toolbar">
+            <button class="dashboard-heatmap-nav" type="button" data-dashboard-page-dir="-1" aria-label="Previous month">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+            </button>
+            <strong class="dashboard-heatmap-month-pill">${monthKeyLabel(month.monthKey)}</strong>
+            <button class="dashboard-heatmap-nav" type="button" data-dashboard-page-dir="1" aria-label="Next month">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+            </button>
+          </div>
+        </div>
+        <div class="dashboard-heatmap-summary">
+          <div class="dashboard-heatmap-stat dashboard-heatmap-stat-spend">
+            <span class="dashboard-heatmap-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7V6a2 2 0 0 0-2-2H5a3 3 0 0 0 0 6h15v8a2 2 0 0 1-2 2H5a3 3 0 0 1-3-3V7"></path><path d="M16 14h4"></path></svg></span>
+            <span class="dashboard-heatmap-stat-copy"><span>Total spend</span><strong>${fmtINR(month.total)}</strong></span>
+          </div>
+          <div class="dashboard-heatmap-stat dashboard-heatmap-stat-days">
+            <span class="dashboard-heatmap-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4M8 3v4M3 10h18"></path><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"></path></svg></span>
+            <span class="dashboard-heatmap-stat-copy"><span>Active days</span><strong>${month.activeDays}</strong></span>
+          </div>
+          <div class="dashboard-heatmap-stat dashboard-heatmap-stat-peak">
+            <span class="dashboard-heatmap-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c4.4 0 8-3.3 8-7.6 0-2.8-1.5-5.3-4-6.8.1 2.1-.9 3.5-2.1 4.3.2-3.5-1.8-6.8-5.1-9.9.2 3.5-1.4 5.4-2.8 7.2-1.2 1.5-2 3-2 5.2C4 18.7 7.6 22 12 22Z"></path><path d="M9.5 17.5c0 1.4 1.1 2.5 2.5 2.5s2.5-1.1 2.5-2.5c0-1.1-.6-2-1.5-2.5 0 .8-.4 1.4-1 1.8-.1-1.3-.7-2.4-1.8-3.4.1 1.7-.7 2.5-.7 4.1Z"></path></svg></span>
+            <span class="dashboard-heatmap-stat-copy"><span>Peak day</span><strong>${peakLabel}</strong></span>
+          </div>
+        </div>
+        <div class="dashboard-heatmap-weekdays">${weekdays.map(day => `<span>${day}</span>`).join('')}</div>
+        <div class="dashboard-heatmap-grid">${leadingCells}${dayCells}</div>
+        <div class="dashboard-heatmap-legend"><span>Less</span><i data-level="0"></i><i data-level="1"></i><i data-level="2"></i><i data-level="3"></i><i data-level="4"></i><span>More</span></div>
+      </div>
+    `;
+  });
+
+  return `
+    ${renderDashboardPager(pageHtml, 'Daily spend heatmap by month')}
+    <div class="dashboard-heatmap-note">
+      <span class="dashboard-heatmap-note-icon" aria-hidden="true">i</span>
+      <span>Considers logged regular, cc, and cash spends, EMIs and subscriptions. All investment spends are excluded.</span>
+    </div>
+  `;
+}
+
 /* Runs once per page load: every network round trip and every O(months)
    computation lives here. Nothing below this function touches Store.get(). */
 async function buildCache() {
@@ -895,6 +1021,7 @@ async function buildCache() {
   const moneyInbox = await buildMoneyInbox(domain, stats, dashboardKpis, upcomingCommitments, budgetSnapshot, cardSnapshot);
   const dailySeries = await computeDailyBalanceSeries(domain.monthsIndex, domain.emiSeries, domain.sipSeries, domain.recurringSeries);
   const cashflowSeries = buildDashboardCashflowSeries(stats, dashboardKpis);
+  const spendHeatmapSnapshot = await buildDashboardSpendHeatmap(domain);
 
   return {
     ...domain,
@@ -910,6 +1037,7 @@ async function buildCache() {
     moneyInbox,
     dailySeries,
     cashflowSeries,
+    spendHeatmapSnapshot,
   };
 }
 
@@ -1204,8 +1332,24 @@ function renderFromCache() {
         </div>
         ${renderMonthEndProjection(cache.dashboardKpis)}
       </article>
+
+      <article class="dashboard-panel dashboard-panel-spend-heatmap dashboard-span-12" data-dashboard-slot="spend-heatmap">
+        <div class="dashboard-panel-header">
+          <div>
+            <div class="dashboard-panel-kicker">Activity</div>
+            <h3>Daily Spend Heatmap</h3>
+          </div>
+        </div>
+        ${renderDashboardSpendHeatmap(cache.spendHeatmapSnapshot)}
+      </article>
     </section>
   `;
+
+  const spendHeatmapPager = root.querySelector('[data-dashboard-slot="spend-heatmap"] [data-dashboard-pager]');
+  if (spendHeatmapPager) {
+    const spendHeatmapPages = spendHeatmapPager.querySelectorAll('[data-dashboard-pager-page]');
+    setDashboardPagerPage(spendHeatmapPager, Math.max(0, spendHeatmapPages.length - 1));
+  }
 
   appendPageChrome(root, { showFabHome: false });
   setupScrollWrappers(root);
@@ -1269,21 +1413,17 @@ function setDashboardPagerPage(pager, requestedIndex) {
       }
     });
 
-  const previous = pager.querySelector(
-    '[data-dashboard-page-dir="-1"]',
-  );
+  pager
+    .querySelectorAll('[data-dashboard-page-dir="-1"]')
+    .forEach(previous => {
+      previous.disabled = nextIndex === 0;
+    });
 
-  const next = pager.querySelector(
-    '[data-dashboard-page-dir="1"]',
-  );
-
-  if (previous) {
-    previous.disabled = nextIndex === 0;
-  }
-
-  if (next) {
-    next.disabled = nextIndex === pages.length - 1;
-  }
+  pager
+    .querySelectorAll('[data-dashboard-page-dir="1"]')
+    .forEach(next => {
+      next.disabled = nextIndex === pages.length - 1;
+    });
 }
 
 root.addEventListener('pointerdown', (ev) => {

@@ -3980,6 +3980,453 @@
 }
 
 
+/* ---------- Daily spend heatmap ---------- */
+
+.dashboard-panel-spend-heatmap {
+  grid-column: 1 / -1;
+  min-height: 0;
+  padding: 12px;
+}
+
+.dashboard-panel-spend-heatmap .dashboard-panel-header {
+  margin-bottom: 8px;
+}
+
+.dashboard-panel-spend-heatmap .dashboard-pager-page {
+  padding: 0;
+  background: transparent !important;
+  border-radius: 0;
+}
+
+.dashboard-panel-spend-heatmap .dashboard-pager-arrow {
+  color: var(--amber);
+}
+
+.dashboard-panel-spend-heatmap .dashboard-pager-dot.is-active {
+  background: var(--amber);
+}
+
+.dashboard-spend-heatmap-page {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 1px;
+}
+
+.dashboard-heatmap-month-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard-heatmap-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.dashboard-heatmap-month-pill {
+  min-width: 116px;
+  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--navy);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.dashboard-heatmap-nav {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--navy);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+.dashboard-heatmap-nav:hover:not(:disabled) {
+  border-color: var(--sky);
+  background: var(--ice);
+}
+
+.dashboard-heatmap-nav:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.dashboard-heatmap-nav svg {
+  display: block;
+}
+
+.dashboard-heatmap-month-link {
+  color: var(--royal);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.dashboard-heatmap-month-link:hover {
+  text-decoration: underline;
+}
+
+.dashboard-panel-spend-heatmap .dashboard-pager-controls {
+  display: none;
+}
+
+.dashboard-heatmap-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.dashboard-heatmap-stat {
+  min-width: 0;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid color-mix(in srgb, var(--royal) 18%, var(--hair));
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--royal) 5%, var(--paper));
+}
+
+.dashboard-heatmap-stat-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: grid !important;
+  place-items: center;
+  margin: 0 !important;
+  border-radius: 10px;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.dashboard-heatmap-stat-icon svg {
+  display: block;
+}
+
+.dashboard-heatmap-stat-spend .dashboard-heatmap-stat-icon {
+  background: color-mix(in srgb, var(--blue) 10%, transparent);
+  color: var(--blue);
+}
+
+.dashboard-heatmap-stat-days .dashboard-heatmap-stat-icon {
+  background: color-mix(in srgb, var(--credit) 11%, transparent);
+  color: var(--credit);
+}
+
+.dashboard-heatmap-stat-peak .dashboard-heatmap-stat-icon {
+  background: color-mix(in srgb, var(--amber) 15%, transparent);
+  color: var(--amber);
+}
+
+.dashboard-heatmap-stat-copy {
+  min-width: 0;
+  display: block;
+}
+
+.dashboard-heatmap-stat-copy > span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.56rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.dashboard-heatmap-stat-copy > strong {
+  display: block;
+  overflow: hidden;
+  color: var(--navy);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-heatmap-weekdays,
+.dashboard-heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.dashboard-heatmap-weekdays span {
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.52rem;
+  font-weight: 600;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.dashboard-heatmap-day {
+  position: relative;
+  min-width: 0;
+  min-height: 40px;
+  padding: 4px 6px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--royal) 12%, var(--sky));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--royal) 5%, var(--paper));
+  color: var(--ink);
+  transition: transform 0.16s ease, border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.dashboard-heatmap-day.is-scheduled::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(45deg, transparent 50%, color-mix(in srgb, var(--royal) 15%, transparent) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dashboard-heatmap-day.is-scheduled > * {
+  position: relative;
+  z-index: 1;
+}
+
+.dashboard-heatmap-day-status {
+  position: absolute !important;
+  top: 3px;
+  right: 4px;
+  color: color-mix(in srgb, var(--royal) 80%, var(--ink));
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.45rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+:root[data-theme="hi-contrast"] .dashboard-heatmap-day-status {
+  color: var(--ink);
+}
+
+.dashboard-heatmap-day[data-level="0"] {
+  background: color-mix(in srgb, var(--royal) 5%, var(--paper));
+}
+
+.dashboard-heatmap-day[data-level="1"] {
+  background: color-mix(in srgb, var(--royal) 20%, var(--paper));
+}
+
+.dashboard-heatmap-day[data-level="2"] {
+  background: color-mix(in srgb, var(--royal) 38%, var(--paper));
+}
+
+.dashboard-heatmap-day[data-level="3"] {
+  background: color-mix(in srgb, var(--royal) 58%, var(--paper));
+  color: var(--paper);
+}
+
+.dashboard-heatmap-day[data-level="4"] {
+  background: color-mix(in srgb, var(--royal) 80%, var(--paper));
+  border-color: color-mix(in srgb, var(--royal) 76%, var(--sky));
+  color: var(--paper);
+}
+
+.dashboard-heatmap-day:not(.is-empty):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--royal) 15%, transparent);
+}
+
+.dashboard-heatmap-day.is-empty {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.dashboard-heatmap-day-number {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.55rem;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.dashboard-heatmap-day-amount {
+  overflow: hidden;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6rem;
+  font-weight: 650;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-heatmap-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.54rem;
+}
+
+.dashboard-heatmap-legend i {
+  width: 13px;
+  height: 13px;
+  display: block;
+  border: 1px solid color-mix(in srgb, var(--royal) 18%, var(--hair));
+  border-radius: 3px;
+}
+
+.dashboard-heatmap-legend i[data-level="0"] {
+  background: color-mix(in srgb, var(--royal) 5%, var(--paper));
+}
+
+.dashboard-heatmap-legend i[data-level="1"] {
+  background: color-mix(in srgb, var(--royal) 20%, var(--paper));
+}
+
+.dashboard-heatmap-legend i[data-level="2"] {
+  background: color-mix(in srgb, var(--royal) 38%, var(--paper));
+}
+
+.dashboard-heatmap-legend i[data-level="3"] {
+  background: color-mix(in srgb, var(--royal) 58%, var(--paper));
+}
+
+.dashboard-heatmap-legend i[data-level="4"] {
+  background: color-mix(in srgb, var(--royal) 80%, var(--paper));
+}
+
+.dashboard-heatmap-note {
+  margin-top: 8px;
+  padding: 6px 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  border: 1px dashed color-mix(in srgb, var(--royal) 30%, var(--sky));
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--royal) 5%, var(--paper));
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1.4;
+}
+
+.dashboard-heatmap-note-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--amber) 18%, var(--paper));
+  color: var(--amber);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.56rem;
+  font-weight: 700;
+}
+
+@media (max-width: 767px) {
+  .dashboard-panel-spend-heatmap,
+  .home-view [data-dashboard-slot="spend-heatmap"] {
+    order: 10;
+  }
+
+  .dashboard-panel-spend-heatmap {
+    padding: 10px;
+  }
+
+  .dashboard-spend-heatmap-page {
+    gap: 7px;
+  }
+
+  .dashboard-heatmap-summary {
+    gap: 4px;
+  }
+
+  .dashboard-heatmap-stat {
+    padding: 5px 6px;
+  }
+
+  .dashboard-heatmap-stat strong {
+    font-size: 0.57rem;
+  }
+}
+
+@media (max-width: 579px) {
+  .dashboard-heatmap-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-heatmap-summary > .dashboard-heatmap-stat:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+
+  .dashboard-heatmap-stat span {
+    font-size: 0.56rem;
+  }
+
+  .dashboard-heatmap-stat strong {
+    font-size: 0.72rem;
+  }
+
+  .dashboard-heatmap-weekdays,
+  .dashboard-heatmap-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 3px;
+  }
+
+  .dashboard-heatmap-toolbar {
+    gap: 6px;
+  }
+
+  .dashboard-heatmap-month-pill {
+    min-width: 98px;
+    padding: 7px 10px;
+    font-size: 0.66rem;
+  }
+
+  .dashboard-heatmap-nav {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+  }
+
+  .dashboard-heatmap-weekdays span {
+    font-size: 0.45rem;
+  }
+
+  .dashboard-heatmap-day {
+    min-width: 0;
+    min-height: 36px;
+    padding: 3px 4px;
+    border-radius: 5px;
+  }
+
+  .dashboard-heatmap-day-amount {
+    font-size: 0.5rem;
+  }
+}
+
 /* ---------- Compact Goal / People cards ---------- */
 
 .dashboard-panel-compact .dashboard-pager-controls {
