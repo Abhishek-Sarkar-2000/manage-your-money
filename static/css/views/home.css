@@ -4035,7 +4035,7 @@
   justify-content: center;
   border: 1px solid var(--hair);
   border-radius: 10px;
-  background: var(--paper);
+  background: var(--ice-2);
   color: var(--navy);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.72rem;
@@ -4053,7 +4053,7 @@
   place-items: center;
   border: 1px solid var(--hair);
   border-radius: 10px;
-  background: var(--paper);
+  background: var(--ice-2);
   color: var(--navy);
   cursor: pointer;
   transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
@@ -4103,7 +4103,7 @@
   gap: 9px;
   border: 1px solid color-mix(in srgb, var(--royal) 18%, var(--hair));
   border-radius: 7px;
-  background: color-mix(in srgb, var(--royal) 5%, var(--paper));
+  background: var(--ice-2);
 }
 
 .dashboard-heatmap-stat-icon {
@@ -4193,7 +4193,7 @@
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--royal) 12%, var(--sky));
   border-radius: 6px;
-  background: color-mix(in srgb, var(--royal) 5%, var(--paper));
+  background: var(--ice-2);
   color: var(--ink);
   transition: transform 0.16s ease, border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease;
 }
@@ -4325,7 +4325,7 @@
   gap: 7px;
   border: 1px dashed color-mix(in srgb, var(--royal) 30%, var(--sky));
   border-radius: 7px;
-  background: color-mix(in srgb, var(--royal) 5%, var(--paper));
+  background: var(--ice-2);
   color: var(--muted);
   font-size: 0.62rem;
   line-height: 1.4;
