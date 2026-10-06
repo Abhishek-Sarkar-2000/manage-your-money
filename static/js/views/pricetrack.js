@@ -217,7 +217,11 @@ function renderPriceDetailsPanel(item) {
       <td>${dateLabel}</td>
       <td class="num">${fmtINR(h.price)}</td>
       <td>${h.note ? escapeHtml(h.note) : '<span class="subnote">—</span>'}</td>
-      <td class="actions-cell"><button class="icon-btn" data-del-price-point="${item.id}|${h.id}" title="Remove entry">✕</button></td>
+      <td class="actions-cell">
+        <button class="icon-btn" data-popover-trigger data-del-price-point="${item.id}|${h.id}" title="Remove entry" type="button">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        </button>
+      </td>
     </tr>`;
   }).join('');
 
@@ -581,16 +585,26 @@ root.addEventListener('click', async (ev) => {
 
   const delPricePoint = ev.target.closest('[data-del-price-point]');
   if (delPricePoint) {
-    const [itemId, pointId] = delPricePoint.dataset.delPricePoint.split('|');
+    ev.stopPropagation();
+    showDeleteCallout(delPricePoint, 'confirm-del-price-point', delPricePoint.dataset.delPricePoint, 'Delete entry?');
+    return;
+  }
+
+  const confirmDelPricePoint = ev.target.closest('[data-confirm-del-price-point]');
+  if (confirmDelPricePoint) {
+    ev.stopPropagation();
+    const [itemId, pointId] = confirmDelPricePoint.dataset.confirmDelPricePoint.split('|');
     const item = priceItems.find(i => i.id === itemId);
-    if (item) {
-      const row = root.querySelector(`[data-price-point-row="${CSS.escape(pointId)}"]`);
-      await animatePriceRemoval(row, 'price-point-row-removing', 160);
-      item.history = item.history.filter(h => h.id !== pointId);
-      await Store.set('price-items', priceItems);
-      await renderPriceTrack();
-      showToast('Entry removed');
-    }
+    if (!item) return;
+
+    const row = root.querySelector(`[data-price-point-row="${CSS.escape(pointId)}"]`);
+    hideDeleteCallout();
+    await animatePriceRemoval(row, 'price-point-row-removing', 160);
+    item.history = item.history.filter(h => h.id !== pointId);
+    await Store.set('price-items', priceItems);
+    await renderPriceTrack();
+    showToast('Entry removed');
+    return;
   }
 });
 

@@ -123,6 +123,93 @@
   z-index: 1;
 }
 
+.donut.is-separated {
+  background: transparent !important;
+}
+
+.donut.is-separated {
+  width: 176px;
+  height: 176px;
+  background: transparent !important;
+}
+
+.donut.is-separated::before,
+.donut.is-separated::after {
+  display: none;
+}
+
+.donut-svg {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.donut-segment {
+  stroke-width: 9;
+  stroke-linecap: round;
+  transition: opacity 0.16s ease, filter 0.16s ease;
+}
+
+.donut-segment-outline {
+  stroke: transparent;
+  stroke-width: 9;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+.donut-segment-stripes {
+  pointer-events: none;
+}
+
+:root[data-theme="hi-contrast"] .donut-segment-outline {
+  stroke: #000000;
+}
+
+:root[data-theme="hi-contrast"] .donut-segment {
+  stroke-width: 7;
+}
+
+:root[data-theme="hi-contrast"] .donut {
+  border: 1px solid #000000;
+}
+
+:root[data-theme="hi-contrast"] .donut.is-separated {
+  border: 0;
+}
+
+:root[data-theme="hi-contrast"] .donut::after {
+  border: 1px solid #000000;
+  box-shadow: none;
+}
+
+:root[data-theme="hi-contrast"] .donut.is-separated::after {
+  border: 0;
+}
+
+.donut-stripe-mark {
+  fill: rgba(11, 37, 69, 0.11);
+}
+
+:root[data-theme="dark"] .donut-stripe-mark {
+  fill: rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme="hi-contrast"] .donut-stripe-mark {
+  fill: rgba(0, 0, 0, 0.2);
+}
+
+.donut.is-separated:hover .donut-segment {
+  opacity: 0.78;
+}
+
+.donut.is-separated .donut-segment:hover {
+  opacity: 1;
+  filter: drop-shadow(0 2px 3px rgba(11, 37, 69, 0.16));
+}
+
 .donut::after {
   content: '';
   position: absolute;
@@ -178,6 +265,29 @@
   height: 10px;
   border-radius: 3px;
   flex-shrink: 0;
+}
+
+.donut.is-separated .donut-center {
+  transform: translateY(6px);
+}
+
+.donut.is-separated .donut-center .v {
+  font-size: 1rem;
+  line-height: 1.12;
+  white-space: nowrap;
+}
+
+.donut.is-separated .donut-center .t {
+  margin-top: 5px;
+  font-size: 0.6rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.donut-wrap .legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
 }
 
 .legend-val {

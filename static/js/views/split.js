@@ -558,7 +558,11 @@ function renderSplitDetailsPanel(group) {
         <span class="src-badge">${escapeHtml(s.payee)}</span>
       </td>
       <td class="num">${fmtINR(s.amount)}</td>
-      <td class="actions-cell"><button class="icon-btn" data-del-split-spend="${group.id}|${s.id}" title="Remove spend">✕</button></td>
+      <td class="actions-cell">
+        <button class="icon-btn" data-popover-trigger data-del-split-spend="${group.id}|${s.id}" title="Remove spend" type="button">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        </button>
+      </td>
     </tr>`;
   }).join('');
 
@@ -1605,23 +1609,37 @@ root.addEventListener('click', async (ev) => {
 
   const delSplitSpend = ev.target.closest('[data-del-split-spend]');
   if (delSplitSpend) {
-    const [groupId, spendId] = delSplitSpend.dataset.delSplitSpend.split('|');
-    await animateSplitSpendRemoval(delSplitSpend.closest('tr'));
+    ev.stopPropagation();
+    showDeleteCallout(delSplitSpend, 'confirm-del-split-spend', delSplitSpend.dataset.delSplitSpend, 'Delete spend?');
+    return;
+  }
+
+  const confirmDelSplitSpend = ev.target.closest('[data-confirm-del-split-spend]');
+  if (confirmDelSplitSpend) {
+    ev.stopPropagation();
+    const [groupId, spendId] = confirmDelSplitSpend.dataset.confirmDelSplitSpend.split('|');
+    const row = root.querySelector(`[data-split-spend-id="${CSS.escape(spendId)}"]`);
+    hideDeleteCallout();
+
     const group = await loadSplit(groupId, false);
     if (group) {
       const spend = group.spends.find(s => s.id === spendId);
       if (spend) {
+        await animateSplitSpendRemoval(row);
+
         if (spend.payee === SPLIT_YOU && spend.ledgerEntryId && spend.monthKey) {
           const monthData = await loadMonth(spend.monthKey);
           monthData.entries = monthData.entries.filter(e => e.id !== spend.ledgerEntryId);
           await saveMonth(spend.monthKey);
         }
+
         group.spends = group.spends.filter(s => s.id !== spendId);
         await saveSplit(groupId);
         await renderSplit();
         showToast('Spend removed');
       }
     }
+    return;
   }
 });
 

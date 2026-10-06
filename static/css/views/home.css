@@ -4171,11 +4171,18 @@
   gap: 4px;
 }
 
+.dashboard-heatmap-weekdays {
+  margin-top: 4px;
+}
+
 .dashboard-heatmap-weekdays span {
-  color: var(--muted);
+  color: var(--royal);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.52rem;
   font-weight: 600;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--royal) 5%, var(--paper));
+  padding: 4px;
   text-align: center;
   text-transform: uppercase;
 }
@@ -4230,25 +4237,30 @@
 }
 
 .dashboard-heatmap-day[data-level="0"] {
-  background: color-mix(in srgb, var(--royal) 5%, var(--paper));
+  background: color-mix(in srgb, var(--royal) 4%, var(--paper));
 }
 
 .dashboard-heatmap-day[data-level="1"] {
-  background: color-mix(in srgb, var(--royal) 20%, var(--paper));
+  background: color-mix(in srgb, var(--royal) 14%, var(--paper));
 }
 
 .dashboard-heatmap-day[data-level="2"] {
-  background: color-mix(in srgb, var(--royal) 38%, var(--paper));
+  background: color-mix(in srgb, var(--royal) 28%, var(--paper));
 }
 
 .dashboard-heatmap-day[data-level="3"] {
-  background: color-mix(in srgb, var(--royal) 58%, var(--paper));
+  background: color-mix(in srgb, var(--royal) 44%, var(--paper));
   color: var(--paper);
 }
 
 .dashboard-heatmap-day[data-level="4"] {
-  background: color-mix(in srgb, var(--royal) 80%, var(--paper));
-  border-color: color-mix(in srgb, var(--royal) 76%, var(--sky));
+  background: color-mix(in srgb, var(--royal) 62%, var(--paper));
+  color: var(--paper);
+}
+
+.dashboard-heatmap-day[data-level="5"] {
+  background: color-mix(in srgb, var(--royal) 82%, var(--paper));
+  border-color: color-mix(in srgb, var(--royal) 78%, var(--sky));
   color: var(--paper);
 }
 
@@ -4297,24 +4309,24 @@
   border-radius: 3px;
 }
 
-.dashboard-heatmap-legend i[data-level="0"] {
-  background: color-mix(in srgb, var(--royal) 5%, var(--paper));
-}
-
 .dashboard-heatmap-legend i[data-level="1"] {
-  background: color-mix(in srgb, var(--royal) 20%, var(--paper));
+  background: color-mix(in srgb, var(--royal) 14%, var(--paper));
 }
 
 .dashboard-heatmap-legend i[data-level="2"] {
-  background: color-mix(in srgb, var(--royal) 38%, var(--paper));
+  background: color-mix(in srgb, var(--royal) 28%, var(--paper));
 }
 
 .dashboard-heatmap-legend i[data-level="3"] {
-  background: color-mix(in srgb, var(--royal) 58%, var(--paper));
+  background: color-mix(in srgb, var(--royal) 44%, var(--paper));
 }
 
 .dashboard-heatmap-legend i[data-level="4"] {
-  background: color-mix(in srgb, var(--royal) 80%, var(--paper));
+  background: color-mix(in srgb, var(--royal) 62%, var(--paper));
+}
+
+.dashboard-heatmap-legend i[data-level="5"] {
+  background: color-mix(in srgb, var(--royal) 82%, var(--paper));
 }
 
 .dashboard-heatmap-note {
@@ -4338,8 +4350,8 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--amber) 18%, var(--paper));
-  color: var(--amber);
+  background: color-mix(in srgb, var(--royal) 18%, var(--paper));
+  color: var(--royal);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.56rem;
   font-weight: 700;

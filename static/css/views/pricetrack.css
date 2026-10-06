@@ -49,6 +49,17 @@
   padding-right: 24px;
 }
 
+.price-details-panel table th:last-child,
+.price-details-panel table td.actions-cell {
+  width: 42px;
+  min-width: 42px;
+  max-width: 42px;
+  box-sizing: border-box;
+  padding-left: 6px;
+  padding-right: 6px;
+  text-align: center;
+}
+
 .price-item-card .pic-top h4 {
   display: inline; 
   font-size: 0.88rem;

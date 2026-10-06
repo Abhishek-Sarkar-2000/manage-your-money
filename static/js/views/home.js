@@ -936,8 +936,7 @@ function renderDashboardSpendHeatmap(snapshot) {
   const pageHtml = months.map(month => {
     const leadingCells = Array.from({ length: month.firstWeekday }, () => `<span class="dashboard-heatmap-day is-empty" aria-hidden="true"></span>`).join('');
     const dayCells = month.days.map(day => {
-      const ratio = month.maxAmount > 0 ? day.amount / month.maxAmount : 0;
-      const level = day.amount <= 0 ? 0 : ratio <= 0.25 ? 1 : ratio <= 0.5 ? 2 : ratio <= 0.75 ? 3 : 4;
+      const level = day.amount <= 0 ? 0 : day.amount <= 1500 ? 1 : day.amount <= 5000 ? 2 : day.amount <= 10000 ? 3 : day.amount <= 15000 ? 4 : 5;
       const dateString = `${month.monthKey}-${String(day.day).padStart(2, '0')}`;
       const dateLabel = new Date(`${dateString}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', weekday: 'short' });
       const hasScheduled = day.scheduledAmount > 0;
@@ -979,7 +978,7 @@ function renderDashboardSpendHeatmap(snapshot) {
         </div>
         <div class="dashboard-heatmap-weekdays">${weekdays.map(day => `<span>${day}</span>`).join('')}</div>
         <div class="dashboard-heatmap-grid">${leadingCells}${dayCells}</div>
-        <div class="dashboard-heatmap-legend"><span>Less</span><i data-level="0"></i><i data-level="1"></i><i data-level="2"></i><i data-level="3"></i><i data-level="4"></i><span>More</span></div>
+        <div class="dashboard-heatmap-legend"><span>₹1.5k & less</span><i data-level="1"></i><i data-level="2"></i><i data-level="3"></i><i data-level="4"></i><i data-level="5"></i><span>₹15k & more</span></div>
       </div>
     `;
   });
