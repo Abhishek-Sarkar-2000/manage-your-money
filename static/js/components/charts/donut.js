@@ -44,12 +44,32 @@ export function donutChart(segments, { separated = true, minSectorAngle = 1, gap
 
   const filtered = segments.filter(segment => (Number(segment.value) || 0) > 0).map(segment => ({ ...segment, value: Number(segment.value) || 0 }));
 
-  const legend = filtered.map(segment => `
-    <div class="legend-item">
-      <span class="legend-dot" style="background:${segment.color}"></span>
-      <span>${segment.label}</span>
-      <span class="legend-val">${fmtINR(segment.value)}</span>
-    </div>`).join('');
+  const hasDetailedLegend = filtered.some(segment => segment.icon);
+
+  const legend = filtered.map(segment => {
+    if (!hasDetailedLegend) {
+      return `
+        <div class="legend-item">
+          <span class="legend-dot" style="background:${segment.color}"></span>
+          <span>${segment.label}</span>
+          <span class="legend-val">${fmtINR(segment.value)}</span>
+        </div>
+      `;
+    }
+
+    const percentage = total > 0 ? (segment.value / total) * 100 : 0;
+
+    return `
+      <div class="legend-item legend-item-detailed">
+        <span class="legend-dot" style="background:${segment.color}"></span>
+        <span class="legend-icon" style="--legend-color:${segment.color};" aria-hidden="true">${segment.icon || ''}</span>
+        <span class="legend-label">${segment.label}<small> - ${percentage.toFixed(1).replace(/\.0$/, '')}%</small></span>
+        <span class="legend-metrics">
+          <strong>${fmtINR(segment.value)}</strong>
+        </span>
+      </div>
+    `;
+  }).join('');
 
   if (separated) {
     const effectiveGap = filtered.length > 1 ? Math.min(Math.max(0, Number(gapAngle) || 0), Math.max(0, (360 / filtered.length) - 1)) : 0;
@@ -71,7 +91,7 @@ export function donutChart(segments, { separated = true, minSectorAngle = 1, gap
     }).join('');
 
     return `
-    <div class="donut-wrap">
+    <div class="donut-wrap${hasDetailedLegend ? ' has-detailed-legend' : ''}">
       <div class="donut is-separated">
         <svg class="donut-svg" viewBox="0 0 160 160" role="img" aria-label="Spending breakdown">
           <defs>
@@ -85,7 +105,7 @@ export function donutChart(segments, { separated = true, minSectorAngle = 1, gap
         </svg>
         <div class="donut-center"><div class="v">${fmtINR(total)}</div><div class="t">Total</div></div>
       </div>
-      <div class="legend">${legend}</div>
+      <div class="legend${hasDetailedLegend ? ' is-detailed' : ''}">${legend}</div>
     </div>`;
   }
 

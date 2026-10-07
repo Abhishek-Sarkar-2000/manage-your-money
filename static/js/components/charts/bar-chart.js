@@ -1,6 +1,7 @@
 /* ---------- Simple bar charts (self-contained, no libraries) ---------- */
 import { escapeHtml } from '../../core/dom.js';
 import { fmtINR, fmtINRShort } from '../../core/format.js';
+import { formatChartMoney, buildNiceChartTicks } from './axis-grid.js';
 
 export function barChart(pairs, options = {}) {
   // A pair can either be a flat { label, value, color } bar, or a stacked
@@ -33,6 +34,53 @@ export function barChart(pairs, options = {}) {
     </div>`;
   }).join('');
   return `<div class="bars">${cols}</div>`;
+}
+
+export function horizontalBarChart(pairs, options = {}) {
+  const { compactValues = false } = options;
+  const formatBarValue = compactValues ? fmtINRShort : fmtINR;
+  const totalOf = (p) => (p.segments ? p.segments.reduce((sum, segment) => sum + (Number(segment.value) || 0), 0) : (Number(p.value) || 0));
+  const actualMax = Math.max(1, ...pairs.map(totalOf));
+  const axis = buildNiceChartTicks(actualMax, 4);
+  const ticks = axis.ticks.map(value => ({ value, percent: axis.max > 0 ? (value / axis.max) * 100 : 0 }));
+  const gridLines = ticks.map(tick => `<div class="cashflow-horizontal-grid-line" style="left:${tick.percent}%"></div>`).join('');
+  const xLabels = ticks.map(tick => `<span class="cashflow-horizontal-x-tick" style="left:${tick.percent}%">${formatChartMoney(tick.value)}</span>`).join('');
+
+  const rows = pairs.map(p => {
+    const total = totalOf(p);
+    const totalWidth = axis.max > 0 ? (total / axis.max) * 100 : 0;
+    const sourceSegments = p.segments || [{ label: p.label, value: p.value, color: p.color }];
+    const segmentsHtml = sourceSegments.filter(segment => (Number(segment.value) || 0) > 0).map(segment => {
+      const value = Number(segment.value) || 0;
+      const segmentWidth = total > 0 ? (value / total) * 100 : 0;
+      return `<div class="cashflow-horizontal-segment shared-debt-segment" style="width:${segmentWidth}%; background:${segment.color};" data-val="${fmtINR(value)}" data-label="${escapeHtml(String(segment.label || p.label))}"></div>`;
+    }).join('');
+    const isInside = totalWidth > 50;
+    const label = escapeHtml(String(p.label));
+
+    return `
+      <div class="cashflow-horizontal-row">
+        <div class="cashflow-horizontal-label" title="${label}">${label}</div>
+        <div class="cashflow-horizontal-plot">
+          <div class="cashflow-horizontal-grid">${gridLines}</div>
+          <div class="cashflow-horizontal-bar" style="width:${totalWidth}%;">
+            ${segmentsHtml}
+            ${isInside ? `<div class="cashflow-horizontal-total inside num">${formatBarValue(total)}</div>` : ''}
+          </div>
+          ${!isInside ? `<div class="cashflow-horizontal-total outside num" style="left:${totalWidth}%;">${formatBarValue(total)}</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="cashflow-horizontal-chart">
+      <div class="cashflow-horizontal-bars" style="--cashflow-row-count:${pairs.length};">
+        ${rows}
+        <div></div>
+        <div class="cashflow-horizontal-axis">${xLabels}</div>
+      </div>
+      <div class="cashflow-horizontal-axis-title">Amount (₹)</div>
+    </div>`;
 }
 
 export function tagsBarChart(entries, targetType, options = {}) {

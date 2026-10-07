@@ -1570,36 +1570,8 @@
   border-bottom: 1px dashed var(--hair);
 }
 
-.dashboard-projection-note {
-  margin-top: auto;
-  padding-top: 14px;
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-  color: var(--muted);
-  font-size: 0.65rem;
-  line-height: 1.4;
-}
-
-.dashboard-projection-info {
-  flex: 0 0 auto;
-  width: 15px;
-  height: 15px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--hair);
-  border-radius: 50%;
-  background: var(--ice);
-  color: var(--blue);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.56rem;
-  font-weight: 700;
-}
-
 :root[data-theme="hi-contrast"] .dashboard-chart-mode,
-:root[data-theme="hi-contrast"] .dashboard-chart-mode button.active,
-:root[data-theme="hi-contrast"] .dashboard-projection-info {
+:root[data-theme="hi-contrast"] .dashboard-chart-mode button.active {
   border-color: #000 !important;
 }
 
@@ -4330,30 +4302,31 @@
 }
 
 .dashboard-heatmap-note {
+  font-family: 'IBM Plex Mono', monospace;
   margin-top: 8px;
   padding: 6px 8px;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 7px;
   border: 1px dashed color-mix(in srgb, var(--royal) 30%, var(--sky));
   border-radius: 7px;
   background: var(--ice-2);
   color: var(--muted);
-  font-size: 0.62rem;
+  font-size: 0.5rem;
   line-height: 1.4;
 }
 
 .dashboard-heatmap-note-icon {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 16px;
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
   display: grid;
   place-items: center;
   border-radius: 50%;
   background: color-mix(in srgb, var(--royal) 18%, var(--paper));
   color: var(--royal);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.56rem;
+  font-size: 0.4rem;
   font-weight: 700;
 }
 
@@ -4632,18 +4605,6 @@
 .dashboard-people-page
 .dashboard-people-side:only-child {
   grid-column: span 1;
-}
-
-.dashboard-people-note {
-  margin-top: 5px;
-  overflow: hidden;
-
-  color: var(--muted);
-  font-size: 0.52rem;
-  line-height: 1.3;
-
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .dashboard-people-empty {

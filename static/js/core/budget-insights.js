@@ -158,14 +158,8 @@ export function analyzeDashboardBudget({ budgetData, postedEntries, scheduledEnt
 
 export function applyBudgetForecastProjection(dashboardKpis, budgetSnapshot) {
   const available = Number(dashboardKpis.availableBalance) || 0;
-  const postedBudgeted = Number(budgetSnapshot?.totalUsed) || 0;
-  const postedUnbudgeted = Number(budgetSnapshot?.unbudgeted?.total) || 0;
   const projectedTotal = Number(budgetSnapshot?.totalProjected) || 0;
-
-  const remainingForecast = Math.max(
-    0,
-    projectedTotal - postedBudgeted - postedUnbudgeted
-  );
+  const scheduledCommitments = Math.max(0, Number(dashboardKpis.pendingCashCommitments) || 0);
 
   const forecastDeductions = (budgetSnapshot?.categories || [])
     .filter(category =>
@@ -189,10 +183,12 @@ export function applyBudgetForecastProjection(dashboardKpis, budgetSnapshot) {
       }]
     : [];
 
+  const totalRemainingDeductions = scheduledCommitments + forecastDeductions;
+
   dashboardKpis.budgetForecastTotal = projectedTotal;
-  dashboardKpis.remainingBudgetForecast = remainingForecast;
+  dashboardKpis.remainingBudgetForecast = totalRemainingDeductions;
   dashboardKpis.forecastRows = forecastRows;
-  dashboardKpis.monthEndProjection = available - remainingForecast;
+  dashboardKpis.monthEndProjection = available - totalRemainingDeductions;
 
   return dashboardKpis;
 }

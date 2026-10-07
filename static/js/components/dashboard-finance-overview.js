@@ -198,11 +198,10 @@ export function renderMonthEndProjection(kpis) {
           <strong>${fmtINR(projected)}</strong>
         </div>
       </div>
-      <div class="dashboard-projection-note">
-        <span class="dashboard-projection-info" aria-hidden="true">i</span>
+      <div class="dashboard-heatmap-note">
+        <span class="dashboard-heatmap-note-icon" aria-hidden="true">i</span>
         <span>
-          Uses the Budget page month-end forecast and applies the remaining
-          forecast spending to today's available balance.
+          Calculates from upcoming auto-spends and month-end forecast from budget.
         </span>
       </div>
     </div>

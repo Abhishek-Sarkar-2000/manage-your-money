@@ -699,7 +699,7 @@ async function buildMoneyInbox(domain, stats, dashboardKpis, upcomingCommitments
       id: 'budget-unbudgeted',
       severity: 'info',
       kind: 'budget',
-      title: `${budgetSnapshot.unbudgeted.items.length} spending categor${budgetSnapshot.unbudgeted.items.length === 1 ? 'y is' : 'ies are'} outside your budget`,
+      title: `${budgetSnapshot.unbudgeted.items.length} spending categor${budgetSnapshot.unbudgeted.items.length === 1 ? 'y' : 'ies'} unbudgeted`,
       detail: 'Review the budget or assign those spends to an existing category',
       amount: budgetSnapshot.unbudgeted.total,
       href: '/budget',
@@ -987,7 +987,7 @@ function renderDashboardSpendHeatmap(snapshot) {
     ${renderDashboardPager(pageHtml, 'Daily spend heatmap by month')}
     <div class="dashboard-heatmap-note">
       <span class="dashboard-heatmap-note-icon" aria-hidden="true">i</span>
-      <span>Considers logged regular, cc, and cash spends, EMIs and subscriptions. All investment spends are excluded.</span>
+      <span>Considers regular, cc, and cash spends, EMIs and subscriptions. All investment spends are excluded.</span>
     </div>
   `;
 }

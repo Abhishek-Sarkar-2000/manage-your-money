@@ -296,12 +296,15 @@ export function renderDashboardPeopleBalances(snapshot, perPage = 2, maxPages = 
 
     ${renderDashboardPager(pageHtml, 'People balances')}
 
-    <div class="dashboard-people-note">
-      ${
-        hiddenCount
-          ? `${hiddenCount} more ${hiddenCount === 1 ? 'person' : 'people'} beyond the dashboard preview.`
-          : 'Includes Split Money and unsettled Month lending.'
-      }
+    <div class="dashboard-heatmap-note">
+      <span class="dashboard-heatmap-note-icon" aria-hidden="true">i</span>
+      <span>
+        ${
+          hiddenCount
+            ? `${hiddenCount} more ${hiddenCount === 1 ? 'person' : 'people'} beyond the dashboard preview.`
+            : 'Includes Split Money and unsettled month lending.'
+        }
+      </span>
     </div>
   `;
 }
@@ -394,12 +397,6 @@ export function renderDashboardSharedExpenses(snapshot, perPage = 4, maxPages = 
       pageHtml.length
         ? renderDashboardPager(pageHtml, 'Shared expense activity')
         : '<div class="dashboard-secondary-mini-empty">No shared-money activity logged yet.</div>'
-    }
-
-    ${
-      hiddenCount
-        ? `<a class="dashboard-secondary-more" href="/split">View ${hiddenCount} older item${hiddenCount === 1 ? '' : 's'} <span aria-hidden="true">→</span></a>`
-        : ''
     }
   `;
 }

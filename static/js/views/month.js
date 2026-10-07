@@ -12,7 +12,7 @@ import {
 import { analyzeDashboardBudget, applyBudgetForecastProjection } from '../core/budget-insights.js';
 import { renderDashboardKpis } from '../components/dashboard-kpis.js';
 import { donutChart } from '../components/charts/donut.js';
-import { barChart, tagsBarChart } from '../components/charts/bar-chart.js';
+import { barChart, horizontalBarChart, tagsBarChart } from '../components/charts/bar-chart.js';
 import { lineChart, wireChartTooltips } from '../components/charts/line-chart.js';
 import { scrollWrapper, setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { appendPageChrome } from '../components/page-chrome.js';
@@ -61,6 +61,30 @@ const monthReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
 let pendingMonthFx = [];
 let stickyControlsObserver = null;
 let tableResizeHandler = null;
+let cashflowResizeObserver = null;
+
+function wireAdaptiveCashflowOverview() {
+  if (cashflowResizeObserver) {
+    cashflowResizeObserver.disconnect();
+    cashflowResizeObserver = null;
+  }
+
+  const card = root.querySelector('.cashflow-overview-card');
+  if (!card || typeof ResizeObserver === 'undefined') return;
+
+  let verticalHeight = 0;
+
+  const syncOrientation = () => {
+    if (!card.isConnected) return;
+    if (!card.classList.contains('is-horizontal')) verticalHeight = card.getBoundingClientRect().height;
+    const width = card.getBoundingClientRect().width;
+    card.classList.toggle('is-horizontal', width > 0 && verticalHeight > width);
+  };
+
+  cashflowResizeObserver = new ResizeObserver(syncOrientation);
+  cashflowResizeObserver.observe(card);
+  requestAnimationFrame(syncOrientation);
+}
 
 function monthScrollBehavior() {
   return monthReducedMotion.matches ? 'auto' : 'smooth';
@@ -445,7 +469,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       <td class="type-cell"><span class="tag spend">Spend</span>${splitPaybackTypeHtml}${splitTypeHtml}${lentTypeHtml}</td>
       <td class="desc-cell">
         <strong>${escapeHtml(e.description)}</strong><span class="tags-area">${tagHtml}</span>${metaHtml}
-        <div class="subnote">${card ? 'Paid for ' + escapeHtml(card.name) + ' — reduces card dues' : 'Cash / debit'}</div>
+        <div class="subnote">${card ? 'Paid for ' + escapeHtml(card.name) : 'Cash / debit'}</div>
         ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
       <td class="num amt-debit">-${fmtINR(displayAmount)}</td>
@@ -482,7 +506,7 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
       <td class="type-cell"><span class="tag cashpayment">Cash</span>${lentTypeHtml}</td>
       <td class="desc-cell">
         <strong>${escapeHtml(e.description)}</strong><span class="tags-area">${tagHtml}</span>${metaHtml}
-        <div class="subnote">Physical cash spent — already accounted for via withdrawal</div>
+        <div class="subnote">Physical cash spent</div>
         ${lentChips ? `<div class="chip-row">${lentChips}</div>` : ''}
       </td>
       <td class="num amt-neutral">${fmtINR(e.amount)}</td>
@@ -1299,18 +1323,22 @@ const TXN_TYPES = {
     icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>`, 
     title: 'Investment', desc: 'Investments, SIPs', tone: 'amber' 
   },
-  owed:        { 
-    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`, 
-    title: 'Owed to you', desc: 'Someone owes you', tone: 'purple' 
+  owed:        {
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`,
+    title: 'Owed to you', desc: 'Someone owes you', tone: 'purple'
   },
-  emi:         { 
-    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 22 7 12 2"></polygon><line x1="2" y1="22" x2="22" y2="22"></line><line x1="6" y1="18" x2="6" y2="11"></line><line x1="10" y1="18" x2="10" y2="11"></line><line x1="14" y1="18" x2="14" y2="11"></line><line x1="18" y1="18" x2="18" y2="11"></line></svg>`, 
-    title: 'EMI', desc: 'Monthly deductable', tone: 'rose' 
+  emi:         {
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 22 7 12 2"></polygon><line x1="2" y1="22" x2="22" y2="22"></line><line x1="6" y1="18" x2="6" y2="11"></line><line x1="10" y1="18" x2="10" y2="11"></line><line x1="14" y1="18" x2="14" y2="11"></line><line x1="18" y1="18" x2="18" y2="11"></line></svg>`,
+    title: 'EMI', desc: 'Monthly deductable', tone: 'rose'
   },
 };
 
+const SIP_BREAKDOWN_ICON = `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V11"></path><path d="M12 14C7.8 14 5 11.2 5 7c4.2 0 7 2.8 7 7Z"></path><path d="M12 17c0-4.2 2.8-7 7-7 0 4.2-2.8 7-7 7Z"></path></svg>`;
+
 function renderTxnOptionCard(kind) {
   const meta = TXN_TYPES[kind];
+  if (!meta) return '';
+
   return `
     <button class="txn-option-card ${openForm === kind ? 'active' : ''}" data-form="${kind}" type="button">
       <span class="txn-option-icon txn-option-icon--${meta.tone}">${meta.icon}</span>
@@ -2254,6 +2282,14 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
       .filter(([, val]) => val > 0)
       .map(([cat, val]) => ({ label: cat, value: val, color: investColors[cat] }));
 
+    const cashflowPairs = [
+      { label: 'Income', segments: incomeSegments.length ? incomeSegments : [{ label: 'Income', value: 0, color: 'var(--credit)' }] },
+      { label: 'Expense', segments: [{ label: 'Personal', value: personalExpense, color: 'var(--debit)' }, { label: 'Lent (unsettled)', value: lentSegmentValue, color: '#E03131' }] },
+      ...(emiTotal > 0 ? [{ label: 'EMI', value: emiTotal, color: '#5B4B9E' }] : []),
+      { label: 'Invested', segments: investSegments.length ? investSegments : [{ label: 'Invested', value: 0, color: 'var(--blue)' }] },
+      ...(stats.owed.total > 0 ? [{ label: 'Owed', value: stats.owed.total, color: 'var(--amber)' }] : []),
+    ];
+
     const tb = document.getElementById('global-topbar');
     if (tb) tb.style.display = '';
 
@@ -2314,36 +2350,27 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
         <span class="hint">${monthKeyLabel(monthKey)} only</span>
       </div>
       <div class="charts-grid">
-        <div class="chart-card" style="min-width: 0; overflow-x: auto;">
+        <div class="chart-card spending-breakdown-card" style="min-width: 0; overflow-x: hidden;">
           <h4>Spending Breakdown</h4>
           ${donutChart([
-            { label: 'Regular debit', value: spendingBreakdown.regularDebit, color: 'var(--debit)' },
-            { label: 'Credit card spends', value: spendingBreakdown.creditCardSpends, color: '#8E6FB0' },
-            { label: 'Credit card dues', value: spendingBreakdown.creditCardDues, color: '#D28A35' },
-            { label: 'Cash payments', value: spendingBreakdown.cashPayments, color: '#C98A3C' },
-            { label: 'EMI', value: spendingBreakdown.emi, color: '#5B4B9E' },
-            { label: 'Recurring', value: spendingBreakdown.recurring, color: '#B0556F' },
-            { label: 'SIP', value: spendingBreakdown.sip, color: '#2E8B77' },
-            { label: 'Investment', value: spendingBreakdown.investment, color: 'var(--blue)' },
+            { label: 'Regular', value: spendingBreakdown.regularDebit, color: 'var(--debit)', icon: TXN_TYPES.spend.icon },
+            { label: 'CC spends', value: spendingBreakdown.creditCardSpends, color: '#8E6FB0', icon: TXN_TYPES.cardcharge.icon },
+            { label: 'CC dues', value: spendingBreakdown.creditCardDues, color: '#D28A35', icon: TXN_TYPES.cardcharge.icon },
+            { label: 'Cash', value: spendingBreakdown.cashPayments, color: '#C98A3C', icon: TXN_TYPES.cashpayment.icon },
+            { label: 'EMI', value: spendingBreakdown.emi, color: '#5B4B9E', icon: TXN_TYPES.emi.icon },
+            { label: 'Recurring', value: spendingBreakdown.recurring, color: '#B0556F', icon: TXN_TYPES.recurring.icon },
+            { label: 'SIP', value: spendingBreakdown.sip, color: '#2E8B77', icon: SIP_BREAKDOWN_ICON },
+            { label: 'Investment', value: spendingBreakdown.investment, color: 'var(--blue)', icon: TXN_TYPES.invest.icon },
           ])}
         </div>
 
-        <div class="chart-card" style="min-width: 0; overflow-x: auto;">
+        <div class="chart-card cashflow-overview-card" style="min-width: 0; overflow-x: hidden;">
           <h4>Cashflow Overview</h4>
           <p class="hint" style="margin: 4px 0 12px; font-size: 0.8rem;">Hover over a stack to check amount and subcategory</p>
-          ${barChart([
-            { label: 'Income', segments: incomeSegments.length ? incomeSegments : [{ label: 'Income', value: 0, color: 'var(--credit)' }] },
-            {
-              label: 'Expense',
-              segments: [
-                { label: 'Personal', value: personalExpense, color: 'var(--debit)' },
-                { label: 'Lent (unsettled)', value: lentSegmentValue, color: '#E03131' },
-              ],
-            },
-            ...(emiTotal > 0 ? [{ label: 'EMI', value: emiTotal, color: '#5B4B9E' }] : []),
-            { label: 'Invested', segments: investSegments.length ? investSegments : [{ label: 'Invested', value: 0, color: 'var(--blue)' }] },
-            ...(stats.owed.total > 0 ? [{ label: 'Owed', value: stats.owed.total, color: 'var(--amber)' }] : []),
-          ], { compactValues: true })}
+          <div class="cashflow-chart-switcher">
+            <div class="cashflow-chart cashflow-chart--vertical">${barChart(cashflowPairs, { compactValues: true })}</div>
+            <div class="cashflow-chart cashflow-chart--horizontal">${horizontalBarChart(cashflowPairs, { compactValues: true })}</div>
+          </div>
           ${lentSegmentValue > 0 ? `
           <div class="shared-chart-legend" style="border-top: none; padding-top: 0; margin-top: 0;">
             <div class="shared-chart-legend-item"><span class="shared-chart-legend-dot" style="background:var(--debit);"></span><span>Personal Expense</span></div>
@@ -2476,6 +2503,7 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
     });
     setupScrollWrappers(root);
     setupTableScrollIndicators(root);
+    wireAdaptiveCashflowOverview();
     wireMonthStickyFeedback();
     playPendingMonthFx();
 
