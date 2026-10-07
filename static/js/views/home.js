@@ -159,7 +159,7 @@ async function buildCurrentMonthDashboardMetrics(domain, stats) {
   const pendingCashBreakdown = remainingScheduledRows.reduce((breakdown, row) => {
     const amount = Number(row.amount) || 0;
 
-    if (row.type === 'emi') breakdown.emi += amount;
+    if (row.type === 'emi' && row.paymentMode !== 'card') breakdown.emi += amount;
     if (row.type === 'sip') breakdown.sip += amount;
     if (row.type === 'recurring' && row.paymentMode !== 'card') breakdown.recurring += amount;
 
@@ -522,8 +522,8 @@ async function buildDashboardCards(domain, stats) {
     const previousStatementMonth = addMonths(currentStatementMonth, -1);
 
     const [currentLedger, previousLedger] = await Promise.all([
-      creditCardCycleLedger(card, domain.recurringSeries, currentStatementMonth, today),
-      creditCardCycleLedger(card, domain.recurringSeries, previousStatementMonth, today),
+      creditCardCycleLedger(card, domain.recurringSeries, currentStatementMonth, today, domain.emiSeries),
+      creditCardCycleLedger(card, domain.recurringSeries, previousStatementMonth, today, domain.emiSeries),
     ]);
 
     const outstanding = globalDueByCard.get(card.id) ?? globalDueByCard.get(card.name) ?? 0;

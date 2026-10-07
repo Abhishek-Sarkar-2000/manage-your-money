@@ -440,14 +440,41 @@
 }
 
 /* ---------- EMI Cards ---------- */
-.emi-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  z-index: 1000;
+.emi-pager {
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 20px;
 }
 
+.emi-list {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
 
+.emi-list::-webkit-scrollbar {
+  display: none;
+}
+
+.emi-list > .emi-card {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 100%;
+  box-sizing: border-box;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
 
 .emi-card {
   display: flex;
@@ -471,6 +498,54 @@
   box-shadow: var(--shadow-sm);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   gap: 12px;
+}
+
+.emi-pager-controls {
+  min-height: 30px;
+  margin: 10px 0px -20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.emi-pager-arrow {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--blue);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.12s ease;
+}
+
+.emi-pager-arrow:hover:not(:disabled) {
+  border-color: var(--sky);
+  background: var(--ice);
+}
+
+.emi-pager-arrow:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.emi-pager-arrow:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+
+.emi-pager-status {
+  min-width: 42px;
+  text-align: center;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .emi-card h4 {

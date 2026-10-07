@@ -108,17 +108,116 @@ function syncAllMonthPillSliders() {
   root.querySelectorAll('.month-pill-switch').forEach(wrap => syncMonthPillSlider(wrap, null, false));
 }
 
+function getEmiPagerPages(pager) {
+  return pager ? Array.from(pager.querySelectorAll('[data-emi-pager-page]')) : [];
+}
+
+function syncEmiPagerControls(pager) {
+  const track = pager?.querySelector('[data-emi-pager-track]');
+  const pages = getEmiPagerPages(pager);
+  if (!track || !pages.length) return;
+
+  let currentIndex = 0;
+  let closestDistance = Infinity;
+
+  pages.forEach((page, index) => {
+    const distance = Math.abs(page.offsetLeft - track.scrollLeft);
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      currentIndex = index;
+    }
+  });
+
+  pager.dataset.emiPagerIndex = String(currentIndex);
+
+  const prevBtn = pager.querySelector('[data-emi-page-dir="-1"]');
+  const nextBtn = pager.querySelector('[data-emi-page-dir="1"]');
+  const currentLabel = pager.querySelector('[data-emi-page-current]');
+
+  if (prevBtn) prevBtn.disabled = currentIndex <= 0;
+  if (nextBtn) nextBtn.disabled = currentIndex >= pages.length - 1;
+  if (currentLabel) currentLabel.textContent = String(currentIndex + 1);
+}
+
+function scrollEmiPagerTo(pager, requestedIndex, behavior = monthScrollBehavior()) {
+  const track = pager?.querySelector('[data-emi-pager-track]');
+  const pages = getEmiPagerPages(pager);
+  if (!track || !pages.length) return;
+
+  const nextIndex = Math.max(0, Math.min(pages.length - 1, Number(requestedIndex) || 0));
+  pager.dataset.emiPagerIndex = String(nextIndex);
+  pager.dataset.emiPagerTarget = String(nextIndex);
+
+  const prevBtn = pager.querySelector('[data-emi-page-dir="-1"]');
+  const nextBtn = pager.querySelector('[data-emi-page-dir="1"]');
+  const currentLabel = pager.querySelector('[data-emi-page-current]');
+
+  if (prevBtn) prevBtn.disabled = nextIndex <= 0;
+  if (nextBtn) nextBtn.disabled = nextIndex >= pages.length - 1;
+  if (currentLabel) currentLabel.textContent = String(nextIndex + 1);
+
+  track.scrollTo({ left: pages[nextIndex].offsetLeft, behavior });
+
+  if (behavior === 'auto') {
+    delete pager.dataset.emiPagerTarget;
+    syncEmiPagerControls(pager);
+  }
+}
+
+function wireEmiPager() {
+  root.querySelectorAll('[data-emi-pager]').forEach(pager => {
+    const track = pager.querySelector('[data-emi-pager-track]');
+    if (!track) return;
+
+    let settleTimer = 0;
+
+    const commitPagerPosition = () => {
+      window.clearTimeout(settleTimer);
+      delete pager.dataset.emiPagerTarget;
+      syncEmiPagerControls(pager);
+    };
+
+    track.addEventListener('scroll', () => {
+      window.clearTimeout(settleTimer);
+
+      if (pager.dataset.emiPagerTarget !== undefined) {
+        settleTimer = window.setTimeout(commitPagerPosition, 140);
+        return;
+      }
+
+      settleTimer = window.setTimeout(() => {
+        syncEmiPagerControls(pager);
+      }, 140);
+    }, { passive: true });
+
+    if ('onscrollend' in track) {
+      track.addEventListener('scrollend', commitPagerPosition);
+    }
+
+    syncEmiPagerControls(pager);
+  });
+}
+
 function queueMonthFx(selector, kind = 'update') {
   pendingMonthFx.push({ selector, kind });
 }
 
 function playPendingMonthFx() {
   const effects = pendingMonthFx.splice(0);
-  if (!effects.length || monthReducedMotion.matches) return;
+  if (!effects.length) return;
 
   for (const { selector, kind } of effects) {
     const target = root.querySelector(selector);
     if (!target) continue;
+
+    if (target.matches('.emi-card')) {
+      const pager = target.closest('[data-emi-pager]');
+      const pages = getEmiPagerPages(pager);
+      const pageIndex = pages.indexOf(target);
+      if (pager && pageIndex >= 0) scrollEmiPagerTo(pager, pageIndex, 'auto');
+    }
+
+    if (monthReducedMotion.matches) continue;
 
     const className = target.matches('tr')
       ? (kind === 'add' ? 'month-row-fx-add' : 'month-row-fx-update')
@@ -618,14 +717,21 @@ function renderRow(e, key, rowspan = 1, isFirstDateRow = true) {
     </tr>`;
   }
   if (e.type === 'emi') {
+    const isCardEmi = e.paymentMode === 'card';
+    const paymentCard = isCardEmi ? cardById(cards, e.cardId) : null;
+    const paymentLabel = isCardEmi ? (paymentCard ? paymentCard.name : 'Credit Card') : 'Bank Transfer';
+
     return `<tr>
       ${dateCell}
-      <td class="type-cell"><span class="tag emi">EMI</span></td>
+      <td class="type-cell">
+        <span class="tag emi">EMI</span>
+        <div style="margin-top: 6px;"><span class="tag ${isCardEmi ? 'cardcharge' : 'spend'}">${isCardEmi ? 'CC spend' : 'Spend'}</span></div>
+      </td>
       <td class="desc-cell">
         <strong>${escapeHtml(e.description)}</strong>${e.tag && e.tag !== 'EMI' ? ` <span class="src-badge">${escapeHtml(e.tag)}</span>` : ''}
-        <div class="subnote">Instalment ${e.installment}/${e.totalMonths}</div>
+        <div class="subnote">Instalment ${e.installment}/${e.totalMonths} · ${escapeHtml(paymentLabel)}</div>
       </td>
-      <td class="num amt-debit">-${fmtINR(e.amount)}</td>
+      <td class="num ${isCardEmi ? 'amt-neutral' : 'amt-debit'}">${isCardEmi ? '' : '-'}${fmtINR(e.amount)}</td>
       <td class="actions-cell"></td>
     </tr>`;
   }
@@ -1247,6 +1353,11 @@ function renderForm(kind) {
     return `
     <div class="form-panel">
       <div class="form-note">Select when the EMI started. It auto-carries forward each month until the specified duration is reached.</div>
+      <div class="pill-grid month-recurring-mode-switch month-pill-switch" id="f-emi-mode-selector" style="margin-bottom: 12px;">
+        <span class="month-pill-slider" aria-hidden="true"></span>
+        <button class="pill-btn sub-pill active" data-emi-mode="bank" type="button" aria-pressed="true">Bank Transfer</button>
+        <button class="pill-btn sub-pill" data-emi-mode="card" type="button" aria-pressed="false" ${cards.length ? '' : 'disabled'}>Credit Card</button>
+      </div>
       <div class="form-row">
         <div class="field"><label>Description</label><input id="f-desc" type="text" placeholder="e.g. Laptop EMI" /></div>
         <div class="field"><label>Monthly deductible (₹)</label><input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00" /></div>
@@ -1257,6 +1368,16 @@ function renderForm(kind) {
         <div class="field"><label>Date of deduction</label><input id="f-emi-day" type="number" step="1" min="1" max="31" placeholder="e.g. 5" /></div>
         <div id="f-tag-row" style="display:contents;">
           ${renderTagField()}
+        </div>
+      </div>
+      <div class="month-mode-field-wrap" id="f-emi-card-row" aria-hidden="true">
+        <div class="month-mode-field-inner">
+          <div class="form-row">
+            <div class="field">
+              <label>Card</label>
+              <select id="f-emi-card">${cardOptions || '<option value="">No cards added</option>'}</select>
+            </div>
+          </div>
         </div>
       </div>
       <div class="form-actions">
@@ -1736,7 +1857,7 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
 
       pendingCashBreakdown: {
         emi: remainingScheduledRows
-          .filter(row => row.type === 'emi')
+          .filter(row => row.type === 'emi' && row.paymentMode !== 'card')
           .reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
 
         sip: remainingScheduledRows
@@ -2028,18 +2149,23 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
       ${tableHeaderHtml}
     </div>`;
 
-    const emiCardsHtml = emiRows.length ? `<div class="emi-list" style="margin-bottom: 20px;">` + emiRows.map(e => {
+    const emiCardsHtml = emiRows.length ? `<div class="emi-pager" data-emi-pager data-emi-pager-index="0"><div class="emi-list" data-emi-pager-track>` + emiRows.map((e, emiIndex) => {
       const totalBill = e.amount * e.totalMonths;
       const totalPaid = e.amount * e.installment;
       const left = e.totalMonths - e.installment;
       const pct = totalBill > 0 ? Math.min(100, (totalPaid / totalBill) * 100) : 0;
       const dayNum = e.dayOfMonth || 1;
+      const paymentCard = e.paymentMode === 'card' ? cardById(cards, e.cardId) : null;
+      const paymentText = e.paymentMode === 'card' ? `Credit Card · ${paymentCard ? paymentCard.name : 'Removed card'}` : 'Bank Transfer';
       return `
-      <div class="emi-card" data-emi-series-id="${escapeHtml(String(e.seriesId))}">
+      <div class="emi-card" data-emi-series-id="${escapeHtml(String(e.seriesId))}" data-emi-pager-page="${emiIndex}">
         <div style="flex: 1; min-width: 0;">
           <h4><span class="tag emi">EMI</span> ${escapeHtml(e.description)}</h4>
           <div class="emi-stats" style="margin-bottom: 6px;">
             Paid ${fmtINR(totalPaid)} of ${fmtINR(totalBill)}
+          </div>
+          <div class="emi-stats" style="margin-bottom: 6px;">
+            Payment: <strong>${escapeHtml(paymentText)}</strong>
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
             <div style="flex: 1; height: 4px; background: var(--hair); border-radius: 2px; overflow: hidden; position: relative;">
@@ -2054,10 +2180,21 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
         </div>
         <div style="display: flex; align-items: center; gap: 16px; align-self: flex-start;">
           <div class="num amt-debit recurring-card">-${fmtINR(e.amount)}</div>
-          <button class="icon-btn" data-popover-trigger data-del-emi-series="${e.seriesId}" title="Delete EMI series entirely">✕</button>
+          <button class="icon-btn" data-popover-trigger data-del-emi-series="${e.seriesId}" title="Delete EMI series entirely" aria-label="Delete EMI series">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
         </div>
       </div>`;
-    }).join('') + `</div>` : '';
+    }).join('') + `</div>${emiRows.length > 1 ? `
+      <div class="emi-pager-controls" aria-label="EMI navigation">
+        <button class="emi-pager-arrow" type="button" data-emi-page-dir="-1" aria-label="Previous EMI" disabled>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+        </button>
+        <span class="emi-pager-status" aria-live="polite"><span data-emi-page-current>1</span> / ${emiRows.length}</span>
+        <button class="emi-pager-arrow" type="button" data-emi-page-dir="1" aria-label="Next EMI">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+        </button>
+      </div>` : ''}</div>` : '';
 
     let sipCardsHtml = '';
     let sipFilterHtml = '';
@@ -2430,8 +2567,6 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
         </span>
       </div>
 
-      ${emiCardsHtml}
-
     <div class="transactions-container">
       ${tableControlsHtml}
 
@@ -2475,6 +2610,14 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
       </div>
     </div>
   </div>
+  ${emiRows.length ? `
+    <div class="section month-load-stage month-load-stage--secondary">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px;">
+        <h2 style="min-width: 0; margin: 0;">EMIs</h2>
+      </div>
+      <span class="hint" style="display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 12px;">${emiRows.length} active this month</span>
+      ${emiCardsHtml}
+    </div>` : ''}
   ${sipRows.length ? `
     <div class="section month-load-stage month-load-stage--secondary">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 10px;">
@@ -2503,6 +2646,7 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
     });
     setupScrollWrappers(root);
     setupTableScrollIndicators(root);
+    wireEmiPager();
     wireAdaptiveCashflowOverview();
     wireMonthStickyFeedback();
     playPendingMonthFx();
@@ -2743,10 +2887,20 @@ async function handleSubmit(kind) {
     const startMonth = $('#f-emi-start')?.value || monthKey;
     const dayOfMonth = Number($('#f-emi-day')?.value);
     if (!desc || !amount || amount <= 0 || !months || months < 1 || !dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) { showToast('Fill in description, amount, number of months, and a valid date (1-31)'); return; }
+
+    const modeBtn = root.querySelector('#f-emi-mode-selector [data-emi-mode].active');
+    const paymentMode = modeBtn?.dataset.emiMode || 'bank';
+    let cardId = null;
+
+    if (paymentMode === 'card') {
+      cardId = $('#f-emi-card')?.value || null;
+      if (!cardId || !cardById(cards, cardId)) { showToast('Select a credit card'); return; }
+    }
+
     const elapsed = diffMonths(startMonth, currentMonthKey());
     if (elapsed >= months) { showToast('Invalid: EMI is already complete based on the starting month.'); return; }
     const tag = await resolveTagFromForm();
-    emiSeries.push({ id: uid(), description: desc, monthlyAmount: amount, totalMonths: months, startMonth, dayOfMonth, tag });
+    emiSeries.push({ id: uid(), description: desc, monthlyAmount: amount, totalMonths: months, startMonth, dayOfMonth, tag, paymentMode, cardId });
     await Store.set('emiseries', emiSeries);
     invalidateAllMonthDerivedCaches();
     monthChanged = false;
@@ -2830,6 +2984,17 @@ function distributeLentShares(amount) {
 
 /* ---------- Event wiring ---------- */
 root.addEventListener('click', async (ev) => {
+  const emiPagerBtn = ev.target.closest('[data-emi-page-dir]');
+  if (emiPagerBtn) {
+    const pager = emiPagerBtn.closest('[data-emi-pager]');
+    if (!pager) return;
+
+    const currentIndex = Number(pager.dataset.emiPagerIndex) || 0;
+    const direction = Number(emiPagerBtn.dataset.emiPageDir) || 0;
+    scrollEmiPagerTo(pager, currentIndex + direction);
+    return;
+  }
+
   const viewBudgetBtn = ev.target.closest('[data-view-budget]');
   if (viewBudgetBtn) {
       const tagName = viewBudgetBtn.dataset.viewBudget;
@@ -3031,6 +3196,32 @@ root.addEventListener('click', async (ev) => {
     return;
   }
 
+  const emiModeBtn = ev.target.closest('[data-emi-mode]');
+  if (emiModeBtn) {
+    if (emiModeBtn.disabled) return;
+    const wrap = emiModeBtn.closest('#f-emi-mode-selector');
+    if (!wrap) return;
+
+    const modeButtons = Array.from(wrap.querySelectorAll('[data-emi-mode]'));
+    modeButtons.forEach(button => {
+      const active = button === emiModeBtn;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+
+    syncMonthPillSlider(wrap, emiModeBtn);
+
+    const mode = emiModeBtn.dataset.emiMode;
+    const cardRow = $('#f-emi-card-row');
+
+    if (cardRow) {
+      cardRow.classList.toggle('expanded', mode === 'card');
+      cardRow.setAttribute('aria-hidden', String(mode !== 'card'));
+    }
+
+    return;
+  }
+
   const recurringModeBtn = ev.target.closest('[data-recurring-mode]');
   if (recurringModeBtn) {
     if (recurringModeBtn.disabled) return;
@@ -3082,6 +3273,32 @@ root.addEventListener('click', async (ev) => {
       return;
     }
     
+    if (oldForm && expenseSubTypes.includes(oldForm) && isExpenseSubForm) {
+      const oldIndex = expenseSubTypes.indexOf(oldForm);
+      const newIndex = expenseSubTypes.indexOf(newForm);
+      const movingRight = newIndex > oldIndex;
+      const oldInner = $('#form-panel-anim-inner .form-panel-inner');
+
+      if (oldInner && !monthReducedMotion.matches) {
+        oldInner.classList.add(movingRight ? 'slide-out-left' : 'slide-out-right');
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      openForm = newForm;
+      await renderMonth({ reuseGlobalStats: true });
+
+      const newInner = $('#form-panel-anim-inner .form-panel-inner');
+      if (newInner && !monthReducedMotion.matches) {
+        newInner.classList.add(movingRight ? 'slide-in-right' : 'slide-in-left');
+        newInner.addEventListener('animationend', () => {
+          newInner.classList.remove('slide-in-right', 'slide-in-left');
+        }, { once: true });
+      }
+
+      setTimeout(() => $('#form-panel-anim-inner')?.scrollIntoView({ behavior: monthScrollBehavior(), block: 'center' }), 100);
+      return;
+    }
+
     if (oldForm || (wasExpenseMenuOpen && !isExpenseSubForm)) {
       openForm = newForm;
       await renderMonth({ reuseGlobalStats: true });

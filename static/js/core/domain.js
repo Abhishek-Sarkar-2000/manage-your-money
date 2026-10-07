@@ -196,7 +196,8 @@ export function emiRowsForMonth(emiSeries, monthKey, deletedEmi) {
         id: 'emi-' + series.id + '-' + monthKey, type: 'emi', date: dateStr,
         description: series.description, amount: series.monthlyAmount,
         seriesId: series.id, installment: inst, totalMonths: series.totalMonths,
-        dayOfMonth: targetDay, tag: series.tag || 'EMI'
+        dayOfMonth: targetDay, tag: series.tag || 'EMI',
+        paymentMode: series.paymentMode || 'bank', cardId: series.cardId || null
       });
     }
   }
@@ -388,7 +389,7 @@ export function creditCardBillingWindow(card, statementMonthKey) {
   };
 }
 
-export async function creditCardCycleLedger(card, recurringSeries, statementMonthKey, asOfDate = todayStr()) {
+export async function creditCardCycleLedger(card, recurringSeries, statementMonthKey, asOfDate = todayStr(), emiSeries = []) {
   if (!card?.id || !statementMonthKey) return null;
 
   const window = creditCardBillingWindow(card, statementMonthKey);
@@ -408,29 +409,33 @@ export async function creditCardCycleLedger(card, recurringSeries, statementMont
       data.deletedRecurring,
       data.recurringOverrides
     );
+    const emiRows = emiRowsForMonth(emiSeries || [], monthKey, data.deletedEmi);
 
-    for (const entry of [...(data.entries || []), ...recurringRows]) {
+    for (const entry of [...(data.entries || []), ...recurringRows, ...emiRows]) {
       if (!entry.date || entry.date < window.cycleStart || entry.date > effectiveEnd) continue;
       if (entry.cardId !== card.id) continue;
 
       const isCardCharge = entry.type === 'cardcharge';
       const isCardRecurring = entry.type === 'recurring' && entry.paymentMode === 'card';
-      if (!isCardCharge && !isCardRecurring) continue;
+      const isCardEmi = entry.type === 'emi' && entry.paymentMode === 'card';
+      if (!isCardCharge && !isCardRecurring && !isCardEmi) continue;
 
       transactions.push({
         id: entry.id,
         date: entry.date,
-        description: entry.description || (isCardRecurring ? 'Recurring card payment' : 'Card charge'),
+        description: entry.description || (isCardEmi ? 'EMI' : (isCardRecurring ? 'Recurring card payment' : 'Card charge')),
         amount: Number(entry.amount) || 0,
-        type: isCardRecurring ? 'recurring' : 'cardcharge',
-        sourceLabel: isCardRecurring ? 'Recurring' : 'Card charge',
+        type: isCardEmi ? 'emi' : (isCardRecurring ? 'recurring' : 'cardcharge'),
+        sourceLabel: isCardEmi ? 'EMI' : (isCardRecurring ? 'Recurring' : 'Card charge'),
         tag: entry.tag || entry.category || '',
+        installment: isCardEmi ? entry.installment : null,
+        totalMonths: isCardEmi ? entry.totalMonths : null,
       });
     }
   }));
 
   transactions.sort((a, b) => {
-    const dateCompare = String(a.date).localeCompare(String(b.date));
+    const dateCompare = String(b.date).localeCompare(String(a.date));
     return dateCompare || String(a.description).localeCompare(String(b.description));
   });
 
@@ -457,7 +462,8 @@ export async function computeCreditCardDueBudget(
   cards,
   recurringSeries,
   budgetMonthKey,
-  asOfDate = todayStr()
+  asOfDate = todayStr(),
+  emiSeries = []
 ) {
   const cardList = Array.isArray(cards) ? cards : [];
 
@@ -499,10 +505,12 @@ export async function computeCreditCardDueBudget(
       data.deletedRecurring,
       data.recurringOverrides
     );
+    const emiRows = emiRowsForMonth(emiSeries || [], monthKey, data.deletedEmi);
 
     rowsByMonth.set(monthKey, [
       ...(data.entries || []),
       ...recurringRows,
+      ...emiRows,
     ]);
   }));
 
@@ -561,6 +569,10 @@ export async function computeCreditCardDueBudget(
           entry.type === 'recurring' &&
           entry.paymentMode === 'card';
 
+        const isCardEmi =
+          entry.type === 'emi' &&
+          entry.paymentMode === 'card';
+
         const isCcDuePayment =
           entry.type === 'spend' &&
           String(entry.tag || '')
@@ -580,7 +592,7 @@ export async function computeCreditCardDueBudget(
           continue;
         }
 
-        if (!isCardCharge && !isCardRecurring) {
+        if (!isCardCharge && !isCardRecurring && !isCardEmi) {
           continue;
         }
 
@@ -829,7 +841,7 @@ export function computeSpendingBreakdown(entries) {
 }
 
 export function computeMonthTotals(entries) {
-  let income = 0, cashSpend = 0, cardPaymentSpend = 0, cardCharge = 0, payback = 0, recurringCash = 0;
+  let income = 0, cashSpend = 0, cardPaymentSpend = 0, cardCharge = 0, payback = 0, recurringCash = 0, emiCash = 0;
   let others = 0, goalFunding = 0;
 
   for (const e of entries) {
@@ -842,8 +854,12 @@ export function computeMonthTotals(entries) {
       else cashSpend += amt;
     } else if (e.type === 'cardcharge') {
       cardCharge += amt;
-    } else if (e.type === 'investment' || e.type === 'emi' || e.type === 'sip') {
+    } else if (e.type === 'investment' || e.type === 'sip') {
       others += amt;
+    } else if (e.type === 'emi') {
+      others += amt;
+      if (e.paymentMode === 'card') cardCharge += amt;
+      else emiCash += amt;
     } else if (e.type === 'recurring') {
       others += amt;
       if (e.paymentMode === 'card') cardCharge += amt;
@@ -873,7 +889,7 @@ export function computeMonthTotals(entries) {
   const totalConsumption = regularDebit + cashPayments + ccSpends + emi + recurring;
 
   return {
-    income, cashSpend, cardPaymentSpend, cardCharge, invest, emi, sip, payback, recurring, recurringCash,
+    income, cashSpend, cardPaymentSpend, cardCharge, invest, emi, emiCash, sip, payback, recurring, recurringCash,
     regularDebit, cashPayments, ccSpends, creditCardDues, others, totalConsumption, goalFunding,
     spendingTotal: spending.total,
   };
@@ -881,7 +897,8 @@ export function computeMonthTotals(entries) {
 
 export function monthCashOutflow(totals) {
   const recCash = totals.recurringCash !== undefined ? totals.recurringCash : totals.recurring;
-  return totals.cashSpend + totals.cardPaymentSpend + totals.emi + totals.invest + totals.sip + recCash;
+  const emiCash = totals.emiCash !== undefined ? totals.emiCash : totals.emi;
+  return totals.cashSpend + totals.cardPaymentSpend + emiCash + totals.invest + totals.sip + recCash;
 }
 
 /* Chronological per-month running balance, honouring each month's carry/manual mode. */
@@ -935,6 +952,7 @@ export async function computeDailyBalanceSeries(monthsIndex, emiSeries, sipSerie
     for (const e of relevant) {
       if (!e.date) continue;
       if (e.type === 'recurring' && e.paymentMode === 'card') continue;
+      if (e.type === 'emi' && e.paymentMode === 'card') continue;
 
       const amt = Number(e.amount) || 0;
       const signed = (e.type === 'income' || e.type === 'payback') ? amt : -amt;
@@ -1175,7 +1193,7 @@ export async function computeGlobalStats({ cards, emiSeries, sipSeries, recurrin
         }
       }
 
-      for (const entry of recurringRows) {
+      for (const entry of [...recurringRows, ...emiRows]) {
         if (entry.paymentMode === 'card' && entry.cardId) {
           cardDeltas[entry.cardId] = (cardDeltas[entry.cardId] || 0) + (Number(entry.amount) || 0);
         }

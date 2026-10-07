@@ -342,7 +342,7 @@ export function lineChart(
       e =>
         e.type === 'income' ||
         e.type === 'investment' ||
-        e.type === 'emi' ||
+        (e.type === 'emi' && e.paymentMode !== 'card') ||
         e.type === 'sip' ||
         (e.type === 'spend' &&
           e.paymentMode !== 'card') ||

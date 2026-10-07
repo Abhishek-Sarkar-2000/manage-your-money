@@ -16,6 +16,7 @@ import { markRendered } from '../components/render-guard.js';
 const root = document.getElementById('cards-root');
 let cards = [];
 let recurringSeries = [];
+let emiSeries = [];
 let domainLoaded = false;
 let editingCardId = null;
 let selectedCardId = null;
@@ -63,7 +64,7 @@ async function loadSelectedCardLedger() {
 
   const currentStatementMonth = creditCardCurrentStatementMonthKey(selectedCard);
   const statementMonth = selectedCycleView === 'last' ? addMonths(currentStatementMonth, -1) : currentStatementMonth;
-  const ledger = await creditCardCycleLedger(selectedCard, recurringSeries, statementMonth);
+  const ledger = await creditCardCycleLedger(selectedCard, recurringSeries, statementMonth, undefined, emiSeries);
 
   return { selectedCard, ledger };
 }
@@ -172,6 +173,7 @@ function renderCardStatementExplorer(selectedCard, ledger) {
       <td class="cc-ledger-date">${formatCardDate(entry.date)}</td>
       <td>
         <div class="cc-ledger-description">${escapeHtml(entry.description)}</div>
+        ${entry.type === 'emi' ? `<div class="cc-ledger-tag" style="font-family: 'IBM Plex Mono', monospace;">EMI${entry.installment && entry.totalMonths ? ` - ${entry.installment}/${entry.totalMonths}` : ''}</div>` : ''}
         ${entry.tag ? `<div class="cc-ledger-tag">${escapeHtml(entry.tag)}</div>` : ''}
       </td>
       <td class="cc-ledger-amount">${fmtINR(entry.amount)}</td>
@@ -293,10 +295,10 @@ async function renderCards() {
   // Fetched once; add/delete mutate `cards` in memory and persist it, so
   // later re-renders reuse the in-memory array instead of refetching.
   if (!domainLoaded) {
-    const records = await Store.bulkGet(['creditcards', 'recurringseries'], {});
+    const records = await Store.bulkGet(['creditcards', 'recurringseries', 'emiseries'], {});
     cards = records.creditcards || [];
     recurringSeries = records.recurringseries || [];
-
+    emiSeries = records.emiseries || [];
     let migrated = false;
     cards = cards.map(card => {
       const rawDueDay = Number(card.dueDay);

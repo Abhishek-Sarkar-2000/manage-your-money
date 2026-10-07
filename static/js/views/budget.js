@@ -1234,9 +1234,9 @@ async function loadBudgetContext() {
   forecastMemo.clear();
 
   const [ccDueSnapshot, nextCcDueSnapshot] = await Promise.all([
-    computeCreditCardDueBudget(cards, recurringSeries, currentKey),
+    computeCreditCardDueBudget(cards, recurringSeries, currentKey, undefined, emiSeries),
     currentKey === currentMonthKey()
-      ? computeCreditCardDueBudget(cards, recurringSeries, addMonths(currentKey, 1))
+      ? computeCreditCardDueBudget(cards, recurringSeries, addMonths(currentKey, 1), undefined, emiSeries)
       : Promise.resolve(null),
   ]);
   currentCcDueSnapshot = nextCcDueSnapshot;
