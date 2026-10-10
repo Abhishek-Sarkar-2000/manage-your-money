@@ -6,6 +6,13 @@ export function fmtINR(n) {
   return (neg ? '-' : '') + '₹' + v;
 }
 
+export function fmtINRUnit(n) {
+  n = Number(n) || 0;
+  const neg = n < 0;
+  const v = Math.abs(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
+  return (neg ? '-' : '') + '₹' + v;
+}
+
 export function fmtINRShort(n) {
   n = Number(n) || 0;
   const neg = n < 0;

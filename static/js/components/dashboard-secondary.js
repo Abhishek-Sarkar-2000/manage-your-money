@@ -1,5 +1,5 @@
 import { escapeHtml } from '../core/dom.js';
-import { fmtINR, monthKeyLabel } from '../core/format.js';
+import { fmtINR, fmtINRUnit, monthKeyLabel } from '../core/format.js';
 
 function dashboardPageSlices(items, pageSize, maxPages = Infinity) {
   const source = Array.isArray(items) ? items : [];
@@ -493,7 +493,7 @@ export function renderDashboardPrices(snapshot, perPage = 4, maxPages = 3) {
           </span>
 
           <span class="dashboard-price-value">
-            <strong>${fmtINR(item.latestPrice)}</strong>
+            <strong>${item.unit ? fmtINRUnit(item.latestPrice) : fmtINR(item.latestPrice)}${item.unit ? `/${escapeHtml(item.unit)}` : ''}</strong>
             ${movement}
           </span>
         </a>

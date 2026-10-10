@@ -1314,6 +1314,182 @@ export function allSpendTags(defaultTags, customTags) {
   return out;
 }
 
+function normalizePriceTrackerMetaValue(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+export function parsePriceTrackerQuantity(rawQuantity, category = '') {
+  const quantity = String(rawQuantity ?? '').trim();
+  if (!quantity) return null;
+
+  const match = quantity.replace(/,/g, '').match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?$/);
+  if (!match) return null;
+
+  const amount = Number(match[1]);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+
+  const token = String(match[2] || '').toLowerCase().replace(/\./g, '');
+  const catLower = String(category || '').trim().toLowerCase();
+
+  const kgUnits = ['kg', 'kgs', 'kilogram', 'kilograms'];
+  const gramUnits = ['g', 'gm', 'gms', 'gram', 'grams'];
+  const litreUnits = ['l', 'ltr', 'ltrs', 'liter', 'liters', 'litre', 'litres'];
+  const mlUnits = ['ml', 'milliliter', 'milliliters', 'millilitre', 'millilitres'];
+  const pieceUnits = ['pc', 'pcs', 'piece', 'pieces', 'ea', 'each', 'unit', 'units', 'no', 'nos', 'egg', 'eggs'];
+
+  if (catLower === 'fuel') {
+    if (!token || litreUnits.includes(token)) return { baseQuantity: amount, unit: 'L', quantity };
+    if (mlUnits.includes(token)) return { baseQuantity: amount / 1000, unit: 'L', quantity };
+    return null;
+  }
+
+  if (kgUnits.includes(token)) return { baseQuantity: amount * 1000, unit: 'g', quantity };
+  if (gramUnits.includes(token)) return { baseQuantity: amount, unit: 'g', quantity };
+  if (litreUnits.includes(token)) return { baseQuantity: amount * 1000, unit: 'ml', quantity };
+  if (mlUnits.includes(token)) return { baseQuantity: amount, unit: 'ml', quantity };
+  if (token === 'dozen' || token === 'dozens' || token === 'dz') return { baseQuantity: amount * 12, unit: 'apiece', quantity };
+  if (!token || pieceUnits.includes(token)) return { baseQuantity: amount, unit: 'apiece', quantity };
+
+  return null;
+}
+
+export function normalizePriceTrackerPoint(category, totalPrice, rawQuantity = '') {
+  const price = Number(totalPrice);
+  if (!Number.isFinite(price) || price < 0) return null;
+
+  const catLower = String(category || '').trim().toLowerCase();
+  const usesUnitPrice = catLower === 'groceries' || catLower === 'fuel';
+
+  if (!usesUnitPrice) {
+    return { price, rawPrice: price, quantity: '', unit: '' };
+  }
+
+  const parsed = parsePriceTrackerQuantity(rawQuantity, category);
+  if (!parsed || !parsed.baseQuantity) return null;
+
+  return {
+    price: Number((price / parsed.baseQuantity).toFixed(6)),
+    rawPrice: price,
+    quantity: parsed.quantity,
+    unit: parsed.unit,
+  };
+}
+
+export function priceTrackerItemMeta(category, meta = null) {
+  const catLower = String(category || '').trim().toLowerCase();
+  const clean = meta && typeof meta === 'object' ? { ...meta } : {};
+
+  if (catLower === 'groceries') {
+    delete clean.quantity;
+  }
+
+  if (catLower === 'fuel') {
+    delete clean.quantity;
+    delete clean.location;
+  }
+
+  Object.keys(clean).forEach(key => {
+    if (String(clean[key] ?? '').trim() === '') delete clean[key];
+  });
+
+  return Object.keys(clean).length ? clean : null;
+}
+
+export function priceTrackerItemsMatch(item, name, category, meta = null, unit = '') {
+  if (!item) return false;
+
+  const itemName = normalizePriceTrackerMetaValue(item.name);
+  const targetName = normalizePriceTrackerMetaValue(name);
+  const itemCategory = normalizePriceTrackerMetaValue(item.category);
+  const targetCategory = normalizePriceTrackerMetaValue(category);
+
+  if (itemName !== targetName || itemCategory !== targetCategory) return false;
+
+  const itemMeta = priceTrackerItemMeta(item.category, item.meta) || {};
+  const targetMeta = priceTrackerItemMeta(category, meta) || {};
+  const itemUnit = String(item.unit || '').trim();
+
+  if (targetCategory === 'groceries') {
+    return !unit || !itemUnit || itemUnit === unit;
+  }
+
+  if (targetCategory === 'fuel') {
+    return !unit || !itemUnit || itemUnit === unit;
+  }
+
+  return normalizePriceTrackerMetaValue(itemMeta.source) === normalizePriceTrackerMetaValue(targetMeta.source) &&
+         normalizePriceTrackerMetaValue(itemMeta.destination) === normalizePriceTrackerMetaValue(targetMeta.destination) &&
+         normalizePriceTrackerMetaValue(itemMeta.quantity) === normalizePriceTrackerMetaValue(targetMeta.quantity) &&
+         normalizePriceTrackerMetaValue(itemMeta.location) === normalizePriceTrackerMetaValue(targetMeta.location);
+}
+
+export function migratePriceTrackerItems(items) {
+  const migrated = [];
+  let changed = false;
+
+  for (const rawItem of Array.isArray(items) ? items : []) {
+    const category = String(rawItem?.category || '');
+    const catLower = category.trim().toLowerCase();
+    const usesUnitPrice = catLower === 'groceries' || catLower === 'fuel';
+
+    if (!usesUnitPrice) {
+      migrated.push(rawItem);
+      continue;
+    }
+
+    const legacyQuantity = rawItem?.meta?.quantity || '';
+    const legacyFuelLocation = catLower === 'fuel' ? String(rawItem?.meta?.location || '').trim() : '';
+    const cleanMeta = priceTrackerItemMeta(category, rawItem?.meta);
+    let unit = String(rawItem?.unit || '').trim();
+
+    const history = (rawItem?.history || []).map(point => {
+      let migratedPoint = point;
+
+      if (point?.unit) {
+        if (!unit) unit = point.unit;
+      } else if (legacyQuantity) {
+        const normalized = normalizePriceTrackerPoint(category, point?.price, legacyQuantity);
+
+        if (normalized && (!unit || normalized.unit === unit)) {
+          if (!unit) unit = normalized.unit;
+          migratedPoint = { ...point, ...normalized };
+          changed = true;
+        }
+      }
+
+      if (legacyFuelLocation) {
+        const currentNote = String(migratedPoint?.note || '').trim();
+        const alreadyHasLocation = currentNote.toLowerCase().includes(legacyFuelLocation.toLowerCase());
+
+        if (!alreadyHasLocation) {
+          migratedPoint = { ...migratedPoint, note: currentNote ? `${legacyFuelLocation} - ${currentNote}` : legacyFuelLocation };
+          changed = true;
+        }
+      }
+
+      return migratedPoint;
+    });
+
+    const candidate = { ...rawItem, meta: cleanMeta, history };
+    if (unit) candidate.unit = unit;
+    else delete candidate.unit;
+
+    if (JSON.stringify(rawItem?.meta || null) !== JSON.stringify(cleanMeta)) changed = true;
+
+    const existing = migrated.find(item => priceTrackerItemsMatch(item, candidate.name, category, cleanMeta, unit));
+
+    if (existing) {
+      existing.history = [...(existing.history || []), ...history];
+      if (!existing.unit && unit) existing.unit = unit;
+      changed = true;
+    } else {
+      migrated.push(candidate);
+    }
+  }
+
+  return { items: migrated, changed };
+}
+
 export function forecastCategorySpend(categoryName, isSub, parentName, budget, monthKey, currentMonthEntries) {
   if (budget <= 0 || !currentMonthEntries) return null;
   

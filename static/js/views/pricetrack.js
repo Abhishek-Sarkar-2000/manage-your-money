@@ -1,9 +1,9 @@
 /* ---------- /pricetrack ---------- */
 import { Store } from '../core/store.js';
 import { $, uid, escapeHtml } from '../core/dom.js';
-import { fmtINR } from '../core/format.js';
+import { fmtINR, fmtINRUnit } from '../core/format.js';
 import { authReady } from '../core/auth.js';
-import { allSpendTags } from '../core/domain.js';
+import { allSpendTags, migratePriceTrackerItems, normalizePriceTrackerPoint, priceTrackerItemMeta, priceTrackerItemsMatch } from '../core/domain.js';
 import { priceLineChart, wireChartTooltips } from '../components/charts/line-chart.js';
 import { scrollWrapper, setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
@@ -104,9 +104,28 @@ function animatePriceRemoval(element, className, duration = 180) {
 async function loadDomain() {
   if (domainLoaded) return;
   const records = await Store.bulkGet(['price-items', 'price-track-dict', 'custom-spend-tags'], {});
-  priceItems = records['price-items'] || [];
+  const priceTrackerMigration = migratePriceTrackerItems(records['price-items'] || []);
+  priceItems = priceTrackerMigration.items;
   priceTrackDictionary = records['price-track-dict'] || {};
   customTags = records['custom-spend-tags'] || [];
+
+  if (priceTrackerMigration.changed) {
+    await Store.set('price-items', priceItems);
+  }
+
+  let dictionaryChanged = false;
+  Object.keys(priceTrackDictionary).forEach(name => {
+    const config = priceTrackDictionary[name] || {};
+    const cleanMeta = priceTrackerItemMeta(config.category, config.meta);
+    if (JSON.stringify(config.meta || null) !== JSON.stringify(cleanMeta)) {
+      priceTrackDictionary[name] = { ...config, meta: cleanMeta };
+      dictionaryChanged = true;
+    }
+  });
+
+  if (dictionaryChanged) {
+    await Store.set('price-track-dict', priceTrackDictionary);
+  }
 
   const requestedItemId = new URLSearchParams(window.location.search).get('item');
   if (requestedItemId && priceItems.some(item => item.id === requestedItemId)) {
@@ -119,6 +138,15 @@ async function loadDomain() {
 
 function sortedPriceHistory(item) {
   return [...(item.history || [])].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+}
+
+function priceTrackerUnitFor(item, point = null) {
+  return String(point?.unit || item?.unit || '').trim();
+}
+
+function formatPriceTrackerValue(value, unit = '') {
+  const safeUnit = escapeHtml(String(unit || ''));
+  return `${safeUnit ? fmtINRUnit(value) : fmtINR(value)}${safeUnit ? `/${safeUnit}` : ''}`;
 }
 
 async function resolveTagFromForm() {
@@ -190,7 +218,7 @@ function renderPriceItemCard(item) {
     </div>
     <div class="pic-bottom">
       <div class="pic-price-row">
-        <span class="pic-price">${latest ? fmtINR(latest.price) : '—'}</span>
+        <span class="pic-price">${latest ? formatPriceTrackerValue(latest.price, priceTrackerUnitFor(item, latest)) : '—'}</span>
         ${trendHtml}
       </div>
       <div class="pic-date">${dateLabel ? 'Updated ' + dateLabel : 'No prices logged yet'}</div>
@@ -200,7 +228,10 @@ function renderPriceItemCard(item) {
 
 function renderPriceDetailsPanel(item) {
   const hist = sortedPriceHistory(item);
-  const chart = priceLineChart(hist, { animate: priceChartAnimateId === item.id });
+  const catLower = String(item.category || '').trim().toLowerCase();
+  const usesUnitPrice = catLower === 'groceries' || catLower === 'fuel';
+  const unit = item.unit || (hist.length ? hist[hist.length - 1].unit : '') || '';
+  const chart = priceLineChart(hist, { animate: priceChartAnimateId === item.id, unit });
 
   let metaHtml = '';
   if (item.meta) {
@@ -215,7 +246,7 @@ function renderPriceDetailsPanel(item) {
     return `
     <tr data-price-point-row="${h.id}">
       <td>${dateLabel}</td>
-      <td class="num">${fmtINR(h.price)}</td>
+      <td class="num">${formatPriceTrackerValue(h.price, priceTrackerUnitFor(item, h))}${h.quantity ? `<div class="subnote">${escapeHtml(h.quantity)} · total ${fmtINR(h.rawPrice ?? h.price)}</div>` : ''}</td>
       <td>${h.note ? escapeHtml(h.note) : '<span class="subnote">—</span>'}</td>
       <td class="actions-cell">
         <button class="icon-btn" data-popover-trigger data-del-price-point="${item.id}|${h.id}" title="Remove entry" type="button">
@@ -225,13 +256,16 @@ function renderPriceDetailsPanel(item) {
     </tr>`;
   }).join('');
 
+  const quantityField = usesUnitPrice ? `<div class="field"><label>Quantity</label><input id="pp-quantity" type="text" placeholder="${catLower === 'fuel' ? 'e.g. 5L' : 'e.g. 500g, 1kg, 750ml, 1L or 12'}" /></div>` : '';
+
   const formHtml = priceLogFormOpen ? `
   <div class="price-form-reveal" data-price-form-reveal="log">
     <div class="price-form-reveal-inner">
       <div class="form-panel price-local-form">
         <div class="form-row">
           <div class="field"><label>Date</label><input id="pp-date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></div>
-          <div class="field"><label>Price (₹)</label><input id="pp-price" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+          <div class="field"><label>${usesUnitPrice ? 'Total price (₹)' : 'Price (₹)'}</label><input id="pp-price" type="number" step="0.01" min="0" placeholder="0.00" /></div>
+          ${quantityField}
           <div class="field"><label>Note (optional)</label><input id="pp-note" type="text" placeholder="e.g. Supermarket" /></div>
         </div>
         <div class="form-actions">
@@ -262,7 +296,7 @@ function renderPriceDetailsPanel(item) {
     <div class="section-title"><h2>Cost Entries</h2></div>
     <div class="table-wrap">
       <table ${rowsHtml ? '' : 'style="width:100%;"'}>
-        <thead><tr><th>Date</th><th class="table-numeric">Price</th><th>Note</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th class="table-numeric">${usesUnitPrice ? 'Unit price' : 'Price'}</th><th>Note</th><th></th></tr></thead>
         <tbody>${rowsHtml || `<tr class="empty-row"><td colspan="4">No prices logged yet — add one above.</td></tr>`}</tbody>
       </table>
     </div>
@@ -281,7 +315,7 @@ async function renderPriceTrack() {
     <div class="price-form-reveal-inner">
       <div class="form-panel price-local-form">
         <div class="form-row">
-          <div class="field"><label>Item name</label><input id="pi-name" type="text" placeholder="e.g. Milk 1L" /></div>
+          <div class="field"><label>Item name</label><input id="pi-name" type="text" placeholder="e.g. Milk" /></div>
           ${renderTagField()}
           <div id="pt-dynamic-fields" style="display:contents;"></div>
         </div>
@@ -460,13 +494,25 @@ root.addEventListener('click', async (ev) => {
       const category = (await resolveTagFromForm()) || 'Other';
       let meta = {};
       const catLower = category.toLowerCase();
-      if (catLower === 'groceries') meta.quantity = $('#pt-quantity')?.value || '';
+
       if (catLower === 'transport') { meta.source = $('#pt-source')?.value || ''; meta.destination = $('#pt-destination')?.value || ''; }
-      if (catLower === 'fuel') { meta.quantity = $('#pt-quantity')?.value || ''; meta.location = $('#pt-location')?.value || ''; }
       if (catLower === 'rent') meta.location = $('#pt-location')?.value || '';
+
+      meta = priceTrackerItemMeta(category, meta);
+
+      const existingItem = priceItems.find(item => priceTrackerItemsMatch(item, name, category, meta, ''));
+      if (existingItem) {
+        pendingPriceItemId = existingItem.id;
+        await closePriceFormReveal('item', () => {
+          priceFormOpen = false;
+        });
+        showToast('Item is already being tracked');
+        return;
+      }
 
       priceTrackDictionary[name] = { category, meta };
       await Store.set('price-track-dict', priceTrackDictionary);
+
       const item = { id: uid(), name, category, history: [], meta };
       priceItems.push(item);
       pendingPriceItemId = item.id;
@@ -561,11 +607,32 @@ root.addEventListener('click', async (ev) => {
     const date = $('#pp-date').value || new Date().toISOString().slice(0, 10);
     const price = Number($('#pp-price').value);
     const note = ($('#pp-note').value || '').trim();
+    const catLower = String(item.category || '').trim().toLowerCase();
+    const usesUnitPrice = catLower === 'groceries' || catLower === 'fuel';
+    const quantity = usesUnitPrice ? ($('#pp-quantity')?.value || '').trim() : '';
+
     if (Number.isNaN(price) || price < 0) { showToast('Enter a valid price'); return; }
+
+    const normalizedPoint = normalizePriceTrackerPoint(item.category, price, quantity);
+
+    if (usesUnitPrice && !normalizedPoint) {
+      showToast(catLower === 'fuel' ? 'Enter quantity as litres, for example 5L' : 'Enter quantity as weight, volume or pieces, for example 500g, 1kg, 750ml, 1L or 12');
+      return;
+    }
+
+    if (item.unit && normalizedPoint?.unit && item.unit !== normalizedPoint.unit) {
+      showToast(`This item is tracked per ${item.unit}; enter a compatible quantity`);
+      return;
+    }
+
     priceWritePending = true;
     const stopBusy = beginPriceBusy(submitPricePoint, 'Logging…');
     try {
-      const point = { id: uid(), date, price, note };
+      const point = usesUnitPrice
+        ? { id: uid(), date, price: normalizedPoint.price, rawPrice: normalizedPoint.rawPrice, quantity: normalizedPoint.quantity, unit: normalizedPoint.unit, note }
+        : { id: uid(), date, price, note };
+
+      if (!item.unit && normalizedPoint?.unit) item.unit = normalizedPoint.unit;
       item.history.push(point);
       pendingPricePoint = { itemId, pointId: point.id };
       await Store.set('price-items', priceItems);
@@ -616,9 +683,9 @@ root.addEventListener('change', (ev) => {
 
     const ptDynamicWrap = $('#pt-dynamic-fields');
     if (ptDynamicWrap) {
-      if (val === 'groceries') ptDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="pt-quantity" type="text" placeholder="e.g. 1kg or 1L" /></div>`;
+      if (val === 'groceries') ptDynamicWrap.innerHTML = '';
       else if (val === 'transport') ptDynamicWrap.innerHTML = `<div class="field"><label>Source</label><input id="pt-source" type="text" placeholder="e.g. Home" /></div><div class="field"><label>Destination</label><input id="pt-destination" type="text" placeholder="e.g. Office" /></div>`;
-      else if (val === 'fuel') ptDynamicWrap.innerHTML = `<div class="field"><label>Quantity</label><input id="pt-quantity" type="text" placeholder="e.g. 5L" /></div><div class="field"><label>Location</label><input id="pt-location" type="text" placeholder="e.g. IOCL Bengaluru" /></div>`;
+      else if (val === 'fuel') ptDynamicWrap.innerHTML = '';
       else if (val === 'rent') ptDynamicWrap.innerHTML = `<div class="field"><label>Location</label><input id="pt-location" type="text" placeholder="e.g. Sunflower Heights Whitefield" /></div>`;
       else ptDynamicWrap.innerHTML = '';
     }

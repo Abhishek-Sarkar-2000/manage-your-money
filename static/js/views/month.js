@@ -7,6 +7,7 @@ import {
   loadMonth, saveMonth, ensureMonthIndexed, emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth,
   computeMonthTotals, computeSpendingBreakdown, computeGlobalStats, monthCashOutflow, cardById, allSpendTags,
   findCategoryByTag, ensureCategoryForTag, migrateBudgetData,
+  migratePriceTrackerItems, normalizePriceTrackerPoint, priceTrackerItemMeta, priceTrackerItemsMatch,
   invalidateMonthDerivedCache, invalidateAllMonthDerivedCaches
 } from '../core/domain.js';
 import { analyzeDashboardBudget, applyBudgetForecastProjection } from '../core/budget-insights.js';
@@ -452,7 +453,9 @@ async function loadDomain() {
   monthsIndex = records['months-index'] || [];
   customTags = records['custom-spend-tags'] || [];
   priceTrackDictionary = records['price-track-dict'] || {};
-  priceItems = records['price-items'] || [];
+  const priceTrackerMigration = migratePriceTrackerItems(records['price-items'] || []);
+  priceItems = priceTrackerMigration.items;
+  if (priceTrackerMigration.changed) await Store.set('price-items', priceItems);
   existingInvestments = records.existinginvestments || 0;
   splitsIndex = records['splits-index'] || [];
   recurringSeries = records.recurringseries || [];
@@ -1210,8 +1213,9 @@ function renderForm(kind) {
           <label>Card</label>
           <select id="f-card">${cardOptions || '<option value="">No cards added — add one first</option>'}</select>
         </div>
-        ${renderTagField()}
+        {renderTagField()}
       </div>
+      <div class="spend-meta-row is-collapsed" id="spend-dynamic-fields"><div class="spend-meta-inner"></div></div>
       <div id="f-price-track-wrap" style="margin-bottom: 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <button class="pill-btn sub-pill" id="f-price-track-btn" type="button">+ Add to Price Tracker</button>
         <button class="pill-btn sub-pill dashed-subcat-btn" id="f-add-subcat-btn" type="button" disabled>+ Add Subcategory</button>
@@ -1243,6 +1247,7 @@ function renderForm(kind) {
       <div class="form-row" style="align-items: flex-end;">
         ${renderTagField()}
       </div>
+      <div class="spend-meta-row is-collapsed" id="spend-dynamic-fields"><div class="spend-meta-inner"></div></div>
       <div id="f-price-track-wrap" style="margin-bottom: 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <button class="pill-btn sub-pill" id="f-price-track-btn" type="button">+ Add to Price Tracker</button>
         <button class="pill-btn sub-pill dashed-subcat-btn" id="f-add-subcat-btn" type="button" disabled>+ Add Subcategory</button>
@@ -2763,16 +2768,56 @@ async function renderMonth({ reuseGlobalStats = false } = {}) {
   }
 }
 
-async function syncToPriceTracker(name, amount, date, tag) {
+function priceTrackerMetaFromMonthForm(tag) {
+  const catLower = String(tag || '').trim().toLowerCase();
+
+  if (catLower === 'groceries') return { quantity: $('#sp-quantity')?.value || '' };
+  if (catLower === 'transport') return { source: $('#sp-source')?.value || '', destination: $('#sp-destination')?.value || '' };
+  if (catLower === 'fuel') return { quantity: $('#sp-quantity')?.value || '', location: $('#sp-location')?.value || '' };
+  if (catLower === 'rent') return { location: $('#sp-location')?.value || '' };
+
+  return null;
+}
+
+async function syncToPriceTracker(name, amount, date, tag, meta = null) {
   const syncBtn = $('#f-price-track-btn');
-  if (!syncBtn || !syncBtn.classList.contains('active')) return;
-  let item = priceItems.find(i => i.name.toLowerCase() === name.toLowerCase() && !i.meta);
-  if (!item) {
-    item = { id: uid(), name, category: tag, history: [], meta: null };
-    priceItems.push(item);
+  if (!syncBtn || !syncBtn.classList.contains('active')) return true;
+
+  const catLower = String(tag || '').trim().toLowerCase();
+  const effectiveMeta = meta || priceTrackerMetaFromMonthForm(tag);
+  const normalizedPoint = normalizePriceTrackerPoint(tag, amount, effectiveMeta?.quantity || '');
+
+  if ((catLower === 'groceries' || catLower === 'fuel') && !normalizedPoint) {
+    showToast(catLower === 'fuel' ? 'Enter a fuel quantity such as 5L before adding this spend to Price Tracker' : 'Enter a quantity such as 500g, 1kg, 750ml, 1L, or 12 pieces before adding this spend to Price Tracker');
+    return false;
   }
-  item.history.push({ id: uid(), date, price: amount, note: 'Synced from Spends' });
+
+  const itemMeta = priceTrackerItemMeta(tag, effectiveMeta);
+  const unit = normalizedPoint?.unit || '';
+  const fuelLocation = catLower === 'fuel' ? String(effectiveMeta?.location || '').trim() : '';
+  const syncNote = fuelLocation ? `${fuelLocation} - Synced from spends` : 'Synced from Spends';
+  let item = priceItems.find(candidate => priceTrackerItemsMatch(candidate, name, tag, itemMeta, unit));
+
+  if (!item) {
+    item = { id: uid(), name, category: tag, history: [], meta: itemMeta };
+    if (unit) item.unit = unit;
+    priceItems.push(item);
+  } else if (!item.unit && unit) {
+    item.unit = unit;
+  }
+
+  item.history.push({
+    id: uid(),
+    date,
+    price: normalizedPoint?.price ?? amount,
+    rawPrice: normalizedPoint?.rawPrice ?? amount,
+    quantity: normalizedPoint?.quantity || '',
+    unit,
+    note: syncNote,
+  });
+
   await Store.set('price-items', priceItems);
+  return true;
 }
 
 /* ---------- Submit handler ---------- */
@@ -2829,24 +2874,7 @@ async function handleSubmit(kind) {
         if (catLower === 'rent') meta.location = $('#sp-location')?.value || '';
       }
 
-      const syncBtn = $('#f-price-track-btn');
-      if (syncBtn && syncBtn.classList.contains('active')) {
-        const isSameMeta = (a, b) => {
-          return (a?.source || '') === (b?.source || '') &&
-                 (a?.destination || '') === (b?.destination || '') &&
-                 (a?.quantity || '') === (b?.quantity || '') &&
-                 (a?.location || '') === (b?.location || '');
-        };
-
-        // Find an existing Price Track item matching BOTH description and exact route/metadata
-        let item = priceItems.find(i => i.name.toLowerCase() === spendDesc.toLowerCase() && isSameMeta(i.meta, meta));
-        if (!item) {
-          item = { id: uid(), name: spendDesc, category: tag, history: [], meta };
-          priceItems.push(item);
-        }
-        item.history.push({ id: uid(), date, price: amount, note: 'Synced from Spends' });
-        await Store.set('price-items', priceItems);
-      }
+      if (!(await syncToPriceTracker(spendDesc, amount, date, tag, meta))) return;
     }
     data.entries.push({ id: uid(), type: 'spend', description: spendDesc, amount, date, paymentMode: mode, cardId, tag, subCategory, lent: collectLent(), meta });
  } else if (kind === 'cardcharge') {
@@ -2856,14 +2884,16 @@ async function handleSubmit(kind) {
     if (!c) { showToast('Add a credit card first'); return; }
     const tag = await resolveTagFromForm();
     const subCategory = await resolveSubCategoryFromForm(tag);
-    await syncToPriceTracker(desc, amount, date, tag);
-    data.entries.push({ id: uid(), type: 'cardcharge', description: desc, amount, date, cardId, tag, subCategory, lent: collectLent() });
+    const meta = priceTrackerMetaFromMonthForm(tag);
+    if (!(await syncToPriceTracker(desc, amount, date, tag, meta))) return;
+    data.entries.push({ id: uid(), type: 'cardcharge', description: desc, amount, date, cardId, tag, subCategory, lent: collectLent(), meta });
   } else if (kind === 'cashpayment') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a spend description and amount'); return; }
     const tag = await resolveTagFromForm();
     const subCategory = await resolveSubCategoryFromForm(tag);
-    await syncToPriceTracker(desc, amount, date, tag);
-    data.entries.push({ id: uid(), type: 'cashpayment', description: desc, amount, date, tag, subCategory, lent: collectLent() });
+    const meta = priceTrackerMetaFromMonthForm(tag);
+    if (!(await syncToPriceTracker(desc, amount, date, tag, meta))) return;
+    data.entries.push({ id: uid(), type: 'cashpayment', description: desc, amount, date, tag, subCategory, lent: collectLent(), meta });
   } else if (kind === 'income') {
     if (!desc || !amount || amount <= 0) { showToast('Enter a source and amount'); return; }
     const category = $('#f-income-category')?.value || '';

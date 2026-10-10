@@ -136,6 +136,25 @@ export function renderGoogleButton(container, opts) {
   google.accounts.id.renderButton(container, opts);
 }
 
+function renderSidebarGoogleButton() {
+  const signinSlot = document.getElementById('google-signin-btn');
+  if (!signinSlot || currentUser) return;
+
+  const ledgerTheme = document.documentElement.getAttribute('data-theme') || localStorage.getItem('ledger-theme') || 'default';
+  const googleTheme = ledgerTheme === 'dark' ? 'filled_black' : 'outline';
+  const availableWidth = Math.max(180, Math.min(280, Math.floor(signinSlot.clientWidth - 8)));
+
+  renderGoogleButton(signinSlot, {
+    type: 'standard',
+    theme: googleTheme,
+    size: 'large',
+    shape: 'pill',
+    text: 'signin_with',
+    logo_alignment: 'left',
+    width: String(availableWidth),
+  });
+}
+
 export function initGoogleSignIn() {
   if (!window.google?.accounts?.id) {
     setTimeout(initGoogleSignIn, 100);
@@ -160,15 +179,7 @@ export function initGoogleSignIn() {
     signinSlot.style.display = currentUser ? 'none' : 'block';
 
     if (!currentUser) {
-      renderGoogleButton(signinSlot, {
-        type: 'standard',
-        theme: 'outline',
-        size: 'medium',
-        shape: 'pill',
-        text: 'signin_with',
-        logo_alignment: 'left',
-        width: '200',
-      });
+      renderSidebarGoogleButton();
     }
   }
 }
@@ -270,6 +281,10 @@ function initThemeSelector() {
 
       // Re-sync every rendered theme control from the same persisted state.
       syncActiveStates();
+
+      if (!currentUser) {
+        renderSidebarGoogleButton();
+      }
     }
   });
 

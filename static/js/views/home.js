@@ -7,7 +7,7 @@
 import { Store } from '../core/store.js';
 import { fmtINR, currentMonthKey, monthKeyLabel, todayStr, addMonths, diffMonths } from '../core/format.js';
 import { authReady } from '../core/auth.js';
-import { computeGlobalStats, computeMonthTotals, monthCashOutflow, emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth, loadMonth, computeDailyBalanceSeries, windowSeries, migrateBudgetData, creditCardCycleLedger, creditCardCurrentStatementMonthKey, spendingAmountForEntry } from '../core/domain.js';
+import { computeGlobalStats, computeMonthTotals, monthCashOutflow, emiRowsForMonth, sipRowsForMonth, recurringRowsForMonth, loadMonth, computeDailyBalanceSeries, windowSeries, migrateBudgetData, migratePriceTrackerItems, creditCardCycleLedger, creditCardCurrentStatementMonthKey, spendingAmountForEntry } from '../core/domain.js';
 import { renderDashboardKpis } from '../components/dashboard-kpis.js';
 import { analyzeDashboardBudget, applyBudgetForecastProjection } from '../core/budget-insights.js';
 import { renderMoneyInbox, renderUpcomingSpends } from '../components/dashboard-attention.js';
@@ -66,7 +66,12 @@ async function loadDomain() {
   const storedBudgetData = Object.prototype.hasOwnProperty.call(records, budgetKey) ? records[budgetKey] : null;
   const legacyBudgetData = Object.prototype.hasOwnProperty.call(records, 'budget-data') ? records['budget-data'] : null;
   const goals = records.goals || [];
-  const priceItems = records['price-items'] || [];
+  const priceTrackerMigration = migratePriceTrackerItems(records['price-items'] || []);
+  const priceItems = priceTrackerMigration.items;
+
+  if (priceTrackerMigration.changed) {
+    await Store.set('price-items', priceItems);
+  }
 
   // PRE-WARM CACHE: Perform a single bulk fetch to grab all historical months and splits.
   // This completely eliminates the N+1 API queries when domain functions later call Store.get().
@@ -418,6 +423,7 @@ function buildDashboardPrices(domain) {
       name: item.name || 'Tracked item',
       category: item.category || 'Other',
       meta: item.meta || null,
+      unit: latest?.unit || item.unit || '',
       latestPrice,
       latestDate: latest?.date || null,
       previousPrice,

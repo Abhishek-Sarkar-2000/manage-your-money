@@ -1,5 +1,5 @@
 /* ---------- SVG line charts (self-contained, no libraries) ---------- */
-import { fmtINR } from '../../core/format.js';
+import { fmtINR, fmtINRUnit } from '../../core/format.js';
 
 /*
  * Shared responsive Y-tick density classes.
@@ -1496,7 +1496,9 @@ document.addEventListener(
    Price Tracker: per-item price-history trend line
    ========================================================= */
 
-export function priceLineChart(hist, { animate = false } = {}) {
+export function priceLineChart(hist, { animate = false, unit = '' } = {}) {
+  const cleanUnit = String(unit || '').replace(/[^A-Za-z]/g, '');
+  const unitSuffix = cleanUnit ? `/${cleanUnit}` : '';
   if (!hist.length) {
     return `
       <div class="empty-chart">
@@ -1511,7 +1513,7 @@ export function priceLineChart(hist, { animate = false } = {}) {
         Log one more price to see a trend line.
         Latest:
         <strong>
-          ${fmtINR(hist[0].price)}
+          ${cleanUnit ? fmtINRUnit(hist[0].price) : fmtINR(hist[0].price)}${unitSuffix}
         </strong>
       </div>
     `;
@@ -1629,7 +1631,7 @@ export function priceLineChart(hist, { animate = false } = {}) {
             fill="var(--muted)"
             text-anchor="end"
             font-family="IBM Plex Mono, monospace"
-          >${formatYAxisTick(value)}</text>
+          >${cleanUnit ? fmtINRUnit(value) : formatYAxisTick(value)}</text>
         `;
       })
       .join('');
@@ -1653,7 +1655,7 @@ export function priceLineChart(hist, { animate = false } = {}) {
         return `
           <circle
             class="linechart-dot"
-            data-val="${fmtINR(hist[i].price)}"
+            data-val="${cleanUnit ? fmtINRUnit(hist[i].price) : fmtINR(hist[i].price)}${unitSuffix}"
             data-label="${dl}"
             cx="${x.toFixed(1)}"
             cy="${y.toFixed(1)}"
@@ -1723,7 +1725,7 @@ export function priceLineChart(hist, { animate = false } = {}) {
     <div class="subnote">
       Latest price:
       <strong class="num">
-        ${fmtINR(lastVal)}
+        ${cleanUnit ? fmtINRUnit(lastVal) : fmtINR(lastVal)}${unitSuffix}
       </strong>
     </div>
     </div>

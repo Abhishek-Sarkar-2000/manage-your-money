@@ -408,9 +408,59 @@
 }
 
 .google-signin-btn {
-  max-width: 100%;
+  width: calc(100% - 14px);
+  max-width: calc(100% - 14px);
+  min-height: 48px;
   overflow: hidden;
-  margin: 5px 7px;
+  margin: 6px 7px 2px;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--blue) 24%, var(--hair));
+  border-radius: 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--paper) 94%, var(--blue-bg)) 0%, color-mix(in srgb, var(--ice) 82%, var(--paper)) 100%);
+  box-shadow: 0 6px 18px rgba(25, 62, 115, 0.08), inset 0 1px 0 color-mix(in srgb, #fff 72%, transparent);
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+}
+
+.google-signin-btn:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--blue) 48%, var(--hair));
+  box-shadow: 0 9px 22px rgba(25, 62, 115, 0.13), inset 0 1px 0 color-mix(in srgb, #fff 72%, transparent);
+}
+
+.google-signin-btn:focus-within {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.google-signin-btn > div,
+.google-signin-btn iframe {
+  max-width: 100% !important;
+}
+
+:root[data-theme="dark"] .google-signin-btn {
+  border-color: color-mix(in srgb, var(--sky) 44%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--ice-2) 88%, var(--blue) 12%) 0%, color-mix(in srgb, var(--paper) 90%, var(--royal) 10%) 100%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+:root[data-theme="dark"] .google-signin-btn:hover {
+  border-color: var(--sky);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.36), 0 0 0 1px color-mix(in srgb, var(--blue) 18%, transparent);
+}
+
+:root[data-theme="hi-contrast"] .google-signin-btn {
+  border: 2px solid #000;
+  background: #fff;
+  box-shadow: 3px 3px 0 #000;
+}
+
+:root[data-theme="hi-contrast"] .google-signin-btn:hover {
+  transform: translate(-1px, -1px);
+  border-color: #000;
+  box-shadow: 4px 4px 0 #000;
 }
 
 .sidebar-signout-btn {
@@ -592,7 +642,12 @@
   }
 
   .google-signin-btn {
+    width: calc(100% - 12px);
+    max-width: calc(100% - 12px);
+    min-height: 40px;
     margin: 3px 6px;
+    padding: 3px;
+    border-radius: 11px;
   }
 
   .sidebar-signout-btn {
@@ -889,7 +944,12 @@ body:not([data-is-shared="true"]) .sticky-controls-wrap {
   .app-sidebar,
   .sidebar-backdrop,
   .sidebar-link,
-  .sidebar-theme-grid button {
+  .sidebar-theme-grid button,
+  .google-signin-btn {
     transition: none !important;
+  }
+
+  .google-signin-btn:hover {
+    transform: none;
   }
 }
