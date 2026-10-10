@@ -5,7 +5,7 @@ import { fmtINR, fmtINRUnit } from '../core/format.js';
 import { authReady } from '../core/auth.js';
 import { allSpendTags, migratePriceTrackerItems, normalizePriceTrackerPoint, priceTrackerItemMeta, priceTrackerItemsMatch } from '../core/domain.js';
 import { priceLineChart, wireChartTooltips } from '../components/charts/line-chart.js';
-import { scrollWrapper, setupScrollWrappers, setupTableScrollIndicators } from '../components/scroll-wrapper.js';
+import { setupTableScrollIndicators } from '../components/scroll-wrapper.js';
 import { showDeleteCallout, hideDeleteCallout, wireDeletePopoverDismiss } from '../components/delete-popover.js';
 import { appendPageChrome } from '../components/page-chrome.js';
 import { showToast } from '../components/toast.js';
@@ -19,6 +19,7 @@ let priceTrackDictionary = {};
 let customTags = [];
 let priceFormOpen = false;
 let priceExpandedId = null;
+let priceCollapsedCategories = new Set();
 let priceLogFormOpen = false;
 let priceSlideDirection = '';
 let animTimeout = null;
@@ -129,8 +130,10 @@ async function loadDomain() {
 
   const requestedItemId = new URLSearchParams(window.location.search).get('item');
   if (requestedItemId && priceItems.some(item => item.id === requestedItemId)) {
+    const requestedItem = priceItems.find(item => item.id === requestedItemId);
     priceExpandedId = requestedItemId;
     priceChartAnimateId = requestedItemId;
+    priceCollapsedCategories.delete(requestedItem.category || 'Other');
   }
 
   domainLoaded = true;
@@ -181,49 +184,84 @@ function renderTagField() {
   </div>`;
 }
 
-function renderPriceItemCard(item) {
+function renderPriceItemRow(item) {
   const hist = sortedPriceHistory(item);
-  const latest = hist.length ? hist[hist.length - 1] : null;
+  const latest = hist.at(-1) || null;
   const prev = hist.length > 1 ? hist[hist.length - 2] : null;
-  const active = priceExpandedId === item.id ? 'active' : '';
-
+  const active = priceExpandedId === item.id;
   let trendHtml = '';
   if (latest && prev) {
     const diff = latest.price - prev.price;
     const pct = prev.price ? (diff / prev.price * 100) : 0;
     const cls = diff === 0 ? 'flat' : (diff > 0 ? 'up' : 'down');
     const arrow = diff === 0 ? '→' : (diff > 0 ? '↑' : '↓');
-    trendHtml = `<span class="price-trend ${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</span>`;
+    trendHtml = `<span class="price-trend ${cls}" aria-label="Price ${cls === 'up' ? 'increased' : cls === 'down' ? 'decreased' : 'unchanged'} by ${Math.abs(pct).toFixed(1)} percent">${arrow} ${Math.abs(pct).toFixed(1)}%</span>`;
   }
-
-  const dateLabel = latest && latest.date
+  const dateLabel = latest?.date
     ? new Date(latest.date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
     : null;
-
+  const category = String(item.category || '').toLowerCase();
+  const meta = priceTrackerItemMeta(item.category, item.meta) || {};
   let metaHtml = '';
-  if (item.meta) {
-    if (item.meta.source && item.meta.destination) metaHtml = ` <span class="meta-text">${escapeHtml(item.meta.source)} → ${escapeHtml(item.meta.destination)}</span>`;
-    else if (item.meta.quantity && item.meta.location) metaHtml = `<span class="meta-text">${escapeHtml(item.meta.quantity)} @ ${escapeHtml(item.meta.location)}</span>`;
-    else if (item.meta.quantity) metaHtml = ` <span class="meta-text">${escapeHtml(item.meta.quantity)}</span>`;
-    else if (item.meta.location) metaHtml = ` <span class="meta-text">${escapeHtml(item.meta.location)}</span>`;
-  }
-
+  if (meta.source && meta.destination) metaHtml = `${escapeHtml(meta.source)} → ${escapeHtml(meta.destination)}`;
+  else if (category !== 'groceries' && category !== 'fuel' && meta.location) metaHtml = escapeHtml(meta.location);
+  const itemId = escapeHtml(String(item.id));
   return `
-  <div class="price-item-card ${active}" data-price-card="${item.id}">
-    <div class="pic-actions">
-      <button class="icon-btn" data-popover-trigger data-del-price-item="${item.id}" title="Remove item" type="button">✕</button>
+    <div class="price-item-card ${active ? 'active' : ''}" data-price-card="${itemId}">
+      <button class="price-item-main" type="button" data-price-select="${itemId}" aria-expanded="${active}" aria-controls="price-details-${itemId}">
+        <span class="pic-top"><span class="pic-name">${escapeHtml(item.name)}</span>${metaHtml ? `<span class="meta-text">${metaHtml}</span>` : ''}</span>
+        <span class="pic-bottom">
+          <span class="pic-price-row"><span class="pic-price">${latest ? formatPriceTrackerValue(latest.price, priceTrackerUnitFor(item, latest)) : '—'}</span>${trendHtml}</span>
+          <span class="pic-date">${dateLabel ? 'Updated ' + dateLabel : 'No prices logged yet'}</span>
+        </span>
+      </button>
+      <button class="icon-btn pic-delete" data-popover-trigger data-del-price-item="${itemId}" title="Remove item" aria-label="Remove ${escapeHtml(item.name)}" type="button">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+      </button>
+    </div>`;
+}
+
+function renderPriceCategoryCard(category, items, details = '', index = 0) {
+  const expanded = !priceCollapsedCategories.has(category);
+  const bodyId = `price-category-body-${index}`;
+
+  return `<section class="price-category-card" aria-label="${escapeHtml(category)} tracked items">
+    <div class="price-category-heading ${expanded ? 'expanded' : ''}">
+      <button
+        class="price-category-toggle ${expanded ? 'expanded' : ''}"
+        type="button"
+        data-price-category-toggle="${escapeHtml(category)}"
+        aria-expanded="${expanded}"
+        aria-controls="${bodyId}"
+        aria-label="${expanded ? 'Collapse' : 'Expand'} ${escapeHtml(category)}"
+        title="${expanded ? 'Collapse' : 'Expand'}"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round"
+          aria-hidden="true">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </button>
+
+      <h3 class="price-category-title">${escapeHtml(category)}</h3>
+      <span class="price-category-count">${items.length} item${items.length === 1 ? '' : 's'}</span>
     </div>
-    <div class="pic-top">
-      <h4>${escapeHtml(item.name)}</h4></br>${metaHtml}
-    </div>
-    <div class="pic-bottom">
-      <div class="pic-price-row">
-        <span class="pic-price">${latest ? formatPriceTrackerValue(latest.price, priceTrackerUnitFor(item, latest)) : '—'}</span>
-        ${trendHtml}
+
+    <div
+      class="price-category-wrap ${expanded ? 'expanded' : ''}"
+      id="${bodyId}"
+      data-price-category-wrap="${escapeHtml(category)}"
+      ${expanded ? '' : 'inert'}
+    >
+      <div class="price-category-inner">
+        <div class="price-category-items">
+          ${items.map(renderPriceItemRow).join('')}
+        </div>
+        ${details}
       </div>
-      <div class="pic-date">${dateLabel ? 'Updated ' + dateLabel : 'No prices logged yet'}</div>
     </div>
-  </div>`;
+  </section>`;
 }
 
 function renderPriceDetailsPanel(item) {
@@ -282,7 +320,7 @@ function renderPriceDetailsPanel(item) {
   </div>`;
 
   return `
-  <div class="price-details-panel" data-price-details="${item.id}" style="margin-top:2px;">
+  <div id="price-details-${escapeHtml(String(item.id))}" class="price-details-panel" data-price-details="${escapeHtml(String(item.id))}">
     <div class="section-title">
       <div>
         <h2>${escapeHtml(item.name)} — Price History</h2>
@@ -335,24 +373,17 @@ async function renderPriceTrack() {
   }
 
   let categoriesHtml = '';
-  if (items.length === 0) {
-    categoriesHtml = `<div class="empty-chart" style="grid-column:1/-1;">No items tracked yet — add one above to get started.</div>`;
+  if (!items.length) {
+    categoriesHtml = `<div class="empty-chart">No items tracked yet — add one above to get started.</div>`;
   } else {
     const sortedCategories = Object.keys(groupedItems).sort((a, b) => a.localeCompare(b));
-    for (const category of sortedCategories) {
+    categoriesHtml = `<div class="price-category-grid">${sortedCategories.map(category => {
       const catItems = groupedItems[category];
-      const cardsHtml = catItems.map(i => renderPriceItemCard(i)).join('');
-      const isExpandedInThisCategory = expandedItem && catItems.some(i => i.id === expandedItem.id);
-      const detailsHtml = isExpandedInThisCategory
-        ? `<div id="price-details-anim-inner" class="${priceSlideDirection || ''}">${renderPriceDetailsPanel(expandedItem)}</div>`
+      const details = expandedItem && catItems.some(item => item.id === expandedItem.id)
+        ? `<div class="price-category-details" id="price-details-anim-inner" data-price-details-wrap><div class="${priceSlideDirection || ''}">${renderPriceDetailsPanel(expandedItem)}</div></div>`
         : '';
-      categoriesHtml += `
-      <div class="price-category-section">
-        <div class="price-category-title">${escapeHtml(category)}</div>
-        ${scrollWrapper(cardsHtml, 'price-category-track')}
-        ${detailsHtml}
-      </div>`;
-    }
+      return renderPriceCategoryCard(category, catItems, details, sortedCategories.indexOf(category));
+    }).join('')}</div>`;
   }
 
   const tb = document.getElementById('global-topbar');
@@ -406,7 +437,6 @@ async function renderPriceTrack() {
   `;
 
   appendPageChrome(root);
-  setupScrollWrappers(root);
   setupTableScrollIndicators(root);
 
   if (pendingPriceItemId) {
@@ -443,7 +473,7 @@ async function renderPriceTrack() {
       const target = root.querySelector(`[data-price-card="${CSS.escape(requestedItemId)}"]`);
       if (!target) return;
 
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.scrollIntoView({ behavior: priceReducedMotion.matches ? 'auto' : 'smooth', block: 'center' });
       target.classList.add('dashboard-deep-link-target');
       target.setAttribute('tabindex', '-1');
       target.focus({ preventScroll: true });
@@ -461,6 +491,40 @@ async function renderPriceTrack() {
 }
 
 root.addEventListener('click', async (ev) => {
+  const categoryToggle = ev.target.closest('[data-price-category-toggle]');
+
+  if (categoryToggle) {
+    const category = categoryToggle.dataset.priceCategoryToggle;
+    const card = categoryToggle.closest('.price-category-card');
+    const wrapper = card?.querySelector('.price-category-wrap');
+    const header = card?.querySelector('.price-category-heading');
+
+    if (!wrapper) return;
+
+    const expanded = priceCollapsedCategories.has(category);
+
+    if (expanded) {
+      priceCollapsedCategories.delete(category);
+      wrapper.removeAttribute('inert');
+    } else {
+      priceCollapsedCategories.add(category);
+      wrapper.setAttribute('inert', '');
+    }
+
+    wrapper.classList.toggle('expanded', expanded);
+    categoryToggle.classList.toggle('expanded', expanded);
+    header?.classList.toggle('expanded', expanded);
+
+    categoryToggle.setAttribute('aria-expanded', String(expanded));
+    categoryToggle.setAttribute(
+      'aria-label',
+      `${expanded ? 'Collapse' : 'Expand'} ${category}`
+    );
+    categoryToggle.title = expanded ? 'Collapse' : 'Expand';
+
+    return;
+  }
+
   const priceFormToggle = ev.target.closest('[data-price-form-toggle]');
   if (priceFormToggle) {
     if (priceFormOpen) {
@@ -548,19 +612,19 @@ root.addEventListener('click', async (ev) => {
     return;
   }
 
-  const priceCard = ev.target.closest('[data-price-card]');
+  const priceCard = ev.target.closest('[data-price-select]');
   if (priceCard) {
-    const id = priceCard.dataset.priceCard;
+    const id = priceCard.dataset.priceSelect;
     if (animTimeout) clearTimeout(animTimeout);
 
     if (priceExpandedId === id) { priceExpandedId = null; priceLogFormOpen = false; await renderPriceTrack(); return; }
     if (priceExpandedId) {
-      const cardsEls = Array.from(document.querySelectorAll('.price-item-card'));
+      const cardsEls = Array.from(root.querySelectorAll('[data-price-select]'));
       let oldIdx = -1, newIdx = -1;
-      cardsEls.forEach((c, i) => { if (c.dataset.priceCard === priceExpandedId) oldIdx = i; if (c.dataset.priceCard === id) newIdx = i; });
+      cardsEls.forEach((c, i) => { if (c.dataset.priceSelect === priceExpandedId) oldIdx = i; if (c.dataset.priceSelect === id) newIdx = i; });
       const isRight = newIdx > oldIdx;
-      const inner = $('#price-details-anim-inner');
-      if (inner && oldIdx !== -1 && newIdx !== -1) {
+      const inner = root.querySelector('#price-details-anim-inner > div');
+      if (inner && oldIdx !== -1 && newIdx !== -1 && !priceReducedMotion.matches) {
         inner.className = isRight ? 'slide-out-left' : 'slide-out-right';
         animTimeout = setTimeout(async () => {
           priceExpandedId = id; priceLogFormOpen = false;

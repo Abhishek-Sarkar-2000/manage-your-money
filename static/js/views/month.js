@@ -1213,7 +1213,7 @@ function renderForm(kind) {
           <label>Card</label>
           <select id="f-card">${cardOptions || '<option value="">No cards added — add one first</option>'}</select>
         </div>
-        {renderTagField()}
+        ${renderTagField()}
       </div>
       <div class="spend-meta-row is-collapsed" id="spend-dynamic-fields"><div class="spend-meta-inner"></div></div>
       <div id="f-price-track-wrap" style="margin-bottom: 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">

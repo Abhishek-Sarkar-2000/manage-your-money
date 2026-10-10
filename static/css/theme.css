@@ -100,6 +100,8 @@ body {
 :root[data-theme="hi-contrast"] .chart-card,
 :root[data-theme="hi-contrast"] .stat-front,
 :root[data-theme="hi-contrast"] .split-group-card,
+:root[data-theme="hi-contrast"] .price-category-card,
+:root[data-theme="hi-contrast"] .price-details-panel,
 :root[data-theme="hi-contrast"] .price-item-card,
 :root[data-theme="hi-contrast"] .cc-item,
 :root[data-theme="hi-contrast"] .emi-card,
@@ -321,7 +323,8 @@ body {
 :root[data-theme="dark"] .split-settle-card,
 :root[data-theme="dark"] .split-inline-member-form,
 :root[data-theme="dark"] .stat-front,
-:root[data-theme="dark"] .price-item-card,
+:root[data-theme="dark"] .price-category-card,
+:root[data-theme="dark"] .price-details-panel,
 :root[data-theme="dark"] .add-entry-panel,
 :root[data-theme="dark"] .cc-item,
 :root[data-theme="dark"] .cc-ledger-cycle-strip,
@@ -663,8 +666,6 @@ body {
 :root[data-theme="dark"] .price-category-title {
   background: var(--hair);
   color: var(--navy);
-  border: 1px solid var(--blue-soft);
-  box-shadow: 0 10px 24px rgba(2, 11, 22, 0.77), 0 2px 6px rgba(9, 21, 36, 0.6);
 }
 
 :root[data-theme="dark"] .del-popover {
