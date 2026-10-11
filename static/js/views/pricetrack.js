@@ -25,6 +25,79 @@ let priceSlideDirection = '';
 let animTimeout = null;
 let domainLoaded = false;
 
+let priceDetailsEntranceId = null;
+let priceDetailsScrollId = null;
+let priceDetailsClosing = false;
+
+function waitForPriceDetailsTransition(element) {
+  return new Promise(resolve => {
+    if (!element || priceReducedMotion.matches) {
+      resolve();
+      return;
+    }
+
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      element.removeEventListener('transitionend', onEnd);
+      clearTimeout(fallback);
+      resolve();
+    };
+
+    const onEnd = event => {
+      if (
+        event.target === element &&
+        event.propertyName === 'grid-template-rows'
+      ) {
+        finish();
+      }
+    };
+
+    element.addEventListener('transitionend', onEnd);
+    const fallback = setTimeout(finish, 400);
+  });
+}
+
+async function closePriceDetails() {
+  if (priceDetailsClosing) return;
+
+  const panel = root.querySelector('.price-details-reveal');
+
+  if (panel && !priceReducedMotion.matches) {
+    priceDetailsClosing = true;
+
+    panel.classList.add('is-closing');
+    panel.classList.remove('is-open');
+
+    await waitForPriceDetailsTransition(panel);
+  }
+
+  priceDetailsClosing = false;
+  priceExpandedId = null;
+  priceLogFormOpen = false;
+  priceDetailsEntranceId = null;
+  priceDetailsScrollId = null;
+  priceSlideDirection = '';
+
+  await renderPriceTrack();
+}
+
+function openPriceDetails(id, animate = true) {
+  priceExpandedId = id;
+  priceLogFormOpen = false;
+  priceSlideDirection = '';
+  priceChartAnimateId = id;
+
+  priceDetailsEntranceId = animate && !priceReducedMotion.matches
+    ? id
+    : null;
+
+  priceDetailsScrollId = id;
+
+  return renderPriceTrack();
+}
+
 const priceFormMotionReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 function revealPriceForm(type) {
@@ -380,7 +453,15 @@ async function renderPriceTrack() {
     categoriesHtml = `<div class="price-category-grid">${sortedCategories.map(category => {
       const catItems = groupedItems[category];
       const details = expandedItem && catItems.some(item => item.id === expandedItem.id)
-        ? `<div class="price-category-details" id="price-details-anim-inner" data-price-details-wrap><div class="${priceSlideDirection || ''}">${renderPriceDetailsPanel(expandedItem)}</div></div>`
+        ? `<div class="price-category-details price-details-reveal ${priceDetailsEntranceId === expandedItem.id ? '' : 'is-open'}"
+                id="price-details-anim-inner"
+                data-price-details-wrap>
+             <div class="price-details-reveal-inner">
+               <div class="${priceSlideDirection || ''}">
+                 ${renderPriceDetailsPanel(expandedItem)}
+               </div>
+             </div>
+           </div>`
         : '';
       return renderPriceCategoryCard(category, catItems, details, sortedCategories.indexOf(category));
     }).join('')}</div>`;
@@ -438,6 +519,53 @@ async function renderPriceTrack() {
 
   appendPageChrome(root);
   setupTableScrollIndicators(root);
+
+  const detailsPanel = root.querySelector('.price-details-reveal');
+
+  if (
+    detailsPanel &&
+    priceDetailsEntranceId === priceExpandedId
+  ) {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!detailsPanel.isConnected) return;
+
+        detailsPanel.classList.add('is-open');
+      });
+    });
+
+    priceDetailsEntranceId = null;
+  }
+
+  if (
+    detailsPanel &&
+    priceDetailsScrollId === priceExpandedId
+  ) {
+    const scrollItemId = priceDetailsScrollId;
+    priceDetailsScrollId = null;
+
+    const chartTarget =
+      detailsPanel.querySelector('.price-details-panel') ||
+      detailsPanel;
+
+    const performScroll = () => {
+      if (
+        !chartTarget.isConnected ||
+        priceExpandedId !== scrollItemId
+      ) return;
+
+      chartTarget.scrollIntoView({
+        behavior: priceReducedMotion.matches ? 'instant' : 'smooth',
+        block: 'start'
+      });
+    };
+
+    if (priceReducedMotion.matches) {
+      requestAnimationFrame(performScroll);
+    } else {
+      setTimeout(performScroll, 320);
+    }
+  }
 
   if (pendingPriceItemId) {
     const card = root.querySelector(`[data-price-card="${CSS.escape(pendingPriceItemId)}"]`);
@@ -615,28 +743,76 @@ root.addEventListener('click', async (ev) => {
   const priceCard = ev.target.closest('[data-price-select]');
   if (priceCard) {
     const id = priceCard.dataset.priceSelect;
-    if (animTimeout) clearTimeout(animTimeout);
 
-    if (priceExpandedId === id) { priceExpandedId = null; priceLogFormOpen = false; await renderPriceTrack(); return; }
-    if (priceExpandedId) {
-      const cardsEls = Array.from(root.querySelectorAll('[data-price-select]'));
-      let oldIdx = -1, newIdx = -1;
-      cardsEls.forEach((c, i) => { if (c.dataset.priceSelect === priceExpandedId) oldIdx = i; if (c.dataset.priceSelect === id) newIdx = i; });
-      const isRight = newIdx > oldIdx;
-      const inner = root.querySelector('#price-details-anim-inner > div');
-      if (inner && oldIdx !== -1 && newIdx !== -1 && !priceReducedMotion.matches) {
-        inner.className = isRight ? 'slide-out-left' : 'slide-out-right';
-        animTimeout = setTimeout(async () => {
-          priceExpandedId = id; priceLogFormOpen = false;
-          priceSlideDirection = isRight ? 'slide-in-right' : 'slide-in-left';
-          priceChartAnimateId = id;
-          await renderPriceTrack();
-        }, 300);
-      } else { priceExpandedId = id; priceLogFormOpen = false; priceSlideDirection = ''; priceChartAnimateId = id; await renderPriceTrack(); }
+    if (priceDetailsClosing) return;
+
+    if (animTimeout) {
+      clearTimeout(animTimeout);
+      animTimeout = null;
+    }
+
+    // Same item: animate the chart closed before removing it.
+    if (priceExpandedId === id) {
+      await closePriceDetails();
       return;
     }
-    priceExpandedId = id; priceLogFormOpen = false; priceSlideDirection = ''; priceChartAnimateId = id;
-    await renderPriceTrack();
+
+    // Another chart is already visible: preserve horizontal switching.
+    if (priceExpandedId) {
+      const cardsEls = Array.from(
+        root.querySelectorAll('[data-price-select]')
+      );
+
+      let oldIdx = -1;
+      let newIdx = -1;
+
+      cardsEls.forEach((card, index) => {
+        if (card.dataset.priceSelect === priceExpandedId) {
+          oldIdx = index;
+        }
+        if (card.dataset.priceSelect === id) {
+          newIdx = index;
+        }
+      });
+
+      const isRight = newIdx > oldIdx;
+
+      const inner = root.querySelector(
+        '#price-details-anim-inner .price-details-reveal-inner > div'
+      );
+
+      if (
+        inner &&
+        oldIdx !== -1 &&
+        newIdx !== -1 &&
+        !priceReducedMotion.matches
+      ) {
+        inner.className = isRight
+          ? 'slide-out-left'
+          : 'slide-out-right';
+
+        animTimeout = setTimeout(async () => {
+          animTimeout = null;
+          priceExpandedId = id;
+          priceLogFormOpen = false;
+          priceSlideDirection = isRight
+            ? 'slide-in-right'
+            : 'slide-in-left';
+          priceChartAnimateId = id;
+          priceDetailsEntranceId = null;
+          priceDetailsScrollId = id;
+
+          await renderPriceTrack();
+        }, 300);
+      } else {
+        await openPriceDetails(id, false);
+      }
+
+      return;
+    }
+
+    // No chart visible: animate downward into view.
+    await openPriceDetails(id, true);
     return;
   }
 

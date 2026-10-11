@@ -116,6 +116,41 @@
   margin-top: 12px;
 }
 
+/* Price History expand/collapse disclosure */
+.price-details-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition:
+    grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.22s ease,
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.price-details-reveal.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.price-details-reveal-inner {
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.price-details-reveal.is-closing {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .price-details-reveal {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
 /* Existing padded item container */
 
 .price-category-items {
