@@ -58,8 +58,7 @@
 
 .pricetrack-create-card {
   padding: 12px 16px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, white 88%, var(--paper)) 0%, color-mix(in srgb, var(--ice) 74%, white) 100%);
+  background: var(--paper);
 }
 
 .pricetrack-create-layout {
@@ -86,7 +85,7 @@
   border-radius: 12px;
   display: grid;
   place-items: center;
-  background: var(--ice);
+  background: linear-gradient(135deg, var(--ice), var(--hair));
   color: #fff;
 }
 
@@ -131,8 +130,7 @@
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
-  box-shadow: 0 3px 9px color-mix(in srgb, var(--blue) 18%, transparent);
-  transition: background 0.18s ease, box-shadow 0.18s ease;
+  transition: background 0.18s ease;
 }
 
 .pricetrack-create-button.pill-btn.active {
@@ -164,12 +162,8 @@
   margin-top: 18px;
 }
 
-:root[data-theme="dark"] .pricetrack-create-card {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--paper) 96%, transparent) 0%, color-mix(in srgb, var(--ice-2) 92%, transparent) 100%);
-}
-
 :root[data-theme="dark"] .pricetrack-create-icon {
-  background: var(--hair);
+  background: linear-gradient(135deg, var(--sky), var(--hair));
   color: #fff;
 }
 
@@ -179,6 +173,45 @@
 
 :root[data-theme="hi-contrast"] .pricetrack-create-icon {
   border: 1px solid #000;
+  background: #fff;
+}
+
+/* ---------- Dark theme: Track New Item illustration ---------- */
+
+:root[data-theme="dark"] .pricetrack-create-art {
+  opacity: 1;
+}
+
+/* Dark blue document */
+/* Dark-mode document: soft slate-blue gradient */
+:root[data-theme="dark"] #priceCreateCard stop:first-child {
+  stop-color: color-mix(in srgb, var(--sky) 28%, var(--paper));
+}
+
+:root[data-theme="dark"] #priceCreateCard stop:last-child {
+  stop-color: color-mix(in srgb, var(--sky) 12%, var(--paper));
+}
+
+/* Dark-mode document lines: subtle, luminous sky-blue */
+:root[data-theme="dark"] #priceCreateLine stop:first-child {
+  stop-color: color-mix(in srgb, var(--sky) 90%, white);
+}
+
+:root[data-theme="dark"] #priceCreateLine stop:last-child {
+  stop-color: color-mix(in srgb, var(--sky) 75%, white);
+}
+
+/* Blue circular add button */
+:root[data-theme="dark"] #priceCreatePlus stop:first-child {
+  stop-color: #5C94F5;
+}
+
+:root[data-theme="dark"] #priceCreatePlus stop:last-child {
+  stop-color: #326BE4;
+}
+
+:root[data-theme="hi-contrast"] .pricetrack-create-icon svg circle {
+  fill: #fff;
 }
 
 .price-category-card {

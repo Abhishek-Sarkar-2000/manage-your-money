@@ -328,6 +328,7 @@ body {
 :root[data-theme="dark"] .cc-item,
 :root[data-theme="dark"] .cc-ledger-cycle-strip,
 :root[data-theme="dark"] .balance-box,
+:root[data-theme="dark"] .pricetrack-create-card,
 :root[data-theme="dark"] .sip-card {
   background: linear-gradient(
     135deg,

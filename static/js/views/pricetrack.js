@@ -261,7 +261,7 @@ function renderTrackNewItemIcon() {
   return `
   <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <path d="M11.1 3.5H4.5a1 1 0 0 0-1 1v6.6c0 .53.21 1.04.59 1.41l7.3 7.3a2 2 0 0 0 2.83 0l5.59-5.59a2 2 0 0 0 0-2.83l-7.3-7.3a2 2 0 0 0-1.41-.59Z" fill="var(--blue)"></path>
-    <circle cx="8" cy="8" r="2" fill="var(--ice)"></circle>
+    <circle cx="8" cy="8" r="2" fill="var(--hair)"></circle>
   </svg>`;
 }
 
@@ -273,26 +273,29 @@ function renderTrackNewItemArt() {
         <stop stop-color="#F6FAFF"></stop>
         <stop offset="1" stop-color="#E4EEFF"></stop>
       </linearGradient>
-      <linearGradient id="priceCreatePlus" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#4F8DFF"></stop>
-        <stop offset="1" stop-color="#2F69F2"></stop>
+
+      <linearGradient id="priceCreatePlus" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#4F8DFF"></stop>
+        <stop offset="100%" stop-color="#2F69F2"></stop>
       </linearGradient>
     </defs>
 
-    <path d="M28 140C54 104 91 82 133 82H244C216 53 176 38 132 38C83 38 43 61 22 104C16 116 17 131 28 140Z" fill="#EAF2FF"></path>
+    <g transform="rotate(-10 170 88)">
+      <path d="M92 40C92 29 100.954 20 112 20H228C239.046 20 248 28.954 248 40V118C248 129.046 239.046 138 228 138H92C80.954 138 72 129.046 72 118V40C72 28.954 80.954 20 92 20Z" fill="url(#priceCreateCard)"></path>
 
-    <path d="M92 40C92 29 100.954 20 112 20H228C239.046 20 248 28.954 248 40V118C248 129.046 239.046 138 228 138H92C80.954 138 72 129.046 72 118V40C72 28.954 80.954 20 92 20Z" fill="url(#priceCreateCard)"></path>
+      <path d="M112 51H203" stroke="url(#priceCreateLine)" stroke-width="8" stroke-linecap="round"></path>
+      <path d="M112 75H217" stroke="url(#priceCreateLine)" stroke-width="8" stroke-linecap="round"></path>
+      <path d="M112 99H187" stroke="url(#priceCreateLine)" stroke-width="8" stroke-linecap="round"></path>
 
-    <path d="M112 51H203" stroke="#A9C4FF" stroke-width="8" stroke-linecap="round"></path>
-    <path d="M112 75H217" stroke="#B8CEFF" stroke-width="8" stroke-linecap="round"></path>
-    <path d="M112 99H187" stroke="#C8D9FF" stroke-width="8" stroke-linecap="round"></path>
-
-    <path d="M55 65L45 54" stroke="#5A8FFF" stroke-width="4" stroke-linecap="round"></path>
-    <path d="M42 82H28" stroke="#5A8FFF" stroke-width="4" stroke-linecap="round"></path>
-
-    <circle cx="238" cy="109" r="28" fill="url(#priceCreatePlus)"></circle>
-    <path d="M238 96V122" stroke="white" stroke-width="5" stroke-linecap="round"></path>
-    <path d="M225 109H251" stroke="white" stroke-width="5" stroke-linecap="round"></path>
+      <circle cx="238" cy="109" r="28" fill="url(#priceCreatePlus)"></circle>
+      <path d="M238 96V122" stroke="white" stroke-width="5" stroke-linecap="round"></path>
+      <path d="M225 109H251" stroke="white" stroke-width="5" stroke-linecap="round"></path>
+      
+      <linearGradient id="priceCreateLine" x1="105" y1="0" x2="225" y2="0" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#A9C4FF"></stop>
+        <stop offset="100%" stop-color="#C8D9FF"></stop>
+      </linearGradient>
+    </g>
   </svg>`;
 }
 
