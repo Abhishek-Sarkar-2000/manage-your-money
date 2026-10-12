@@ -38,7 +38,7 @@ function allocateSeparatedDonutAngles(segments, availableAngle, minSectorAngle) 
   return angles;
 }
 
-export function donutChart(segments, { separated = true, minSectorAngle = 1, gapAngle = 11 } = {}) {
+export function donutChart(segments, { separated = true, minSectorAngle = 2, gapAngle = 2 } = {}) {
   const total = segments.reduce((sum, segment) => sum + (Number(segment.value) || 0), 0);
   if (total <= 0) return `<div class="empty-chart">No spending recorded yet this month.</div>`;
 
@@ -81,10 +81,20 @@ export function donutChart(segments, { separated = true, minSectorAngle = 1, gap
     const arcs = filtered.map((segment, index) => {
       const sectorAngle = angles[index];
       const dashOffset = -cursor;
+
+      // Extend the outline slightly beyond both segment ends.
+      // Reserve enough of the gap to keep neighboring outlines separate.
+      const outlinePad = effectiveGap > 0
+        ? Math.min(0.45, effectiveGap * 0.2)
+        : 0;
+
+      const outlineAngle = sectorAngle + outlinePad * 2;
+      const outlineOffset = dashOffset + outlinePad;
+
       cursor += sectorAngle + effectiveGap;
 
       return `
-        <circle class="donut-segment-outline" cx="80" cy="80" r="61" pathLength="360" fill="none" stroke-dasharray="${sectorAngle} ${360 - sectorAngle}" stroke-dashoffset="${dashOffset}" aria-hidden="true"></circle>
+        <circle class="donut-segment-outline" cx="80" cy="80" r="61" pathLength="360" fill="none" stroke-dasharray="${outlineAngle} ${360 - outlineAngle}" stroke-dashoffset="${outlineOffset}" aria-hidden="true"></circle>
         <circle class="donut-segment" cx="80" cy="80" r="61" pathLength="360" fill="none" stroke="${segment.color}" stroke-dasharray="${sectorAngle} ${360 - sectorAngle}" stroke-dashoffset="${dashOffset}"><title>${segment.label}: ${fmtINR(segment.value)}</title></circle>
         <circle class="donut-segment donut-segment-stripes" cx="80" cy="80" r="61" pathLength="360" fill="none" stroke="url(#${stripePatternId})" stroke-dasharray="${sectorAngle} ${360 - sectorAngle}" stroke-dashoffset="${dashOffset}" aria-hidden="true"></circle>
       `;

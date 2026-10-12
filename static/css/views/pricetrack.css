@@ -8,22 +8,204 @@
   min-width: 0;
 }
 
+/* ---------- Price Tracker hero + create card ---------- */
+
+.pricetrack-create-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--hair);
+  border-radius: calc(var(--radius) + 2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.pricetrack-hero-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 240px);
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.pricetrack-hero-copy {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.pricetrack-hero-copy .month-header {
+  margin-bottom: 0;
+}
+
+.pricetrack-hero-copy .month-header h1 {
+  margin-bottom: 0;
+}
+
+.pricetrack-hero-copy-text {
+  color: var(--muted);
+  max-width: 56ch;
+  margin-top: 8px;
+}
+
+.pricetrack-create-art {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.pricetrack-create-card {
+  padding: 12px 16px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, white 88%, var(--paper)) 0%, color-mix(in srgb, var(--ice) 74%, white) 100%);
+}
+
+.pricetrack-create-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(125px, 185px);
+  align-items: center;
+  gap: 12px;
+}
+
+.pricetrack-create-copy {
+  min-width: 0;
+}
+
+.pricetrack-create-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.pricetrack-create-icon {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: var(--ice);
+  color: #fff;
+}
+
+.pricetrack-create-icon svg {
+  display: block;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.pricetrack-create-title-wrap {
+  min-width: 0;
+  padding-bottom: 4px;
+}
+
+.pricetrack-create-title-wrap h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+.pricetrack-create-title-wrap p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.pricetrack-create-button.pill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 10px;
+  padding: 8px 15px;
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  background: var(--blue);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 3px 9px color-mix(in srgb, var(--blue) 18%, transparent);
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.pricetrack-create-button.pill-btn.active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pricetrack-create-button.pill-btn:hover,
+  .pricetrack-create-button.pill-btn.active:hover {
+    background: var(--royal);
+    border-color: var(--royal);
+  }
+}
+
+.pricetrack-create-button svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+.pricetrack-create-visual {
+  justify-self: end;
+  width: min(100%, 175px);
+  min-width: 0;
+}
+
+#pricetrack-root .pricetrack-create-card .price-form-reveal.is-open {
+  margin-top: 18px;
+}
+
+:root[data-theme="dark"] .pricetrack-create-card {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--paper) 96%, transparent) 0%, color-mix(in srgb, var(--ice-2) 92%, transparent) 100%);
+}
+
+:root[data-theme="dark"] .pricetrack-create-icon {
+  background: var(--hair);
+  color: #fff;
+}
+
+:root[data-theme="hi-contrast"] .pricetrack-create-card {
+  box-shadow: none;
+}
+
+:root[data-theme="hi-contrast"] .pricetrack-create-icon {
+  border: 1px solid #000;
+}
+
 .price-category-card {
   min-width: 0;
-  background: var(--paper);
+  background: var(--ice);
   border: 1px solid var(--hair);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
-  padding: 16px 18px 18px;
+  padding: 16px 6px 18px;
 }
 
 .price-category-heading {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  padding-bottom: 0;
+  padding-left: 10px;
   transition: padding-bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.price-category-controls {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .price-category-heading.expanded {
@@ -63,9 +245,20 @@
 }
 
 .price-category-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
-  color: var(--muted);
-  font-size: 0.76rem;
+  padding: 4px 11px;
+  border: 1px solid var(--blue-soft);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--royal);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 /* ---------- Price category expand/collapse ---------- */
@@ -78,9 +271,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
   flex-shrink: 0;
-  transition: transform 0.3s ease;
+  border-radius: 8px;
+  transition: transform 0.3s ease, background 0.18s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .price-category-toggle:hover {
+    background: var(--ice-2);
+    color: var(--royal);
+  }
 }
 
 .price-category-toggle.expanded {
@@ -110,6 +313,8 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+  padding: 0 4px 8px;
+  margin: 0 -4px -8px;
 }
 
 .price-category-details {
@@ -138,6 +343,8 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+  padding: 0 4px 8px;
+  margin: 0 -4px -8px;
 }
 
 .price-details-reveal.is-closing {
@@ -156,12 +363,14 @@
 .price-category-items {
   min-width: 0;
   padding: 8px;
-  background: var(--ice);
+  background: var(--paper);
+  border: 1px solid var(--hair);
   border-radius: 11px;
 }
 
 :root[data-theme="dark"] .price-category-items {
-  background: var(--ice-2);
+  background: var(--ice);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
 }
 
 .price-item-card {
@@ -173,8 +382,9 @@
   transition: background 0.18s ease;
 }
 .price-item-card:last-child { border-bottom: 0; }
-.price-item-card:hover { background: var(--ice-2); }
-.price-item-card.active { background: var(--ice-2); }
+.price-item-card.active { background: var(--ice); }
+:root[data-theme="dark"] .price-item-card.active { background: var(--hair); }
+.price-item-card:not(.active):hover { background: var(--ice-2); }
 
 .price-item-main {
   display: grid;
@@ -206,12 +416,17 @@
 .price-category-details { grid-column: 1 / -1; min-width: 0; }
 .price-details-panel {
   min-width: 0;
-  background: var(--paper);
-  border: 1px solid var(--hair);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
-  padding: 14px 18px 18px;
+  margin: 4px 8px;
 }
+:root[data-theme="hi-contrast"] .price-details-panel {
+  box-shadow: none;
+}
+:root[data-theme="dark"] .price-details-panel {
+  background: transparent;
+  box-shadow: none;
+}
+
 .price-details-panel > .section-title { margin-top: 16px; }
 .price-details-panel table th:last-child,
 .price-details-panel table td.actions-cell {
@@ -223,11 +438,67 @@
   padding-right: 6px;
   text-align: center;
 }
+
 @media (max-width: 760px) {
   .price-category-grid { grid-template-columns: minmax(0, 1fr); }
+
+  .pricetrack-hero-section {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pricetrack-create-card {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .pricetrack-create-visual {
+    justify-self: end;
+    width: min(100%, 150px);
+  }
   .price-item-card .pic-top { justify-content: flex-start; }
   .price-item-main { padding: 8px 34px 8px 8px; }
 }
+
+@media (max-width: 560px) {
+  .pricetrack-create-card {
+    padding: 12px 12px;
+  }
+
+  .pricetrack-create-layout {
+    grid-template-columns: minmax(0, 1fr) 98px;
+    gap: 6px;
+  }
+
+  .pricetrack-create-head {
+    gap: 9px;
+  }
+
+  .pricetrack-create-icon {
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
+    border-radius: 8px;
+  }
+
+  .pricetrack-create-icon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .pricetrack-create-title-wrap h2 {
+    font-size: 0.9rem;
+  }
+
+  .pricetrack-create-title-wrap p {
+    font-size: 0.69rem;
+  }
+
+  .pricetrack-create-button.pill-btn {
+    padding: 7px 8px;
+    font-size: 0.69rem;
+  }
+}
+
 @media (max-width: 400px) {
   .price-category-card { padding: 12px; }
   .price-item-main { grid-template-columns: minmax(0, 1fr); gap: 4px; padding-right: 38px; }
@@ -426,7 +697,6 @@
 .pricetrack-skeleton-item > div:last-child { justify-items: end; }
 :root[data-theme="dark"] .pricetrack-skeleton-category-items { background: var(--ice-2); }
 :root[data-theme="hi-contrast"] .price-item-card:hover { background: var(--footer-span); }
-:root[data-theme="dark"] .price-item-card:hover { background: var(--ice); }
 
 @media (max-width: 760px) { .pricetrack-skeleton-category-grid { grid-template-columns: minmax(0, 1fr); } }
 

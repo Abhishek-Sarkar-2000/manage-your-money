@@ -257,6 +257,45 @@ function renderTagField() {
   </div>`;
 }
 
+function renderTrackNewItemIcon() {
+  return `
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M11.1 3.5H4.5a1 1 0 0 0-1 1v6.6c0 .53.21 1.04.59 1.41l7.3 7.3a2 2 0 0 0 2.83 0l5.59-5.59a2 2 0 0 0 0-2.83l-7.3-7.3a2 2 0 0 0-1.41-.59Z" fill="var(--blue)"></path>
+    <circle cx="8" cy="8" r="2" fill="var(--ice)"></circle>
+  </svg>`;
+}
+
+function renderTrackNewItemArt() {
+  return `
+  <svg class="pricetrack-create-art" viewBox="0 0 300 180" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <linearGradient id="priceCreateCard" x1="64" y1="18" x2="229" y2="143" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#F6FAFF"></stop>
+        <stop offset="1" stop-color="#E4EEFF"></stop>
+      </linearGradient>
+      <linearGradient id="priceCreatePlus" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#4F8DFF"></stop>
+        <stop offset="1" stop-color="#2F69F2"></stop>
+      </linearGradient>
+    </defs>
+
+    <path d="M28 140C54 104 91 82 133 82H244C216 53 176 38 132 38C83 38 43 61 22 104C16 116 17 131 28 140Z" fill="#EAF2FF"></path>
+
+    <path d="M92 40C92 29 100.954 20 112 20H228C239.046 20 248 28.954 248 40V118C248 129.046 239.046 138 228 138H92C80.954 138 72 129.046 72 118V40C72 28.954 80.954 20 92 20Z" fill="url(#priceCreateCard)"></path>
+
+    <path d="M112 51H203" stroke="#A9C4FF" stroke-width="8" stroke-linecap="round"></path>
+    <path d="M112 75H217" stroke="#B8CEFF" stroke-width="8" stroke-linecap="round"></path>
+    <path d="M112 99H187" stroke="#C8D9FF" stroke-width="8" stroke-linecap="round"></path>
+
+    <path d="M55 65L45 54" stroke="#5A8FFF" stroke-width="4" stroke-linecap="round"></path>
+    <path d="M42 82H28" stroke="#5A8FFF" stroke-width="4" stroke-linecap="round"></path>
+
+    <circle cx="238" cy="109" r="28" fill="url(#priceCreatePlus)"></circle>
+    <path d="M238 96V122" stroke="white" stroke-width="5" stroke-linecap="round"></path>
+    <path d="M225 109H251" stroke="white" stroke-width="5" stroke-linecap="round"></path>
+  </svg>`;
+}
+
 function renderPriceItemRow(item) {
   const hist = sortedPriceHistory(item);
   const latest = hist.at(-1) || null;
@@ -300,25 +339,30 @@ function renderPriceCategoryCard(category, items, details = '', index = 0) {
 
   return `<section class="price-category-card" aria-label="${escapeHtml(category)} tracked items">
     <div class="price-category-heading ${expanded ? 'expanded' : ''}">
-      <button
-        class="price-category-toggle ${expanded ? 'expanded' : ''}"
-        type="button"
-        data-price-category-toggle="${escapeHtml(category)}"
-        aria-expanded="${expanded}"
-        aria-controls="${bodyId}"
-        aria-label="${expanded ? 'Collapse' : 'Expand'} ${escapeHtml(category)}"
-        title="${expanded ? 'Collapse' : 'Expand'}"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24"
-          fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round"
-          aria-hidden="true">
-          <polyline points="9 18 15 12 9 6"></polyline>
-        </svg>
-      </button>
-
       <h3 class="price-category-title">${escapeHtml(category)}</h3>
-      <span class="price-category-count">${items.length} item${items.length === 1 ? '' : 's'}</span>
+
+      <div class="price-category-controls">
+        <span class="price-category-count">
+          ${items.length} item${items.length === 1 ? '' : 's'}
+        </span>
+
+        <button
+          class="price-category-toggle ${expanded ? 'expanded' : ''}"
+          type="button"
+          data-price-category-toggle="${escapeHtml(category)}"
+          aria-expanded="${expanded}"
+          aria-controls="${bodyId}"
+          aria-label="${expanded ? 'Collapse' : 'Expand'} ${escapeHtml(category)}"
+          title="${expanded ? 'Collapse' : 'Expand'}"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round"
+            aria-hidden="true">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <div
@@ -474,29 +518,44 @@ async function renderPriceTrack() {
   root.removeAttribute('data-loading');
   root.setAttribute('aria-busy', 'false');
   root.innerHTML = `
-  <div class="section pricetrack-load-stage pricetrack-load-stage--header">
-    <div class="month-header"><h1>Price Tracker</h1></div>
-    <p style="color:var(--muted); max-width:56ch; margin-top:6px;">Note down what things cost over time — groceries, transport, subscriptions — and watch how prices move.</p>
+  <div class="section pricetrack-load-stage pricetrack-load-stage--header pricetrack-hero-section">
+    <div class="pricetrack-hero-copy">
+      <div class="month-header"><h1>Price Tracker</h1></div>
+      <p class="pricetrack-hero-copy-text">Note down what things cost over time — groceries, transport, subscriptions — and watch how prices move.</p>
+    </div>
   </div>
 
   <div class="section pricetrack-load-stage pricetrack-load-stage--create">
-    <div class="section-title" style="margin-bottom: 12px;">
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <span style="color: var(--blue); display: flex;">
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="none">
-            <path d="M9 2H3a1 1 0 0 0-1 1v6a1 1 0 0 0 .29.71l7.59 7.59a2 2 0 0 0 2.83 0l4.59-4.59a2 2 0 0 0 0-2.83L9.71 2.29A1 1 0 0 0 9 2zm-3.5 5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z" fill="currentColor" fill-rule="evenodd"></path>
-            <line x1="19" y1="2" x2="19" y2="8" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>
-            <line x1="16" y1="5" x2="22" y2="5" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>
-          </svg>
-        </span>
-        <h2 style="margin: 0;">Track new item</h2>
+    <div class="pricetrack-create-card">
+      <div class="pricetrack-create-layout">
+        <div class="pricetrack-create-copy">
+          <div class="pricetrack-create-head">
+            <span class="pricetrack-create-icon">${renderTrackNewItemIcon()}</span>
+            <div class="pricetrack-create-title-wrap">
+              <h2>Track new item</h2>
+              <p>Add anything you want to watch the price of.</p>
+              <button
+                class="pill-btn pricetrack-create-button ${priceFormOpen ? 'active' : ''}"
+                data-price-form-toggle
+                type="button"
+                aria-expanded="${priceFormOpen}"
+              >
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14"></path>
+                </svg>
+                <span>Add New Item</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="pricetrack-create-visual">
+          ${renderTrackNewItemArt()}
+        </div>
       </div>
-      <span class="hint">Add anything you want to watch the price of</span>
+
+      ${addFormHtml}
     </div>
-    <div class="pill-grid">
-      <button class="pill-btn ${priceFormOpen ? 'active' : ''}" data-price-form-toggle type="button">+ Add New Item</button>
-    </div>
-    ${addFormHtml}
   </div>
 
   <div class="section pricetrack-load-stage pricetrack-load-stage--items">
